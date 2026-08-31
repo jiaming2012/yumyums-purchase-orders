@@ -1266,12 +1266,12 @@ visibility/notice/tooling).
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | ~16:28 (PASS-W-ISSUES; parseable-path finding WAIVED→B-177) | none | 16:34 `0e988ce` | **~26m** (est 70–110m; far under — Opus, well-scoped 2-defect card) |
 | 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | ~16:45 (~7m impl) | ~16:50 (PASS) | none | 16:51 `d2120c8` | **~13m** (est 60–100m; far under) |
-| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | — | — | — | — | — |
-| 4 | `client-guard-coverage` | B | small-additive | 60–90m | ~16:51 (~46m impl — full ~24m Playwright suite + reruns to separate flakes from baseline) | — | — | — | — |
+| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | ~17:10 (~7m impl) | — | — | — | — |
+| 4 | `client-guard-coverage` | B | small-additive | 60–90m | ~16:51 (~46m impl — full ~24m Playwright suite + reruns to separate flakes from baseline) | ~17:05 (PASS) | none | ~17:00 `5d96274` | **~55m** (est 60–90m; in band; dominated by the full suite it pays as the last sync-de-confined leg) |
 | 5 | `cdc-single-fire` | B | small-additive | 45–80m | — | — | — | — | — |
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
 | 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
 | 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
-| 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | — | — | — | — | — |
+| 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | ~17:05 (~8m impl) | ~17:12 (PASS) | none | ~17:04 `8dcf506` | **~15m** (est 50–85m; far under; build-tooling card, Playwright deferred) |

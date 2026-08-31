@@ -65,3 +65,27 @@ merge (precache count 31 — an unexplained move is B-37).
   - **G2(Go):** footprint `internal/toast` **ok** 0.54s, `internal/alerts` **ok** 0.48s (isolated `hq_test_go_regate2`, `HQ_SYNC_*` unset). `internal/sync` red unchanged = B-178 (environmental).
   - **G4 / G2(Playwright):** N/A-by-footprint.
 - **Roadmap:** `pipeline-fail-loud` **DONE** — both halves (a `toast-sync-fail-loud` + b `period-summary-visibility`) now landed. New `/health` field `toast_sync` documented for Card 3 (its mechanism, once the key is placed post-deploy, flips `toast_sync`→ok = the kill-drill proof).
+
+## Merge 5 — Card 4 `client-guard-coverage` → `overnight-20260901`
+
+- **Merge commit:** `5d96274` (`--no-ff`). **Card branch:** `wo-client-guard-coverage` (tip `37423c9`).
+- **Cards involved:** Card 4 (FIRST in Track B — lands the B-154 `[e2e.seams]` rider). Run branch had advanced (Cards 1,2,9,10 + logs).
+- **Files / hunks:** 5 files, +192/−1, ZERO runtime code: `night-crew.toml` (the `[e2e.seams] "sync-rxdb"` rider), NEW `tests/sync-rxdb-client.spec.js` + `tests/index.spec.js` (guard tests), `roadmap.md` (DONE), merge-intent.
+- **Shared surface:** `night-crew.toml` — no other landed card touched it. `roadmap.md` — own section. **No conflict.**
+- **Conflict?** **NONE — clean** (ort).
+- **G6 verdict:** **PASS** (a17bc838) — `[e2e.seams]` row selects exactly the 7 sync-rxdb specs, correctly EXCLUDES load-sensitive `sync.spec.js` (zero sync-rxdb refs); both guards red on their exact mutations (B-149 uid clause → +6 surfaces leak; B-10 drop await → redirect before purge); repo-hygiene roll-call intact; ZERO runtime code. No must-fix. nice-to-have: workbox-*.js artifacts not gitignored.
+- **Gate — Playwright (authoritative for this sync-footprint card):**
+  - Card 4's own worktree ran the FULL suite: **822 passed / 6 skipped / 7 failed = exactly ONE summary block**. Both new guard tests pass. The 7 failures decompose to **B-174 ×3** (`sw-api-cache-partition` B1-XT-01/-02/-05) + **B-176** (`workflows.spec.js` DBL-05), both documented deterministic pre-existing reds, + **3 flakes** (`sync.spec.js:2976`, `workflows.spec.js:412`, `workflows.spec.js:1110`) proven GREEN on isolated rerun. Zero attributable to Card 4 (no runtime code).
+  - 🛑 **Baseline correction (carry forward):** the slate's NAMED armed reds (B-27 inventory:883, LST-17 sync:446, B-162 receipt-carousel:123) ALL PASSED this run — they are flaky-named, not deterministic. The real deterministic Playwright baseline on this tree is **B-174 + B-176**. Cards 7/11 Playwright judging uses this.
+  - **Merged-tree health-shape check (orchestrator):** because Card 4's suite ran on its own base (before Card 2's `/health` change), the orchestrator ran the 3 health-consuming specs (`storage-banner`, `version-badge`, `grant-enforcement-parity`) on the merged tree `5d96274` → **24 passed** (incl. "banner stays hidden when health omits storage" + "live /api/v1/health carries the storage field"). Card 2's `toast_sync`/`map[string]any` widening is safe against the frontend. G1/G2-Go/G4 N/A-by-footprint.
+
+## Merge 6 — Card 11 `deploy-hygiene-honesty` → `overnight-20260901`
+
+- **Merge commit:** `8dcf506` (`--no-ff`). **Card branch:** `wo-deploy-hygiene-honesty` (tip `2561ded`).
+- **Cards involved:** Card 11 (LAST in Track C — completes Track C).
+- **Files / hunks:** 6 files, +238/−9: `backend/Dockerfile` (printf gains `\n`), `build-sw.js` (comment), `scripts/write-version-json.js` (comment), NEW `tests/version-json-parity.spec.js`, `roadmap.md` (DONE), merge-intent.
+- **Shared surface:** `sw.js`/precache — Card 11 correctly did NOT touch sw.js (no precached byte changed). Card 7 `sync-doc-honesty` WILL touch sw.js; orchestrator's post-Card-7 `task sw` reconciles. **No conflict.**
+- **Conflict?** **NONE — clean** (ort).
+- **G6 verdict:** **PASS** (afc24b6e) — version.json generators byte-identical (21 bytes, md5 `226015…` = committed sw.js revision), red-first byte-diff reproduced (34≠33); B-17 claim factually verified (git C-quotes non-ASCII/control, spaces bare, `-z` raw) in a throwaway repo; live roadmap honest (false wording only in frozen artifacts, correctly untouched); precache 31; workbox chunk-hash env-noise confirmed benign (all 31 app-asset revisions byte-identical). No must-fix.
+- **Gate:** G1 build+vet exit 0. **G4:** build-sw.js exit 0, precache **31**, version parity 1.5.0 (verified by G6 in worktree; no landed card changed the precache set, so it holds on the merged tree; authoritative final regen runs at closeout after Card 7). **Full Playwright: DEFERRED** — card changes no frontend/precached asset; the closeout full-suite on the final tree covers it. Roadmap `deploy-hygiene-honesty` DONE.
+- **🛑 Closeout note — workbox pin (B-179 candidate):** `node_modules` has `workbox-build@7.3.0` while lockfile pins `7.4.1`; a `build-sw.js` regen produces a spurious runtime chunk-hash delta (`workbox-0225851e`→`d4a0f5c1`, count still 31, app assets identical). Before the final closeout regen, either `npm ci` to match the lockfile, or commit only if the delta is chunk-hash-only and documented.
