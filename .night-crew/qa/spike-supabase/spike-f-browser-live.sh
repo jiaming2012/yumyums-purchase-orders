@@ -235,6 +235,18 @@ docker info >/dev/null 2>&1 || cannot_run "the Docker daemon is not reachable �
 [ -f "$SPIKE_DIR/browser-live/workflows-live.spec.js" ] || cannot_run "spike asset missing: browser-live/workflows-live.spec.js"
 [ -f "$REPO_ROOT/workflows.html" ] || cannot_run "workflows.html missing at repo root — the server would have nothing to serve"
 node -e "require.resolve('@playwright/test')" 2>/dev/null || cannot_run "@playwright/test does not resolve from the repo root — run 'npm ci' at the repo root first"
+# 🛑 Resolve the Playwright CLI DETERMINISTICALLY, not via bare `npx playwright`.
+# A bare `npx playwright test` resolves `playwright` off PATH, and this box carries
+# a FOREIGN playwright (a Python one at /Users/jamal/miniconda3/bin/playwright) with
+# NO `test` subcommand. When node_modules/.bin/playwright is missing (npm ci can
+# skip bin-linking on its "Exit handler never called" internal error), npx falls
+# through to that foreign binary and prints `error: unknown command 'test'` for
+# BOTH the red-first and the armed run — a could-not-run that MASQUERADES as a
+# red-first pass + armed red. Prefer the repo's own CLI (@playwright/test/cli.js)
+# so the verdict cannot be corrupted by PATH. (B-170; the sync-app-proof.sh pattern.)
+PW_CLI="$REPO_ROOT/node_modules/@playwright/test/cli.js"
+[ -f "$PW_CLI" ] || PW_CLI="$REPO_ROOT/node_modules/playwright/cli.js"
+[ -f "$PW_CLI" ] || cannot_run "the Playwright CLI (node_modules/@playwright/test/cli.js) is not present — run 'npm ci' (and if it printed 'Exit handler never called', 'npm rebuild @playwright/test') at the repo root first"
 if grep -Eq '^[[:space:]]*-[[:space:]]*"?(5432|5433|5434):' "$HQ_COMPOSE"; then
   cannot_run "docker-compose.hq-real.yml publishes a FIXED host port in 5432-5434. This spike must use a Docker-assigned ephemeral port."
 fi
@@ -435,7 +447,7 @@ run_browser() {
     SPIKE_F_CHECKLIST_ID="$CHECKLIST_ID" SPIKE_F_TEMPLATE_ID="$TEMPLATE_ID" \
     SPIKE_F_FIELD_ID="$FIELD_ID" SPIKE_F_USER_ID="$HQ_USER_ID" \
     SPIKE_F_SENTINEL="$SENTINEL" SPIKE_F_DEADLINE_MS="$DEADLINE_MS" SPIKE_F_EXPECT="$1" \
-    npx playwright test -c "$SPIKE_DIR/browser-live/playwright.browser-live.config.js" )
+    node "$PW_CLI" test -c "$SPIKE_DIR/browser-live/playwright.browser-live.config.js" )
 }
 
 # --------------------------------------------------------------------------
