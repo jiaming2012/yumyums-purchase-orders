@@ -201,6 +201,17 @@ LEFT JOIN purchase_item_alloc pia ON pia.purchase_item_id = ws.purchase_item_id`
 			resp.Unallocated = &unalloc
 		}
 
+		// Success visibility (B-139). /menu-cogs previously had no success
+		// reader at all — this is the first-ever record that a caller hit the
+		// endpoint, for which period, how many menu items came back, and in
+		// which query mode. Its sibling /period-summary gained the same line so
+		// a payroll-week COGS request is greppable in prod logs.
+		slog.Info("menu-cogs served",
+			"from", fromStr,
+			"to", toStr,
+			"menu_item_count", len(rowsOut),
+			"breakdown", breakdown,
+		)
 		w.Header().Set("Cache-Control", "private, max-age=3600")
 		writeJSON(w, http.StatusOK, resp)
 	}
