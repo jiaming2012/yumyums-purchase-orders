@@ -1268,7 +1268,7 @@ visibility/notice/tooling).
 | 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | ~16:45 (~7m impl) | ~16:50 (PASS) | none | 16:51 `d2120c8` | **~13m** (est 60–100m; far under) |
 | 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | ~17:10 (~7m impl) | ~17:16 (PASS; NO-KEY check clean) | none | ~17:18 `4bbb7dc` | **~15m** (est 90–140m risk-flagged; far under — no prod cred to place, mechanism+docs only) |
 | 4 | `client-guard-coverage` | B | small-additive | 60–90m | ~16:51 (~46m impl — full ~24m Playwright suite + reruns to separate flakes from baseline) | ~17:05 (PASS) | none | ~17:00 `5d96274` | **~55m** (est 60–90m; in band; dominated by the full suite it pays as the last sync-de-confined leg) |
-| 5 | `cdc-single-fire` | B | small-additive | 45–80m | — | — | — | — | — |
+| 5 | `cdc-single-fire` | B | small-additive | 45–80m | ~17:20 (~10m impl) | ~17:36 (PASS; ran ~190-test workflow Playwright subset, ~16m) | none | ~17:40 `3359dee` | **~30m** (est 45–80m; under; G6 dominated by the footprint Playwright subset) |
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
 | 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
