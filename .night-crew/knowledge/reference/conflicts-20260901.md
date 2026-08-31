@@ -51,3 +51,17 @@ merge (precache count 31 — an unexplained move is B-37).
 - **G6 verdict:** **PASS** (af5d0742) — every notice claim + both doc addenda independently verified against live handlers (period-summary blocking clauses, menu-cogs field names + no `AT TIME ZONE`, B-29 commits, 0072, Card-9 log keys, B-177 framing). One nice-to-have (§1 prose simplifies the COALESCE cast; §4 states it precisely). No must-fix. Only docs changed — no production code.
 - **Gate:** G1/G2/G4/Playwright all **N/A-by-footprint** (no code/asset change). Card correctly left `counterparty-combined-notice` PLANNED — closes on operator SEND (P-KR3).
 - **P-KR3 reminder:** the draft at `reference/counterparty-notice-20260901-draft.md` is for the operator to review + SEND **before** the deploy.
+
+## Merge 4 — Card 2 `toast-sync-fail-loud` → `overnight-20260901`
+
+- **Merge commit:** `d2120c8` (`--no-ff`). **Card branch:** `wo-toast-sync-fail-loud` (tip `ca05894`).
+- **Cards involved:** Card 2. Run branch had advanced (Merges 1–3 + logs).
+- **Files / hunks:** 9 files, +590/−21: NEW `internal/toast/syncstatus.go` + 2 test files + `failloud_test.go`; `internal/toast/{worker.go,types.go,sync.go}` (+ErrSFTPUnavailable, SyncStatus, routing); `cmd/server/main.go` (health handler — `toast_sync` field, map widened to `map[string]any`); `roadmap.md` (pipeline-fail-loud DONE); merge-intent.
+- **Shared surface:** `cmd/server/main.go` (health handler) — no other landed card touched it; **clean**. `roadmap.md` — Card 2 flips `pipeline-fail-loud` DONE vs run branch's Card 10 counterparty bullet (different sections); **ort auto-merged clean**.
+- **Conflict?** **NONE — clean** (ort).
+- **G6 verdict:** **PASS** (aaebed2f) — both fail-loud halves reproduced red-first; false-alarm check EXPLICIT PASS (genuine date-not-found `ErrSFTPMiss` stays silent; only dead-transport `ErrSFTPUnavailable` is loud); `-race` clean (mutex-guarded SyncStatus); alert fires once per cycle; map-widening safe; boot-order honest (`unknown` when worker disabled). No must-fix.
+- **Gate after merge (control-loop re-gate on `d2120c8`):**
+  - **G1:** `go build ./...` 0; `go vet ./...` 0.
+  - **G2(Go):** footprint `internal/toast` **ok** 0.54s, `internal/alerts` **ok** 0.48s (isolated `hq_test_go_regate2`, `HQ_SYNC_*` unset). `internal/sync` red unchanged = B-178 (environmental).
+  - **G4 / G2(Playwright):** N/A-by-footprint.
+- **Roadmap:** `pipeline-fail-loud` **DONE** — both halves (a `toast-sync-fail-loud` + b `period-summary-visibility`) now landed. New `/health` field `toast_sync` documented for Card 3 (its mechanism, once the key is placed post-deploy, flips `toast_sync`→ok = the kill-drill proof).
