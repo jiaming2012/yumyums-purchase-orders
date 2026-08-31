@@ -40,3 +40,14 @@ merge (precache count 31 — an unexplained move is B-37).
   - **G2(Go):** footprint `internal/receipt` **ok** 7.96s (isolated `hq_test_go_regate1`, `HQ_SYNC_*` unset). `internal/sync` red unchanged = B-178 (environmental, not this card). Full-suite shared-package coverage was established on Merge 1's re-gate `4c387cb` (all ok bar sync); Card 1 adds only `internal/receipt` changes atop it.
   - **G4 / G2(Playwright):** N/A-by-footprint.
 - **Roadmap:** `receipt-worker-correctness` flipped PLANNED→DONE.
+
+## Merge 3 — Card 10 `counterparty-notice-prep` → `overnight-20260901`
+
+- **Merge commit:** `4c8f431` (`--no-ff`). **Card branch:** `wo-counterparty-notice-prep` (tip `54b4db4`).
+- **Cards involved:** Card 10 only. Docs card — RF `n/a — no code change`.
+- **Files / hunks:** 5 files, +233/−1, docs/reference/roadmap only: `docs/contracts/inventory-period-summary.md` (+8, owner line + §0 Card-9-visibility addendum), `docs/contracts/inventory-menu-cogs.md` (+10, same), NEW `reference/counterparty-notice-20260901-draft.md` (+138), `roadmap.md` (+15, nested prep-done bullet under `counterparty-combined-notice`, card stays PLANNED), merge-intent.
+- **Shared surface:** `docs/contracts/*` — no other card touched them (Card 9 added log lines only, no doc edit). `roadmap.md` — additive nested bullet, own section. **No conflict.**
+- **Conflict?** **NONE — clean** (ort).
+- **G6 verdict:** **PASS** (af5d0742) — every notice claim + both doc addenda independently verified against live handlers (period-summary blocking clauses, menu-cogs field names + no `AT TIME ZONE`, B-29 commits, 0072, Card-9 log keys, B-177 framing). One nice-to-have (§1 prose simplifies the COALESCE cast; §4 states it precisely). No must-fix. Only docs changed — no production code.
+- **Gate:** G1/G2/G4/Playwright all **N/A-by-footprint** (no code/asset change). Card correctly left `counterparty-combined-notice` PLANNED — closes on operator SEND (P-KR3).
+- **P-KR3 reminder:** the draft at `reference/counterparty-notice-20260901-draft.md` is for the operator to review + SEND **before** the deploy.

@@ -1273,5 +1273,5 @@ visibility/notice/tooling).
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
 | 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
 | 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
-| 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | — | — | — | — | — |
+| 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | — | — | — | — | — |
