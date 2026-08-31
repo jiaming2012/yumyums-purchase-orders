@@ -228,11 +228,19 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   unchanged (stamp=0) — its stamp happens after CheckLWW and is out of B-157's scope.
   Footprint: backend workflow (+ isolated additions to backend sync).
 
-- **`app-slug-association`** · **PLANNED** · Closes **B-160** — the open question spike B
-  handed the cutover: HQ stores **no template→app association**, so `app_slug` is a constant
-  in every sync projection writer. Decide where the association lives (engineer/PM-level call
-  — decide and record in the merge-intent under standing authority; park only if it turns
-  product-fork), migrate, and populate the projections from it. Footprint: backend sync.
+- **`app-slug-association`** · **DONE** (run 20260901, Card 8) · Closes **B-160** — the open
+  question spike B handed the cutover: HQ stored **no template→app association**, so `app_slug`
+  was a constant in the sync projection writer. Association home decided under standing
+  authority (E-KR4, recorded in the merge-intent): a nullable FK
+  **`checklist_templates.app_id` → `hq_apps(id)` ON DELETE SET NULL** (migration 0076), backfilled
+  to the `operations` app (the checklist engine IS Operations — reproduces the constant, changes
+  no projected row). `spikec_relay.go` now resolves each row's `app_slug` per-row via
+  `appSlugForField` (field → section → template → app.slug); the `AppSlug` config field, its
+  guard, and the `SPIKE_C_APP_SLUG` read are gone — **0 hardcoded `app_slug` constants remain**
+  in the writer (grep-provable). Red-first: an AST structural test naming the 4 constant sources
+  (RED→GREEN) + a per-template resolution test (ops→operations, inv→inventory, distinct).
+  Not a product fork (schema-shape choice, invisible to the operator). Footprint: backend sync +
+  migration 0076.
 
 - **`sync-doc-honesty`** · **DONE** (run 20260901, Card 7) · Closes **B-140**, **B-18**,
   **B-167**. Retired **five** stale `row-visibility-rls` activation gates (the four B-140 named
