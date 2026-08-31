@@ -1254,3 +1254,24 @@ BOTH legs identically (a fake asymmetry); round 2 — a missing Chromium headles
 Both were environment, not code; C2 hardened its own harness against the first. So the ~13m
 implement figure is clean-harness-authoring time — the infra rounds added wall-clock not
 reflected in it. The cross-script hardening is graduated as BACKLOG **B-170**.
+
+## Run 20260901 (night of 2026-08-31, CONCURRENT 3-track, 11 cards)
+
+First concurrent-dispatch night in this repo. Stamps maintained AT EACH LEG'S RETURN
+(D-KR2) — implementer-return, G6-return, fix-return where a fix round ran. Never
+backfilled. Tracks: A (cards 1–3, receipt family), B (cards 4–8, sync), C (cards 9–11,
+visibility/notice/tooling).
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | — | — | — | — | — |
+| 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | — | — | — | — | — |
+| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | — | — | — | — | — |
+| 4 | `client-guard-coverage` | B | small-additive | 60–90m | — | — | — | — | — |
+| 5 | `cdc-single-fire` | B | small-additive | 45–80m | — | — | — | — | — |
+| 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
+| 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
+| 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
+| 9 | `period-summary-visibility` | C | small-additive | 45–75m | — | — | — | — | — |
+| 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | — | — | — | — | — |
+| 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | — | — | — | — | — |
