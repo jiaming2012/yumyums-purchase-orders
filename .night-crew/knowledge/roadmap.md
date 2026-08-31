@@ -125,13 +125,22 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
 > observability cards are the class-retiring half — B-146's real lesson is not "the key was
 > missing" but "it died and nothing said so for 9 days."
 
-- **`toast-ingest-resurrection`** · **PLANNED** · Closes **B-146**. Ship the SFTP key into
-  prod the way `.env.prod` secrets already survive the hard reset (untracked file beside it,
-  bind-mount or COPY — B-146's recorded fix shape), resurrect the daily sync, and verify the
-  archive is still gapless (Toast retains ~27 days; the gap was inside the window when
-  measured — re-verify at execution, and if days have aged out, record exactly which, per the
-  backfill-horizon discipline of decision 156). Prove: prod's next scheduled sync writes a
-  current date-directory. Footprint: prod infra + receipt/toast worker.
+- **`toast-ingest-resurrection`** · **DONE** (dev-provable half; prod proof is attended
+  post-deploy) · Closes **B-146** (mechanism half). Run `20260901`, Card 3. Shipped the
+  SFTP-key delivery mechanism the way `.env.prod` secrets already survive the hard reset:
+  `docker-compose.prod.yml` now bind-mounts an operator-placed, git-ignored `id_rsa`
+  (`./id_rsa:/app/id_rsa:ro`), pins `TOAST_SFTP_KEY_PATH=/app/id_rsa` and
+  `TOAST_SYNC_INTERVAL=12h` to resurrect the daily worker (a missing key is now a LOUD boot
+  failure via config.go's os.Stat guard + Card 2's fail-loud health field). `id_rsa` was
+  already git-ignored; **no real key entered the run** — the operator places it, attended, on
+  the prod box (attended-steps note in
+  `reference/toast-archive-gap-20260901.md`). Archive gap enumerated day-by-day: 38-day gap
+  (2026-07-25 → 2026-08-31); **10 aged-out** (2026-07-25 → 2026-08-03, permanently lost),
+  **28 recoverable** (2026-08-04 → 2026-08-31) as of tonight against Toast's ~27-day
+  retention — recovery of the >7-day slice needs sales-processor's local archive via
+  `migrate-toast-archive` (no SFTP range-backfill CLI exists). **PROD PROOF (attended,
+  post-deploy):** a current date-directory from prod's next scheduled sync + `toast_sync`
+  health flipping to `ok`. Footprint: prod infra + toast worker/config.
 
 - **`pipeline-fail-loud`** · **DONE** · Closes **B-139** and B-146's silent-death class. Two
   mechanisms, one class: (a) the Toast sync loop gets a fail-loud path — a sync that cannot
