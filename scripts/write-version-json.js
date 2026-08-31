@@ -11,12 +11,21 @@
 // them so the payload shape has a single definition:
 //   * build-sw.js — requires writeVersionJson() below (local dev, `task sw`,
 //     and `task test` via its `sw` dep).
-//   * backend/Dockerfile:57-64 — regenerates it INSIDE the image from the
+//   * backend/Dockerfile — regenerates it INSIDE the image from the
 //     authoritative `version.go` `Frontend` constant. 🛑 Note the two
 //     generators read DIFFERENT sources (package.json here, version.go there);
 //     that is harmless only while the standing three-way parity holds, and
 //     would surface as dev and prod showing different numbers the moment it
 //     does not. See B-92.
+//
+// 🛑 BYTE PARITY WITH THE DOCKERFILE (B-135). This module is authoritative not
+// just for the payload SHAPE but for its exact BYTES: `JSON.stringify(payload)
+// + '\n'` — a trailing newline INCLUDED. The Dockerfile mirror emits the same
+// bytes (`printf '{"frontend":"%s"}\n'`). They MUST stay identical: sw.js's
+// precache revision for version.json is hashed against the copy build-sw.js
+// writes (this one), so any byte drift means the shipped manifest revision
+// describes a file the image does not serve. `tests/version-json-parity.spec.js`
+// pins both sides to identical bytes.
 //
 // 🛑 WHY THIS IS A SEPARATE SCRIPT AND NOT `node build-sw.js`.
 // `playwright.config.js`'s `webServer.command` needs this file to exist before

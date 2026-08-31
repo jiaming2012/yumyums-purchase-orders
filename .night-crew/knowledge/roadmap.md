@@ -163,11 +163,31 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   week); a failed download leaves the next attachment misindexed — ext/filename taken from
   the wrong entry (B-175). Red-first each. Footprint: receipt/toast worker.
 
-- **`deploy-hygiene-honesty`** · **PLANNED** · Closes **B-135**, **B-17**. `version.json`'s
-  two shipping generators disagree at the byte level (so prod's precache manifest can carry a
-  stale version artifact); `build-sw.js` justifies a load-bearing flag with an empirically
-  false claim. Make one generator authoritative and delete or subordinate the other; correct
-  the claim or the flag. Footprint: build tooling.
+- **`deploy-hygiene-honesty`** · **DONE** (run `20260901`) · Closed **B-135**, **B-17**.
+  **B-135:** the byte divergence was the trailing newline — `scripts/write-version-json.js`
+  (authoritative) writes `JSON.stringify+'\n'` (`{"frontend":"X"}\n`); `backend/Dockerfile`'s
+  `printf '{"frontend":"%s"}'` dropped it, so the image served 20 bytes while sw.js's precache
+  revision hashed the 21-byte served/local copy. Fix: added `\n` to the Dockerfile printf so
+  the embedded copy is byte-identical to the authoritative one; the Dockerfile is now a
+  subordinate byte-for-byte mirror. `version.json` is git-ignored — both copies are generated,
+  not committed — so parity is enforced at the two generators and pinned by the red-first
+  `tests/version-json-parity.spec.js` (RED at 20≠21 bytes / two md5s → GREEN identical).
+  **B-17:** corrected `build-sw.js`'s comment — plain `--name-only` C-quotes NON-ASCII/control
+  bytes (`core.quotePath`), NOT spaces (a spaced path comes back bare); `-z` stays load-bearing
+  because it sidesteps quoting entirely. The `:383` verbatim mirror the card named no longer
+  exists in this live roadmap (the card was already a correct paraphrase; line pointer was
+  stale after Cards 1–10 reflowed the file). The verbatim claim survives only in frozen
+  historical artifacts (`reference/roadmap-2026-08-05-sync-foundation.md:449`,
+  `runs/2026-07-29-autonomous/merge-intent-a-precache-manifest-from-head.md:75`) — left as-is
+  by the do-not-edit-frozen-artifacts rule. **B-17 residual (BACKLOG-recorded, out of scope):**
+  `ls-tree HEAD` reads local HEAD while the image builds from `origin/main`, so the 404 class is
+  tighter but not fully closed by `precache-manifest-from-head`. Precache count unchanged at 31;
+  version parity 1.5.0. **Env note for orchestrator:** this worktree's symlinked node_modules
+  carries `workbox-build@7.3.0` while `package-lock.json` pins `7.4.1`; regenerating sw.js here
+  produced a spurious workbox-chunk-hash-only delta (`workbox-0225851e`→`d4a0f5c1`, every
+  precache revision byte-identical). My source change touches no precached file and does not
+  change the version.json bytes, so sw.js needs NO regeneration for this card — committed sw.js
+  left untouched. Footprint: build tooling.
 
 - **`media-recovery`** · **PLANNED** · Closes **B-173**. The onboarding videos and
   fail/correction photos lost with the DO Spaces account: establish what survives (local
