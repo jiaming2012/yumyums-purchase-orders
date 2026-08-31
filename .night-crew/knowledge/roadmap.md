@@ -134,7 +134,7 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   - **Half (a) `toast-sync-fail-loud` — awaiting (Track A).** The card flips to DONE only when
     both halves land; the orchestrator does the flip after (a) merges.
 
-- **`receipt-worker-correctness`** · **PLANNED** · Closes **B-28**, **B-175**. Two measured
+- **`receipt-worker-correctness`** · **DONE** · Closes **B-28**, **B-175**. Two measured
   defects, one file family: `parseEventDate` stamps COGS periods from server-local time
   instead of the business timezone (B-28 — a period-boundary purchase lands in the wrong
   week); a failed download leaves the next attachment misindexed — ext/filename taken from
