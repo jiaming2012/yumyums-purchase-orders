@@ -234,12 +234,23 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   — decide and record in the merge-intent under standing authority; park only if it turns
   product-fork), migrate, and populate the projections from it. Footprint: backend sync.
 
-- **`sync-doc-honesty`** · **PLANNED** · Closes **B-140**, **B-18**, **B-167**. The stale
-  `sync-rxdb-row-visibility-rls` activation gate survives at four sites five days after the
-  card merged; two `sync/proxy.go` comments describe code that does not exist or launder the
-  evidence they record; B-167's bundled G6 carried observations get discharged or converted to
-  entries. Docs/comments diff — RF `n/a — no code change` recorded explicitly. Footprint:
-  backend sync + sync client (comments only).
+- **`sync-doc-honesty`** · **DONE** (run 20260901, Card 7) · Closes **B-140**, **B-18**,
+  **B-167**. Retired **five** stale `row-visibility-rls` activation gates (the four B-140 named
+  — `workflows.html:329` + `:3946` [the latter spelled the slug; precached → `sw.js` regen],
+  `sync-rxdb/conflict-notice-ui.js:26`, `tests/states-sync-rxdb-conflict-notice.spec.js:30` —
+  plus a fifth found beyond them in `sync-schema/sql/0001_sync_tables.sql`, gated via the
+  slate-ID "B2"), each restated against the genuinely-open precondition: the **cutover** (no
+  page calls `startHQReplication`), preserving the substrate-must-carry-RLS safety point where
+  it still holds. Corrected the two `sync/proxy.go` comment fictions (B-18a RawPath, B-18b the
+  `EscapedPath` log-launder documented with the code fix deferred to a code-footprint card) and
+  the ACTIVATION-ORDER banner (substrate-state, not card-landing, precondition). Broadened
+  `tests/repo-hygiene.spec.js` case 3 from slug-matching to **fact-matching** — whole-tree scan,
+  DONE-slug set read from all roadmaps, asserts no live comment names a DONE card as a future
+  precondition; red-first proven (a paraphrased gate on a DONE card is caught, removed→green).
+  B-167's six carried observations discharged-by-conversion into per-item checklist entries
+  homed to the next flag/fill/lifecycle sync cards. RF `n/a — no code change` for the comment
+  retirements; the spec broadening is red-first. Footprint: backend sync + sync client
+  (comments only) + `workflows.html` + `sw.js` + `tests/*`.
 
 - **`sync-dev-one-command`** · **DONE** (run 20260901) · Closes **B-171** (parked pending a
   credential boundary — the boundary now exists in shape: dev targets carry the 4 `HQ_SYNC_*`

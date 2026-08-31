@@ -326,7 +326,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
      `sync-hard-cutover`. sync-rxdb/bootstrap.js constructs the client and
      nothing else: it creates no RxDB database, starts no replication, and makes
      no network request — the /sync door answers 503 until HQ_SYNC_REST_URL is
-     set, which must not happen until row-visibility RLS lands.
+     set, which must not happen until the cutover: a page has to call
+     startHQReplication AND the deploy's substrate has to carry the RLS
+     policies. Row-visibility RLS is not the open precondition — that card
+     merged 2026-08-01; the cutover is, and no page has triggered it.
 
      `defer`-equivalent by nature: a module script does not block parsing, and
      bootstrap.js fails soft, so nothing on this page depends on it loading.
@@ -3942,10 +3945,12 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
      OVERSIGHT. The sheet renders from the durable local conflict record; the
      record is written when `conflict$` fires; `conflict$` fires when
      replication runs; replication is not started, because `HQ_SYNC_REST_URL` is
-     unset in every environment and the /sync door answers 503 by design until
-     `sync-rxdb-row-visibility-rls` lands. So in production today there are zero
-     records, the banner never appears, and nothing on this page changes.
-     `sync-hard-cutover` is the card that switches the producer on.
+     unset in every environment and the /sync door answers 503 by design, and
+     because no page calls startHQReplication. So in production today there are
+     zero records, the banner never appears, and nothing on this page changes.
+     `sync-hard-cutover` is the card that switches the producer on. (This
+     block used to gate on the row-visibility-RLS card landing; that card merged
+     2026-08-01 — the open precondition is the cutover, not the RLS work.)
 
      What that buys, and why it is not busywork: every state of this UI is
      forced from a seeded store in tests/states-sync-rxdb-conflict-notice.spec.js,
