@@ -374,6 +374,45 @@ tasks:
     cmd: ./.night-crew/qa/spike-supabase/sync-dev-proof.sh
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # ONE-COMMAND DEV — `task sync:dev` (card `sync-dev-one-command`, run 20260901,
+  # closing B-171). Convenience, NOT policy.
+  #
+  # The operator's daily `dev-complete-attestation` loop needs BOTH halves up: the
+  # persistent sync data plane AND the dev server that reads it. Standing them up
+  # was two commands (`task sync:dev:up` then `task backend:dev:tailscale`). This
+  # composes them into ONE.
+  #
+  # It reuses the two existing targets verbatim — it adds no logic of its own:
+  #   1. sync:dev:up          — substrate reconcile + relay-as-service + FDW pointing.
+  #                             This is where the B-164 :5433 refusal lives
+  #                             (sync-dev-up.sh); invoking it UNCHANGED preserves the
+  #                             refusal by construction. There is NO bypass here, and
+  #                             none must be added — B-171's whole point is that
+  #                             safety rides on credential scoping (capability), not
+  #                             on more coordinate guards (detection).
+  #   2. backend:dev:tailscale — the dev server. That target ALREADY resolves and
+  #                             exports the four HQ_SYNC_* vars itself (its `sh:` env
+  #                             blocks read the live substrate ports — backend/
+  #                             Taskfile.yml). We do NOT re-derive or duplicate the
+  #                             credential wiring; `task sync:dev:env` remains the
+  #                             hand-run path for anyone launching the server another
+  #                             way. Step 2 is long-running (it IS the server) and is
+  #                             deliberately last, so `task sync:dev` runs the data
+  #                             plane up, then hands the terminal to the server.
+  #
+  # 🛑 Like sync:dev:up, this needs the operator's LIVE dev HQ (HQ_SYNC_DEV_HQ_DSN +
+  #   HQ_SYNC_DEV_FDW_HOST) and REFUSES a bare :5433 target unless the operator
+  #   knowingly sets HQ_SYNC_DEV_ALLOW_5433=1. NEVER run it from an unattended run —
+  #   the mechanism is proven WITHOUT :5433 by `task sync:dev:proof`.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:dev:
+    desc: ONE command for daily dev — bring the persistent sync data plane up (sync:dev:up) AND launch the dev server (backend:dev:tailscale, which carries the 4 HQ_SYNC_* vars). Preserves the B-164 :5433 refusal; requires HQ_SYNC_DEV_HQ_DSN + HQ_SYNC_DEV_FDW_HOST. NEVER from an unattended run
+    cmds:
+      - task: sync:dev:up
+      - task: backend:dev:tailscale
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Sync spike B — migration rehearsal (night-crew card S
   # `spike-b-migration-rehearsal`). Disjoint from everything above and below it.
   #

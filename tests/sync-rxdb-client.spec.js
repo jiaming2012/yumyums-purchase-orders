@@ -1642,6 +1642,60 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     expect(errors).toEqual([]);
   });
 
+  // B-149. The uid-mismatch HALF of the B-89 fix was unguarded. `cachedGrantSlugs()`
+  // rejects an envelope whose `uid` does not match this device's identity token
+  // (bootstrap.js:133 — `env.uid !== deviceId`), mirroring `index.html`'s
+  // `readCachedApps()` (index.html:240). That clause is the fail-closed half of
+  // obligation 7(a): a shared truck phone must NOT serve the previous crew
+  // member's cached tile list to whoever the device now belongs to. The B-89
+  // test above only ever seeds a MATCHING uid, so deleting the mismatch clause
+  // leaves it green — the envelope it plants would pass with or without the check.
+  //
+  // This test plants a NON-EMPTY apps array under a uid that does NOT match the
+  // identity token, and asserts the client construes it as nothing cached:
+  // `surfaces` is `[]` (not the four surfaces those apps would expand to), and it
+  // is NOT an error — a mismatch resolves to "[]" exactly as a missing key does
+  // (bootstrap.js:120-126), so `ready` is still true and `error` is null.
+  test('B-149: a grant envelope whose uid mismatches the device is treated as nothing cached', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    // Freeze the launcher's own identity derivation, exactly as the B-89 test
+    // above does, so this test controls bootstrap.js's INPUT.
+    await page.route((url) => url.pathname === '/', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><title>frozen</title>',
+    }));
+    await login(page);
+    // The envelope's uid is the PREVIOUS owner; the identity token this device
+    // last verified belongs to SOMEONE ELSE. Same rich apps array the matching
+    // test uses, so the ONLY difference from a passing envelope is the uid.
+    await page.evaluate(async ({ envUid, apps }) => {
+      localStorage.setItem('hq_apps', JSON.stringify({ uid: envUid, apps }));
+      const c = await caches.open('hq-identity');
+      // A DIFFERENT device identity than the envelope claims.
+      await c.put('/__hq_identity', new Response('99999999-9999-4999-8999-999999999999', {
+        headers: { 'Content-Type': 'text/plain' },
+      }));
+    }, { envUid: HQ_SYNC_TEST_UID, apps: [{ slug: 'inventory' }, { slug: 'operations' }] });
+    await page.goto('/workflows.html');
+    await page.waitForFunction(() => window.HQSync !== undefined, null, { timeout: 15000 });
+
+    const state = await page.evaluate(() => ({
+      ready: window.HQSync.ready,
+      error: window.HQSync.error ? String(window.HQSync.error) : null,
+      surfaces: window.HQSync.surfaces,
+    }));
+
+    // The whole point: the previous owner's inventory+operations grants do NOT
+    // become this device's reachable surfaces. Nothing cached ⇒ [].
+    expect(state.surfaces).toEqual([]);
+    // A mismatch is not an error — it is the fail-closed "nothing cached" answer.
+    expect(state.error).toBeNull();
+    expect(state.ready).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
   test('the RxDB collections carry HQ\'s conflict handler, not RxDB\'s default', async ({ page }) => {
     // THE WIRING PROOF. The pure suite pins the merge rule; this pins that the
     // rule is what a real RxDB collection would consult. Dexie needs IndexedDB,

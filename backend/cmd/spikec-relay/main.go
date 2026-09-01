@@ -25,7 +25,12 @@
 //	SPIKE_C_REST_BASE     http://127.0.0.1:<spike A PostgREST port>
 //	SPIKE_C_SERVICE_TOKEN HS256 JWT, role=service_role
 //	SPIKE_C_SYNC_TABLE    hq_sync_checklists
-//	SPIKE_C_APP_SLUG      operations   (spike B finding #1 — see the relay banner)
+//
+// 🛑 SPIKE_C_APP_SLUG is GONE. Card `app-slug-association` (B-160, run 20260901)
+// closed spike B's finding #1: the relay now resolves each projected row's
+// app_slug from the template->app association (checklist_templates.app_id,
+// migration 0076), per row, instead of taking a constant here. The shell
+// harnesses may still export SPIKE_C_APP_SLUG; it is simply no longer read.
 package main
 
 import (
@@ -44,7 +49,6 @@ func main() {
 		RESTBase:     os.Getenv("SPIKE_C_REST_BASE"),
 		ServiceToken: os.Getenv("SPIKE_C_SERVICE_TOKEN"),
 		SyncTable:    os.Getenv("SPIKE_C_SYNC_TABLE"),
-		AppSlug:      os.Getenv("SPIKE_C_APP_SLUG"),
 	}
 
 	// The shell blocks on this exact line before it makes the write. Without it

@@ -2,6 +2,8 @@
 
 **Status:** Authored 2026-06-02 by the planner. **Hand this document to the sales-processor maintainer.**
 
+**Consumed by:** sales-processor — **maintained by the operator, repo not present in this tree** (B-137, established at morning triage 2026-08-03). "Not present" here means "not written into this repo," not "a third party": the operator maintains sales-processor themselves. Do not infer an external counterparty from the repo's absence — the earlier assumption that one existed cost two ledger decisions (106, 128) and three runs of mis-framed drafting. This owner line exists so no future reader re-derives "external" from "absent."
+
 This document is the contract the sales-processor repo must implement against to satisfy Phase 21's acceptance criteria. The HQ-side of the phase (this repo) is planned and executable; the sales-processor side is NOT planned here per the developer's decision to keep that work in its own repo.
 
 If sales-processor differs from any assumption below, raise a question against this doc — do NOT silently diverge.
@@ -79,6 +81,12 @@ Line numbers below (`:NN`) are as this document stood **before** this revision �
 🛑 **The correction to `:68` was itself wrong on its first pass, and this is worth reading before acting on it.** That pass said every non-blocking pending row "instead began contributing to `cogs_excl_tax`", and listed non-food purchases and NULL-category rows among them. **They contribute nothing.** Both the blocking query and the COGS query filter on `mercury_category = ANY(HQ_COGS_CATEGORY_ALLOWLIST)`, and a NULL-`reason` row is excluded by `reason =` and `reason !=` alike. There are **three** post-`d41faef` buckets, not two, and only one of them moves money — set out in full under `completeness.pending_review_ids` and in **A7**. The practical difference: a reader acting on the first correction would have gone looking for undisclosed money in a class of rows where there is none.
 
 **No HQ code was changed by this revision.** The defect was documentary: in every case the code was self-consistent and tested, and the document described an earlier version of it. Where the audit raised a question about whether the *code* is right — see §8.
+
+### Re-verification addendum — 2026-09-01 (run `20260901`, Card 10)
+
+Ahead of the deploy that carries migration `0072`, every published expression in this document was re-diffed against `PeriodSummaryHandler` on the pre-deploy tree (which includes run `20260901`'s Cards 1 and 9). **Result: the 2026-08-03 corrections still hold byte-for-byte.** No response field, filter clause, error envelope or env-var contract changed since. Specifically re-confirmed at source: the blocking query carries all four clauses (`confirmed_at IS NULL`, `discarded_at IS NULL`, `mercury_category = ANY($3)`, `reason = 'no_attachment_on_bank_tx'`); `cogs_excl_tax` is the two-summand sum (confirmed line items + non-blocking eligible pending's `ABS(bank_total)`); `by_vendor` carries both filters; `tracked_bank_tx_ids` remains unfiltered.
+
+**One additive, non-contract change landed on the pre-deploy tree — Card 9 (`period-summary-visibility`, B-139).** `PeriodSummaryHandler` now emits one `slog.Info` at the end of the success path — `msg="period-summary served"`, keys `from`, `to`, `ready`, `pending_review_count`, `unlinked_line_item_count`. **This is a server-side log line, not a response-shape change** — the JSON on the wire is unchanged, so no decoder is affected. It is noted here because it gives HQ its own record that a `/period-summary` request was served and what completeness verdict it returned, independent of whatever the consumer writes to disk. Its `/menu-cogs` sibling gained an analogous line (see that document). Before Card 9 the only trace of a blocked payroll week was the *absence* of a downstream report — indistinguishable from a skipped week.
 
 ---
 

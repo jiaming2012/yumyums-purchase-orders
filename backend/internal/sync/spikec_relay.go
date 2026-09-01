@@ -59,12 +59,16 @@
 //     no live grant on its app, and real datasets contain exactly such rows.
 //     This relay inherits that finding rather than re-discovering it.
 //
-//  4. app_slug is a CONSTANT here, and that is spike B's finding #1 surfacing
-//     again, not laziness: HQ stores NO template->app association, so there is
-//     nothing to populate the sync contract's app_slug from. Hardcoding it in a
-//     spike and labelling it is honest; hardcoding it in production would be
-//     the bug. Where that association should live is an open question the
-//     cutover card inherits.
+//  4. app_slug USED TO BE a constant here — spike B's finding #1: HQ stored NO
+//     template->app association, so there was nothing to populate the sync
+//     contract's app_slug from. Card `app-slug-association` (B-160, E-KR4, run
+//     20260901) closed that gap: the association now lives on
+//     `checklist_templates.app_id` (migration 0076, FK to hq_apps), and this
+//     relay resolves each projected row's app_slug from it — see
+//     appSlugForField below. The constant is gone; the projected app_slug now
+//     reflects the row's template's real app. The remaining open question the
+//     cutover card inherits is only whether the PRODUCTION relay resolves the
+//     slug the same per-row way or caches it per template.
 //
 // The dependency set is exactly what internal/sync already imports: pgx/v5,
 // pgxpool and pgxlisten are all DIRECT dependencies of backend/go.mod because
@@ -117,11 +121,6 @@ type SpikeCRelayConfig struct {
 	// SyncTable is the substrate table (spike A's `hq_sync_checklists`).
 	SyncTable string
 
-	// AppSlug is the constant app_slug written into every projected row. See
-	// property 4 in the file banner — this is spike B's finding #1, not a
-	// default worth trusting.
-	AppSlug string
-
 	// Ready, if non-nil, is closed once the LISTEN connection is established and
 	// the relay is genuinely able to receive. The shell waits on the process's
 	// stdout line rather than a race on "the process exists" — a relay that has
@@ -158,8 +157,6 @@ func RunSpikeCRelay(ctx context.Context, cfg SpikeCRelayConfig) error {
 		return fmt.Errorf("spike-c relay: ServiceToken is empty")
 	case cfg.SyncTable == "":
 		return fmt.Errorf("spike-c relay: SyncTable is empty")
-	case cfg.AppSlug == "":
-		return fmt.Errorf("spike-c relay: AppSlug is empty")
 	}
 
 	pool, err := pgxpool.New(ctx, cfg.HQConnStr)
@@ -266,6 +263,15 @@ func relayOne(ctx context.Context, pool *pgxpool.Pool, client *http.Client, cfg 
 		return fmt.Errorf("spike-c relay: re-read response %s: %w", n.ResponseID, err)
 	}
 
+	// Resolve THIS row's app_slug from the stored template->app association
+	// (checklist_templates.app_id, migration 0076) rather than a constant. See
+	// banner property 4 — card app-slug-association (B-160) closed the gap that
+	// made this a constant. A projected row now claims its template's real app.
+	appSlug, err := appSlugForField(ctx, pool, fieldID)
+	if err != nil {
+		return fmt.Errorf("spike-c relay: resolve app_slug for field %s: %w", fieldID, err)
+	}
+
 	body, err := json.Marshal(map[string]any{
 		"kind":        "submission_response",
 		"response_id": respID,
@@ -286,7 +292,7 @@ func relayOne(ctx context.Context, pool *pgxpool.Pool, client *http.Client, cfg 
 	row := map[string]any{
 		"id":       "spikec-" + respID,
 		"owner_id": answeredBy,
-		"app_slug": cfg.AppSlug,
+		"app_slug": appSlug,
 		"body":     string(body),
 	}
 	buf, err := json.Marshal([]any{row})
@@ -338,6 +344,38 @@ func relayOne(ctx context.Context, pool *pgxpool.Pool, client *http.Client, cfg 
 	}
 
 	slog.Info("spike-c relay projected row",
-		"id", row["id"], "owner_id", answeredBy, "app_slug", cfg.AppSlug, "http", resp.StatusCode)
+		"id", row["id"], "owner_id", answeredBy, "app_slug", appSlug, "http", resp.StatusCode)
 	return nil
+}
+
+// appSlugForField resolves a submission_response's app_slug from the stored
+// template->app association, per row: field_id -> checklist_fields.section_id ->
+// checklist_sections.template_id -> checklist_templates.app_id -> hq_apps.slug.
+// This is the resolution card `app-slug-association` (B-160, E-KR4) put in place
+// of the constant the writer used to carry.
+//
+// It resolves by field_id — the same key ResolveEntityAccess and the FDW view
+// hq_sync_field_templates (migration 0073) resolve by — because a draft response
+// has a NULL submission_id, so resolving through the submission would leave every
+// offline-filled draft unresolvable.
+//
+// A LEFT JOIN to hq_apps returns COALESCE('', slug): if a template's app_id is
+// NULL (an app was deleted, ON DELETE SET NULL) or the field/template chain is
+// broken, the slug is the empty string rather than an error — the projected row
+// still writes, carrying an honestly-empty app_slug, which is the correct signal
+// that this template has no app rather than a wrong one.
+func appSlugForField(ctx context.Context, pool *pgxpool.Pool, fieldID string) (string, error) {
+	var slug string
+	err := pool.QueryRow(ctx, `
+		SELECT COALESCE(a.slug, '')
+		  FROM checklist_fields f
+		  JOIN checklist_sections s  ON s.id = f.section_id
+		  JOIN checklist_templates t ON t.id = s.template_id
+		  LEFT JOIN hq_apps a        ON a.id = t.app_id
+		 WHERE f.id = $1`, fieldID,
+	).Scan(&slug)
+	if err != nil {
+		return "", fmt.Errorf("resolve app_slug for field %s: %w", fieldID, err)
+	}
+	return slug, nil
 }

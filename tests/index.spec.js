@@ -228,6 +228,72 @@ test('logout deletes api-cache so the next user is not served the previous one',
   expect(remaining).not.toContain('api-cache');
 });
 
+// B-10. `logout()` does `await purgeDeviceIdentity(); window.location.href='/login.html'`
+// (index.html:271-272). The `await` is load-bearing: purgeDeviceIdentity() deletes
+// `api-cache` and `hq-identity` asynchronously, and `window.location.href` tears
+// this page down. If the redirect fires BEFORE the deletes complete, the previous
+// user's rows can survive on the phone for the next one — the exact disclosure the
+// comment above the call names.
+//
+// The existing "logout deletes api-cache" test proves the deletes HAPPEN, not that
+// they COMPLETE before navigation: with `caches.delete` resolving in microseconds,
+// dropping the `await` still lets both finish before the browser actually unloads,
+// so that test stays green either way. This test forces the race: it makes
+// `caches.delete` resolve SLOWLY, then asserts the redirect has NOT fired while the
+// clear is still pending — i.e. the await is honored. Drop the `await` and the
+// navigation happens up front, well before the slow delete resolves → this reds.
+test('B-10: logout awaits the device purge before redirecting (the await is honored)', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.html');
+  await page.waitForSelector('.user-bar');
+
+  const DELETE_DELAY_MS = 1500;
+  // Slow every caches.delete() down and stamp when the LAST one actually resolves.
+  // The stamp lives on window; the value is read out via a Playwright binding that
+  // survives the page teardown navigation triggers.
+  const deleteResolvedAt = { t: 0 };
+  await page.exposeFunction('__b10_recordDeleteResolved', (t) => { deleteResolvedAt.t = t; });
+  await page.evaluate((delay) => {
+    const realDelete = window.caches.delete.bind(window.caches);
+    window.caches.delete = (name) => new Promise((resolve) => {
+      setTimeout(async () => {
+        const ok = await realDelete(name);
+        // Every delete resolution stamps; the last one to run wins, and it is the
+        // one that must precede navigation if the await chain is honored.
+        window.__b10_recordDeleteResolved(Date.now());
+        resolve(ok);
+      }, delay);
+    });
+  }, DELETE_DELAY_MS);
+
+  // The navigation to login.html is what we time against the delete resolution.
+  const navPromise = page.waitForURL((url) => url.pathname.includes('login'), { timeout: 15000 });
+
+  page.on('dialog', (dialog) => dialog.accept());
+  const clickedAt = Date.now();
+  await page.click('#btn-logout');
+
+  // Mid-purge probe: at a moment WELL BEFORE the slow delete resolves, the page
+  // must still be on index.html — the redirect has not fired because logout() is
+  // still awaiting purgeDeviceIdentity(). If the await were dropped, navigation
+  // would already be in flight here.
+  await page.waitForTimeout(DELETE_DELAY_MS / 3); // ~500ms, << 1500ms
+  expect(
+    page.url(),
+    'redirect fired before the device purge completed — the await was dropped (B-10)',
+  ).not.toContain('login.html');
+
+  // Now let it finish and confirm it DOES eventually redirect.
+  await navPromise;
+  const navigatedAt = Date.now();
+
+  // The load-bearing ordering, in wall-clock: the slow delete resolved before the
+  // navigation completed, and the whole thing took at least the delete delay.
+  expect(deleteResolvedAt.t, 'the slow delete never resolved').toBeGreaterThan(0);
+  expect(navigatedAt - clickedAt).toBeGreaterThanOrEqual(DELETE_DELAY_MS);
+  expect(deleteResolvedAt.t).toBeLessThanOrEqual(navigatedAt);
+});
+
 test('checkAuth evicts cached /api/v1/me responses instead of trusting them', async ({ page }) => {
   await login(page);
   await page.goto('/index.html');
