@@ -3564,3 +3564,34 @@ writes run records. This target has no reflections store; recorded as an absence
   conform; triage introduced no new invalidity.
 - **Concurrent 3-track dispatch verdict:** held up, recommend again — 0 parked, 0 merge conflicts,
   Track B (5 cards, serial-within-track) was the critical path exactly as the slate modeled.
+
+### T-48 — Counterparty notice finalised; B-29 + B-137 closed (2026-09-01, attended)
+
+- **The sales-processor notice is finalised.** Directed by the operator after triage
+  ("finalize it"). The DRAFT/UNSENT framing is stripped and the record moved to the canonical
+  contract location: `docs/contracts/NOTICE-sales-processor-2026-09-01.md` (superseding
+  `NOTICE-sales-processor-2026-08-03-UNSENT.md`, left in place as cited evidence; the
+  `reference/counterparty-notice-20260901-draft.md` working draft removed). Since the operator
+  maintains both sides of the contract (B-137), "send" = recorded as the spec of record, not a
+  transmission — there is no external recipient.
+- **§3 decision (operator, 2026-09-01):** on `/menu-cogs` `name` vs `menu_item_name`, **leave the
+  wire as-is** — HQ keeps sending `menu_item_name`; the corrected `inventory-menu-cogs.md` is the
+  spec of record and any future consumer is built against the document. `name` is not adopted
+  (changing the wire to match stale prose would repeat the original sin). `menu` may be added
+  later, purely additively, if a consumer needs it.
+- **Closed: B-29** (undisclosed 2026-06-06 payroll-gate change — disclosed in §1; exposure window
+  already checked 2026-08-04, no restatement) and **B-137** (counterparty-process — notice reframed
+  first-person, owner lines added to both contract docs by Card 10). Both closed in BACKLOG citing
+  the finalised notice.
+- **Still open — the deploy, not the notice.** The `counterparty-combined-notice` roadmap card
+  keeps one open thread: recording migration `0072`'s changeover date in the notice's §4 immediately
+  after `task prod:deploy` (the date `0072` first runs). Finalising the notice satisfies its ordering
+  precondition (P-KR3: this record precedes the `0072`-carrying deploy); the deploy itself and the
+  §4 sales-processor-side alignment remain the operator's attended acts.
+- **B-137 counterparty-process lesson (recorded per the notice's instruction):** sales-processor is
+  a peer with a contract of record maintained by the operator — not an external afterthought. A
+  published cross-repo contract has no mechanical link to the code it describes, so any change to a
+  handler named in a `*-CONTRACT.md` can silently invalidate the contract; the durable fix is to
+  treat those docs as the spec of record — re-diff a contract's stated SQL against its handler
+  whenever the handler changes, and notify the peer (even when the peer is yourself) before the
+  change ships, because the notice is the pre-deploy checklist, not a courtesy.

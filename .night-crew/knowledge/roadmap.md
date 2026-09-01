@@ -89,6 +89,10 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   change so the docs of record match what prod will serve after Activity 2. Records the
   counterparty-process lesson (B-137) in the ledger: sales-processor is a peer with a contract
   of record, not an external afterthought. Closes **B-29**, **B-137**.
+    - **Notice FINALISED 2026-09-01** (ledger T-48) → `docs/contracts/NOTICE-sales-processor-2026-09-01.md`;
+      §3 decided (`menu_item_name` stays, doc is the spec); both contract docs carry owner lines;
+      **B-29 + B-137 closed.** Card stays PLANNED for its one remaining thread: record migration
+      `0072`'s changeover date in the notice's §4 immediately after `task prod:deploy` (Activity 2).
   Footprint: inventory endpoints (docs only) + the outbound notice. **Gates Activity 2.**
   - **Prep half `counterparty-notice-prep` — DONE, run `20260901` (Card 10, Track C).**
     The **preparable** half is complete: both contract docs re-verified against the

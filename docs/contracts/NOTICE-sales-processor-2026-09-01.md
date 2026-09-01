@@ -1,17 +1,17 @@
-# DRAFT — combined sales-processor notice + pre-deploy checklist
+# Sales-processor notice + pre-deploy checklist — FINALISED 2026-09-01
 
 | | |
 |---|---|
-| **Status** | **DRAFT. Awaiting the operator's morning review + SEND.** Nothing has been delivered. |
-| **Drafted** | 2026-09-01, night-crew run `20260901`, Card 10 `counterparty-notice-prep` (Track C) |
-| **Drafted by** | HQ (automated audit + re-verification against the pre-deploy tree). Not reviewed. Not approved. Not sent. |
-| **Supersedes** | `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md`. That file is left in place as cited evidence; this is the current draft. |
-| **Sending is** | the operator's attended act (**P-KR3**), and it must happen **BEFORE** the deploy that carries migration `0072`. |
-| **Closes on send** | **B-29** (the undisclosed 2026-06-06 gate change) and **B-137** (counterparty-process). Drafting does not close them — the SEND does. |
+| **Status** | **FINALISED 2026-09-01 by the operator.** This is the contract record of what HQ changed under the HQ→sales-processor contract, and the checklist that gates the `0072`-carrying deploy. The operator maintains both sides (B-137), so "finalised" means *recorded as the spec of record* — there is no outside party to transmit it to. |
+| **Prepared** | 2026-09-01, night-crew run `20260901`, Card 10 `counterparty-notice-prep` (Track C); reviewed + finalised by the operator 2026-09-01 (morning triage T-47). |
+| **Source** | HQ automated audit + re-verification against the pre-deploy tree. Finalised: framing settled, §3 decided (below). |
+| **Supersedes** | `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md`. That file is left in place as cited evidence; this is the record of account. |
+| **Gated act remaining** | the **deploy**. §4's checklist must be satisfied (sales-processor side aligned to `America/New_York`) **before** `task prod:deploy` runs migration `0072`; the changeover date is recorded here immediately after. |
+| **Closed on finalisation** | **B-29** (the undisclosed 2026-06-06 gate change) and **B-137** (counterparty-process) — closed 2026-09-01, ledger T-48. |
 
 ## Read this first — framing
 
-**The operator maintains sales-processor themselves (B-137, established 2026-08-03).** There is no third-party maintainer to apologise to. This draft is written **first-person, as a changelog + pre-deploy checklist to yourself** — the artifact that records what HQ changed under the contract and what must be true on both sides before the deploy — not as an outward apology to an external party. That reframing is the substance of B-137's fix; the audit body it carries is unchanged and stands on its own.
+**The operator maintains sales-processor themselves (B-137, established 2026-08-03).** There is no third-party maintainer to apologise to. This record is written **first-person, as a changelog + pre-deploy checklist to yourself** — the artifact that records what HQ changed under the contract and what must be true on both sides before the deploy — not as an outward apology to an external party. That reframing is the substance of B-137's fix; the audit body it carries is unchanged and stands on its own.
 
 **Why it still matters even though the reader is the author:**
 - **§1 is an operational finding about the operator's own payroll gate**, not a courtesy. Since 2026-06-06 the gate could return `ready:false` on periods the published rule called clear, and `ready:true` on periods holding unreviewed receipts. (Resolved 2026-08-04 for the exposure window — no spurious block found — see §1; carried here so the record is complete.)
@@ -20,15 +20,15 @@
 
 ## Pre-deploy sequencing — the one hard ordering
 
-1. **Review + finalise this notice** (resolve the §3 `name`/`menu_item_name` decision — it is now a decision you make by looking, not a question you ask).
+1. ~~Review + finalise this notice (resolve the §3 `name`/`menu_item_name` decision).~~ **DONE 2026-09-01** — §3 resolved below (`menu_item_name` stays on the wire; the corrected document is the spec).
 2. **Then** merge `dev` → `main`, promote, and `task prod:deploy` (Activity 2, `ship-dev-to-main`). Production still computes in `America/Chicago` until that deploy; `main` does not yet carry the change.
-3. **Then** record the changeover date — it is the date migration `0072` first ran (recover from goose's `goose_db_version.tstamp` for version 72, or the deploy log).
+3. **Then** record the changeover date here — it is the date migration `0072` first ran (recover from goose's `goose_db_version.tstamp` for version 72, or the deploy log).
 
-🛑 **Promoting before finalising this is the failure this notice exists to prevent.** The consumer half of sales-processor must not switch to New York on the assumption HQ has already moved.
+🛑 **Deploying HQ's New-York changeover before the sales-processor side is aligned (§4) is the failure this record exists to prevent.** The consumer half of sales-processor must not switch to New York on the assumption HQ has already moved, nor stay on Chicago after HQ has.
 
 ---
 
-# NOTICE BODY BEGINS
+# RECORD — what changed under the contract
 
 **Subject: HQ inventory API — contract corrections, the payroll-gate change of 2026-06-06, and the timezone changeover that needs the sales-processor side aligned**
 
@@ -86,7 +86,7 @@ Three more in the same document:
 - **Row selection was backwards both ways.** Not "one row per menu item with sales" — it is one row per menu item **with a recipe**, sales or not. A menu item that sold with no recipe **does not appear at all** (so the old Scenario 2 could never pass).
 - **The cross-endpoint reconciliation invariant is broken.** `sum(menu_items[].ingredient_cost_total) + unallocated_cogs ≈ period-summary cogs_incl_tax` stopped holding on 2026-06-06 when `/period-summary` gained the category allowlist and pending-row rollup and `/menu-cogs` did not. The two now diverge in both directions by unbounded amounts. Any reconciliation check on this fires spuriously — turn it off until the two are re-aligned or formally declared non-reconcilable (§8 Q4 in the doc).
 
-**Decision now yours to make by looking, not to ask:** on `name` vs `menu_item_name`, either change HQ to send `name` as documented, or leave `menu_item_name` and adjust the (not-yet-built) consumer. Since no consumer exists, the cheapest path is to leave the wire as-is and treat the corrected document as the spec. HQ can also start returning `menu` (purely additive) if it is useful.
+**Decision — RESOLVED 2026-09-01 (operator).** On `name` vs `menu_item_name`: **leave the wire as-is.** HQ continues to send `menu_item_name`; the corrected `inventory-menu-cogs.md` is the spec of record, and any future consumer is built against the document, not against the old `name` prose. `name` is **not** adopted (changing the wire to match stale documentation would be the original sin — quietly altering an endpoint to match old prose — repeated). HQ **may** additionally return `menu` (purely additive) if a later consumer needs it; until then it stays unshipped.
 
 ## 4. The timezone changeover — this one needs the sales-processor side aligned before the deploy
 
@@ -98,6 +98,7 @@ Everything above is the past. This is a deploy that has not happened yet, and it
 - The change is **written and merged** (`users.DefaultTimezone = "America/New_York"`, `pendingPeriodDateExpr` reads that single constant, migration `0072_app_timezone_new_york.sql` re-points the `cutoff_config` / `repurchase_reset_config` defaults and updates existing rows).
 - It is **not deployed.** Production still computes `America/Chicago`.
 - It takes effect on **the first HQ deploy that carries it**, **not yet scheduled.** The changeover date is the date migration `0072` first runs — recoverable exactly afterward.
+- **Changeover date, once deployed:** _(record here immediately after `task prod:deploy` — step 3 of the sequencing above; `goose_db_version.tstamp` for version 72)._
 
 🛑 **Do not ship the sales-processor side on the assumption HQ has already moved.** Switching before the deploy creates the same one-hour disagreement this change exists to end, in the opposite direction.
 
@@ -121,7 +122,7 @@ Both documents claimed their integration tests were "the executable proof that t
 
 `/period-summary` and `/menu-cogs` each now emit one `slog.Info` at the end of the success path (`"period-summary served"` with `from, to, ready, pending_review_count, unlinked_line_item_count`; `"menu-cogs served"` with `from, to, menu_item_count, breakdown`). **These are server-side log lines, not response-shape changes** — the wire JSON is unchanged, so no decoder is affected. They matter to the integration because a blocked payroll week is now greppable from HQ's own logs, independent of what the consumer writes to disk — closing the "HQ cannot see a block either" half of the §1 finding.
 
-# NOTICE BODY ENDS
+# RECORD ENDS
 
 ---
 
@@ -129,10 +130,10 @@ Both documents claimed their integration tests were "the executable proof that t
 
 Every claim traces to a `§0` audit row in `docs/contracts/inventory-period-summary.md` (47 rows) and `inventory-menu-cogs.md` (64 rows) — **111 rows, 45 wrong**. Response shapes were observed by marshalling `inventory.PeriodSummary` / `recipes.MenuCOGSResponse` at HEAD. Both docs re-verified against the pre-deploy tree (Cards 1+9) on 2026-09-01; the corrections still hold. Commits named: `cf959bd`, `d41faef`, `a726029`, `518a395`, `f730485`, `1c260f0` (all 2026-06-05/06).
 
-## B-137 counterparty-process lesson (for the ledger, on send)
+## B-137 counterparty-process lesson (recorded in ledger T-48)
 
 > **B-137 lesson:** sales-processor is a peer with a contract of record maintained by the operator — not an external afterthought, and not an outside party inferable from the repo's absence from this tree. A published cross-repo contract has no mechanical link to the code it describes, so any change to a handler named in a `*-CONTRACT.md` can silently invalidate the contract; the durable fix is to treat those docs as the spec of record — re-diff a contract's stated SQL against its handler whenever the handler changes, and notify the peer (even when the peer is yourself) before the change ships, because the notice is the pre-deploy checklist, not a courtesy.
 
-## Reminder
+## Status — finalised
 
-This is a draft. It has not been sent. **The SEND is the operator's attended act (P-KR3), and it must precede the `0072`-carrying deploy.** On send, close B-29 and B-137 and record the lesson line above in the ledger.
+This record is **finalised as of 2026-09-01** (operator, morning triage T-47/T-48). B-29 and B-137 are closed. The remaining gated act is the **deploy**: §4's checklist must be satisfied (the sales-processor side aligned to `America/New_York`) before `task prod:deploy` runs migration `0072`, and the changeover date is recorded in §4 immediately after (step 3 of the sequencing above). Recording that date is the last open thread of the `counterparty-combined-notice` roadmap card.
