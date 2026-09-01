@@ -1,5 +1,11 @@
 # DECISIONS-NEEDED — run `20260901`
 
+> **RESOLVED 2026-09-01 — recorded as ledger T-47.** Triage reviewed this file: **0 operator
+> forks, 0 parks**, nothing to resolve. Run merged to `dev` at `8c2ea02`. The three
+> triage-awareness items below (B-178, B-177, B-179) are filed in BACKLOG; the two operator
+> ACTS (counterparty-notice SEND before the deploy, Toast key placement post-deploy) are carried
+> forward in T-47. File kept as the analysis record.
+
 ## ✅ No operator forks. No parks. Nothing blocks the morning.
 
 All 11 slated cards landed within the run's authority. None of the slate's three named PARK

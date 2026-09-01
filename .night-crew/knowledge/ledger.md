@@ -3493,3 +3493,74 @@ writes run records. This target has no reflections store; recorded as an absence
   found still reading PLANNED after the close and flipped to DONE citing T-45.
 - OKR page rehearsed at authoring: `night-crew okr validate` exit 0; `night-crew okr dry-run`
   14/14 gradable, 0 refused (12 attested · 2 derived · 0 disclosed-deferred).
+
+### T-47 — Morning triage: run `20260901` reviewed and merged to `dev` (2026-09-01, attended)
+
+- **Run merged.** `overnight-20260901` (63 commits, 11 card merges, 62 files, +3,828/−160)
+  merged `--no-ff` → `dev` at `8c2ea02`. **11 of 11 cards landed, 0 parked, 0 operator forks** —
+  the first concurrent 3-track night in this repo (~3h15m wall vs the slate's ~5h45m concurrent
+  mid-estimate; Opus implementer speed beat the per-card estimates handily). Cards:
+  receipt-worker-correctness, toast-sync-fail-loud, toast-ingest-resurrection,
+  client-guard-coverage, cdc-single-fire, sync-dev-one-command, sync-doc-honesty,
+  app-slug-association, period-summary-visibility, counterparty-notice-prep,
+  deploy-hygiene-honesty. All 11 roadmap cards DONE (flips rode in with the merge);
+  `pipeline-fail-loud` DONE (both split halves).
+- **Gate evidence from an independent adversarial re-run** (fresh subagent, own scratch dir,
+  never the closeout's own gate lines): `go build ./...` 0, `go vet ./...` 0, and
+  `go test ./... -p 1` with every package `ok` EXCEPT `internal/sync/TestJWTBridgeRLS` = the
+  environmental **B-178** relay contamination (Spike C relay pid 31802 leaks 13 `spikec-*`
+  rows into the RLS fixture; reproduces on base, no card touches it). The same suite re-run on
+  the MERGED `dev` tree reproduced the identical result (`internal/workflow` `ok` — the isolated
+  transient 422 the subagent saw did not recur; a cross-package truncation race, not a defect).
+  G4 discipline greps **N/A-vacuous** (no `internal/journal` / `internal/workorder` in this
+  repo — B-14). All five load-bearing card claims **REPRODUCED-CONFIRMED**: CDC single-fire
+  (one row write, `/ops` path genuinely unchanged), app-slug per-row resolution with 0 hardcoded
+  constants + migration 0076 FK, version.json byte-identity, receipt B-28/B-175 fixes,
+  sync-doc 5-gates-retired/0-live. **0 new findings** beyond the run's own.
+- **Conflict-log audit clean:** 11 entries for 11 merges; all 11 merge-intents carry the 3
+  durable fields (shared-files / must-survive / safe-to-drop); **0 conflicted merges all night** —
+  disjoint-footprint planning held (`internal/sync` split cleanly across
+  `ops.go`/`proxy.go`/`spikec_relay.go`; `cmd/server/main.go` across two different functions;
+  Card 2's `/health` `map[string]any` widening verified against Card 4's frontend, 24 health
+  specs green on the merged tree). The slate carried the standard 3-field regime, no extra
+  per-run field.
+- **One prose correction (no code impact).** Card 7 `sync-doc-honesty`'s merge-intent overstates
+  B-18(b): it says `r.URL.RequestURI()` logging was *added*, but the diff shows only comments
+  shipped (`proxy.go` still logs `EscapedPath()`, zero non-comment lines). The logging was
+  correctly *deferred as a comment*. Verified at triage and recorded here rather than rewriting
+  the frozen run artifact. Ironic for the honesty card; harmless — 0 conflicts, no merger relied on it.
+- **Forks / ratify / ratchet — all no-ops.** 0 operator forks, 0 parks (DECISIONS-NEEDED clean);
+  `decisions ratify --run 20260901` and `preferences ratchet --run 20260901` both empty (nothing
+  was decided under a standing delegation this run). `decisions log` therefore routed nothing and
+  `decisions audit --run 20260901` reports 0 gray areas — a genuine empty for a fork-free run, not
+  a skipped step. No new numbered decision this morning.
+- **Worktree sweep — two pre-existing findings, neither from this run, no merge proposed.**
+  (1) `workspace/hq-scheduling-app` holds **31** stranded commits — a separate GSD workstream on
+  the scheduling tool (phase 23), the operator's own effort, not a night-crew card; flagged, not
+  backlogged. (2) `main` carries **3** deploy-tooling commits patch-absent from `dev`
+  (`b89c202`/`572f370`/`4cd81c3`) — filed **B-348**, rides the PLANNED `ship-dev-to-main` card.
+  The post-merge sweep reads clean for tonight's run (all 11 `wo-*` reached `dev`).
+- **Tooling note.** `run-evidence check --run 20260901` reports `no-run-evidence` — a long-standing
+  layout mismatch: the verb expects machine `journal.jsonl`/`metrics.jsonl`/`summary.json` under a
+  bare-runid dir, but this hand-run flow writes HANDOFF + merge-intents under
+  `.night-crew/runs/2026-09-01-autonomous/` and the closeout/conflict records under
+  `.night-crew/knowledge/reference/`. The closeout record DID exist (`closeout-20260901.md`) and
+  was NOT fabricated to green the verb. Prior run `20260810` reports identically — same class as
+  the CLI-can't-see-hand-run-artifacts gap `backlog-machine-migration` tracks.
+- **Standing flags still armed** (morning evidence did not clear these): the Playwright
+  deterministic baseline **B-174** (`sw-api-cache-partition` B1-XT-01/-02/-05) + **B-176**
+  (`workflows.spec.js` DBL-05); the **B-178** sync red until the operator stops the Spike C relay
+  and a fixture-isolation fix lands. Correction carried forward: the slate's NAMED armed reds
+  (B-27 `inventory:883`, LST-17 `sync:446`, B-162 `receipt-carousel:123`) ALL PASSED this run —
+  they are flaky-named, not deterministic; the real deterministic baseline is B-174 + B-176.
+- **Two operator ACTS remain before the deploy (from HANDOFF "DO THESE FIRST"), not triage's to
+  do:** review + SEND the counterparty notice (`reference/counterparty-notice-20260901-draft.md`)
+  BEFORE the deploy (P-KR3 ordering is the key result); then, post-deploy, place the Toast SFTP key
+  (`reference/toast-archive-gap-20260901.md`), run the kill-drill, and prove Toast prod ingest.
+- Findings graduated to BACKLOG: **B-177** (parseable-path COGS zone, waived from Card 1),
+  **B-178** (sync RLS fixture contamination), **B-179** (workbox-build 7.3.0 vs 7.4.1), **B-348**
+  (main↔dev deploy-tooling drift). Document-level `night-crew backlog check` remains red on ~205
+  pre-existing legacy entries (`backlog-machine-migration` territory) — B-177/178/179/348 all
+  conform; triage introduced no new invalidity.
+- **Concurrent 3-track dispatch verdict:** held up, recommend again — 0 parked, 0 merge conflicts,
+  Track B (5 cards, serial-within-track) was the critical path exactly as the slate modeled.

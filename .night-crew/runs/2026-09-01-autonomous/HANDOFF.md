@@ -1,5 +1,12 @@
 # HANDOFF — run `20260901`
 
+> **TRIAGED 2026-09-01 (ledger T-47).** Reviewed + merged `--no-ff` → `dev` at `8c2ea02`.
+> Independent adversarial re-run confirmed all gates + all five load-bearing card claims; 0 new
+> findings. Conflict log clean (11/11, 0 conflicts). **Standing flags still armed:** Playwright
+> baseline B-174 + B-176; the B-178 sync red until the Spike C relay is stopped + a fixture-isolation
+> fix lands. **DO-FIRST #2 (merge) is DONE.** DO-FIRST #1 (counterparty-notice SEND before the deploy),
+> #3 (Toast key placement, post-deploy), and #4 (kill-drill + Toast prod-proof) remain the operator's.
+
 **Slate:** `reference/slate-20260901.md` (signed 2026-08-31, operator "Yes — sign it"). **11 cards.**
 **Run branch:** `overnight-20260901` (off `dev` @ `55aa6f8`). **NOT merged to `dev`** — that is morning triage's act.
 **Executed:** evening 2026-08-31, ~16:00→~19:15 EDT (~3h15m wall). **First CONCURRENT 3-track night in this repo.**
