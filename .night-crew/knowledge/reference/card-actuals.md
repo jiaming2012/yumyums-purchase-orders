@@ -1271,7 +1271,7 @@ visibility/notice/tooling).
 | 5 | `cdc-single-fire` | B | small-additive | 45–80m | ~17:20 (~10m impl) | ~17:36 (PASS; ran ~190-test workflow Playwright subset, ~16m) | none | ~17:40 `3359dee` | **~30m** (est 45–80m; under; G6 dominated by the footprint Playwright subset) |
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | ~17:45 (~4m impl) | ~17:52 (PASS) | none | ~17:55 `3b90709` | **~13m** (est 25–45m; under; harness card) |
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | ~18:15 (~24m impl — 5 gates + proxy.go + repo-hygiene broaden + sw regen + subset) | ~18:30 (PASS; ran ~208-test subset) | none | ~18:35 `29793e9` | **~40m** (est 45–75m; in band; the batch card, most surface-area of the run) |
-| 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
+| 8 | `app-slug-association` | B | new-mechanism | 80–120m — risk-flagged | ~18:55 (~12m impl) | ~19:10 (PASS; did completeness check) | none | ~19:15 `809e15d` | **~25m** (est 80–120m risk-flagged; FAR under — the association-home was a clean 1:N FK, no product fork, no park) |
 | 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | ~17:05 (~8m impl) | ~17:12 (PASS) | none | ~17:04 `8dcf506` | **~15m** (est 50–85m; far under; build-tooling card, Playwright deferred) |
