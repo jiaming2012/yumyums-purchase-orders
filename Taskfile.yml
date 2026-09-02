@@ -740,6 +740,39 @@ tasks:
     desc: Check /api/v1/health on production
     cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
 
+  prod:ship:
+    desc: Ship dev → main (merge + push) so prod:deploy has today's code to build. Guarded; restores your starting branch.
+    cmds:
+      - |
+        set -euo pipefail
+        # The missing half of the release flow. `task prod:deploy` only ever
+        # BUILDS origin/main; THIS is what ADVANCES origin/main to dev. Skipping
+        # it is how prod shipped 9-day-old code on 2026-09-02 while reporting ok.
+        git diff --quiet && git diff --cached --quiet \
+          || { echo "ERROR: working tree not clean — commit or stash first (this task switches branches)." >&2; exit 1; }
+        START="$(git rev-parse --abbrev-ref HEAD)"
+        echo "── fetch origin dev + main ──────────"
+        git fetch origin dev main
+        # package.json "version" MUST mirror version.go Frontend (CLAUDE.md rule).
+        PKG="$(grep -m1 '"version"' package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+        VGO="$(grep -oE 'Frontend[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' backend/internal/version/version.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+        [ "$PKG" = "$VGO" ] || { echo "ERROR: package.json ($PKG) != version.go Frontend ($VGO) — fix the version mirror before shipping." >&2; exit 1; }
+        echo "── merge origin/dev → main ──────────"
+        git checkout -B main origin/main
+        git merge --no-edit origin/dev
+        git merge-base --is-ancestor origin/dev HEAD \
+          || { echo "ERROR: dev not fully merged into main — resolve and retry." >&2; exit 1; }
+        echo "── push main ($(git rev-parse --short HEAD)) ──"
+        git push origin main
+        git checkout "$START"
+        echo "  shipped: origin/main now carries dev. Deploy with 'task prod:deploy'."
+
+  prod:release:
+    desc: One-command release — ship dev → main, then deploy to prod (prod:ship + prod:deploy)
+    cmds:
+      - task: prod:ship
+      - task: prod:deploy
+
   prod:deploy:
     desc: Deploy to prod — sync the prod clone to origin/main, rebuild + restart the compose stack
     cmds:
@@ -765,6 +798,20 @@ tasks:
           echo "ERROR: prod clone HEAD has commits not on origin/main; refusing to hard-reset." >&2
           echo "       Reconcile the prod clone manually before deploying." >&2
           exit 1
+        fi
+        # Fail-loud stale-deploy guard. This task ONLY ever builds origin/main.
+        # If origin/dev carries commits not yet merged to main, deploying here
+        # silently ships stale code — exactly the 2026-09-02 incident, where prod
+        # rebuilt 9-day-old main and still reported status:ok. Refuse unless the
+        # operator has shipped (task prod:ship / prod:release), or explicitly
+        # overrides with ALLOW_STALE=1 for a deliberate same-main rebuild
+        # (e.g. redeploy after placing the Toast SFTP key).
+        echo "── guard: main must be current with dev ─────"
+        git fetch origin dev
+        if ! git merge-base --is-ancestor origin/dev origin/main; then
+          echo "ERROR: origin/dev has commits not on origin/main — prod would ship STALE code." >&2
+          echo "       Run 'task prod:ship' (or 'task prod:release') first, or set ALLOW_STALE=1 to override." >&2
+          [ "${ALLOW_STALE:-0}" = "1" ] || exit 1
         fi
         echo "── git reset --hard origin/main ─────"
         git reset --hard origin/main
