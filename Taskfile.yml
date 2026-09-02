@@ -778,7 +778,8 @@ tasks:
         echo "── push main ($(git rev-parse --short HEAD)) ──"
         git push origin main
         git checkout "$START"
-        echo "  shipped: origin/main now carries dev. Deploy with 'task prod:deploy'."
+        echo "  shipped: origin/main now carries dev."
+        echo "  Next → on the DEPLOY BOX (prod's Docker host; prod clone at {{.PROD_REPO}}), run:  task prod:deploy"
 
   prod:release:
     desc: One-command release — ship dev → main, then deploy to prod (prod:ship + prod:deploy)
