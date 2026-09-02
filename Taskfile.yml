@@ -741,7 +741,7 @@ tasks:
     cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
 
   prod:ship:
-    desc: Ship dev → main (merge + push) so prod:deploy has today's code to build. Guarded; restores your starting branch.
+    desc: Ship dev → main — publish dev, merge → main, push. Guarded (ff-only, version mirror, clean tree); restores your starting branch.
     cmds:
       - |
         set -euo pipefail
@@ -757,6 +757,19 @@ tasks:
         PKG="$(grep -m1 '"version"' package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
         VGO="$(grep -oE 'Frontend[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' backend/internal/version/version.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
         [ "$PKG" = "$VGO" ] || { echo "ERROR: package.json ($PKG) != version.go Frontend ($VGO) — fix the version mirror before shipping." >&2; exit 1; }
+        # Publish dev as part of shipping, so origin/dev IS what you're promoting.
+        # Guarded: only when you're ON dev and it fast-forwards origin/dev — never
+        # a force-push, never publishing a stray branch. Closes the "forgot to push
+        # dev, silently shipped a stale origin/dev" hole (same class as the deploy
+        # stale-guard). If local dev is behind origin/dev, refuse and say so.
+        echo "── publish dev → origin (ff-only) ──────────"
+        if [ "$START" = "dev" ]; then
+          git merge-base --is-ancestor origin/dev dev \
+            || { echo "ERROR: local dev is behind origin/dev — 'git pull' dev before shipping." >&2; exit 1; }
+          git push origin dev
+        else
+          echo "  (on '$START', not dev — promoting origin/dev as already published; push your dev work first)"
+        fi
         echo "── merge origin/dev → main ──────────"
         git checkout -B main origin/main
         git merge --no-edit origin/dev
