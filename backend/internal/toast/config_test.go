@@ -36,6 +36,28 @@ func TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath(t *testing.T) {
 	}
 }
 
+// TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast pins the EXACT B-146
+// prod failure: TOAST_SFTP_KEY_PATH is SET (non-empty) but points at a file
+// that does not exist on disk. In prod, TOAST_SFTP_KEY_PATH=./id_rsa resolved
+// to /app/id_rsa inside the container, but nothing ever COPYed or bind-mounted
+// a key there, so os.Stat failed and the worker-enabled server hard-exited (or,
+// pre fail-loud, silently never landed data). This is DISTINCT from the
+// empty-string case (TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath):
+// it exercises the os.Stat guard, not the empty-check guard. The
+// toast-ingest-resurrection fix supplies a real file at this path via a
+// docker-compose bind-mount so this branch stops firing in prod.
+func TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast(t *testing.T) {
+	dir := t.TempDir()
+	absent := filepath.Join(dir, "id_rsa") // deliberately never created
+	t.Setenv("TOAST_SFTP_KEY_PATH", absent)
+	t.Setenv("TOAST_SYNC_INTERVAL", "12h") // worker enabled → key must be readable
+
+	_, err := LoadConfigFromEnv()
+	if err == nil {
+		t.Fatalf("expected fail-fast error when key path is set but the file is absent (B-146 prod condition), got nil")
+	}
+}
+
 // TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig is the happy path:
 // worker enabled (default interval), key file exists and is readable.
 func TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig(t *testing.T) {

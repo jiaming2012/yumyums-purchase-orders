@@ -74,22 +74,32 @@ import (
 // authenticated traffic. Same precedent as ErrSecretNotConfigured and
 // auth.ServiceTokenMiddleware.
 //
-// ╔═══════════════════════════════════════════════════════════════════════╗
-// ║ 🛑 ACTIVATION ORDER — DO NOT SET HQ_SYNC_REST_URL IN ANY DEPLOY UNTIL ║
-// ║    ROW-VISIBILITY RLS LANDS.                                          ║
-// ╚═══════════════════════════════════════════════════════════════════════╝
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║ 🛑 ACTIVATION ORDER — DO NOT SET HQ_SYNC_REST_URL ON A DEPLOY WHOSE       ║
+// ║    SUBSTRATE CARRIES NO RLS POLICIES.                                     ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+//
+// This is a substrate-state precondition, NOT a card-landing one. The RLS work
+// (obligation 1 of `sync-rxdb-schema-and-replication`, card
+// `sync-rxdb-row-visibility-rls`) MERGED 2026-08-01 — an earlier version of
+// this banner said "until row-visibility RLS lands", which read to the next
+// author as an open card long after it shipped, and hid the precondition that
+// IS open: the CUTOVER. No page calls `startHQReplication`, so the deploy-time
+// question is not "has a card landed" but "does the substrate THIS deploy
+// points at actually carry the policies, and has a caller been wired".
 //
 // This door forwards EVERY method to PostgREST carrying a token whose `role`
 // claim is `authenticated` and whose `hq_grants` is advisory only. It performs
-// no row filtering of its own, and it is not supposed to: the RLS predicates
-// are obligation 1 of `sync-rxdb-schema-and-replication` and are deliberately
-// out of this card's scope.
+// no row filtering of its own, and it is not supposed to: the filtering is the
+// substrate's RLS.
 //
 // The consequence is concrete rather than theoretical. Setting these two vars
 // on a deploy where the substrate's tables have no RLS policies gives EVERY
 // logged-in crew member full read AND write on the whole exposed schema — a
 // dishwasher can PATCH a template. There is no gate between them and it,
-// because the gate was always meant to be RLS.
+// because the gate was always meant to be the substrate's RLS — so the
+// policies must be present on the substrate this deploy resolves, not merely
+// merged somewhere in the tree.
 //
 // Setting HQ_SYNC_REALTIME_URL alone is the safe half to adopt first: Realtime
 // is read-only, and a subscription without RLS leaks reads but authors nothing.
@@ -201,6 +211,16 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 		//    chosen from the decoded path, and an encoded separator lets a
 		//    caller forge that decision. See unsafeRequestPath.
 		if reason := unsafeRequestPath(r.URL); reason != "" {
+			// 🛑 EVIDENCE HAZARD (B-18b): `EscapedPath()` re-escapes, and it is
+			// the one function this file proved LAUNDERS `%2f` — a rejected
+			// `/sync/rest%2fadmin{` is recorded as `path=/sync/rest/admin%7B`,
+			// so `reason=encoded_slash` becomes the only surviving signal of
+			// what the caller actually sent. The pre-decode bytes live in
+			// `r.RequestURI`; the code fix (log it alongside) is a behavioural
+			// change deferred to the next card that touches this handler's code
+			// rather than its comments — this card's footprint is comments only.
+			// Until then, correlate a `reason=encoded_slash` rejection with the
+			// upstream access log for the raw target.
 			slog.Warn("sync proxy rejected an unsafe request path", "user_id", user.ID,
 				"reason", reason, "path", r.URL.EscapedPath())
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "sync_path_rejected"})
@@ -255,13 +275,19 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 			path = "/" + path
 		}
 		out.URL.Path = path
-		// RawPath is cleared so the wire path is re-derived from the decoded
-		// Path by URL.EscapedPath(). That is only safe because
-		// unsafeRequestPath already rejected every encoded separator — Go's
-		// path escaper does NOT re-escape "/", so a surviving %2f would become
-		// a real separator here. Everything else (spaces, non-ASCII, "%") is
-		// re-escaped correctly, which is why re-deriving beats splicing the
-		// caller's raw bytes.
+		// Only URL.Path is reassigned; RawPath is left as the clone carried it
+		// from the inbound request. That is deliberate, not an oversight: the
+		// clone's RawPath is the UNTRIMMED inbound raw path, which no longer
+		// decodes to the prefix-trimmed Path, so URL.EscapedPath() DISCARDS it
+		// and re-escapes the decoded Path instead — which is exactly the wire
+		// path we want. (Do NOT "fix" this by trimming RawPath in parallel with
+		// Path: make the two agree and EscapedPath() would emit the caller's
+		// spliced raw bytes verbatim. The safety rests on their DISagreement.)
+		// Re-deriving is only safe because unsafeRequestPath already rejected
+		// every encoded separator — Go's path escaper does NOT re-escape "/", so
+		// a surviving %2f would become a real separator here. Everything else
+		// (spaces, non-ASCII, "%") is re-escaped correctly, which is why
+		// re-deriving beats splicing the caller's raw bytes.
 
 		q := out.URL.Query()
 		if up.apikeyQP {

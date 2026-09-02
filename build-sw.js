@@ -43,8 +43,13 @@ const GENERATED_BUT_SHIPPED = new Set(['version.json']);
 //
 // `-r` recurses into trees (without it you get `icons`, not
 // `icons/icon-96x96.png`); `-z` gives NUL-separated UNQUOTED paths -- plain
-// `--name-only` C-quotes any path containing a space or a non-ASCII byte, which
-// would silently drop a legitimately committed asset out of the precache.
+// `--name-only` C-quotes any path containing a NON-ASCII or control byte
+// (`core.quotePath` defaults to true and escapes those; a plain space is NOT
+// escaped and comes back bare), which would silently drop a legitimately
+// committed asset -- e.g. an accented filename -- out of the precache. The `-z`
+// form sidesteps quoting entirely, so it is the reason the flag is load-bearing.
+// (B-17: the earlier comment claimed spaces were quoted too; measured, they are
+// not. Space handling is why NUL separation matters, but quoting is not it.)
 function committedFiles() {
   const out = execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', 'HEAD'], { encoding: 'utf8' });
   return new Set(out.split('\0').filter(Boolean));

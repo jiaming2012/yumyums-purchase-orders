@@ -240,6 +240,26 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err != nil {
 			slog.Error("MergeItems update descriptions failed", "error", err)
 		}
+		// Carry the source's aliases over, and learn the source's own name as
+		// an alias of the target — receipts that used to match the source keep
+		// matching after the merge.
+		_, err = tx.Exec(r.Context(), `UPDATE item_aliases SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
+		if err != nil {
+			slog.Error("MergeItems re-point aliases failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO item_aliases (purchase_item_id, alias)
+			SELECT $1, description FROM purchase_items WHERE id = $2 AND LOWER(description) <> LOWER($3)
+			ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id`,
+			input.TargetID, input.SourceID, targetDesc,
+		)
+		if err != nil {
+			slog.Error("MergeItems learn source name failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
 		// Delete source item
 		tag, err := tx.Exec(r.Context(), `DELETE FROM purchase_items WHERE id = $1`, input.SourceID)
 		if err != nil {
@@ -1068,7 +1088,8 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
-			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location, pi.location_in_store, pi.photo_url
+			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location, pi.location_in_store, pi.photo_url,
+			       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = pi.id), '{}')
 			FROM purchase_items pi
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
@@ -1082,7 +1103,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := []PurchaseItem{}
 		for rows.Next() {
 			var item PurchaseItem
-			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL); err != nil {
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL, &item.Aliases); err != nil {
 				slog.Error("ListItems scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -1162,6 +1183,91 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if tag.RowsAffected() == 0 {
 			writeError(w, http.StatusNotFound, "item_not_found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// AddItemAliasHandler records an alternate name for a catalog item, so future
+// receipt lines carrying that text auto-match. Aliases are learned implicitly
+// when the user links a receipt line to an item whose description differs
+// (the raw receipt text becomes the alias) and managed explicitly in Setup.
+// Upsert on lower(alias): re-linking the same receipt text to a different
+// item re-points the alias — the latest human decision wins.
+func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			PurchaseItemID string `json:"purchase_item_id"`
+			Alias          string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		input.Alias = strings.TrimSpace(input.Alias)
+		if input.PurchaseItemID == "" || input.Alias == "" {
+			writeError(w, http.StatusBadRequest, "purchase_item_id_and_alias_required")
+			return
+		}
+		// An alias equal to the item's own description would never be
+		// consulted (description wins at match time) — skip the clutter.
+		var sameAsDesc bool
+		err := pool.QueryRow(r.Context(),
+			`SELECT LOWER(description) = LOWER($2) FROM purchase_items WHERE id = $1`,
+			input.PurchaseItemID, input.Alias,
+		).Scan(&sameAsDesc)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "item_not_found")
+			return
+		}
+		if sameAsDesc {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		var id string
+		err = pool.QueryRow(r.Context(), `
+			INSERT INTO item_aliases (purchase_item_id, alias)
+			VALUES ($1, $2)
+			ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id
+			RETURNING id`,
+			input.PurchaseItemID, input.Alias,
+		).Scan(&id)
+		if err != nil {
+			slog.Error("AddItemAlias insert failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// DeleteItemAliasHandler removes one alias from an item.
+func DeleteItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			PurchaseItemID string `json:"purchase_item_id"`
+			Alias          string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.PurchaseItemID == "" || input.Alias == "" {
+			writeError(w, http.StatusBadRequest, "purchase_item_id_and_alias_required")
+			return
+		}
+		tag, err := pool.Exec(r.Context(),
+			`DELETE FROM item_aliases WHERE purchase_item_id = $1 AND LOWER(alias) = LOWER($2)`,
+			input.PurchaseItemID, strings.TrimSpace(input.Alias),
+		)
+		if err != nil {
+			slog.Error("DeleteItemAlias delete failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "alias_not_found")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -1627,6 +1733,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
+		ready := len(pendingIDs) == 0 && len(unlinkedIDs) == 0
 		resp := PeriodSummary{
 			From:               fromStr,
 			To:                 toStr,
@@ -1636,12 +1743,26 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			ByVendor:           byVendor,
 			TrackedBankTxIDs:   trackedTxIDs,
 			Completeness: CompletenessBlock{
-				Ready:                len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
+				Ready:                ready,
 				PendingReviewIDs:     pendingIDs,
 				PendingReviewDetails: pendingDetails,
 				UnlinkedLineItemIDs:  unlinkedIDs,
 			},
 		}
+		// Success visibility (B-139). Ten slog.Error lines above record every
+		// failure path; this is the one line that records a *served* response —
+		// which period, the completeness verdict, and the two blocking-set
+		// counts. A blocked payroll week (ready=false) is now greppable in prod
+		// logs regardless of what the sales-processor consumer writes to disk,
+		// where previously the only trace was the ABSENCE of a downstream report
+		// (indistinguishable from a skipped/closed week).
+		slog.Info("period-summary served",
+			"from", fromStr,
+			"to", toStr,
+			"ready", ready,
+			"pending_review_count", len(pendingIDs),
+			"unlinked_line_item_count", len(unlinkedIDs),
+		)
 		writeJSON(w, http.StatusOK, resp)
 	}
 }

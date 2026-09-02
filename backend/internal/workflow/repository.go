@@ -476,7 +476,7 @@ func archiveTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string)
 // fields, schedules, and assignments, ordered by created_at DESC.
 func listTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT id, name, requires_approval, created_by, created_at, updated_at
+		`SELECT id, name, requires_approval, COALESCE(created_by::text, '') AS created_by, created_at, updated_at
 		 FROM checklist_templates
 		 WHERE archived_at IS NULL
 		 ORDER BY created_at DESC`,
@@ -512,7 +512,7 @@ func listTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) 
 func getTemplateByID(ctx context.Context, pool *pgxpool.Pool, templateID string) (*Template, error) {
 	var t Template
 	err := pool.QueryRow(ctx,
-		`SELECT id, name, requires_approval, created_by, created_at, updated_at
+		`SELECT id, name, requires_approval, COALESCE(created_by::text, '') AS created_by, created_at, updated_at
 		 FROM checklist_templates
 		 WHERE id = $1 AND archived_at IS NULL`,
 		templateID,
@@ -791,7 +791,31 @@ func submitChecklist(ctx context.Context, pool *pgxpool.Pool, input SubmitCheckl
 }
 
 // saveResponse upserts a draft response (submission_id IS NULL) for auto-save (D-21).
-func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value json.RawMessage, userID string) error {
+//
+// stampLamportTS controls how the row's lamport_ts is written, and is the whole
+// of the B-157 fix:
+//
+//   - stampLamportTS > 0: fold that value into the SAME INSERT/upsert as the
+//     save, so ONE user save is ONE row write to submission_responses. This is
+//     the /saveResponse path (SaveResponseHandler), which previously left
+//     lamport_ts untouched here and let the sync layer's EmitOp do a SEPARATE
+//     `UPDATE ... SET lamport_ts` afterward. A row-level CDC trigger cannot tell
+//     those two writes apart, so every save fired the trigger twice; folding the
+//     stamp in collapses it to one write. The caller emits the op row with the
+//     SAME lamport_ts via opsync.EmitOpForStampedEntity — no second row write.
+//
+//   - stampLamportTS <= 0: do NOT touch lamport_ts (leave it at its existing
+//     value / column default). This is the /ops path (workflowOpRouter), where
+//     the sync handler runs the LWW conflict check AFTER this business write and
+//     then stamps the CLIENT's lamport_ts itself via EmitOpWithConflictCheck.
+//     Stamping here would move lamport_ts before CheckLWW reads it and could turn
+//     a legitimately-winning client op into a false conflict — so that path stays
+//     exactly as it was (its double-write, if any, is out of B-157's /saveResponse
+//     scope and is deliberately left alone; see the merge intent).
+//
+// Returns the lamport_ts the row now carries (0 on the delete path or when
+// stampLamportTS <= 0 with no prior stamp).
+func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value json.RawMessage, userID string, stampLamportTS int64) (int64, error) {
 	// App-level existence check (FR-3, INV-4): a write naming a field absent from
 	// the current template is rejected loudly with ErrUnknownField (→ 422). The
 	// field_id FK was dropped (migrations 0051/0053/0054) so a dead-id write would
@@ -800,10 +824,10 @@ func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value
 	if err := pool.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM checklist_fields WHERE id = $1)`, fieldID,
 	).Scan(&exists); err != nil {
-		return fmt.Errorf("check field exists: %w", err)
+		return 0, fmt.Errorf("check field exists: %w", err)
 	}
 	if !exists {
-		return ErrUnknownField
+		return 0, ErrUnknownField
 	}
 
 	// Null value means "unchecked" — delete the draft response row.
@@ -814,25 +838,47 @@ func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value
 			fieldID, userID,
 		)
 		if err != nil {
-			return fmt.Errorf("delete response: %w", err)
+			return 0, fmt.Errorf("delete response: %w", err)
 		}
-		return nil
+		return 0, nil
 	}
 	valJSON, err := marshalNullableJSON(value)
 	if err != nil {
-		return fmt.Errorf("marshal value: %w", err)
+		return 0, fmt.Errorf("marshal value: %w", err)
 	}
-	_, err = pool.Exec(ctx,
-		`INSERT INTO submission_responses (field_id, value, answered_by)
-		 VALUES ($1, $2, $3)
+
+	// /ops path (no stamp): preserve the original bare upsert exactly — the sync
+	// handler owns the lamport_ts stamp after its CheckLWW.
+	if stampLamportTS <= 0 {
+		_, err = pool.Exec(ctx,
+			`INSERT INTO submission_responses (field_id, value, answered_by)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (field_id, answered_by) WHERE submission_id IS NULL
+			 DO UPDATE SET value = EXCLUDED.value, answered_at = now()`,
+			fieldID, valJSON, userID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("save response: %w", err)
+		}
+		return 0, nil
+	}
+
+	// /saveResponse path: ONE row write — fold the caller-computed lamport_ts into
+	// the save itself so no follow-up UPDATE is needed. RETURNING gives back the
+	// stamped value for the op-row emission.
+	var newTS int64
+	err = pool.QueryRow(ctx,
+		`INSERT INTO submission_responses (field_id, value, answered_by, lamport_ts)
+		 VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (field_id, answered_by) WHERE submission_id IS NULL
-		 DO UPDATE SET value = EXCLUDED.value, answered_at = now()`,
-		fieldID, valJSON, userID,
-	)
+		 DO UPDATE SET value = EXCLUDED.value, answered_at = now(), lamport_ts = EXCLUDED.lamport_ts
+		 RETURNING lamport_ts`,
+		fieldID, valJSON, userID, stampLamportTS,
+	).Scan(&newTS)
 	if err != nil {
-		return fmt.Errorf("save response: %w", err)
+		return 0, fmt.Errorf("save response: %w", err)
 	}
-	return nil
+	return newTS, nil
 }
 
 // myDrafts returns draft responses (submission_id IS NULL) for the given user.
@@ -890,7 +936,7 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 
 	// Templates assigned to this user or their role, scheduled for today, not archived
 	tmplRows, err := pool.Query(ctx,
-		`SELECT DISTINCT t.id, t.name, t.requires_approval, t.created_by, t.created_at, t.updated_at
+		`SELECT DISTINCT t.id, t.name, t.requires_approval, COALESCE(t.created_by::text, '') AS created_by, t.created_at, t.updated_at
 		 FROM checklist_templates t
 		 JOIN template_assignments ta ON ta.template_id = t.id
 		 JOIN checklist_schedules cs ON cs.template_id = t.id

@@ -1254,3 +1254,24 @@ BOTH legs identically (a fake asymmetry); round 2 — a missing Chromium headles
 Both were environment, not code; C2 hardened its own harness against the first. So the ~13m
 implement figure is clean-harness-authoring time — the infra rounds added wall-clock not
 reflected in it. The cross-script hardening is graduated as BACKLOG **B-170**.
+
+## Run 20260901 (night of 2026-08-31, CONCURRENT 3-track, 11 cards)
+
+First concurrent-dispatch night in this repo. Stamps maintained AT EACH LEG'S RETURN
+(D-KR2) — implementer-return, G6-return, fix-return where a fix round ran. Never
+backfilled. Tracks: A (cards 1–3, receipt family), B (cards 4–8, sync), C (cards 9–11,
+visibility/notice/tooling).
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | ~16:28 (PASS-W-ISSUES; parseable-path finding WAIVED→B-177) | none | 16:34 `0e988ce` | **~26m** (est 70–110m; far under — Opus, well-scoped 2-defect card) |
+| 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | ~16:45 (~7m impl) | ~16:50 (PASS) | none | 16:51 `d2120c8` | **~13m** (est 60–100m; far under) |
+| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | ~17:10 (~7m impl) | ~17:16 (PASS; NO-KEY check clean) | none | ~17:18 `4bbb7dc` | **~15m** (est 90–140m risk-flagged; far under — no prod cred to place, mechanism+docs only) |
+| 4 | `client-guard-coverage` | B | small-additive | 60–90m | ~16:51 (~46m impl — full ~24m Playwright suite + reruns to separate flakes from baseline) | ~17:05 (PASS) | none | ~17:00 `5d96274` | **~55m** (est 60–90m; in band; dominated by the full suite it pays as the last sync-de-confined leg) |
+| 5 | `cdc-single-fire` | B | small-additive | 45–80m | ~17:20 (~10m impl) | ~17:36 (PASS; ran ~190-test workflow Playwright subset, ~16m) | none | ~17:40 `3359dee` | **~30m** (est 45–80m; under; G6 dominated by the footprint Playwright subset) |
+| 6 | `sync-dev-one-command` | B | small-additive | 25–45m | ~17:45 (~4m impl) | ~17:52 (PASS) | none | ~17:55 `3b90709` | **~13m** (est 25–45m; under; harness card) |
+| 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | ~18:15 (~24m impl — 5 gates + proxy.go + repo-hygiene broaden + sw regen + subset) | ~18:30 (PASS; ran ~208-test subset) | none | ~18:35 `29793e9` | **~40m** (est 45–75m; in band; the batch card, most surface-area of the run) |
+| 8 | `app-slug-association` | B | new-mechanism | 80–120m — risk-flagged | ~18:55 (~12m impl) | ~19:10 (PASS; did completeness check) | none | ~19:15 `809e15d` | **~25m** (est 80–120m risk-flagged; FAR under — the association-home was a clean 1:N FK, no product fork, no park) |
+| 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
+| 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
+| 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | ~17:05 (~8m impl) | ~17:12 (PASS) | none | ~17:04 `8dcf506` | **~15m** (est 50–85m; far under; build-tooling card, Playwright deferred) |

@@ -55,13 +55,23 @@ COPY backend ./backend
 # so it must be generated here from the authoritative Frontend constant —
 # sw.js PRECACHES it, and a 404 aborts the whole service-worker install,
 # pinning every returning client to the previous frontend.
+#
+# 🛑 THE BYTES MUST MATCH scripts/write-version-json.js EXACTLY — trailing '\n'
+# INCLUDED. That module (the authoritative payload definition, required by
+# build-sw.js) writes `JSON.stringify({frontend}) + '\n'` = `{"frontend":"X"}\n`.
+# sw.js's precache REVISION for version.json is hashed against THAT copy, so if
+# this printf emits different bytes (e.g. drops the newline) the manifest
+# revision describes a file the image does not serve, and the served bytes and
+# the hashed bytes diverge in prod — B-135. `tests/version-json-parity.spec.js`
+# reads this printf's format literal and asserts byte-identity; drop the `\n`
+# and it reds. The `\n` at the end of the format below is that byte.
 RUN set -eux; \
     cd backend; \
     rm -rf cmd/server/public/*; \
     cp ../*.html ../*.js ../manifest.json cmd/server/public/; \
     fe_ver="$(sed -n 's/.*Frontend *= *"\([^"]*\)".*/\1/p' internal/version/version.go)"; \
     test -n "$fe_ver"; \
-    printf '{"frontend":"%s"}' "$fe_ver" > cmd/server/public/version.json; \
+    printf '{"frontend":"%s"}\n' "$fe_ver" > cmd/server/public/version.json; \
     cp -r ../icons cmd/server/public/; \
     cp -r ../lib cmd/server/public/; \
     cp -r ../vendor cmd/server/public/; \

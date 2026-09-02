@@ -28,14 +28,18 @@
 --    landing in THIS file would silently open the door that card exists to
 --    guard. tests/sync-schema.spec.js asserts there is no CREATE POLICY here.
 --
---    Corollary, restated because it now spans two cards: `HQ_SYNC_REST_URL`
---    must not be set in any deploy until B2 lands. `sync-proxy-endpoint`
---    forwards every method to PostgREST with a `role: authenticated` token and
---    no row filtering of its own, deliberately, because filtering was always
---    meant to be B2. Until then a set `HQ_SYNC_REST_URL` gives every logged-in
---    crew member full read AND write on the whole exposed schema. With no
---    policies present, the tables below are deny-all rather than open — but
---    "deny-all" is a property of this file that B2 replaces, not a guarantee.
+--    Corollary: `HQ_SYNC_REST_URL` must not be set on a deploy whose substrate
+--    carries no RLS policies. `sync-proxy-endpoint` forwards every method to
+--    PostgREST with a `role: authenticated` token and no row filtering of its
+--    own, deliberately, because filtering was always meant to be the substrate's
+--    RLS. On such a deploy a set `HQ_SYNC_REST_URL` gives every logged-in crew
+--    member full read AND write on the whole exposed schema. The card that ports
+--    those policies (`sync-rxdb-row-visibility-rls`, B2) MERGED 2026-08-01, so
+--    the milestone is not "until B2 lands" — it is the cutover: no page calls
+--    startHQReplication, and the substrate must carry the policies before the
+--    door opens. With no policies present, the tables below are deny-all rather
+--    than open — but "deny-all" is a property of THIS file that the substrate's
+--    RLS replaces, not a standing guarantee.
 --
 -- 2. NO TABLE FOR THE OVERWRITTEN-ANSWER RECORD. Ledger T-27 decision 89: it is
 --    a personal, per-device undo held in a LOCAL RxDB collection

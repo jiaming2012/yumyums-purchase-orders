@@ -374,6 +374,45 @@ tasks:
     cmd: ./.night-crew/qa/spike-supabase/sync-dev-proof.sh
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # ONE-COMMAND DEV — `task sync:dev` (card `sync-dev-one-command`, run 20260901,
+  # closing B-171). Convenience, NOT policy.
+  #
+  # The operator's daily `dev-complete-attestation` loop needs BOTH halves up: the
+  # persistent sync data plane AND the dev server that reads it. Standing them up
+  # was two commands (`task sync:dev:up` then `task backend:dev:tailscale`). This
+  # composes them into ONE.
+  #
+  # It reuses the two existing targets verbatim — it adds no logic of its own:
+  #   1. sync:dev:up          — substrate reconcile + relay-as-service + FDW pointing.
+  #                             This is where the B-164 :5433 refusal lives
+  #                             (sync-dev-up.sh); invoking it UNCHANGED preserves the
+  #                             refusal by construction. There is NO bypass here, and
+  #                             none must be added — B-171's whole point is that
+  #                             safety rides on credential scoping (capability), not
+  #                             on more coordinate guards (detection).
+  #   2. backend:dev:tailscale — the dev server. That target ALREADY resolves and
+  #                             exports the four HQ_SYNC_* vars itself (its `sh:` env
+  #                             blocks read the live substrate ports — backend/
+  #                             Taskfile.yml). We do NOT re-derive or duplicate the
+  #                             credential wiring; `task sync:dev:env` remains the
+  #                             hand-run path for anyone launching the server another
+  #                             way. Step 2 is long-running (it IS the server) and is
+  #                             deliberately last, so `task sync:dev` runs the data
+  #                             plane up, then hands the terminal to the server.
+  #
+  # 🛑 Like sync:dev:up, this needs the operator's LIVE dev HQ (HQ_SYNC_DEV_HQ_DSN +
+  #   HQ_SYNC_DEV_FDW_HOST) and REFUSES a bare :5433 target unless the operator
+  #   knowingly sets HQ_SYNC_DEV_ALLOW_5433=1. NEVER run it from an unattended run —
+  #   the mechanism is proven WITHOUT :5433 by `task sync:dev:proof`.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:dev:
+    desc: ONE command for daily dev — bring the persistent sync data plane up (sync:dev:up) AND launch the dev server (backend:dev:tailscale, which carries the 4 HQ_SYNC_* vars). Preserves the B-164 :5433 refusal; requires HQ_SYNC_DEV_HQ_DSN + HQ_SYNC_DEV_FDW_HOST. NEVER from an unattended run
+    cmds:
+      - task: sync:dev:up
+      - task: backend:dev:tailscale
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Sync spike B — migration rehearsal (night-crew card S
   # `spike-b-migration-rehearsal`). Disjoint from everything above and below it.
   #
@@ -701,6 +740,52 @@ tasks:
     desc: Check /api/v1/health on production
     cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
 
+  prod:ship:
+    desc: Ship dev → main — publish dev, merge → main, push. Guarded (ff-only, version mirror, clean tree); restores your starting branch.
+    cmds:
+      - |
+        set -euo pipefail
+        # The missing half of the release flow. `task prod:deploy` only ever
+        # BUILDS origin/main; THIS is what ADVANCES origin/main to dev. Skipping
+        # it is how prod shipped 9-day-old code on 2026-09-02 while reporting ok.
+        git diff --quiet && git diff --cached --quiet \
+          || { echo "ERROR: working tree not clean — commit or stash first (this task switches branches)." >&2; exit 1; }
+        START="$(git rev-parse --abbrev-ref HEAD)"
+        echo "── fetch origin dev + main ──────────"
+        git fetch origin dev main
+        # package.json "version" MUST mirror version.go Frontend (CLAUDE.md rule).
+        PKG="$(grep -m1 '"version"' package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+        VGO="$(grep -oE 'Frontend[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' backend/internal/version/version.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+        [ "$PKG" = "$VGO" ] || { echo "ERROR: package.json ($PKG) != version.go Frontend ($VGO) — fix the version mirror before shipping." >&2; exit 1; }
+        # Publish dev as part of shipping, so origin/dev IS what you're promoting.
+        # Guarded: only when you're ON dev and it fast-forwards origin/dev — never
+        # a force-push, never publishing a stray branch. Closes the "forgot to push
+        # dev, silently shipped a stale origin/dev" hole (same class as the deploy
+        # stale-guard). If local dev is behind origin/dev, refuse and say so.
+        echo "── publish dev → origin (ff-only) ──────────"
+        if [ "$START" = "dev" ]; then
+          git merge-base --is-ancestor origin/dev dev \
+            || { echo "ERROR: local dev is behind origin/dev — 'git pull' dev before shipping." >&2; exit 1; }
+          git push origin dev
+        else
+          echo "  (on '$START', not dev — promoting origin/dev as already published; push your dev work first)"
+        fi
+        echo "── merge origin/dev → main ──────────"
+        git checkout -B main origin/main
+        git merge --no-edit origin/dev
+        git merge-base --is-ancestor origin/dev HEAD \
+          || { echo "ERROR: dev not fully merged into main — resolve and retry." >&2; exit 1; }
+        echo "── push main ($(git rev-parse --short HEAD)) ──"
+        git push origin main
+        git checkout "$START"
+        echo "  shipped: origin/main now carries dev. Deploy with 'task prod:deploy'."
+
+  prod:release:
+    desc: One-command release — ship dev → main, then deploy to prod (prod:ship + prod:deploy)
+    cmds:
+      - task: prod:ship
+      - task: prod:deploy
+
   prod:deploy:
     desc: Deploy to prod — sync the prod clone to origin/main, rebuild + restart the compose stack
     cmds:
@@ -726,6 +811,20 @@ tasks:
           echo "ERROR: prod clone HEAD has commits not on origin/main; refusing to hard-reset." >&2
           echo "       Reconcile the prod clone manually before deploying." >&2
           exit 1
+        fi
+        # Fail-loud stale-deploy guard. This task ONLY ever builds origin/main.
+        # If origin/dev carries commits not yet merged to main, deploying here
+        # silently ships stale code — exactly the 2026-09-02 incident, where prod
+        # rebuilt 9-day-old main and still reported status:ok. Refuse unless the
+        # operator has shipped (task prod:ship / prod:release), or explicitly
+        # overrides with ALLOW_STALE=1 for a deliberate same-main rebuild
+        # (e.g. redeploy after placing the Toast SFTP key).
+        echo "── guard: main must be current with dev ─────"
+        git fetch origin dev
+        if ! git merge-base --is-ancestor origin/dev origin/main; then
+          echo "ERROR: origin/dev has commits not on origin/main — prod would ship STALE code." >&2
+          echo "       Run 'task prod:ship' (or 'task prod:release') first, or set ALLOW_STALE=1 to override." >&2
+          [ "${ALLOW_STALE:-0}" = "1" ] || exit 1
         fi
         echo "── git reset --hard origin/main ─────"
         git reset --hard origin/main

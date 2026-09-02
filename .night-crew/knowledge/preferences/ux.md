@@ -32,3 +32,23 @@
 - **Recorded:** 2026-07-29
 - **Offered at:** morning triage 2026-07-29
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Blank is never a valid render for user-facing text
+
+- **Preference:** When data for a user-visible slot is missing or undefined, the UI renders a loud placeholder or a visible error — never a silently empty element. Escape/format helpers must not be handed `undefined` to smooth into `''`; a row whose primary text region is empty is a defect by definition, not a styling state.
+- **Why (operator):** requested after the 2026-08-28 walkthrough — the FAQ section rendered three designed-looking blank bars because a wrong field name coerced to empty string with no error anywhere; wants blankness treated as failure in future UI decisions.
+- **Weight:** strong
+- **Evidence:** FAQ label-contract fix, commit 2e078d3 (2026-08-28); docs/ui-design-rules.md UI-R3.
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session, 2026-08-28
+- **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-3 · Failures are loud, retryable, and overridable
+
+- **Preference:** Every async failure a crew member can hit (media load, data fetch, upload) has three parts: a visible error state naming what happened in crew language, a Retry affordance, and an authority override path (e.g. manager marks a training step watched) that unblocks the flow when retry cannot. Nobody gets silently stranded mid-task on a phone in a truck.
+- **Why (operator):** requested after the 2026-08-28 walkthrough — onboarding video failures were silent (the player just never played) until the loud-error + retry + manager-override work; wants this three-part shape as the default for future async failure UI.
+- **Weight:** strong
+- **Evidence:** commit 7d9efcc video recovery / loud player errors / manager override (2026-08-28 cycle); docs/ui-design-rules.md UI-R6.
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session, 2026-08-28
+- **Consent:** recorded on the operator's explicit yes to this item.

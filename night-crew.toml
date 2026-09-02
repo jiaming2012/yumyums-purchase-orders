@@ -124,3 +124,38 @@ subset = 'npx playwright test "{tags}"'
 "backend/internal/purchasing" = ["purchasing"]
 "purchasing.html"             = ["purchasing"]
 "tests/purchasing.spec.js"    = ["purchasing"]
+# ─────────────────────────────────────────────────────────────────────────────
+# THE SYNC CLIENT SEAM — B-154 rider (card `client-guard-coverage`, run 20260901,
+# the FIRST sync-touching card). Before this row, `sync-rxdb/**` was one of the
+# "shared/undeclared" paths named in the header block above — touching it
+# de-confined the card to the full ~22 min suite. Later sync cards
+# (`cdc-single-fire` touches backend/, but `app-slug-association`,
+# `sync-doc-honesty`, `sync-dev-one-command` and any client-JS change) confine
+# their gate leg to the specs that actually EXERCISE the sync client through it.
+#
+# The value is authored against the sync footprint, not guessed. A change under
+# `sync-rxdb/` is a change to `client.js` / `bootstrap.js` / `conflict-handler.js`
+# / the schema — every spec that imports the client bundle or drives a real
+# `workflows.html` against it can break. Those SEVEN, and only those, are the
+# roll-call (single line, machine-readable — the Operations `#   selects:` marker
+# above is the one tests/repo-hygiene.spec.js reads; this one documents THIS seam):
+#
+# sync-rxdb-selects: states-sync-rxdb-conflict-notice, sync-fill-view, sync-one-row, sync-rxdb-client, sync-rxdb-conflict, sync-rxdb-conflict-notice, sync-schema
+#
+#   token → files (Playwright reads each as a path REGEX, OR'd — B-87):
+#     "sync-rxdb"      → states-sync-rxdb-conflict-notice, sync-rxdb-client,
+#                        sync-rxdb-conflict-notice, sync-rxdb-conflict  (4)
+#     "sync-schema"    → sync-schema        (1)
+#     "sync-one-row"   → sync-one-row       (1)
+#     "sync-fill-view" → sync-fill-view     (1)
+#
+# 🛑 `sync.spec.js` is DELIBERATELY NOT selected. It drives the workflow/relay
+# substrate end-to-end and imports NOTHING from `sync-rxdb/` (grep: zero refs to
+# sync-rxdb / HQSync / client.js / bootstrap). It is also the load-sensitive spec
+# the Operations seam block above warns "must not share a box". A `sync-rxdb/`
+# client-JS change does not touch its subject, so pulling it in would over-run
+# AND mis-price. The bare `sync` token (which the Operations seam uses) WOULD pull
+# it in — that is exactly why this seam lists four narrow tokens instead. Anyone
+# adding a NEW sync-rxdb-exercising spec whose name contains none of these four
+# tokens must extend this value; tests/repo-hygiene.spec.js guards the count.
+"sync-rxdb"                   = ["sync-rxdb", "sync-schema", "sync-one-row", "sync-fill-view"]

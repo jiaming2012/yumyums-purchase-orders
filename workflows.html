@@ -326,7 +326,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
      `sync-hard-cutover`. sync-rxdb/bootstrap.js constructs the client and
      nothing else: it creates no RxDB database, starts no replication, and makes
      no network request — the /sync door answers 503 until HQ_SYNC_REST_URL is
-     set, which must not happen until row-visibility RLS lands.
+     set, which must not happen until the cutover: a page has to call
+     startHQReplication AND the deploy's substrate has to carry the RLS
+     policies. Row-visibility RLS is not the open precondition — that card
+     merged 2026-08-01; the cutover is, and no page has triggered it.
 
      `defer`-equivalent by nature: a module script does not block parsing, and
      bootstrap.js fails soft, so nothing on this page depends on it loading.
@@ -1833,7 +1836,7 @@ function hydrateFieldState(filterFieldIds) {
       if (!hasNewerSubmission) {
         sub.rejections.forEach(function(rej) {
           if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
-            REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
+            REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo, rejectedAt: rej.rejected_at || null };
             delete FIELD_RESPONSES[rej.field_id]; // uncheck a top-level field so crew must redo
             // A rejected SUB-STEP's done-state lives in its PARENT's sub_steps
             // map (not FIELD_RESPONSES[subId]); clear it there too so the crew
@@ -1842,6 +1845,13 @@ function hydrateFieldState(filterFieldIds) {
               var pr = FIELD_RESPONSES[pid];
               if (pr && pr.sub_steps && Object.prototype.hasOwnProperty.call(pr.sub_steps, rej.field_id)) {
                 delete pr.sub_steps[rej.field_id];
+                // The stored value must drop out of all-done WITH the map —
+                // isFieldAnswered counts the parent by resp.value, so a stale
+                // true kept a rejected sub-step's parent in the progress count
+                // ("4 of 5" instead of "3 of 5", operator 2026-08-25). Mirror
+                // the local toggle's !anyDone rule when nothing remains done.
+                pr.value = false;
+                if (Object.keys(pr.sub_steps).length === 0) delete FIELD_RESPONSES[pid];
               }
             });
           }
@@ -3170,8 +3180,15 @@ function isFieldAnswered(f) {
   var resp = FIELD_RESPONSES[f.id];
   if (resp === undefined) return false;
   if (REJECTION_FLAGS[f.id]) return false;
-  // For fields with sub-steps, only count as complete when all subs are done
-  if (f.sub_steps && f.sub_steps.length > 0) return resp.value === true;
+  // For fields with sub-steps, only count as complete when all subs are done —
+  // and a rejection flag on ANY sub-step holds the parent out of the count the
+  // same way a flag on a top-level field does (a rejected sub-step is NULL
+  // state until redone; its flag lives on the SUB id, which the top-level
+  // check above never sees).
+  if (f.sub_steps && f.sub_steps.length > 0) {
+    if (f.sub_steps.some(function(s) { return REJECTION_FLAGS[s.id]; })) return false;
+    return resp.value === true;
+  }
   return true;
 }
 
@@ -3332,6 +3349,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         delete resp.sub_steps[subId];
       } else {
         resp.sub_steps[subId] = { by: getUserName(), at: new Date().toISOString() };
+        // Re-checking a rejected sub-step is its redo — clear the SUB's own
+        // flag (the allDone branch below only ever cleared the PARENT's, so a
+        // redone sub-step's banner stuck until resubmit). clearRejectionFlag
+        // still holds the flag while a require-photo rejection lacks a photo.
+        clearRejectionFlag(subId);
       }
       resp.answeredBy = getUserName();
       resp.answeredAt = new Date();
@@ -3923,10 +3945,12 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
      OVERSIGHT. The sheet renders from the durable local conflict record; the
      record is written when `conflict$` fires; `conflict$` fires when
      replication runs; replication is not started, because `HQ_SYNC_REST_URL` is
-     unset in every environment and the /sync door answers 503 by design until
-     `sync-rxdb-row-visibility-rls` lands. So in production today there are zero
-     records, the banner never appears, and nothing on this page changes.
-     `sync-hard-cutover` is the card that switches the producer on.
+     unset in every environment and the /sync door answers 503 by design, and
+     because no page calls startHQReplication. So in production today there are
+     zero records, the banner never appears, and nothing on this page changes.
+     `sync-hard-cutover` is the card that switches the producer on. (This
+     block used to gate on the row-visibility-RLS card landing; that card merged
+     2026-08-01 — the open precondition is the cutover, not the RLS work.)
 
      What that buys, and why it is not busywork: every state of this UI is
      forced from a seeded store in tests/states-sync-rxdb-conflict-notice.spec.js,

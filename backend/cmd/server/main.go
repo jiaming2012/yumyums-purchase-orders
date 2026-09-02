@@ -59,7 +59,10 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 			if err := json.Unmarshal(req.Payload, &p); err != nil {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
-			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
+			// stamp=0: the /ops path lets the sync handler stamp lamport_ts AFTER its
+			// LWW conflict check (EmitOpWithConflictCheck), so this business write
+			// must NOT touch lamport_ts here (B-157 fix is scoped to /saveResponse).
+			if _, err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID, 0); err != nil {
 				if errors.Is(err, workflow.ErrUnknownField) {
 					// Field was cut from the template (FR-3, INV-4). Reject loudly so
 					// the runner rolls back the optimistic checkmark instead of writing
@@ -370,6 +373,12 @@ func main() {
 	default:
 		slog.Warn("object storage env vars not set, photo and video upload endpoints will return 503", "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
 	}
+	// The current bucket's public-URL prefix — the recover-videos finder
+	// classifies any stored URL off this prefix as stranded (B-172 class).
+	videoStoragePrefix := ""
+	if spacesClient != nil {
+		videoStoragePrefix = photos.PublicURL(spacesEndpoint, spacesBucket, "")
+	}
 
 	// B-172: constructing the S3 client is offline — a canceled/dead account is
 	// indistinguishable from a live one until a real request. Probe at boot so a
@@ -382,6 +391,13 @@ func main() {
 		}
 		// The unreachable case logs its own slog.Error inside Status.
 	}()
+
+	// B-146 fail-loud: the Toast sync tracker the /api/v1/health handler reads.
+	// Declared here (before the health closure captures it) and constructed +
+	// wired into the worker in the Toast block below. Nil until then — a nil
+	// *toast.SyncStatus Snapshots as {"status":"unknown"}, so health is honest
+	// even if the worker block hasn't run yet or is disabled.
+	var toastSync *toast.SyncStatus
 
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
 	// and /api/v1/inventory/menu-cogs (Phase 999.2).
@@ -476,13 +492,17 @@ func main() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"status":           "ok",
 				"backend_version":  version.Backend,
 				"frontend_version": version.Frontend,
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
 				"storage":          storageHealth.Status(r.Context()),
+				// B-146 fail-loud: Toast sync last-run status. A dead SFTP
+				// transport surfaces here as {"status":"failing", ...} instead
+				// of silently landing no data.
+				"toast_sync": toastSync.Snapshot(),
 			})
 		})
 		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -670,6 +690,8 @@ func main() {
 					r.Post("/items", inventory.CreateItemHandler(pool))
 					r.Put("/items", inventory.UpdateItemHandler(pool))
 					r.Post("/items/merge", inventory.MergeItemsHandler(pool))
+					r.Post("/items/aliases", inventory.AddItemAliasHandler(pool))
+					r.Delete("/items/aliases", inventory.DeleteItemAliasHandler(pool))
 					r.Get("/groups", inventory.ListGroupsHandler(pool))
 					r.Post("/groups", inventory.CreateGroupHandler(pool))
 					r.Put("/groups", inventory.UpdateGroupHandler(pool))
@@ -780,6 +802,9 @@ func main() {
 				r.Get("/hireTraining/{hireId}", onboarding.HireTrainingHandler(pool))
 				r.Get("/managerHires", onboarding.ManagerHiresHandler(pool))
 				r.Post("/saveProgress", onboarding.SaveProgressHandler(pool))
+				r.Post("/overrideVideoWatched", onboarding.OverrideVideoWatchedHandler(pool))
+				r.Post("/recoverVideos", onboarding.RecoverVideosHandler(pool, videoStoragePrefix,
+					onboarding.NewSpacesVideoUploader(spacesClient, spacesBucket, spacesEndpoint)))
 				r.Post("/signOff", onboarding.SignOffHandler(pool))
 				r.Post("/rejectSection", onboarding.RejectSectionHandler(pool))
 				r.Post("/reopenSection", onboarding.ReopenSectionHandler(pool))
@@ -857,6 +882,18 @@ func main() {
 
 		// Wire the alert queue so Plan 04's degraded-Spaces alert can dispatch.
 		toast.SetAlertQueue(alertQ)
+
+		// B-146 fail-loud: the health-facing sync tracker. The worker records
+		// success/failure per cycle; /api/v1/health reads the SAME instance via
+		// toastSync.Snapshot(). Staleness window = 2 sync intervals (default
+		// interval 12h → 24h) so a loop that is up but no longer landing fresh
+		// data reports "stale". Interval 0 (worker disabled) → no stale check.
+		staleAfter := time.Duration(0)
+		if toastCfg.Interval > 0 {
+			staleAfter = 2 * toastCfg.Interval
+		}
+		toastSync = toast.NewSyncStatus(staleAfter)
+		toast.SetSyncStatus(toastSync)
 
 		if toastCfg.Interval == 0 {
 			slog.Info("toast worker disabled, cmd/sync-toast remains available", "reason", "TOAST_SYNC_INTERVAL=0")

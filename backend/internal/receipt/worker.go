@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/photos"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // Test seams. Production callers MUST go through these package-level vars so
@@ -263,6 +264,16 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 //     parse_error, or items (the caller has already confirmed we want a fresh
 //     attempt, and the dup-key handler in createPurchaseEvent will clean up any
 //     residual pending row if the event INSERT fails with a duplicate key).
+// blobWithAttachment pairs a successfully-downloaded receipt blob with the
+// Attachment it came from. Keeping them together (rather than a parallel
+// []FileBlob indexed by position) is what prevents the B-175 misindex: when a
+// download is skipped, the surviving blobs stay bound to their own FileName/URL
+// instead of shifting onto the next attachment's.
+type blobWithAttachment struct {
+	blob FileBlob
+	att  Attachment
+}
+
 func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransaction, reprocess bool) (string, error) {
 	kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 	if err != nil {
@@ -334,31 +345,43 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	// this transaction are sent to Claude in a single multi-image prompt.
 	// This handles the purchase + refund case: both files are seen together,
 	// and Claude returns a single combined summary whose Total is the net.
-	var blobs []FileBlob
+	//
+	// Each surviving blob is kept ALONGSIDE its own attachment in a single
+	// struct — never as a parallel slice indexed by blob position. A failed
+	// download is skipped, so a plain `blobs[i] ↔ tx.Attachments[i]` pairing
+	// shifts every later blob onto the wrong attachment's FileName/URL after
+	// any skip (B-175). Pairing them together keeps the mapping correct while
+	// preserving this path's skip-and-continue semantics (unlike recoverOneTx,
+	// which is all-or-nothing).
+	var blobs []blobWithAttachment
 	for _, att := range tx.Attachments {
 		fb, ct, dlErr := downloadReceiptFileFn(ctx, att.URL)
 		if dlErr != nil {
 			slog.Info(fmt.Sprintf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr))
 			continue
 		}
-		blobs = append(blobs, FileBlob{Bytes: fb, ContentType: ct})
+		blobs = append(blobs, blobWithAttachment{
+			blob: FileBlob{Bytes: fb, ContentType: ct},
+			att:  att,
+		})
 	}
 	if len(blobs) == 0 {
 		slog.Info(fmt.Sprintf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID))
 		return "errored", nil
 	}
 
-	// Upload all attachments to object storage in order. Each gets a
-	// per-index key receipts/{tx.ID}/{i}{ext} so they can coexist.
-	// receiptURLs collects the final public (or fallback Mercury) URL
-	// for each slot. receiptURL (singular) is set to receiptURLs[0]
-	// for backward compat with the existing singular-column INSERT calls.
+	// Upload all surviving attachments to object storage in order. Each gets a
+	// per-slot key receipts/{tx.ID}/{i}{ext} so they can coexist; i is the slot
+	// index among the SURVIVORS (contiguous), and the FileName/URL come from the
+	// blob's own paired attachment — not tx.Attachments[i].
+	// receiptURLs collects the final public (or fallback Mercury) URL for each
+	// slot. receiptURL (singular) is set to receiptURLs[0] for backward compat
+	// with the existing singular-column INSERT calls.
 	receiptURLs := make([]string, 0, len(blobs))
-	for i, blob := range blobs {
-		att := tx.Attachments[i]
-		slotURL := att.URL // fallback: original Mercury URL
+	for i, ba := range blobs {
+		slotURL := ba.att.URL // fallback: original Mercury URL
 		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
-			publicURL, upErr := uploadReceiptSlotFn(ctx, cfg, tx.ID, i, blob, att.FileName)
+			publicURL, upErr := uploadReceiptSlotFn(ctx, cfg, tx.ID, i, ba.blob, ba.att.FileName)
 			if upErr != nil {
 				slog.Info(fmt.Sprintf("receipt worker: upload slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, upErr))
 			} else {
@@ -372,17 +395,24 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		receiptURL = receiptURLs[0]
 	}
 
+	// The parse seams take a flat []FileBlob (order = slot order among the
+	// survivors, matching receiptURLs). Extract from the paired structs.
+	fileBlobs := make([]FileBlob, len(blobs))
+	for i, ba := range blobs {
+		fileBlobs[i] = ba.blob
+	}
+
 	// Parse with Claude Sonnet (via the parseReceipt seam). On transient
 	// failure, retry once (parseReceiptWithSonnet seam, also Sonnet). If the
 	// retry ALSO fails, route to pending review with the concatenated
 	// parse_error so the owner can see WHY parsing failed on the FE pending
 	// card. Phase 260607-e1c (originally Haiku→Sonnet; now Sonnet→Sonnet
 	// after Haiku was retired as primary for producing silent errors).
-	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
+	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBlobs)
 	if parseErr != nil {
 		primaryErr := parseErr
 		slog.Info(fmt.Sprintf("receipt worker: Sonnet failed for tx %s, retrying: %v", tx.ID, primaryErr))
-		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
+		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBlobs)
 		if parseErr != nil {
 			combined := fmt.Sprintf("sonnet: %v; sonnet-retry: %v", primaryErr, parseErr)
 			slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
@@ -440,7 +470,7 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		// the full validate.Reason string, so Claude gets actionable hints
 		// regardless of which check failed.
 		newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
-			ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, validate.Reason)
+			ctx, cfg.AnthropicAPIKey, fileBlobs, summary.Total, tx.Amount, validate.Reason)
 		if feedbackErr != nil {
 			slog.Info(fmt.Sprintf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr))
 			retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
@@ -926,7 +956,12 @@ func backfillPendingVendor(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 	return err
 }
 
-// loadPurchaseItemsMap returns a map of description -> id for all purchase_items.
+// loadPurchaseItemsMap returns a map of name -> id for all purchase_items,
+// including learned aliases (item_aliases) as additional keys. Descriptions
+// take precedence: an alias that case-insensitively collides with any
+// description is skipped, so an alias can never shadow a catalog name.
+// Alias keys make previously human-linked receipt text an exact match in
+// DerivePurchaseItemID, ahead of the fuzzy/AI stages.
 func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]string, error) {
 	rows, err := pool.Query(ctx, `SELECT id, description FROM purchase_items`)
 	if err != nil {
@@ -935,14 +970,36 @@ func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]s
 	defer rows.Close()
 
 	m := make(map[string]string)
+	seen := make(map[string]bool)
 	for rows.Next() {
 		var id, desc string
 		if err := rows.Scan(&id, &desc); err != nil {
 			return nil, fmt.Errorf("loadPurchaseItemsMap scan: %w", err)
 		}
 		m[desc] = id
+		seen[strings.ToLower(desc)] = true
 	}
-	return m, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	aliasRows, err := pool.Query(ctx, `SELECT purchase_item_id, alias FROM item_aliases`)
+	if err != nil {
+		return nil, fmt.Errorf("loadPurchaseItemsMap aliases: %w", err)
+	}
+	defer aliasRows.Close()
+	for aliasRows.Next() {
+		var id, alias string
+		if err := aliasRows.Scan(&id, &alias); err != nil {
+			return nil, fmt.Errorf("loadPurchaseItemsMap alias scan: %w", err)
+		}
+		if seen[strings.ToLower(alias)] {
+			continue
+		}
+		m[alias] = id
+		seen[strings.ToLower(alias)] = true
+	}
+	return m, aliasRows.Err()
 }
 
 // enrichItemsWithMatches populates each item's PurchaseItemID using a
@@ -1021,6 +1078,18 @@ func enrichItemsWithMatches(ctx context.Context, pool *pgxpool.Pool, items []Rec
 
 // parseEventDate extracts a YYYY-MM-DD date string from a Mercury CreatedAt
 // value, which is typically an ISO 8601 timestamp.
+//
+// The returned string is written to pending_purchases.event_date /
+// purchase_events.event_date — a COGS period assignment that WINS the COALESCE
+// in pendingPeriodDateExpr. So the fallback (when CreatedAt matches none of the
+// accepted layouts) MUST be computed in the app's business timezone
+// (users.DefaultTimezone — the single source of truth every other
+// timezone-sensitive site uses), NOT the server's local/UTC date; otherwise a
+// receipt ingested near a period boundary is filed to the wrong week (B-28).
+//
+// The fallback also logs at WARN: an unparseable timestamp is a rare, unmeasured
+// event, and a silently-wrong period is indistinguishable from a correct one.
+// The WARN makes it observable so the wrong period can be found and corrected.
 func parseEventDate(createdAt string) string {
 	for _, layout := range []string{
 		time.RFC3339,
@@ -1031,7 +1100,16 @@ func parseEventDate(createdAt string) string {
 			return t.Format("2006-01-02")
 		}
 	}
-	return time.Now().Format("2006-01-02")
+	now := time.Now()
+	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
+		now = now.In(loc)
+	}
+	fallback := now.Format("2006-01-02")
+	slog.Warn("receipt worker: unparseable Mercury CreatedAt — event_date (COGS period) fell back to today in the business timezone; verify the period assignment",
+		"created_at", createdAt,
+		"fallback_event_date", fallback,
+		"timezone", users.DefaultTimezone)
+	return fallback
 }
 
 func nullableString(s string) interface{} {

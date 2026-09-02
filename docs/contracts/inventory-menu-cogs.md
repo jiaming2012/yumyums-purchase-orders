@@ -1,6 +1,8 @@
 # Phase 999.2 — sales-processor ↔ HQ HTTP Contract (menu-cogs)
 
-**Status:** Authored 2026-06-04 by the planner. Audited row-by-row 2026-08-03.
+**Status:** Authored 2026-06-04 by the planner. Audited row-by-row 2026-08-03. Re-verified against HEAD 2026-09-01.
+
+**Consumed by:** sales-processor — **maintained by the operator, repo not present in this tree** (B-137, established at morning triage 2026-08-03). The operator maintains sales-processor themselves; the repo's absence from this tree does NOT mean an external party. As the box below records, this endpoint has no consumer built against it at all yet. This owner line exists so no future reader re-derives "external" from "absent."
 
 > 🛑 **THIS ENDPOINT HAS NO CONSUMER, confirmed 2026-08-04.** The sales-processor maintainer reports **no `/menu-cogs` client code and no contract document on their side** — nothing has ever been built against this. That is worth stating at the top because it reframes the audit below: of **64 rows checked, 27 were wrong and 22 were never true from the day this was written** — and none of it ever reached a consumer, because there was none. The document drifted from the code, and the code answered nobody.
 >
@@ -110,6 +112,12 @@ Line numbers below (`:NN`) are as this document stood **before** this revision. 
 The never-true bucket is a different failure from the sibling's and it wants a different remedy: the sibling drifted because code moved without the doc; this one was born wrong because the doc was written from the plan and nobody diffed it against the shipped handler — and the page's own claim at `:480` that the tests proved otherwise is what kept anyone from looking.
 
 **No HQ code was changed by this revision.** Every correction moved the document to match the code. Where that is arguably the wrong direction — and here, unlike the sibling, it may genuinely be — see §8.
+
+### Re-verification addendum — 2026-09-01 (run `20260901`, Card 10)
+
+Ahead of the deploy that carries migration `0072`, every published name and expression in this document was re-diffed against `MenuCogsHandler` on the pre-deploy tree (which includes run `20260901`'s Cards 1 and 9). **Result: the 2026-08-03 corrections still hold.** Re-confirmed at source: the summary query selects `mi.name AS menu_item_name`, `mi.master_id AS toast_master_id`, `mi.menu_group`, `mi.menu_subgroup` — there is still **no `menu` field**; the row set is still one row per menu item **with a recipe** (inner `JOIN alloc`, sales LEFT-joined); `ingredient_cost_total` is still `spend * (usage_pct / 100.0)` with **no normalisation divisor**; and none of the four `/menu-cogs` queries carries an `AT TIME ZONE` cast, so this endpoint still does **not** move on the `0072` changeover.
+
+**One additive, non-contract change landed on the pre-deploy tree — Card 9 (`period-summary-visibility`, B-139).** `MenuCogsHandler` now emits one `slog.Info` at the end of the success path — `msg="menu-cogs served"`, keys `from`, `to`, `menu_item_count`, `breakdown`. **This is a server-side log line, not a response-shape change** — the JSON on the wire is unchanged, so no decoder is affected. It is the first-ever success reader for this endpoint (previously it had none); if a consumer is ever built, this line is how HQ confirms from its own side that a `/menu-cogs` request was served, for which window, how many rows came back, and in which query mode.
 
 ---
 

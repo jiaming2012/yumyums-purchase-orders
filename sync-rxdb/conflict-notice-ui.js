@@ -23,7 +23,10 @@
 // `debouncedSaveField` -> `submitOp('SET_FIELD')` -> POST /ops ->
 // DRAFT_RESPONSES -> hydrateFieldState, and replication is not started
 // (`HQ_SYNC_REST_URL` is unset everywhere, so the /sync door answers 503 by
-// design until row-visibility RLS lands).
+// design). The open precondition is the CUTOVER, not row-visibility RLS: that
+// card (`sync-rxdb-row-visibility-rls`) MERGED 2026-08-01, but no page starts
+// replication yet, so setting the var today would start a replication nothing
+// reads. `sync-hard-cutover` switches the producer on.
 //
 // (This comment named `autoSaveField` -> POST /saveResponse until B-65 — a
 // function defined nowhere, and an endpoint no frontend code posts to.

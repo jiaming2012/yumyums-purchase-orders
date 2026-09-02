@@ -630,11 +630,18 @@ test.describe('My Trainings tab', () => {
     // Expand FAQ section
     await faqHeader.click();
 
-    // Verify Q&A items are visible
-    await expect(page.locator('#my-body .faq-q').first()).toBeVisible();
-    // Click a question to see the answer
+    // Verify Q&A rows render their question TEXT. The API serves the question in
+    // `label`; asserting only .faq-q visibility let blank rows pass — the row div
+    // was "visible" on the strength of its disclosure triangle alone.
+    const firstFaq = faqSection.items[0];
+    expect(firstFaq.label, 'seeded FAQ item must carry its question in label').toBeTruthy();
+    await expect(page.locator('#my-body .faq-q').first()).toContainText(firstFaq.label);
+    for (const item of faqSection.items) {
+      await expect(page.locator('#my-body .faq-q', { hasText: item.label })).toBeVisible();
+    }
+    // Click a question to see the answer — with its text, not just a visible box
     await page.locator('#my-body .faq-q').first().click();
-    await expect(page.locator('#my-body .faq-a').first()).toBeVisible();
+    await expect(page.locator('#my-body .faq-a').first()).toContainText(firstFaq.answer);
   });
 });
 
@@ -1734,6 +1741,54 @@ test.describe('Builder tab', () => {
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + created.id);
   });
 
+  test('FAQ question typed in the Builder persists through save (label contract)', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    page.once('dialog', async dialog => {
+      await dialog.accept('FAQ Persist Test');
+    });
+    await page.locator('[data-action="new-template"]').click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    page.once('dialog', async dialog => {
+      await dialog.accept('FAQ Sec');
+    });
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Flip the section into FAQ mode and add a Q&A pair through the Builder UI
+    await page.locator('[data-action="toggle-faq-mode"]').first().click();
+    await page.locator('[data-action="add-faq-item"]').first().click();
+    await page.locator('[data-action="faq-q-input"]').last().fill('Where is the fire extinguisher?');
+    await page.locator('[data-action="faq-a-input"]').last().fill('Mounted by the back door.');
+
+    await page.locator('[data-action="save-template"]').click();
+    await waitForBuilderList(page);
+
+    // The backend's contract stores the question in `label` with type 'faq' —
+    // a Builder that sends `question` (or omits type) loses the item silently.
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const created = templates.find(t => t.name === 'FAQ Persist Test');
+    expect(created, 'created template must be listed via API').toBeTruthy();
+    const full = await obApiCall(page, 'GET', 'templates/' + created.id);
+    const sec = full.sections.find(s => s.is_faq);
+    expect(sec, 'FAQ section must persist with is_faq=true').toBeTruthy();
+    const item = (sec.items || [])[0];
+    expect(item, 'FAQ item must persist').toBeTruthy();
+    expect(item.type, 'FAQ item must save with type faq').toBe('faq');
+    expect(item.label, 'FAQ question must persist in label').toBe('Where is the fire extinguisher?');
+    expect(item.answer, 'FAQ answer must persist').toBe('Mounted by the back door.');
+
+    // And the Builder must show the question after reopen (reads label back)
+    await page.locator('#builder-body .card', { hasText: 'FAQ Persist Test' }).first().click();
+    await expect(page.locator('[data-action="faq-q-input"]').first()).toHaveValue('Where is the fire extinguisher?');
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + created.id);
+  });
+
   test('sub-items persist after save and reopen', async ({ page }) => {
     await login(page);
     await page.goto('/onboarding.html');
@@ -2775,5 +2830,123 @@ test.describe('prove-progress sweep', () => {
   // substitute. PARKED — see the returned report for the precise reason.
   test.skip('FR-18: custom-thumbnail upload persists/renders — PARKED (needs photos/presign + S3 PUT plumbing beyond a fixture)', async () => {
     // Intentionally skipped: PARK trigger (photo/thumbnail plumbing beyond a fixture).
+  });
+});
+
+// ─── Video resilience (2026-08-26): dead media must fail loudly and must not
+// hard-block the hire ─────────────────────────────────────────────────────────
+//
+// ob_video_parts.url is an absolute URL minted at upload time, so a storage
+// move or failed upload leaves a part whose tap produced a SILENT BLACK MODAL,
+// and the completeness gate (95% watched, no override) blocked the checklist
+// forever. Two escape hatches, both operator-ruled: the player states the
+// failure visibly, and a manager can mark the part watched with attribution.
+
+test.describe('Video resilience', () => {
+  test('a dead video source shows the error overlay instead of a silent black modal [OB-VID-ERR]', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await fetch('/api/v1/me')).json());
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Dead Video ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Equipment Training', sort_order: 0,
+        requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{
+          type: 'video_series', label: 'Grill Operation', sort_order: 0, sub_items: [],
+          video_parts: [{ title: 'Pre-heat Procedure', description: '', url: '/videos/definitely-missing.mp4', sort_order: 0 }],
+        }],
+      }],
+    });
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
+    await waitForTrainingRunner(page);
+    // Sections render collapsed — expand before reaching for the thumb.
+    await page.locator('[data-action="toggle-section"]').first().click();
+
+    // Tap the video: the source 404s, and the failure must be VISIBLE.
+    await page.locator('.video-thumb-wrap').first().click();
+    await expect(page.locator('#video-error')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#video-error')).toContainText('Video unavailable');
+
+    // Closing the modal still works from the error state.
+    await page.click('#video-close-btn');
+    await expect(page.locator('#video-modal')).toBeHidden();
+  });
+
+  test('a manager can mark a broken video watched for a hire, with attribution [OB-VID-OVR]', async ({ page }) => {
+    await login(page);
+
+    // A separate hire (the override button never renders on your own training).
+    const inviteResult = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'VideoHire',
+      last_name: 'Ovr',
+      email: 'video.hire.ovr.' + Date.now() + '@yumyums.kitchen',
+      roles: ['team_member'],
+    });
+    expect(inviteResult.user).toBeTruthy();
+    const hireId = inviteResult.user.id;
+    // Accept the invite so the hire becomes active — managerHires only surfaces
+    // active users. accept-invite hijacks the session, so re-login as admin.
+    const token = inviteResult.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    await login(page);
+
+    const tplName = 'Ovr Video ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: tplName,
+      roles: [],
+      sections: [{
+        title: 'Equipment Training', sort_order: 0,
+        requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{
+          type: 'video_series', label: 'Grill Operation', sort_order: 0, sub_items: [],
+          video_parts: [{ title: 'Pre-heat Procedure', description: '', url: 'https://dead-host.invalid/old/preheat.mov', sort_order: 0 }],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: hireId, template_id: tpl.id });
+
+    await page.goto('/onboarding.html');
+    await waitForManagerTab(page);
+    await page.click('#t2');
+    await waitForManagerList(page);
+    // Pre-existing UI race, magnified by suite-length hire lists: the Manager
+    // tab re-renders the list when its managerHires fetch lands, which can
+    // wipe an already-open detail view mid-interaction. Re-open until the
+    // training runner actually sticks.
+    await expect(async () => {
+      const hireCard = page.locator(`[data-action="open-hire"][data-hire-id="${hireId}"]`);
+      if (await hireCard.count()) await hireCard.first().click();
+      await page.locator('#mgr-body .card', { hasText: tplName })
+        .getByText('View Training').click({ timeout: 2500 });
+      await expect(page.locator('#mgr-body [data-action="toggle-section"]').first())
+        .toBeVisible({ timeout: 2500 });
+    }).toPass({ timeout: 25000 });
+    await page.locator('#mgr-body [data-action="toggle-section"]').first().click();
+
+    // The override affordance renders on the unwatched part; the reason is
+    // required and collected via prompt().
+    const overrideBtn = page.locator('.override-watched-btn').first();
+    await expect(overrideBtn).toBeVisible({ timeout: 10000 });
+    page.once('dialog', (d) => d.accept('Video file broken — storage move'));
+    await overrideBtn.click();
+
+    // The part renders as watched WITH attribution — who overrode, and why —
+    // never as if the hire watched it.
+    await expect(page.locator('#mgr-body')).toContainText('Marked watched by', { timeout: 10000 });
+    await expect(page.locator('#mgr-body')).toContainText('Video file broken — storage move');
+    await expect(page.locator('.override-watched-btn')).toHaveCount(0);
   });
 });

@@ -257,6 +257,9 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .chip-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:16px;border:0.5px solid var(--brd);background:var(--card);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
 .chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.alias-chips{display:flex;flex-wrap:wrap;gap:6px}
+.alias-chip{display:inline-flex;align-items:center;gap:4px;cursor:default;color:var(--txt)}
+.alias-chip-x{border:none;background:transparent;color:var(--mut);font-size:15px;line-height:1;padding:0 2px;cursor:pointer}
 .menu-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
 .menu-card-header{display:flex;align-items:center;justify-content:space-between}
 .menu-card-name{font-size:15px;font-weight:600;color:var(--txt)}
@@ -869,10 +872,12 @@ function renderReviewForm(p){
         var linked=ALL_ITEMS.find(function(ci){return ci.id===itemId;});
         if(linked)name=linked.description;
       }
-      // Auto-match against catalog if not already linked
+      // Auto-match against catalog if not already linked — description first,
+      // then learned aliases (receipt names previously linked by a human)
       if(!itemId&&name){
         var nameLower=name.toLowerCase();
-        var match=ALL_ITEMS.find(function(ci){return ci.description.toLowerCase()===nameLower;});
+        var match=ALL_ITEMS.find(function(ci){return ci.description.toLowerCase()===nameLower;})
+          ||ALL_ITEMS.find(function(ci){return (ci.aliases||[]).some(function(a){return a.toLowerCase()===nameLower;});});
         if(match){itemId=match.id;name=match.description;}
       }
       return {name:name,qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case,purchase_item_id:itemId};
@@ -2365,6 +2370,21 @@ async function loadItems(){
   renderItemsList();
 }
 
+function renderAliasChipsHtml(it){
+  var chips=(it.aliases||[]).map(function(a){
+    return '<span class="chip alias-chip">'+escHtml(a)+'<button class="alias-chip-x" data-action="remove-item-alias" data-id="'+it.id+'" data-alias="'+escHtml(a)+'" aria-label="Remove '+escHtml(a)+'">&times;</button></span>';
+  }).join('');
+  return chips||'<span style="font-size:12px;color:var(--mut)">None yet</span>';
+}
+
+// Surgical chip refresh — a full renderItemsList() here would clobber unsaved
+// Name/Group/Location edits in the open edit form.
+function refreshAliasChips(itemId){
+  var it=ALL_ITEMS.find(function(ci){return ci.id===itemId;});
+  var wrap=document.querySelector('.alias-chips[data-id="'+itemId+'"]');
+  if(it&&wrap)wrap.innerHTML=renderAliasChipsHtml(it);
+}
+
 function renderItemsList(){
   var list=document.getElementById('items-list');
   if(!list)return;
@@ -2414,6 +2434,10 @@ function renderItemsList(){
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
         '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+(it.store_location&&!VENDORS.some(function(v){return v.name===it.store_location;})?'<option value="'+escHtml(it.store_location)+'" selected>'+escHtml(it.store_location)+'</option>':'')+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
         '<div class="field-group"><div class="field-label">Location in Store</div><input type="text" class="field-input item-edit-in-store" value="'+escHtml(it.location_in_store||'')+'" placeholder="e.g. Center Aisle, Back of Store"></div>'+
+        '<div class="field-group"><div class="field-label">Nicknames</div>'+
+          '<div class="alias-chips" data-id="'+it.id+'">'+renderAliasChipsHtml(it)+'</div>'+
+          '<div class="add-item-bar" style="margin-top:6px"><input type="text" class="field-input item-alias-input" data-id="'+it.id+'" placeholder="Add nickname or receipt name..." autocomplete="off"><button data-action="add-item-alias" data-id="'+it.id+'">Add</button></div>'+
+          '<div style="font-size:12px;color:var(--mut);margin-top:4px">Receipt names that should match this item. Learned automatically when you link a receipt line.</div></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
@@ -2618,6 +2642,31 @@ document.getElementById('items-list').addEventListener('click',function(e){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('mergeItem',err);});
+  } else if(action==='add-item-alias'){
+    var aliasItemId=el.dataset.id;
+    var aliasInput=document.querySelector('.item-alias-input[data-id="'+aliasItemId+'"]');
+    var alias=aliasInput?aliasInput.value.trim():'';
+    if(!alias)return;
+    var aliasItem=ALL_ITEMS.find(function(ci){return ci.id===aliasItemId;});
+    if(aliasItem&&aliasItem.description.toLowerCase()===alias.toLowerCase()){aliasInput.value='';return;}
+    if(aliasItem&&(aliasItem.aliases||[]).some(function(a){return a.toLowerCase()===alias.toLowerCase();})){aliasInput.value='';return;}
+    api('/api/v1/inventory/items/aliases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:aliasItemId,alias:alias})}).then(function(){
+      // The alias may have been re-pointed from another item — refresh all
+      // aliases from the server so both items render truthfully.
+      return api('/api/v1/inventory/items');
+    }).then(function(data){
+      ALL_ITEMS.forEach(function(ci){var f=(data||[]).find(function(x){return x.id===ci.id;});if(f)ci.aliases=f.aliases||[];});
+      if(aliasInput)aliasInput.value='';
+      refreshAliasChips(aliasItemId);
+    }).catch(function(err){console.error('addItemAlias',err);});
+  } else if(action==='remove-item-alias'){
+    var rmItemId=el.dataset.id;
+    var rmAlias=el.dataset.alias;
+    api('/api/v1/inventory/items/aliases',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:rmItemId,alias:rmAlias})}).then(function(){
+      var rmItem=ALL_ITEMS.find(function(ci){return ci.id===rmItemId;});
+      if(rmItem)rmItem.aliases=(rmItem.aliases||[]).filter(function(a){return a.toLowerCase()!==rmAlias.toLowerCase();});
+      refreshAliasChips(rmItemId);
+    }).catch(function(err){console.error('removeItemAlias',err);});
   } else if(action==='change-item-photo'){
     e.preventDefault();
     ITEM_PHOTO_EDIT_ID=el.dataset.id;
@@ -2898,13 +2947,14 @@ function renderItemModal(query){
   var list=document.getElementById('item-modal-list');
   if(!list)return;
   var q=query.toLowerCase().trim();
-  var matches=ALL_ITEMS.filter(function(it){return !q||it.description.toLowerCase().indexOf(q)!==-1;}).slice(0,30);
+  var matches=ALL_ITEMS.filter(function(it){return !q||it.description.toLowerCase().indexOf(q)!==-1||(it.aliases||[]).some(function(a){return a.toLowerCase().indexOf(q)!==-1;});}).slice(0,30);
   var html='';
 
   matches.forEach(function(it){
+    var aliasHit=q&&it.description.toLowerCase().indexOf(q)===-1?(it.aliases||[]).find(function(a){return a.toLowerCase().indexOf(q)!==-1;}):null;
     html+='<div class="item-modal-item" data-item-id="'+it.id+'" data-item-desc="'+escHtml(it.description)+'">'+
       '<div class="item-modal-item-name">'+escHtml(it.description)+'</div>'+
-      (it.group_name?'<div class="item-modal-item-group">'+escHtml(it.group_name)+'</div>':'')+
+      (aliasHit?'<div class="item-modal-item-group">aka '+escHtml(aliasHit)+'</div>':(it.group_name?'<div class="item-modal-item-group">'+escHtml(it.group_name)+'</div>':''))+
       '</div>';
   });
 
@@ -2980,6 +3030,9 @@ function showCreateItemForm(prefill){
 
 function selectItemFromModal(itemId,itemDesc){
   if(ITEM_MODAL_TARGET){
+    // Learn the raw receipt text as an alias of the picked item BEFORE it is
+    // overwritten below — next receipt carrying this name auto-matches.
+    learnItemAlias(itemId,itemDesc,ITEM_MODAL_TARGET.value.trim());
     ITEM_MODAL_TARGET.value=itemDesc;
     ITEM_MODAL_TARGET.dataset.itemId=itemId;
     // Update visual indicator
@@ -2996,6 +3049,24 @@ function selectItemFromModal(itemId,itemDesc){
     }
   }
   closeItemModal();
+}
+
+// learnItemAlias records raw (the receipt's text for a line) as an alias of
+// the item the user linked it to. Skipped when raw is empty, already the
+// item's name, already one of its aliases, or is some catalog item's
+// description (descriptions always win at match time, so storing it would be
+// dead weight). Server upserts on lower(alias) — re-linking the same receipt
+// text to a different item re-points it.
+function learnItemAlias(itemId,itemDesc,raw){
+  if(!raw||!itemId)return;
+  var rl=raw.toLowerCase();
+  if(rl===String(itemDesc||'').toLowerCase())return;
+  if(ALL_ITEMS.some(function(ci){return ci.description.toLowerCase()===rl;}))return;
+  var it=ALL_ITEMS.find(function(ci){return ci.id===itemId;});
+  if(it&&(it.aliases||[]).some(function(a){return a.toLowerCase()===rl;}))return;
+  api('/api/v1/inventory/items/aliases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:itemId,alias:raw})}).then(function(){
+    if(it)(it.aliases=it.aliases||[]).push(raw);
+  }).catch(function(err){console.error('learnItemAlias',err);});
 }
 
 function persistPendingItems(pendingId){

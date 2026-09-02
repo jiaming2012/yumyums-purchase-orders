@@ -1,11 +1,13 @@
 package receipt
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/testdb"
+	"github.com/yumyums/hq/internal/users"
 )
 
 var testPool *pgxpool.Pool
@@ -3075,5 +3078,176 @@ func TestBatchReprocessFromSpaces_ProcessesEachRow(t *testing.T) {
 	}
 	if result["sp-row3"] != "no_attachments" {
 		t.Errorf("sp-row3 status = %q, want no_attachments", result["sp-row3"])
+	}
+}
+
+// TestParseEventDate_UnparseableFallback_UsesBusinessZoneAndIsObservable pins
+// B-28: when Mercury's CreatedAt matches none of the accepted layouts, the
+// fallback event_date (a COGS period assignment that WINS pendingPeriodDateExpr's
+// COALESCE) MUST be computed in the app's business timezone (users.DefaultTimezone,
+// the single source of truth every other timezone-sensitive site uses) — NOT the
+// server's local/UTC date — and the fallback MUST be observable (WARN log) so a
+// wrong period is distinguishable from a correct one rather than silent.
+//
+// Before the fix: parseEventDate ends `return time.Now().Format("2006-01-02")`,
+// i.e. server-local (UTC in the container) with no log — this test is RED on both
+// the zone assertion (in the UTC-vs-business-zone boundary window) and, definitively,
+// on the observability assertion (no log is emitted at all).
+func TestParseEventDate_UnparseableFallback_UsesBusinessZoneAndIsObservable(t *testing.T) {
+	loc, err := time.LoadLocation(users.DefaultTimezone)
+	if err != nil {
+		t.Fatalf("LoadLocation(%q): %v", users.DefaultTimezone, err)
+	}
+
+	// Capture slog output so we can assert the unparseable path is observable.
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	// A value that matches NONE of parseEventDate's accepted layouts.
+	const unparseable = "not-a-timestamp"
+	got := parseEventDate(unparseable)
+
+	// (a) The fallback must be TODAY in the business zone, not server-local/UTC.
+	wantBusiness := time.Now().In(loc).Format("2006-01-02")
+	if got != wantBusiness {
+		t.Errorf("parseEventDate(%q) = %q, want business-zone date %q (%s); got the server-local/UTC date instead",
+			unparseable, got, wantBusiness, users.DefaultTimezone)
+	}
+
+	// (b) The fallback must be observable: a WARN log naming the unparseable value.
+	logged := buf.String()
+	if logged == "" {
+		t.Errorf("parseEventDate(%q): no WARN log emitted on the unparseable-fallback path — a wrong COGS period is silent (indistinguishable from a correct one)", unparseable)
+	}
+	if logged != "" && !strings.Contains(logged, unparseable) {
+		t.Errorf("parseEventDate(%q): WARN log %q does not name the unparseable value; the observable signal must identify what failed to parse", unparseable, logged)
+	}
+	if logged != "" && !strings.Contains(strings.ToUpper(logged), "WARN") {
+		t.Errorf("parseEventDate(%q): fallback logged at the wrong level (%q); must be WARN so a wrong period surfaces", unparseable, logged)
+	}
+}
+
+// TestParseEventDate_ParseableInputs_UnchangedAndSilent guards that the B-28 fix
+// does not regress the happy path: a well-formed CreatedAt still parses to its own
+// date and emits NO warning (only the unparseable fallback is observable).
+func TestParseEventDate_ParseableInputs_UnchangedAndSilent(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	cases := map[string]string{
+		"2026-05-27T10:00:00Z": "2026-05-27",
+		"2026-05-27":           "2026-05-27",
+	}
+	for in, want := range cases {
+		if got := parseEventDate(in); got != want {
+			t.Errorf("parseEventDate(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if buf.String() != "" {
+		t.Errorf("parseEventDate emitted a warning for well-formed input(s): %q — only the unparseable fallback should be observable", buf.String())
+	}
+}
+
+// TestRunIngestCycle_PartialDownloadFailure_KeepsAttachmentIndexingCorrect pins
+// B-175: the live ingest download loop appends only SUCCESSFUL blobs while skipping
+// failed downloads, then the upload loop indexes tx.Attachments[i] by BLOB index.
+// After a skipped (failed) middle attachment, every later surviving blob pairs with
+// the WRONG attachment's FileName/URL — a one-position shift. With SpacesPresigner
+// nil (as in all worker tests), each slot's stored URL falls back to att.URL, so the
+// misindex is directly observable in pending_purchases.receipt_urls.
+//
+// Setup: 3 attachments; the MIDDLE one (index 1) fails to download. Correct result:
+// the two surviving blobs map to attachments 0 and 2 → receipt_urls == [url0, url2].
+// Under the bug: blob 0 → att[0] (ok), blob 1 → att[1] (WRONG; the failed one) →
+// receipt_urls == [url0, url1], so the assertion on the second URL is RED.
+func TestRunIngestCycle_PartialDownloadFailure_KeepsAttachmentIndexingCorrect(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	const (
+		url0 = "http://fake/first.jpg"
+		url1 = "http://fake/second-FAILS.pdf" // middle attachment — download fails
+		url2 = "http://fake/third.png"
+	)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-partial-dl-misindex",
+			Amount:    -50.00,
+			CreatedAt: "2026-06-07T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: url0, FileName: "first.jpg"},
+				{URL: url1, FileName: "second.pdf"},
+				{URL: url2, FileName: "third.png"},
+			},
+		}},
+		// Summary total doesn't match bank amount → validate-fail → pending row,
+		// which persists receipt_urls so we can inspect the slot→attachment mapping.
+		parseItems: []ReceiptItem{
+			{Name: "Case Chicken", Quantity: 1, Price: 999.99, IsCase: true},
+		},
+		parseSummary: ReceiptSummary{
+			Vendor: "Restaurant Depot",
+			Total:  999.99,
+		},
+	}
+	installWorkerStubs(t, stubs)
+
+	// Override the download seam: the MIDDLE attachment (url1) fails; the others succeed.
+	orig := downloadReceiptFileFn
+	downloadReceiptFileFn = func(_ context.Context, url string) ([]byte, string, error) {
+		if url == url1 {
+			return nil, "", fmt.Errorf("simulated transient download failure for %s", url)
+		}
+		return []byte("FAKE-RECEIPT-BYTES"), "image/jpeg", nil
+	}
+	t.Cleanup(func() { downloadReceiptFileFn = orig })
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+	if result.PendingReview != 1 {
+		t.Fatalf("PendingReview = %d, want 1", result.PendingReview)
+	}
+
+	var receiptURLsRaw []byte
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT receipt_urls FROM pending_purchases WHERE bank_tx_id = $1`,
+		"T-partial-dl-misindex",
+	).Scan(&receiptURLsRaw); err != nil {
+		t.Fatalf("select pending row: %v", err)
+	}
+	if len(receiptURLsRaw) == 0 {
+		t.Fatalf("pending_purchases.receipt_urls is NULL, want JSON array of the 2 surviving attachments")
+	}
+	var gotURLs []string
+	if err := json.Unmarshal(receiptURLsRaw, &gotURLs); err != nil {
+		t.Fatalf("unmarshal receipt_urls: %v", err)
+	}
+
+	// Two attachments survived (0 and 2); the middle (1) failed to download.
+	if len(gotURLs) != 2 {
+		t.Fatalf("receipt_urls length = %d (%v), want 2 (the surviving attachments)", len(gotURLs), gotURLs)
+	}
+	// Slot 0 must be the first surviving attachment's URL.
+	if gotURLs[0] != url0 {
+		t.Errorf("receipt_urls[0] = %q, want %q (attachment 0)", gotURLs[0], url0)
+	}
+	// Slot 1 must be the THIRD attachment's URL (url2) — NOT the failed middle's (url1).
+	// Under the B-175 misindex bug this is url1, the very attachment that failed to download.
+	if gotURLs[1] != url2 {
+		t.Errorf("receipt_urls[1] = %q, want %q (attachment 2, the second survivor); got the WRONG attachment — B-175 misindex after a partial download failure", gotURLs[1], url2)
 	}
 }
