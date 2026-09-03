@@ -48,6 +48,12 @@ type syncOutcome struct {
 	// sftpUnavailable is true if any date hit ErrSFTPUnavailable — dial/auth
 	// failed. This is the B-146 loud case: health failing + immediate alert.
 	sftpUnavailable bool
+	// systemicErr is true if any date hit a post-download systemic error (cache
+	// or Spaces write failure). The transport was reached, but data may not have
+	// persisted.
+	systemicErr bool
+	// syncedCount is the number of dates actually persisted this cycle.
+	syncedCount int
 	// lastErr is the most recent error for the alert/health summary.
 	lastErr error
 }
@@ -73,6 +79,21 @@ func handleSyncOutcome(o syncOutcome, status *SyncStatus, enqueue alertEnqueuer)
 			})
 		}
 		slog.Error("toast worker: ALERT dispatched (SFTP unavailable)", "message", msg)
+		return
+	}
+	// Reached SFTP but persisted 0 dates because of systemic (cache/Spaces write)
+	// errors — data is NOT landing, so this is not a clean success. Report health
+	// failing so /health tells the truth immediately; the Cliq alert is left to
+	// the consecutive-failure counter (D-06) to avoid firing on a single transient
+	// write hiccup. Distinct from an all-MISS cycle (systemicErr=false, nothing to
+	// pull), which stays a healthy success.
+	if o.systemicErr && o.syncedCount == 0 {
+		summary := "reached SFTP but persisted 0 dates (systemic write error)"
+		if o.lastErr != nil {
+			summary = o.lastErr.Error()
+		}
+		status.RecordFailure(summary)
+		slog.Error("toast worker: cycle reached SFTP but persisted nothing", "summary", summary)
 		return
 	}
 	if o.reachedSFTP {
@@ -223,6 +244,8 @@ func runCycle(ctx context.Context, cfg Config) {
 		handleSyncOutcome(syncOutcome{
 			reachedSFTP:     reachedSFTP,
 			sftpUnavailable: sftpUnavailable,
+			systemicErr:     syncSystemicErr,
+			syncedCount:     syncedCount,
 			lastErr:         lastSyncErr,
 		}, syncStatus, enqueue)
 	}

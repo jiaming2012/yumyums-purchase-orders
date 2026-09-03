@@ -121,6 +121,41 @@ func TestHandleSyncOutcome_Success_NoAlert(t *testing.T) {
 	}
 }
 
+// TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud: a cycle that
+// opened SFTP but persisted 0 dates because of systemic (cache/Spaces write)
+// errors is NOT a success — data is not landing. Health must read failing, not
+// ok. This is the 2026-09-03 residual: after the key fix, a cache-dir permission
+// error left synced=0 yet /health reported toast_sync:ok.
+func TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud(t *testing.T) {
+	status := NewSyncStatus(0)
+	sink := newFakeAlertSink()
+
+	handleSyncOutcome(syncOutcome{
+		reachedSFTP: true,
+		systemicErr: true,
+		syncedCount: 0,
+		lastErr:     errors.New("mkdir cache: permission denied"),
+	}, status, sink.enqueue)
+
+	if got := status.Snapshot().Status; got != SyncFailing {
+		t.Fatalf("reached-but-persisted-nothing: health %q, want %q", got, SyncFailing)
+	}
+}
+
+// TestHandleSyncOutcome_AllMiss_IsHealthy: reached SFTP, 0 synced, but NO
+// systemic errors (every date past retention / not present) is a HEALTHY cycle —
+// "nothing new to pull" must not be reported as a failure.
+func TestHandleSyncOutcome_AllMiss_IsHealthy(t *testing.T) {
+	status := NewSyncStatus(0)
+	sink := newFakeAlertSink()
+
+	handleSyncOutcome(syncOutcome{reachedSFTP: true, systemicErr: false, syncedCount: 0}, status, sink.enqueue)
+
+	if got := status.Snapshot().Status; got != SyncOK {
+		t.Fatalf("all-miss cycle: health %q, want %q", got, SyncOK)
+	}
+}
+
 // TestSyncDate_KeyUnreadable_ReturnsUnavailable pins the 2026-09-02 prod silent
 // death. /app/id_rsa was a DIRECTORY (docker bind-mounted a missing source), so
 // os.ReadFile failed "is a directory". The old code returned that as a PLAIN

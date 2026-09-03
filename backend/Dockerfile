@@ -91,6 +91,16 @@ WORKDIR /app
 COPY --from=builder /out/server /app/server
 COPY backend/config /app/config
 
+# Toast forensic cache (a mirror of the durable Spaces archive; ephemeral). The
+# worker writes each pulled CSV here BEFORE uploading to Spaces, so the dir must
+# be writable by the non-root app user. /app is root-owned and the default
+# TOAST_CACHE_DIR is relative (backend/cache/toast -> /app/backend/...), which the
+# app user cannot create -> "mkdir backend: permission denied", 0 dates persisted
+# (surfaced 2026-09-03 once the SFTP key was fixed). Create a chowned dir and
+# point the worker at it.
+RUN mkdir -p /app/cache/toast && chown -R app:app /app/cache
+ENV TOAST_CACHE_DIR=/app/cache/toast
+
 USER app
 EXPOSE 8080
 
