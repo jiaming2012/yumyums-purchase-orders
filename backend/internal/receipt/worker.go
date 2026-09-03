@@ -155,16 +155,30 @@ func RunIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 	return runIngestCycle(ctx, cfg)
 }
 
-// runIngestCycle executes one full Mercury → parse → validate → persist cycle.
+// RunIngestCycleWindow runs one ingest cycle over an EXPLICIT [from,to] window
+// instead of the rolling lookback. Powers the on-demand "deep re-sync": the
+// rolling 14-day window can't reach a charge the operator re-categorised in
+// Mercury months ago, so this re-pulls an older range and the per-tx refresh
+// (below) updates mercury_category on the existing pending/event rows.
+func RunIngestCycleWindow(ctx context.Context, cfg WorkerConfig, from, to time.Time) (IngestResult, error) {
+	return runIngestCycleWindow(ctx, cfg, from, to)
+}
+
+// runIngestCycle executes one full Mercury → parse → validate → persist cycle
+// over the rolling LookbackDays window.
 func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error) {
 	lookback := cfg.LookbackDays
 	if lookback <= 0 {
 		lookback = 14
 	}
-
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, 0, -lookback)
+	return runIngestCycleWindow(ctx, cfg, startDate, endDate)
+}
 
+// runIngestCycleWindow is the shared body: fetch the [startDate,endDate] window,
+// refresh mercury_category / vendor on existing rows, and process each tx.
+func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endDate time.Time) (IngestResult, error) {
 	txns, err := fetchTransactions(ctx, cfg.MercuryAPIKey, startDate, endDate)
 	if err != nil {
 		return IngestResult{}, fmt.Errorf("runIngestCycle: FetchTransactions: %w", err)
@@ -311,6 +325,12 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 				return "cached", nil
 			}
 		}
+	case "discarded":
+		// The operator explicitly discarded this charge. Do NOT re-ingest it —
+		// a re-sync must never resurrect a discarded row as a fresh active
+		// pending (the "discarded charge reappeared after Sync Receipts" bug).
+		// Skip idempotently, in both normal and reprocess paths.
+		return "cached", nil
 	case "none":
 		// New transaction — fall through to ingest.
 	}
@@ -630,27 +650,44 @@ func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction
 //                     (operator added line items already) is never clobbered
 //                     by a worker re-parse.
 //
-// For kind="event" and kind="none", hasParseError and hasItems are always
-// false — callers should not branch on them in those cases.
+// For kind="event", kind="discarded", and kind="none", hasParseError and
+// hasItems are always false — callers should not branch on them in those cases.
 //
-// Discarded pending rows return kind="none" — the user explicitly threw the
-// row away, so the worker is free to re-process the same bank_tx_id.
+//   - kind "discarded" → a discarded pending_purchases row exists and there is
+//     no active/confirmed row for this bank_tx_id. The operator threw the charge
+//     away; the worker must SKIP it (return "cached") so a re-sync inside the
+//     lookback window can't resurrect it as a fresh active pending row.
+//
+// Reversed 2026-09-03: discarded rows used to return "none" (re-ingest allowed),
+// which resurrected any discarded charge on the next sync — the operator
+// discarded a non-COGS charge and it kept reappearing. Un-discarding is now an
+// explicit action, not a side effect of syncing.
 func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, hasParseError, hasItems bool, err error) {
+	// Priority-ordered so a bank_tx_id that (from pre-fix data) has BOTH a
+	// discarded row and an active one still resolves to the actionable kind:
+	// event > confirmed > active-pending > discarded.
 	err = pool.QueryRow(ctx, `
-		SELECT 'event' AS kind, '' AS reason, false AS has_parse_error, false AS has_items
-		  FROM purchase_events WHERE bank_tx_id = $1
-		UNION ALL
-		SELECT 'event' AS kind, COALESCE(reason,'') AS reason, false, false
-		  FROM pending_purchases
-		 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
-		UNION ALL
-		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason,
-		       (parse_error IS NOT NULL),
-		       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0)
-		  FROM pending_purchases
-		 WHERE bank_tx_id = $1
-		   AND confirmed_at IS NULL
-		   AND discarded_at IS NULL
+		SELECT kind, reason, has_parse_error, has_items FROM (
+			SELECT 1 AS pri, 'event' AS kind, '' AS reason, false AS has_parse_error, false AS has_items
+			  FROM purchase_events WHERE bank_tx_id = $1
+			UNION ALL
+			SELECT 2, 'event', COALESCE(reason,''), false, false
+			  FROM pending_purchases
+			 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
+			UNION ALL
+			SELECT 3, 'pending', COALESCE(reason,''),
+			       (parse_error IS NOT NULL),
+			       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0)
+			  FROM pending_purchases
+			 WHERE bank_tx_id = $1
+			   AND confirmed_at IS NULL
+			   AND discarded_at IS NULL
+			UNION ALL
+			SELECT 4, 'discarded', '', false, false
+			  FROM pending_purchases
+			 WHERE bank_tx_id = $1 AND discarded_at IS NOT NULL
+		) t
+		ORDER BY pri
 		LIMIT 1`, bankTxID).Scan(&kind, &reason, &hasParseError, &hasItems)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "none", "", false, false, nil

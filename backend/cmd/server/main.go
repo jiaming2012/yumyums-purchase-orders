@@ -671,6 +671,12 @@ func main() {
 						return receipt.RunIngestCycle(ctx, receiptCfg)
 					}))
 					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
+					// Deep re-sync over an explicit date range — re-pulls older
+					// transactions so mercury_category on existing rows is refreshed
+					// (the rolling lookback can't reach months-old charges).
+					r.Post("/purchases/deep-sync", inventory.DeepSyncReceiptsHandler(pool, func(ctx context.Context, from, to time.Time) (receipt.IngestResult, error) {
+						return receipt.RunIngestCycleWindow(ctx, receiptCfg, from, to)
+					}))
 					r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
 						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
 					}))

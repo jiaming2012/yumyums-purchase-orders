@@ -268,3 +268,95 @@ func TestSyncReceipts_Goroutine_RecoversFromPanic(t *testing.T) {
 			rec2.Code, rec2.Body.String())
 	}
 }
+
+// TestDeepSyncReceiptsHandler_Validation covers the date-range validation the
+// deep-sync endpoint adds on top of the shared single-flight machinery.
+func TestDeepSyncReceiptsHandler_Validation(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetSyncRuns(t)
+	noop := func(_ context.Context, _, _ time.Time) (receipt.IngestResult, error) {
+		return receipt.IngestResult{}, nil
+	}
+	h := DeepSyncReceiptsHandler(testPool, noop)
+
+	cases := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"invalid json", `{`, 400},
+		{"bad from", `{"from":"nope","to":"2026-05-31"}`, 400},
+		{"bad to", `{"from":"2026-05-01","to":"nope"}`, 400},
+		{"from after to", `{"from":"2026-06-01","to":"2026-05-01"}`, 400},
+		{"range too large", `{"from":"2020-01-01","to":"2026-05-01"}`, 400},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			resetSyncRuns(t)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/deep-sync", strings.NewReader(c.body))
+			h(rec, req)
+			if rec.Code != c.want {
+				t.Errorf("code=%d want %d (body=%s)", rec.Code, c.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+// TestDeepSyncReceiptsHandler_HappyPath asserts a valid range starts a 'deep'
+// run and invokes the runner with the requested window (to normalised to the
+// end of the `to` day).
+func TestDeepSyncReceiptsHandler_HappyPath(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetSyncRuns(t)
+
+	type win struct{ from, to time.Time }
+	ch := make(chan win, 1)
+	runner := func(_ context.Context, from, to time.Time) (receipt.IngestResult, error) {
+		ch <- win{from, to}
+		return receipt.IngestResult{Processed: 3}, nil
+	}
+	h := DeepSyncReceiptsHandler(testPool, runner)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/deep-sync", strings.NewReader(`{"from":"2026-05-01","to":"2026-05-31"}`))
+	h(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("code=%d body=%s want 200", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v (raw=%s)", err, rec.Body.String())
+	}
+	if body["status"] != "running" {
+		t.Errorf("status=%v want running", body["status"])
+	}
+	if body["from"] != "2026-05-01" || body["to"] != "2026-05-31" {
+		t.Errorf("from/to = %v/%v want 2026-05-01/2026-05-31", body["from"], body["to"])
+	}
+
+	select {
+	case w := <-ch:
+		if w.from.Format("2006-01-02") != "2026-05-01" {
+			t.Errorf("runner from = %v, want 2026-05-01", w.from)
+		}
+		if w.to.Format("2006-01-02") != "2026-05-31" {
+			t.Errorf("runner to = %v, want 2026-05-31 (end of day)", w.to)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("runner was not invoked within 3s")
+	}
+
+	var triggeredBy string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT triggered_by FROM receipt_sync_runs ORDER BY id DESC LIMIT 1`).Scan(&triggeredBy); err != nil {
+		t.Fatalf("query row: %v", err)
+	}
+	if triggeredBy != "deep" {
+		t.Errorf("triggered_by = %q, want deep", triggeredBy)
+	}
+}

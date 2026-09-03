@@ -983,6 +983,65 @@ func TestRunIngestCycle_SkipsExistingPurchaseEvent(t *testing.T) {
 	}
 }
 
+// TestRunIngestCycle_DiscardedRowStaysDiscarded is the RED-FIRST regression for
+// the "discarded charge reappears after sync" bug (operator discarded a non-COGS
+// charge; the next Sync Receipts brought it back). A discarded no-attachment row
+// exists and Mercury still returns the same tx (it's inside the lookback window);
+// the cycle MUST NOT create a new active pending row.
+func TestRunIngestCycle_DiscardedRowStaysDiscarded(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Operator discarded this unreceipted charge.
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, discarded_at)
+		VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb, now())`,
+		"T-discard-stick", -39.11, "Thompsongas",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Mercury re-returns the same unreceipted tx on the next sync.
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-discard-stick",
+			Amount:    -39.11,
+			CreatedAt: "2026-05-13T10:00:00Z",
+			// no Attachments → no-attachment branch
+		}},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	// The discarded row must be treated as terminal → cached, not re-ingested.
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0 (discarded charge must not be re-ingested)", result.PendingReview)
+	}
+
+	var activeCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases
+		  WHERE bank_tx_id='T-discard-stick'
+		    AND confirmed_at IS NULL AND discarded_at IS NULL`,
+	).Scan(&activeCount); err != nil {
+		t.Fatalf("count active pending: %v", err)
+	}
+	if activeCount != 0 {
+		t.Errorf("active pending rows = %d, want 0 — the discarded charge resurrected as a new active row", activeCount)
+	}
+}
+
 // TestClassifyExistingTx is a pure unit test (no worker stubs) for the
 // 3-way classifyExistingTx helper that replaces bankTxIDExists.
 func TestClassifyExistingTx(t *testing.T) {
@@ -1025,7 +1084,11 @@ func TestClassifyExistingTx(t *testing.T) {
 		}
 	})
 
-	t.Run("discarded pending row → none (re-ingest allowed)", func(t *testing.T) {
+	t.Run("discarded pending row → discarded (re-ingest blocked)", func(t *testing.T) {
+		// Reversed contract (2026-09-03): a discarded charge must STAY gone. The
+		// old behavior ("none" → re-ingest allowed) resurrected any discarded
+		// charge inside the 14-day lookback on the next sync — the operator
+		// discarded a non-COGS charge and it reappeared.
 		resetReceiptFixtures(t)
 		if _, err := testPool.Exec(t.Context(), `
 			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, discarded_at)
@@ -1038,8 +1101,8 @@ func TestClassifyExistingTx(t *testing.T) {
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
-		if kind != "none" {
-			t.Errorf("kind = %q, want %q (discarded rows MUST NOT block re-ingest)", kind, "none")
+		if kind != "discarded" {
+			t.Errorf("kind = %q, want %q (discarded rows MUST block re-ingest)", kind, "discarded")
 		}
 	})
 

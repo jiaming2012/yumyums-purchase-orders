@@ -352,7 +352,17 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div class="sync-bar">
       <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
       <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Reprocess All Pending</button>
+      <button id="deep-sync-btn" class="sync-btn" type="button" style="display:none">Deep Sync…</button>
       <div id="sync-receipts-chip" style="display:none"></div>
+    </div>
+    <div id="deep-sync-panel" style="display:none;background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Re-pull Mercury for an older date range to refresh categories (the normal sync only reaches the last 14 days).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <label style="font-size:12px;color:var(--mut)">From<br><input type="date" id="deep-from" style="padding:6px"></label>
+        <label style="font-size:12px;color:var(--mut)">To<br><input type="date" id="deep-to" style="padding:6px"></label>
+        <button id="deep-sync-run" class="sync-btn" type="button">Run</button>
+        <button id="deep-sync-cancel" class="sync-btn" type="button">Cancel</button>
+      </div>
     </div>
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
@@ -463,6 +473,9 @@ let BADGE_RESET_FORM_OPEN=false;
 var SYNC_STATE=null;
 var SYNC_POLL_TIMER=null;
 var SYNC_CHIP_DISMISSED_ID=null;
+// Requested range of the last deep sync this tab started ({id,from,to}) — used
+// only for honest chip copy; the server row doesn't persist the window.
+var DEEP_SYNC_RANGE=null;
 var SYNC_POLL_MS=3000;
 
 function syncEscapeHTML(str){
@@ -506,6 +519,16 @@ function renderSyncUI(){
       parts.push(s.pending_review+' still pending');
       if(s.cached>0)parts.push(s.cached+' errored');
       headline='Reprocessed '+s.processed+' pending';
+    } else if(s.triggered_by==='deep'){
+      // Deep re-sync over an explicit range. The row carries lookback_days too
+      // (injected for every row), so this branch MUST come before the lookback
+      // branch or the chip would show a wrong rolling-window date. The requested
+      // range lives in DEEP_SYNC_RANGE (set when this tab triggered it).
+      parts=[s.processed+' checked'];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+      if(s.cached>0)parts.push(s.cached+' skipped');
+      headline=(DEEP_SYNC_RANGE&&DEEP_SYNC_RANGE.id===s.id)?('Deep sync '+DEEP_SYNC_RANGE.from+' → '+DEEP_SYNC_RANGE.to):'Deep sync complete';
     } else if(typeof s.lookback_days==='number' && s.lookback_days>0){
       // Manual / unknown trigger with a fresh backend — show the lookback start date.
       var startMs=new Date(s.started_at).getTime() - s.lookback_days*86400*1000;
@@ -598,9 +621,57 @@ async function triggerSync(){
 // Called after CURRENT_USER is loaded and after each renderHistoryList so the
 // button visibility stays in sync with the user's role.
 function showReprocessBtn(){
+  var admin=isAdmin();
   var btn=document.getElementById('reprocess-all-btn');
-  if(!btn)return;
-  btn.style.display=isAdmin()?'':'none';
+  if(btn)btn.style.display=admin?'':'none';
+  var dbtn=document.getElementById('deep-sync-btn');
+  if(dbtn)dbtn.style.display=admin?'':'none';
+}
+
+// Deep Sync — re-pull Mercury over an explicit date range so months-old charges
+// get their category refreshed (the rolling sync only reaches 14 days).
+function toggleDeepSyncPanel(){
+  var panel=document.getElementById('deep-sync-panel');
+  if(!panel)return;
+  var opening=panel.style.display==='none';
+  panel.style.display=opening?'':'none';
+  if(opening){
+    var from=document.getElementById('deep-from');
+    var to=document.getElementById('deep-to');
+    // Default to a recent 90-day window; operator adjusts to reach older charges.
+    var now=new Date();
+    var prior=new Date(now.getTime()-90*86400*1000);
+    if(to&&!to.value)to.value=now.toISOString().slice(0,10);
+    if(from&&!from.value)from.value=prior.toISOString().slice(0,10);
+  }
+}
+
+async function triggerDeepSync(){
+  var fromEl=document.getElementById('deep-from');
+  var toEl=document.getElementById('deep-to');
+  var from=fromEl&&fromEl.value, to=toEl&&toEl.value;
+  if(!from||!to){alert('Pick both a From and To date.');return;}
+  if(from>to){alert('From date must be on or before To date.');return;}
+  var runBtn=document.getElementById('deep-sync-run');
+  if(runBtn)runBtn.disabled=true;
+  try{
+    var res=await fetch('/api/v1/inventory/purchases/deep-sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:from,to:to})});
+    if(res.status===409){await refreshSyncStatus();showToastMessage('Another sync is already running.');return;}
+    var body=await res.json();
+    if(!res.ok||body.error){throw new Error(body.error||('HTTP '+res.status));}
+    DEEP_SYNC_RANGE={id:body.id,from:from,to:to};
+    SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'deep'};
+    SYNC_CHIP_DISMISSED_ID=null;
+    var panel=document.getElementById('deep-sync-panel');
+    if(panel)panel.style.display='none';
+    showToastMessage('Deep sync '+from+' → '+to+' running…');
+    renderSyncUI();
+    startSyncPoll();
+  }catch(e){
+    alert('Could not start deep sync: '+e.message);
+  }finally{
+    if(runBtn)runBtn.disabled=false;
+  }
 }
 
 async function triggerReprocessAll(){
@@ -630,6 +701,9 @@ document.addEventListener('click',function(e){
   if(!t)return;
   if(t.id==='sync-receipts-btn'){triggerSync();return;}
   if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
+  if(t.id==='deep-sync-btn'){toggleDeepSyncPanel();return;}
+  if(t.id==='deep-sync-run'){triggerDeepSync();return;}
+  if(t.id==='deep-sync-cancel'){var dp=document.getElementById('deep-sync-panel');if(dp)dp.style.display='none';return;}
   if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
     if(SYNC_STATE)SYNC_CHIP_DISMISSED_ID=SYNC_STATE.id;
     renderSyncUI();
@@ -858,7 +932,13 @@ function renderPendingCard(p){
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
   }
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  // Surface Mercury's own category so the operator can see why a charge is (or
+  // isn't) auto-hidden: a non-food category outside the COGS allowlist would be
+  // filtered out server-side; 'uncategorised' (NULL) falls through and stays
+  // visible by design.
+  var mcat=p.mercury_category;
+  var catHtml='<div class="event-meta" style="margin-top:2px;font-size:11px">Mercury: '+(mcat?escHtml(mcat):'<span style="opacity:.65;font-style:italic">uncategorised</span>')+'</div>';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
