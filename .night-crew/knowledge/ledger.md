@@ -3595,3 +3595,53 @@ writes run records. This target has no reflections store; recorded as an absence
   treat those docs as the spec of record — re-diff a contract's stated SQL against its handler
   whenever the handler changes, and notify the peer (even when the peer is yourself) before the
   change ships, because the notice is the pre-deploy checklist, not a courtesy.
+
+### T-49 — Prod deployed, Toast ingest resurrected, fail-loud actually made to hold (2026-09-03, attended-delegated)
+
+The "Prod current and honest" deploy landed and the Toast pipeline is genuinely alive again
+after ~5 weeks dead. Told as the user stories the work served:
+
+- **As the owner whose payroll rides HQ's numbers, I want production running today's code —**
+  and it does. `dev` → `main` shipped and `task prod:deploy` ran on the winbox; prod
+  `/api/v1/health` `git_sha` is `80ce737` == `origin/main` (SHA-verified parity, not the
+  semver false-green of B-349). Backend `0.4.0` / frontend `1.5.0`. **Close-bar leg 1: MET.**
+
+- **As that same owner, I want the weekly numbers computed from real sales —** and Toast ingest
+  now lands them. Root cause of the outage: the SFTP key was **never placed** on the box, so
+  Docker's `./id_rsa:/app/id_rsa` bind-mount created an empty **directory** at the source. The
+  real key (from `sales-processor/creds/id_rsa`, the same key that peer uses; `ssh-rsa`,
+  sha256 `a0fba834…`) was placed on the prod box this session and verified byte-identical. First
+  boot cycle after the fix: **7 days synced (20260827–20260902), 52 sales rows upserted**, real
+  `toast/YYYYMMDD/` archives in Spaces + cache. **Close-bar leg 2: MET.**
+
+- **As the operator, I want a dead Toast pipeline to announce itself, never masquerade as
+  healthy.** This is the milestone's whole reason to exist, and on the first deploy it was
+  violated live: the key-as-directory made every sync fail while `/health` still said
+  `toast_sync: ok`. Four fixes now make it hold (all red-first, `internal/toast` green):
+  1. An **unreadable key** is a dead transport → classified `ErrSFTPUnavailable` → health
+     `failing` + Cliq alert, instead of a plain error the worker mistook for a live-transport
+     hiccup and recorded as success (`sync.go`).
+  2. The **boot guard** required only `os.Stat`, which passes on a directory; it now requires a
+     regular, readable, non-empty file and fails fast (`os.Exit`) otherwise (`config.go`).
+     Operator's standing choice, recorded: **fail loudly** — the server refuses to boot on a bad
+     key rather than run degraded-and-silent.
+  3. The forensic **cache dir** was uncreatable by the non-root container user (`/app` root-owned;
+     `mkdir backend: permission denied`), which blocked every date — masked until the key was
+     fixed. The image now ships a chowned `/app/cache/toast` and pins `TOAST_CACHE_DIR`
+     (`Dockerfile`).
+  4. A cycle that **reached SFTP but persisted 0 dates** due to write errors still reported `ok`;
+     it now reports `failing` (an all-miss "nothing to pull" cycle stays healthy) (`worker.go`).
+
+  **Close-bar leg 3 (kill-drill): now possible but not yet witnessed.** Before these fixes the
+  drill could not have passed — the pipeline could die silently. The operator's personal
+  observation of a deliberate break announcing itself remains the close requirement.
+
+- **Deploy-flow lesson (B-349, target-side now shipped):** the first deploy attempt failed on the
+  wrong machine, the second silently shipped 9-day-stale `main` because the `dev→main` merge was
+  never automated. `task prod:ship` / `prod:release` + a fail-loud stale-guard in `prod:deploy`
+  shipped this session; the `/nc-status` + close-bar prod-`git_sha` awareness remain the
+  clone-side half.
+
+Commits: `2a704ef` (key-read + boot guard), `80ce737` (cache dir + persist-0 honesty), plus the
+prod:ship tooling and the §4 changeover stamp. Milestone close still pending leg 3 + the operator
+personally seeing all three.
