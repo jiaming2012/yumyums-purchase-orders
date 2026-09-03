@@ -3693,3 +3693,50 @@ through the tunnel: **12 MET · 0 PARTIAL · 2 NOT MET** across 14 KRs (Product 
   `milestone-close hq 20260903`), verified by handle (`verify-transfers` 1/1 backed). Marker
   `hq-20260903` written — carrying no boundary, as every marker here does while nothing writes run
   records. This target has no reflections store; recorded as an absence.
+
+### T-51 roadmap round — next milestone "Close the loop" authored, 2026-09-03 (attended `/nc-roadmap-round`)
+
+Milestone-boundary planning round. Preconditions confirmed clean: "Prod current and honest" CLOSED
+(T-50, marker `hq-20260903`), scorecard shows no `Advisory:` (no untriaged run), no open operator
+fork. Two documented absences: **no `/nc-retro`** preceded this round (proceeded on the T-50 close
+record + backlog + OKR grades), and **no `openspec/`** in this target (cards are plain-markdown
+items; no OpenSpec deferral markers apply). Previous pair archived to
+`reference/roadmap-2026-09-03-prod-current-and-honest.md` + `reference/okrs-2026-09-03-prod-current-and-honest.md`.
+
+- **Scope (operator call):** the **whole** QR offline-redemption handoff becomes one milestone —
+  **"Close the loop"** (a code issued to a customer becomes a money-tied, campaign-attributable
+  redemption at the window, offline-safe). 8 activities (0, A–G), 17 cards, build-order-gated.
+  Design of record: `docs/qr-offline-redemption-handoff.md`, **synced this round to the §19-addendum
+  version** from `~/projects/yumyums/marketing/qr-redemption/`.
+- **Engineering calls decided at this round** (revisitable in Activity 0's spike if field-obs #6
+  changes device topology): **R1** — the RxDB "reuse" is greenfield (the sync-rxdb cutover never
+  happened in prod); **R2** — the scanner's online submit is orchestrated by the §18 gstate machine
+  in HQ Go while Supabase's atomic `redeem()` stays the **sole** single-use arbiter; **R3** —
+  replicate **all non-expired offers** to every tablet (not bloat: ~1 KB/doc all-in →
+  1,000 customers × 2 offers ≈ ~2 MB, bounded by `expires_at > now()` and decoupled from lifetime
+  customer count) as the **primary** offline path, with the QR's **embedded offer** (D-KR3) as the
+  not-yet-synced fallback. The earlier "bloat" framing was retracted on the operator's arithmetic
+  challenge.
+- **Design refinements folded in from the §19 addendum:** **F5** auto-apply/"best offer" is CUT
+  (app displays offers; staff apply in Toast) — fixed a live contradiction in P-KR2's wording;
+  **F2** unverifiable-code offline override with a new `unverified_code` column on `scan_attempts`;
+  **F4** `RaceLostReconciled` domain event → Shift-Manager notification; **F1** connectivity as an
+  orthogonal region (+ `stale` state); **F3** stale already-used (reject offline / server-wins
+  online); **F6** in-session re-scan dedupe. The client scanner's state-machine approach
+  (**XState vs a hand-rolled parallel-region machine**) is deferred to a **spike near Activity C**,
+  not decided in the abstract — operator's call.
+- **OKRs authored beside the roadmap** (§15j.42), `night-crew okr validate` clean and
+  `okr dry-run` 15/15 rehearsed, 0 refused: **15 KRs** (Product 4 · Delivery 3 · Engineering 4 ·
+  QA 4), modes **4 attested · 3 derived · 8 disclosed-deferred** (greenfield surfaces honestly
+  disclosed-deferred; the two carried QA-infra KRs + the delivery compliance-mechanism KR are
+  derived). Close bar = three operator-verifiable legs (a real end-to-end redemption + "already
+  used" re-scan; the join lands `matched` T+1; offline-safe-by-policy both branches).
+- **Backlog dispositions:** QR handoff promoted whole → Activities 0–F; the two NOT-MET QA KR
+  producers (`backlog-machine-migration` Q-KR2, `team-records-from-hand-runs` Q-KR3) re-promoted →
+  Activity G; `media-recovery` (B-173) left open (unrelated, carried); the **46 CLI-visible `new`
+  items were not individually walked** this round (scoped to the handoff) and stay `new` — a
+  dedicated backlog walk is worth scheduling after `backlog-machine-migration` makes the legacy
+  entries machine-visible. `BACKLOG.md` unedited (dispositions recorded in the roadmap).
+- **Next (correct flow, target repo):** `/nc-spike-open` on Activity 0 (prove #6, the race, RxDB
+  feasibility) → the `/nc-pm-session` → `/nc-pm-grill-back` evening → `/nc-slate-plan` (gated on
+  the spike extraction records) → overnight run. `/nc-slate-plan` is last, not next.

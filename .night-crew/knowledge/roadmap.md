@@ -1,325 +1,454 @@
-# Roadmap — "Prod current and honest" cycle (ship what dev proved, and make prod unable to lie)
+# Roadmap — "Close the loop" cycle (a scannable code becomes money-tied, campaign-attributable revenue — offline, at the window)
 
-> **Cycle:** Prod current and honest — production runs today's code, ingests sales again, and
-> tells its consumers the truth when something moves. **Traces to:**
-> `.night-crew/knowledge/okrs.md` (Product / Delivery / Engineering / QA, authored in the same
-> sitting per DESIGN §15j.42). **Produced:** 2026-08-28 attended `/nc-roadmap-round`, at the
-> milestone boundary. Previous cycle ("Sync, dev complete") archived at
-> `reference/roadmap-2026-08-28-sync-dev-complete.md` +
-> `reference/okrs-2026-08-28-sync-dev-complete.md`; its close at ledger T-45 (close line,
-> marker `hq-20260828`); its retro at `reference/retro-sync-dev-complete.md`.
->
-> **Trigger — stated plainly.** The last cycle ended with the sync capability attested by the
-> operator's own hands **in dev** — and production meanwhile running code from before two
-> months of fixes: `dev` is 436+ commits ahead of `main`, the deploy was explicitly delayed at
-> the close, **prod's Toast sales ingest has been silently dead since the 2026-07-28 image
-> rebuild** (B-146 — the SFTP key never ships in the image; caught only because B-145's
-> recovery happened to look), and the `/period-summary` contract drifted on 2026-06-06 with
-> the payroll consumer never told (B-29). The business's weekly numbers ride on a pipeline
-> that is stale, partially dead, and silent about both.
+> **Cycle:** Close the loop — a code issued to a customer is redeemed at the truck window against
+> a real Toast order and tied back to the campaign that produced it, and it works when the LTE
+> hotspot is down. **Traces to:** `.night-crew/knowledge/okrs.md` (Product / Delivery /
+> Engineering / QA, authored in the same sitting per DESIGN §15j.42) and the design of record
+> `docs/qr-offline-redemption-handoff.md` — the **§19-addendum version**, synced this round from
+> `~/projects/yumyums/marketing/qr-redemption/` (design agreed 2026-09-03, decomposed here; §19
+> adds the decided scanner forks F1–F6 and the `unverified_code` column).
+> **Produced:** 2026-09-03 attended `/nc-roadmap-round`, at the milestone boundary. Previous
+> cycle ("Prod current and honest") archived at
+> `reference/roadmap-2026-09-03-prod-current-and-honest.md` +
+> `reference/okrs-2026-09-03-prod-current-and-honest.md`; its close at ledger T-50 (close line,
+> marker `hq-20260903`, 12 MET · 0 PARTIAL · 2 NOT MET). No `/nc-retro` was run for that cycle;
+> this round proceeds on the close record, the backlog, and the OKR grades, and records the
+> absence.
+
+## Why this cycle exists
+
+The origin is a **marketing-attribution gap, not a scanning problem** (handoff §1). Google Ads
+records ~496 local actions across six goals — 75 direction requests the best proxy for someone
+walking up to the truck — and **none of it ties to revenue.** A redemption is the only event in
+the funnel that is simultaneously (a) attributable to a campaign and (b) tied to real money.
+This cycle builds the thing that closes that loop, under the one constraint that shapes every
+decision: **the truck runs on a flaky LTE hotspot, and the write that matters happens exactly
+when connectivity is worst** (handoff §2).
+
+Secondary outcomes the same build delivers: a durable customer identity across visits (one
+identity code, §10) and a measurable repeat rate.
 
 ## The operator's acceptance criterion
 
-> *As the owner whose payroll runs on numbers HQ serves, I want production running today's
-> code, ingesting sales again, and telling its consumers the truth when something moves, so
-> that the weekly numbers are computed from real data — and what I attested in dev is what
-> the crew actually runs.*
+> *As the owner spending on ads with no idea which spend produces revenue, I want a code a
+> customer can present at the window — redeemed against a real Toast order and tied to the
+> campaign that sent them — so that I can finally see whether ad spend turns into money, and it
+> has to work when the hotspot is down.*
 
 **The close bar, chosen at this round — three legs, all operator-verifiable:**
 
-1. **Parity:** `task version` shows prod backend/frontend == local `version.go` constants,
-   0 drift, recorded in `ledger.md` (retires D-KR4's inherited debt from two cycles).
-2. **Ingest alive:** the operator sees Toast ingest current in prod — last successful sync
-   within 48h of the check, from the app or health surface, not from a shell on the box.
-3. **The kill-drill:** with the pipeline deliberately broken (key unreadable or SFTP
-   unreachable), the failure **announces itself** through the alert path within one scheduled
-   cycle — observed by the operator, then restored. A pipeline that can die silently has not
-   left the class this milestone exists to retire.
+1. **A real redemption, end-to-end.** The operator issues one test identity code, receives it as
+   an image on their phone, opens HQ → Marketing → Scan on a second phone, scans it, sees the
+   entitlement, types a Toast order number, submits **online**, and watches it burn — then scans
+   the *same* code again and sees **"already used."** One code, one redemption, single-use proven
+   by observation, not by test alone.
+2. **The join lands.** That redemption shows up **`matched`** in the reconciliation view after
+   the Toast report ingests (T+1), joined on `(business_date, order_number)`, with the orphan
+   rate visible. Attribution is closed, not asserted.
+3. **Offline is safe by policy.** With the device's *server reachability* deliberately killed
+   (not `navigator.onLine`), a `requires_online = true` campaign **refuses** submit
+   ("can't verify — try again"), and a `requires_online = false` campaign **offers the
+   permissioned override** behind the §13 confirmation, writing an audit-flagged
+   `offline_override` attempt that the server reconciles on the next sync. Both branches observed.
 
-🛑 **The milestone may not close until the operator has personally seen all three.** No KR
-grade, card count or closeout substitutes. (Per the standing "dev complete means the operator
-ran it" rule — decision 161's class, `process/C-3` pending.)
+🛑 **The milestone may not close until the operator has personally seen all three.** No KR grade,
+card count or closeout substitutes — the standing "dev complete means the operator ran it" rule
+(decision 161's class).
+
+**De-risking note on leg 1's delivery:** MMS delivery depends on A2P registration, which has a
+1–3 week external lead (§11). To keep the close bar off that critical path, Activity 0 registers
+a **toll-free number** (skips 10DLC, faster verification, fine for one-way sends — §11, decision
+#4) so leg 1's "receive as an image" is provable within the cycle even if a 10DLC campaign is
+still pending.
 
 ## How this roadmap works
 
 - **Activity-level cards**, WO-sized, each carrying a module footprint and a KR trace.
 - **Status:** `DONE` · `DRAFTING` (overnight) · `PLANNED` (white) · `BLOCKED`.
-- **Build order is load-bearing:** Activity 1 (the counterparty notice) **gates** Activity 2
-  (the deploy) — migration `0072` changes what sales-processor sees and the changeover date is
-  owed to them (T-37 decision 149, decision 158). Activity 2 gates Activity 3's fixes
-  *reaching prod* (everything lands via dev→main). Activities 4–5 are overnight-parallel with
-  3 — disjoint footprints.
+- **Build order is load-bearing.** Activity 0 (unknowns + longest external leads) gates the
+  spine; Activity A (the Supabase arbiter) gates every client that reads or burns a code;
+  Activity B (the offline replica) gates the scanner's offline reads; the scanner (C) gates the
+  server machine (D) and delivery-driven volume (E); the join (F) needs codes actually redeemed
+  to have anything to reconcile. Activity G (carried QA debt) is **disjoint-footprint and
+  overnight-parallel** with everything.
 - **Red-first (gate RF)** per decision 153: every code card records the named test red on the
-  pre-change tree, then green. Docs/audit cards record `n/a — no code change` explicitly.
-- **Spike-class sizing note (retro):** spike estimates ran at/under the low band 4 consecutive
-  times last cycle — size spike cards one band down this cycle.
+  pre-change tree, then green. Docs/registration/attended cards record `n/a — no code change`
+  explicitly. **Greenfield note:** most cards here create new files, so "red on the pre-change
+  tree" means the new test fails because the behavior does not yet exist — name it and show it.
+- **New-stack reality (retro-in-advance).** This cycle adds Supabase (hosted Postgres + Realtime)
+  and Twilio to an app that is otherwise static-HTML + Go + self-hosted Postgres. That is a real
+  surface-area increase; it is the tradeoff the handoff §3 accepts. Cards that touch the new stack
+  carry their external-dependency note explicitly so an overnight leg never discovers a missing
+  account mid-run.
 - 🛑 **Tests run on `:5434` (`yumyums-test-pg`), never `:5433`** — standing rule, decision 155.
-  The Group 3 coordinate-safety backlog items were walked this round and deliberately left
-  `new`; the structural guard is the test cluster itself. A mistyped coordinate is still
-  possible — stay deliberate.
+  The Supabase work runs against a **separate Supabase project / local Supabase**, never the
+  production project; the schema-and-race card states its target coordinates read-only before any
+  write (the §"Prod safety" habit, applied to the new arbiter).
+
+## Decisions resolved at this round (so the build isn't blocked on them)
+
+Two calls were the round's to make; both are engineering-level and stated here rather than
+carried. Both are **revisitable in Activity 0's spike** if field observation (#6) changes the
+device topology.
+
+- **R2 — where redemption is orchestrated.** The scanner's **online submit** posts to a new HQ
+  Go endpoint that drives the §18 **gstate** machine, which `Invoke`s Supabase's atomic
+  `redeem()` RPC. So HQ's Go backend is the *orchestration* layer (consistent with the rest of
+  HQ, and where §18's machine lives), while Supabase's `redeem()` remains the **sole** single-use
+  arbiter (§18 edge-case 1 — the machine never re-checks; it reacts to the 1-row/0-row verdict).
+  The **offline** path is unchanged from §6: the RxDB push handler runs client-side and calls
+  Supabase directly on reconnect, and its synced `offline_override` rows are reconciled
+  server-side by the same machine. This is what makes Activity D load-bearing rather than
+  decorative. (Neighbours handoff open-decision #11; #11's *campaign-admin* half stays open.)
+- **R1 — the RxDB "reuse" is greenfield.** §12/§16 say the scanner "reuses existing RxDB
+  infrastructure." The library may be vendored, but the sync-rxdb **cutover never happened in
+  prod** (last cycle's Activity 4: "no page calls `startHQReplication`"), and Supabase
+  replication is a **separate replication target** regardless. Activity B is therefore planned as
+  **new** replication work, not a reuse — sized accordingly.
+- **R3 — replicate all non-expired offers; it is not bloat (operator challenge, arithmetic).**
+  Storing every customer's *active* offers on each tablet costs ~1 KB per doc all-in (RxDB /
+  IndexedDB overhead included), so **1,000 customers × 2 non-expired offers ≈ 2,000 docs ≈ ~2 MB**
+  — a fraction of a percent of a phone's storage budget, and on the order of the `codes` replica
+  already carried (§5.3). The pull filter `expires_at > now()` bounds the set by *active* offers,
+  **decoupled from lifetime customer count** (even 5,000 active offers ≈ ~5 MB). So the
+  **replicated offers are the primary offline path** (full list for any synced customer) and the
+  QR's embedded offer (D-KR3) is the **fallback** for the not-yet-synced case (a just-signed-up
+  walk-up while the truck is offline). The earlier "bloat" framing is retracted.
+
+## Addendum §19 — decided scanner forks (the build contract for Activities C, D, F)
+
+The design of record carries a §19 addendum (a domain-driven statechart model) with six **decided**
+redemption forks and a schema addition. These are the acceptance criteria Activities C, D and F
+build to — cited so the cards trace to them:
+
+- **F1 — connectivity is an orthogonal region.** The scan flow and a parallel connectivity region
+  ({`online`, `probing`, `offline`, `syncing`, **`stale`**}) run concurrently; a connectivity change
+  never resets scan progress; `stale` = online but replica not refetched after reconnect (§7).
+  → P-KR4, `redemption-submit-flow`.
+- **F2 — unverifiable code offline → permissioned override, flagged `unverified_code`.** A scanned
+  token not in the local replica while offline is `unknownCode`; without override permission, submit
+  is blocked ("connect to redeem"); with it, the confirmation must state that **neither the offer
+  nor prior use can be verified**, and the attempt is written `offline_override=true` **and**
+  `unverified_code=true`. Adds the `unverified_code boolean` column to `scan_attempts` (§4).
+  → `supabase-schema-and-rls`, `redemption-submit-flow`, Q-KR2.
+- **F3 — stale local "already used": reject offline; online, server wins.** Offline + local replica
+  shows redeemed → reject immediately (`spentLocally`); online → do **not** reject on the local flag,
+  submit and let the atomic server check decide. → `camera-scanner-decode`, `redemption-submit-flow`.
+- **F4 — after-the-fact double-redeem → domain event + manager notification.** When a synced
+  `offline_override` arbitrates to `already_used`, the server emits **`RaceLostReconciled`**; a
+  Shift-Manager notification / read-model entry (code, device, staff, time, value) is created for
+  follow-up — the counter never slows for it. → `gstate-arbitration-machine`, `reconciliation-view`,
+  E-KR3.
+- **F5 — auto-apply / "best offer" is CUT.** The app **displays** the customer's offers; staff pick
+  and apply the right one in Toast by hand (no Toast terminal integration; the right offer depends on
+  what was ordered). Explicitly out of scope (§15). → P-KR2, `camera-scanner-decode`.
+- **F6 — accidental re-scan dedupes within session.** Re-scanning the in-session code is a no-op /
+  re-shows its terminal result; a different code mid-session prompts to finish the current customer
+  first. → `redemption-submit-flow`.
+
+**Modeling approach (§19.1/19.2):** the client scanner is a parallel/orthogonal state machine (the
+addendum models it in XState; a hand-rolled equivalent is acceptable given HQ's no-framework
+convention — **decided by a spike near Activity C** (operator's call this round), not in the
+abstract now), and the server side is the per-aggregate gstate machines
+(§18): the redemption-attempt machine (Activity D), plus the Reward-Code, Campaign and
+Issuance/Delivery lifecycles that map onto Activity E and the deferred campaign-admin (#11).
+
+## Open decisions carried into the cycle (handoff §14 — each has a home)
+
+These are not blockers to *starting*; each is pinned to the activity that must answer it. Several
+are business calls the operator makes; the spike (Activity 0) gathers the Toast facts.
+
+| # | Decision | Answered in |
+|---|---|---|
+| 1 | Toast business-date cutoff hour | Activity 0 spike (Toast settings) |
+| 2 | Toast order-number format (digits/prefix/reset) | Activity 0 spike (a day of real checks) |
+| 3 | Which Toast scheduled report carries order# + business date + discounts | Activity 0 spike (Toast reporting menu) |
+| 4 | Toll-free vs 10DLC | **Resolved:** toll-free for the cycle (de-risk leg 1); 10DLC registered in parallel for later scale |
+| 5 | `requires_online` face-value threshold | Operator business call, at Activity A (schema seed) |
+| 6 | Do the 3 devices genuinely go offline independently, or always together on one hotspot | **Activity 0 field observation — load-bearing; can re-scope Activity B** |
+| 8 | Welcome-offer definition + per-code expiry window | Operator business call, at Activity A/E |
+| 9 | Confirm-then-burn vs burn-on-scan | **Recommend confirm-then-burn** (§14) — locked at Activity C unless operator differs |
+| 10 | QR payload shape | **Resolved (operator, this round):** URL-wrapping the identity token (→ full server-side entitlements when online) **plus an embedded offer descriptor** for offline viewing — hybrid; locked at Activity E |
+| 11 | Campaign admin in HQ Go/Postgres vs Supabase directly | Activity A/D (arbiter is Supabase either way) |
+| 12 | Who holds `offline_override` | Operator business call, at Activity C (permission seed) |
+| 13 | Reachability signal (heartbeat interval / probe timeout) | Build call at Activity C |
 
 ## Module footprints (independent → parallelizable)
 
 | Footprint | Files |
 |---|---|
-| **prod infra** | `docker-compose.prod.yml`, prod-clone secrets pattern (`.env.prod`-adjacent), `backend/Dockerfile`, root `Taskfile.yml` |
-| **receipt/toast worker** | `backend/internal/receipt/**` |
-| **inventory endpoints** | `backend/internal/inventory/**`, `docs/contracts/*` |
-| **build tooling** | `build-sw.js`, `backend/internal/version/**`, `package.json` |
-| **sync client** | `sync-rxdb/*.js`, `tests/sync-*.spec.js`, `night-crew.toml` |
-| **backend workflow** | `backend/internal/workflow/**` |
-| **backend sync** | `backend/internal/sync/**`, `backend/internal/db/migrations/**` |
-| **planning docs** | `.night-crew/knowledge/BACKLOG.md`, slate/closeout templates under `reference/` |
+| **supabase arbiter** | Supabase project: `campaigns`/`codes`/`scan_attempts` schema, RLS, `redeem()` RPC, `supabase_realtime` publication (SQL migrations kept in-repo under `supabase/`) |
+| **rxdb replica** | new `marketing/` client JS (RxDB collections + pull/push handlers + clock-offset); vendored RxDB reuse per R1 |
+| **scanner UI** | `marketing.html`, `index.html` (tile + `TILE_SLUGS`), camera decode + submit flow |
+| **redemption backend** | `backend/internal/redemption/**` (gstate machine + HQ redeem endpoint), `backend/internal/db/db.go` (`SeedHQApps`) |
+| **delivery** | Twilio integration (QR gen + MMS send on form submit), consent capture |
+| **toast join** | SMTP ingest mailbox → CSV parser → staging table, reconciliation view + orphan-rate |
+| **planning docs** | `.night-crew/knowledge/BACKLOG.md`, slate/closeout templates under `reference/` (Activity G) |
 
 ---
 
-## Activity 1 — Tell the truth first (the counterparty notice)
+## Activity 0 — Resolve what the build rides on (unknowns + longest external leads)
 
-> **Why first:** migration `0072` and the 2026-06-06 `/period-summary` gate change both alter
-> what sales-processor sees. Decision 158 already ruled these become **one combined notice**;
-> two cycles have carried it. Nothing honest ships to prod over an untold consumer.
-> **Trace:** Product objective.
+> **Why first:** three build-blocking facts and two multi-week external processes must not sit on
+> the critical path. Nothing expensive is built on an unanswered #6. **Trace:** Product objective.
 
-- **`counterparty-combined-notice`** · **PLANNED** · Mostly **attended** (sending is
-  outward-facing — the operator's act; drafting and contract-doc updates are preparable).
-  One combined notice to the sales-processor maintainer covering: the `/period-summary`
-  completeness-gate change of 2026-06-06 (B-29), migration `0072`'s changeover date (D-KR4's
-  carried dependency), and anything else `docs/contracts/inventory-period-summary.md` +
-  `inventory-menu-cogs.md` say that is no longer true. Update both contract docs in the same
-  change so the docs of record match what prod will serve after Activity 2. Records the
-  counterparty-process lesson (B-137) in the ledger: sales-processor is a peer with a contract
-  of record, not an external afterthought. Closes **B-29**, **B-137**.
-    - **Notice FINALISED 2026-09-01** (ledger T-48) → `docs/contracts/NOTICE-sales-processor-2026-09-01.md`;
-      §3 decided (`menu_item_name` stays, doc is the spec); both contract docs carry owner lines;
-      **B-29 + B-137 closed.** Card stays PLANNED for its one remaining thread: record migration
-      `0072`'s changeover date in the notice's §4 immediately after `task prod:deploy` (Activity 2).
-  Footprint: inventory endpoints (docs only) + the outbound notice. **Gates Activity 2.**
-  - **Prep half `counterparty-notice-prep` — DONE, run `20260901` (Card 10, Track C).**
-    The **preparable** half is complete: both contract docs re-verified against the
-    pre-deploy tree (Cards 1+9) — the 2026-08-03 corrections still hold byte-for-byte,
-    no response-shape changed; added the B-137 owner line to both doc headers and a
-    2026-09-01 re-verification addendum to each §0 (noting Card 9's additive
-    `slog.Info` success-log line, which is server-side only, not a wire change). The
-    combined first-person notice draft (changelog + pre-deploy checklist, per B-137's
-    fix shape) lands at `.night-crew/knowledge/reference/counterparty-notice-20260901-draft.md`,
-    covering B-29 (the 2026-06-06 gate change), migration `0072`'s changeover, every
-    corrected contract statement, and Card 9's new visibility.
-  - **Send half — awaiting the operator (attended).** The card flips to DONE and
-    **B-29 / B-137 close only when the operator SENDS the notice** (P-KR3), which must
-    precede the `0072`-carrying deploy. The B-137 counterparty-process lesson line is
-    captured in the draft's footer for the ledger, to be recorded on send. Card stays
-    **PLANNED** until then.
+- **`redemption-unknowns-spike`** · **PLANNED** · Attended / field observation. Answer handoff
+  §14 #1 (business-date cutoff hour), #2 (order-number format — digit count, prefix, reset
+  behavior), #3 (which Toast scheduled report carries order# + business date + discounts), and
+  **#6 — the load-bearing one: do the truck's three devices genuinely lose connectivity
+  independently, or are they always together on one hotspot?** Records each answer in the ledger.
+  If #6 says "always together," the card flags that Activity B (offline-first replication) is
+  likely over-built and proposes the lighter live-shared-server alternative before B is planned in
+  detail. `n/a — no code change`. Footprint: planning docs (ledger) + Toast settings read-only.
 
-## Activity 2 — Ship (dev→main, deploy, parity)
+- **`external-accounts-provision`** · **PLANNED** · Attended (operator holds accounts/billing).
+  Stand up the two external dependencies the whole cycle needs: (a) a **Supabase project**
+  (account, project, anon/service keys wired into HQ's existing secret pattern — dev/test project
+  distinct from any prod project, per decision 155's spirit); (b) a **Twilio account + toll-free
+  number** for delivery, and **start A2P/10DLC brand+campaign registration in parallel** (1–3 wk
+  external lead — §11; toll-free covers the cycle, 10DLC covers later scale). STOP-handling and
+  consent language drafted here so Activity E ships compliant (§11, R5). `n/a — no code change`.
+  **Gates Activity A** (Supabase) and **Activity E** (Twilio). Footprint: external accounts +
+  secret pattern.
 
-> **Trace:** Delivery objective. Attended — the release flow is TTY-guarded and the deploy is
-> the operator's own command.
+## Activity A — The attribution spine (the Supabase arbiter)
 
-- **`ship-dev-to-main`** · **PLANNED** · **Attended.** Merge `dev` → `main`, push,
-  `task prod:deploy` (prod clone hard-resets to `origin/main`; the **committed** `sw.js` is
-  what ships — B-13's rule), then `task version` parity check: prod backend/frontend ==
-  local constants, **0 drift**, recorded as a dated ledger line. Rollback path stated before
-  the deploy (`task prod:rollback`). This deploy carries ~2 months of fixes including the
-  0072 changeover — hence gated on Activity 1. Retires the D-KR4 debt inherited through two
-  cycles. Footprint: release flow only — no code change rides this card.
+> **Why here:** every client that reads or burns a code depends on the schema and the atomic
+> `redeem()`. The single conditional `UPDATE` is the **only** thing enforcing single use (§6).
+> **Trace:** Product + Engineering objectives.
 
-## Activity 3 — Prod ingest lives, and can't die silently again
+- **`supabase-schema-and-rls`** · **PLANNED** · The `campaigns` / `codes` / `scan_attempts`
+  schema (§4 — including the `unverified_code boolean` flag on `scan_attempts`, F2) with
+  `token_hash` never storing the raw token, the `updated_at` index (the
+  replication checkpoint key), RLS policies that let each device see only what it needs (§7.2),
+  and the tables added to the `supabase_realtime` publication (§7.1 — the usual reason Realtime
+  looks broken). Seeds `requires_online` per campaign (operator sets the threshold, #5). SQL kept
+  in-repo under `supabase/`. done_when: schema applies clean against a fresh Supabase project and
+  a row inserted on one client appears on a second subscriber. Footprint: supabase arbiter.
 
-> **Trace:** Product + QA objectives. The Toast resurrection is the business half; the
-> observability cards are the class-retiring half — B-146's real lesson is not "the key was
-> missing" but "it died and nothing said so for 9 days."
+- **`redeem-rpc-race-proof`** · **PLANNED** · The `redeem(p_code, p_device)` plpgsql function
+  (§6) — conditional `UPDATE … WHERE redeemed_by IS NULL AND expires_at > now()` returning
+  `(ok, reason)` — **and the race test that is the point of this card**: two concurrent clients
+  fire at one code; **exactly one** gets `ok=true`, the other gets `already_used`. Red-first: the
+  test reds against a naive check-then-update (both win) and greens against the atomic RPC.
+  done_when: the race test passes 20× with 0 double-wins. Footprint: supabase arbiter.
 
-- **`toast-ingest-resurrection`** · **DONE** (dev-provable half; prod proof is attended
-  post-deploy) · Closes **B-146** (mechanism half). Run `20260901`, Card 3. Shipped the
-  SFTP-key delivery mechanism the way `.env.prod` secrets already survive the hard reset:
-  `docker-compose.prod.yml` now bind-mounts an operator-placed, git-ignored `id_rsa`
-  (`./id_rsa:/app/id_rsa:ro`), pins `TOAST_SFTP_KEY_PATH=/app/id_rsa` and
-  `TOAST_SYNC_INTERVAL=12h` to resurrect the daily worker (a missing key is now a LOUD boot
-  failure via config.go's os.Stat guard + Card 2's fail-loud health field). `id_rsa` was
-  already git-ignored; **no real key entered the run** — the operator places it, attended, on
-  the prod box (attended-steps note in
-  `reference/toast-archive-gap-20260901.md`). Archive gap enumerated day-by-day: 38-day gap
-  (2026-07-25 → 2026-08-31); **10 aged-out** (2026-07-25 → 2026-08-03, permanently lost),
-  **28 recoverable** (2026-08-04 → 2026-08-31) as of tonight against Toast's ~27-day
-  retention — recovery of the >7-day slice needs sales-processor's local archive via
-  `migrate-toast-archive` (no SFTP range-backfill CLI exists). **PROD PROOF (attended,
-  post-deploy):** a current date-directory from prod's next scheduled sync + `toast_sync`
-  health flipping to `ok`. Footprint: prod infra + toast worker/config.
+## Activity B — Offline-first replica (RxDB ↔ Supabase)
 
-- **`pipeline-fail-loud`** · **DONE** · Closes **B-139** and B-146's silent-death class. Two
-  mechanisms, one class: (a) the Toast sync loop gets a fail-loud path — a sync that cannot
-  open SFTP or auth surfaces in `/api/v1/health` and the Cliq alert (the drift-check alert
-  pattern already exists — Phase 999.2), never log-and-continue; (b) `/period-summary` logs
-  successful requests and a `ready` verdict, so a blocked payroll pull is visible from HQ's
-  side. This card builds what the close bar's **kill-drill** proves. Footprint: receipt/toast
-  worker + inventory endpoints. **Both halves landed on run `20260901`.**
-  - **Half (b) `period-summary-visibility` — DONE, run `20260901` (Card 9, Track C).** Closed
-    the B-139 half: `PeriodSummaryHandler` now emits one `slog.Info "period-summary served"`
-    at the end of the success path (keys `from`, `to`, `ready`, `pending_review_count`,
-    `unlinked_line_item_count`); the `/menu-cogs` sibling gained an analogous
-    `slog.Info "menu-cogs served"` (keys `from`, `to`, `menu_item_count`, `breakdown`).
-    Red-first tests in `internal/inventory` + `internal/recipes`.
-  - **Half (a) `toast-sync-fail-loud` — DONE, run `20260901` (Card 2, Track A).** Closed the
-    B-146 fail-loud half. A dial/auth failure in `SyncDate` used to be downgraded to
-    `ErrSFTPMiss` (silent, "expected miss") — a dead transport was invisible. Now dial/auth
-    failure returns the new `ErrSFTPUnavailable` sentinel; the worker routes it to a loud
-    path via `handleSyncOutcome` — sets `toast.SyncStatus` to `failing` AND enqueues a Cliq
-    alert immediately (reusing the existing `alerts.Queue`). `/api/v1/health` gained a
-    `toast_sync` field: `{status: ok|failing|stale|unknown, last_success, last_error,
-    last_error_summary}`. Genuine date-not-found still returns `ErrSFTPMiss` and stays silent
-    (D-05). Red-first tests in `internal/toast` (fake failing dialer + fake alert sink). The
-    SFTP key itself ships separately (Card 3).
+> **Why here:** the scanner must know, with **no network**, which codes are already spent or
+> expired (§5) and must show the scanned customer's offers offline. **Offline offer source
+> (settled this round — R3 sizing):** replicate **all non-expired offers** to every tablet
+> (bounded by `expires_at > now()`, ~2 MB at truck scale — cheap, and the §10 design), with the
+> QR's **embedded offer** (D-KR3) as the fallback for a customer not yet in the replica. Planned as
+> **new** replication work (R1). **Gated on Activity 0 #6** — if the tablets are never
+> independently offline, this activity collapses to a thin live cache and its cards shrink.
+> **Trace:** Engineering objective.
 
-- **`receipt-worker-correctness`** · **DONE** · Closes **B-28**, **B-175**. Two measured
-  defects, one file family: `parseEventDate` stamps COGS periods from server-local time
-  instead of the business timezone (B-28 — a period-boundary purchase lands in the wrong
-  week); a failed download leaves the next attachment misindexed — ext/filename taken from
-  the wrong entry (B-175). Red-first each. Footprint: receipt/toast worker.
+- **`rxdb-pull-replica`** · **PLANNED** · Two server-owned, **pull-only** replicas (§4) via
+  `replicateRxCollection` with an `updated_at` checkpoint: (1) `codes` / redemption-state, filtered
+  `expires_at > now() - interval '2 days'` (§5.3), so the scanner knows offline which codes are
+  already spent or expired (§5); (2) **non-expired offers**, filtered `expires_at > now()` and
+  keyed on customer hash (§10), so a synced customer's **full** offer list resolves offline. Both
+  stay bounded by *active* rows, not lifetime customers — ~2 MB at truck scale (R3 sizing). The
+  QR's embedded offer (D-KR3) is the **fallback** for a customer not yet in the offers replica.
+  (Whether these are one table or two is Activity A's schema call.) Refetch affected rows on every
+  `SUBSCRIBED` event, not just on mount (§7.3 — no replay on reconnect). done_when: a code redeemed
+  on device A shows spent on device B after a pull tick; a synced customer's full offer list
+  renders offline; and an un-synced customer falls back to the embedded offer. Footprint: rxdb
+  replica.
 
-- **`deploy-hygiene-honesty`** · **DONE** (run `20260901`) · Closed **B-135**, **B-17**.
-  **B-135:** the byte divergence was the trailing newline — `scripts/write-version-json.js`
-  (authoritative) writes `JSON.stringify+'\n'` (`{"frontend":"X"}\n`); `backend/Dockerfile`'s
-  `printf '{"frontend":"%s"}'` dropped it, so the image served 20 bytes while sw.js's precache
-  revision hashed the 21-byte served/local copy. Fix: added `\n` to the Dockerfile printf so
-  the embedded copy is byte-identical to the authoritative one; the Dockerfile is now a
-  subordinate byte-for-byte mirror. `version.json` is git-ignored — both copies are generated,
-  not committed — so parity is enforced at the two generators and pinned by the red-first
-  `tests/version-json-parity.spec.js` (RED at 20≠21 bytes / two md5s → GREEN identical).
-  **B-17:** corrected `build-sw.js`'s comment — plain `--name-only` C-quotes NON-ASCII/control
-  bytes (`core.quotePath`), NOT spaces (a spaced path comes back bare); `-z` stays load-bearing
-  because it sidesteps quoting entirely. The `:383` verbatim mirror the card named no longer
-  exists in this live roadmap (the card was already a correct paraphrase; line pointer was
-  stale after Cards 1–10 reflowed the file). The verbatim claim survives only in frozen
-  historical artifacts (`reference/roadmap-2026-08-05-sync-foundation.md:449`,
-  `runs/2026-07-29-autonomous/merge-intent-a-precache-manifest-from-head.md:75`) — left as-is
-  by the do-not-edit-frozen-artifacts rule. **B-17 residual (BACKLOG-recorded, out of scope):**
-  `ls-tree HEAD` reads local HEAD while the image builds from `origin/main`, so the 404 class is
-  tighter but not fully closed by `precache-manifest-from-head`. Precache count unchanged at 31;
-  version parity 1.5.0. **Env note for orchestrator:** this worktree's symlinked node_modules
-  carries `workbox-build@7.3.0` while `package-lock.json` pins `7.4.1`; regenerating sw.js here
-  produced a spurious workbox-chunk-hash-only delta (`workbox-0225851e`→`d4a0f5c1`, every
-  precache revision byte-identical). My source change touches no precached file and does not
-  change the version.json bytes, so sw.js needs NO regeneration for this card — committed sw.js
-  left untouched. Footprint: build tooling.
+- **`scan-attempts-push-conflict`** · **PLANNED** · The device-owned, **push-only**
+  `scan_attempts` collection (§4 — opposite replication direction, the key structural decision).
+  The push handler batches pending attempts through `redeem()` and writes the outcome back onto
+  the local row; the `conflictHandler` flips a losing device's UI from "redeemed ✓" to "already
+  used at 6:42pm" (§6). done_when: a lost-race attempt renders "already used" with the winning
+  time/device. Footprint: rxdb replica.
 
-- **`media-recovery`** · **PLANNED** · Closes **B-173**. The onboarding videos and
-  fail/correction photos lost with the DO Spaces account: establish what survives (local
-  copies, phone originals), re-upload to the current store, and re-point rows. Attended-assist
-  — the operator holds the originals; the card builds the re-upload path and does the
-  mechanical half. If nothing survives, the card records that as the outcome and closes the
-  entry honestly. Footprint: prod infra + onboarding data.
+- **`clock-offset-on-sync`** · **PLANNED** · On every successful sync, store
+  `serverNow − deviceNow` and apply that offset in the offline `expires_at` comparison (§5.1) —
+  a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
+  set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
 
-## Activity 4 — Sync hardened past its demo
+## Activity C — The scanner screen (staff redemption at the window)
 
-> **Trace:** Engineering objective. Overnight-parallel with Activity 3 — disjoint footprints.
-> T-43(b) (the My Checklists read path) remains **OPEN by ruling**; nothing here decides it.
+> **Why here:** this is the operator-facing action and the close bar's leg 1. It reads from B
+> (offline) and burns through A (online, via D). **Trace:** Product objective. **Locks §14 #9
+> (confirm-then-burn), #12 (offline_override holder), #13 (reachability signal).**
+> **Opens with a spike (operator's call this round):** decide the client state-machine approach —
+> **XState vs a hand-rolled parallel-region machine** — proving the §19 F1/F2/F3/F6 regions in
+> HQ's vanilla-JS context before the scanner cards are built. Adopting XState is a new client
+> dependency in a deliberately no-framework app; the spike settles it against the real screen.
 
-- **`client-guard-coverage`** · **DONE** · Closes **B-149**, **B-10**; carries the
-  **B-154 rider** (first sync-touching card: add the `night-crew.toml [e2e.seams]` row for
-  `sync-rxdb/` paths, authored deliberately against the sync footprint — until it exists every
-  sync card de-confines to the full suite at ~22 min/leg). The uid-mismatch half of the B-89
-  fix has zero tests (`cachedGrantSlugs()` envelope verification); the `await` on
-  `clearApiCache()` has zero coverage — dropping the `await` leaves the suite green. Red-first
-  both. Footprint: sync client.
+- **`marketing-tile-and-page`** · **PLANNED** · Add the **Marketing** tile to `index.html`'s grid
+  + `TILE_SLUGS`, create `marketing.html` (page shell with the four sub-sections: Scan / Campaigns
+  / Subscribers / Redemption stats, §16), seed `('marketing','Marketing','📢')` in `SeedHQApps()`
+  so the tile is permission-gated, and grant the `marketing` app to the relevant roles. Enforce
+  the create/stats gates inside the handler, not just at the tab (§16 permissions table).
+  Regenerate `sw.js` (new precached page — the precache-count invariant will move by 1
+  deliberately) and commit it. done_when: a `team_member` sees Scan; a non-granted user sees no
+  tile; `build-sw.js` exits 0. Footprint: scanner UI + redemption backend (seed) + `sw.js`.
 
-- **`cdc-single-fire`** · **DONE** (run 20260901, Card 5) · Closes **B-157**. One
-  `/saveResponse` call fired any CDC trigger on `submission_responses` twice — the save
-  INSERT plus `EmitOp`'s separate `UPDATE ... SET lamport_ts`. Fixed by folding the
-  lamport_ts stamp into the save's own upsert (`saveResponse` gained a `stampLamportTS`
-  param; handler emits the op row via the new `opsync.EmitOpForStampedEntity`, no second
-  row write). Red-first trigger-count test: 2 fires pre-change → 1 after
-  (`internal/workflow/cdc_single_fire_test.go`). The `/ops` path is deliberately left
-  unchanged (stamp=0) — its stamp happens after CheckLWW and is out of B-157's scope.
-  Footprint: backend workflow (+ isolated additions to backend sync).
+- **`camera-scanner-decode`** · **PLANNED** · Camera via `getUserMedia`, decode with
+  `html5-qrcode` (or `@zxing/browser`), **hash the identity token on-device with WebCrypto before
+  any lookup** (§12/§4 — a dumped replica never yields live codes), then resolve and **display**
+  the customer's offers — the scanner never auto-picks one (**F5** — staff apply the right offer in
+  Toast by hand). Resolution order: the **local replica** first (full server-side list once
+  synced), then the **offer embedded in the QR** (D-KR3) for a customer not yet replicated; a token
+  in neither is `unknownCode` (**F2**, handled at submit). Stale redeemed-state per **F3**: offline
+  → reject as `spentLocally`; online → do **not** reject on the local flag, let the server decide.
+  Requires HTTPS + a one-time per-device camera grant. done_when: a printed test QR decodes and
+  shows its offer offline — synced (replica) and un-synced (embedded); and a locally-redeemed code
+  rejects offline but defers to the server online (F3). Footprint: scanner UI.
 
-- **`app-slug-association`** · **DONE** (run 20260901, Card 8) · Closes **B-160** — the open
-  question spike B handed the cutover: HQ stored **no template→app association**, so `app_slug`
-  was a constant in the sync projection writer. Association home decided under standing
-  authority (E-KR4, recorded in the merge-intent): a nullable FK
-  **`checklist_templates.app_id` → `hq_apps(id)` ON DELETE SET NULL** (migration 0076), backfilled
-  to the `operations` app (the checklist engine IS Operations — reproduces the constant, changes
-  no projected row). `spikec_relay.go` now resolves each row's `app_slug` per-row via
-  `appSlugForField` (field → section → template → app.slug); the `AppSlug` config field, its
-  guard, and the `SPIKE_C_APP_SLUG` read are gone — **0 hardcoded `app_slug` constants remain**
-  in the writer (grep-provable). Red-first: an AST structural test naming the 4 constant sources
-  (RED→GREEN) + a per-template resolution test (ops→operations, inv→inventory, distinct).
-  Not a product fork (schema-shape choice, invisible to the operator). Footprint: backend sync +
-  migration 0076.
+- **`redemption-submit-flow`** · **PLANNED** · The heart of the window workflow (§13). Large
+  result cards then auto-reset (§16): ✅ Redeemed (offer + entitlement) → **required Toast
+  order-number entry that *completes* the redemption** (no path to "redeemed" without it — §13
+  double-entry problem), with **format validation** (#2) and business-date computed from the
+  **Toast cutoff constant** (#1), not `new Date()`; ⚠️ Already used (when + which device, from the
+  `conflictHandler`); ❌ Invalid/Expired (reason). **Submit is online-gated** (§13): the button
+  state is driven by a **real reachability signal** — a recent successful sync/heartbeat or a
+  short-timeout probe against Supabase, **never `navigator.onLine`** (which lies on a hanging LTE
+  link, #13). The screen carries a **persistent, visible online/offline indicator**, and when
+  reachability returns after an offline period the submit control **transitions on its own** — no
+  manual refresh (P-KR4). **Permissioned offline override** (§13): a user with `offline_override`
+  may force-submit while offline behind the confirmation warning, writing an audit-flagged
+  attempt — **but only when the campaign's `requires_online = false`**; a `true` campaign shows
+  "can't verify — try again" with no override, even for a manager (§8). **Connectivity is a
+  parallel region** (F1): a connectivity change never resets scan progress, and a `stale` state
+  (online but not refetched after reconnect, §7) routes like offline. **Unknown code offline**
+  (F2): a token not in the replica is `unknownCode` — submit blocked without override; with
+  override, the confirmation states **neither the offer nor prior use can be verified** and the
+  attempt is written `offline_override=true` **and** `unverified_code=true`. **Re-scan dedupe**
+  (F6): re-scanning the in-session code is a no-op / re-shows its result; a different code
+  mid-session prompts to finish the current customer first. done_when: the three offline branches
+  (blocked / override-offered / high-value-refused) each render correctly under a killed
+  reachability probe; the indicator flips + submit re-enables **live** when the probe recovers
+  (P-KR4); an `unknownCode` offline override writes `unverified_code=true` (F2); and a same-code
+  re-scan is a no-op (F6). Footprint: scanner UI.
 
-- **`sync-doc-honesty`** · **DONE** (run 20260901, Card 7) · Closes **B-140**, **B-18**,
-  **B-167**. Retired **five** stale `row-visibility-rls` activation gates (the four B-140 named
-  — `workflows.html:329` + `:3946` [the latter spelled the slug; precached → `sw.js` regen],
-  `sync-rxdb/conflict-notice-ui.js:26`, `tests/states-sync-rxdb-conflict-notice.spec.js:30` —
-  plus a fifth found beyond them in `sync-schema/sql/0001_sync_tables.sql`, gated via the
-  slate-ID "B2"), each restated against the genuinely-open precondition: the **cutover** (no
-  page calls `startHQReplication`), preserving the substrate-must-carry-RLS safety point where
-  it still holds. Corrected the two `sync/proxy.go` comment fictions (B-18a RawPath, B-18b the
-  `EscapedPath` log-launder documented with the code fix deferred to a code-footprint card) and
-  the ACTIVATION-ORDER banner (substrate-state, not card-landing, precondition). Broadened
-  `tests/repo-hygiene.spec.js` case 3 from slug-matching to **fact-matching** — whole-tree scan,
-  DONE-slug set read from all roadmaps, asserts no live comment names a DONE card as a future
-  precondition; red-first proven (a paraphrased gate on a DONE card is caught, removed→green).
-  B-167's six carried observations discharged-by-conversion into per-item checklist entries
-  homed to the next flag/fill/lifecycle sync cards. RF `n/a — no code change` for the comment
-  retirements; the spec broadening is red-first. Footprint: backend sync + sync client
-  (comments only) + `workflows.html` + `sw.js` + `tests/*`.
+## Activity D — The server arbitration machine (gstate)
 
-- **`sync-dev-one-command`** · **DONE** (run 20260901) · Closes **B-171** (parked pending a
-  credential boundary — the boundary now exists in shape: dev targets carry the 4 `HQ_SYNC_*`
-  vars, prod compose does not, and the standing credential-isolation preference says capability,
-  not guards). One command (`task sync:dev`) brings up data plane + dev server together for the
-  operator's daily use — it composes `sync:dev:up` (carries the untouched B-164 :5433 refusal)
-  → `backend:dev:tailscale` (carries the 4 `HQ_SYNC_*` vars), adding no new logic and no
-  coordinate-guard machinery. Also discharged the B-170 bare-`npx playwright` hardening in
-  `spike-f-browser-live.sh` (the one Playwright-running script in footprint). Footprint: prod
-  infra (Taskfile) + spike scripts.
+> **Why here:** the online submit (C) and the reconciliation of synced offline overrides need an
+> orchestrator; R2 puts it in HQ Go. **Trace:** Engineering objective. The DB stays the arbiter
+> (§18 edge-case 1); the machine only reacts to its verdict.
 
-## Activity 5 — The planning surface is honest
+- **`gstate-arbitration-machine`** · **PLANNED** · `backend/internal/redemption` — the §18
+  statechart (`validating → burning → route_outcome → {redeemed|already_used|expired|failed}`)
+  wrapping the atomic `redeem()` via `Invoke` (ctx auto-cancel on state exit, so a hung call on a
+  dropped hotspot doesn't wedge — §18 edge-case 4), plus the HQ endpoint the scanner's online
+  submit posts to. Must-not-forget edge cases baked into tests: (1) unknown/empty burn result →
+  `failed`, **never** a silent `expired` (§18 #3); (2) an `AlreadyUsed` terminal on a synced
+  `offline_override` emits a **`RaceLostReconciled`** domain event → a Shift-Manager notification /
+  read-model entry (code, device, staff, time, value) for follow-up (**F4**, §8/§9); (3) no
+  check-then-act guard that reintroduces TOCTOU (§18 #1). Red-first each. done_when: a two-attempt
+  reconciliation emits `RaceLostReconciled` and creates the manager notification (F4). Footprint:
+  redemption backend.
 
-> **Trace:** QA objective. The round that authored this roadmap could see only 63 of ~125
-> open backlog items; four candidates could not be rendered onto the triage page at all.
+## Activity E — Customer delivery (one identity code → QR → image)
 
-- **`backlog-machine-migration`** · **PLANNED** · Closes **B-02**, **B-168**, **B-12**,
-  **B-133** (four filings of one defect — B-38's channel-gap shape happening to the backlog
-  itself). Reshape the 193 legacy-shape entries to the canonical B-NN form until
-  `night-crew backlog check` exits 0, with **content preservation proven** (stripped-text
-  diff: every entry body present before is present after; handles assigned above the current
-  max — collisions have happened, B-39→B-44). Then **arm the triage §4.5 gate** so the
-  document cannot drift back. done_when is mechanical: `check` exit 0, and `backlog list`
-  count == document entry count. Footprint: planning docs.
+> **Why here:** delivery is how codes reach real customers at volume; the loop is provable at
+> close with a single test send, and scales once 10DLC clears. **Trace:** Product objective.
+> **Compliance is non-optional (R5).** Needs Activity 0's number live. **Locks §14 #10 (URL-wrapped
+> QR).**
 
-- **`team-records-from-hand-runs`** · **PLANNED** · The scorecard sees no rostered role on
-  this target — hand-run nights write no team records, so every close renders `—` for all
-  four teams (retro §3). Scope: emit the per-run scorecard files the CLI already reads, from
-  this repo's hand-run slate/closeout ritual (template + ritual step). If that provably
-  requires CLI changes, the card records the finding, files it clone-side, and closes with
-  the target-side half done. Footprint: planning docs.
+- **`identity-code-and-qr`** · **PLANNED** · **One permanent identity code per customer** — the
+  QR is primarily *who they are*, not *what they get*; the customer's full, current entitlement
+  list lives server-side and replicates down keyed on customer hash (§10). **Hybrid payload
+  (operator call, this round):** the QR is a **URL wrapping the identity token** (so the
+  customer's own phone can open it, and an *online* scan resolves the complete server-side list)
+  **and also embeds the offer current at issue** as a self-describing descriptor, so a scan is
+  *readable offline* even before that customer's entitlements have replicated to the tablet — the
+  new-signup first-visit case. The embedded copy is a display snapshot; the server list stays
+  source of truth, and the embedded offer **never authorizes a redemption by itself** — the burn
+  still goes through `redeem()` (§6). **Trust note:** the embedded offer is unauthenticated
+  display data, so a forged one could mislead staff offline; that risk is bounded by the §8 policy
+  (high-value campaigns require online) and caught in reconciliation as `not_found`/orphan (§9).
+  Keep the on-device row minimal — hashed customer id + entitlement list, no names/phone numbers
+  on three tablets (§10). done_when: an **offline** scan of a freshly-issued code (customer not
+  yet in the local replica) still shows its embedded offer, and an **online** scan of the same
+  code shows the full server-side list. Footprint: delivery + supabase arbiter (entitlements).
+
+- **`mms-send-on-signup`** · **PLANNED** · Form submit → generate the identity code in Supabase →
+  **send the QR as an MMS image, not a link** (§11 — an image lives in the thread and opens with
+  no signal; a link needs signal at the window). Explicit **consent capture at point of
+  collection**, working **STOP handling**, sends over the registered number (§11 compliance,
+  R5). done_when: the operator's test signup produces a scannable image in their Messages thread.
+  Footprint: delivery. **External dependency: a live sending number (Activity 0).**
+
+## Activity F — The join lands (SMTP ingest + reconciliation)
+
+> **Why here:** needs codes actually redeemed to have something to reconcile; it is the close
+> bar's leg 2. Everything is **T+1** by design (§13). **Trace:** Product + QA objectives.
+
+- **`smtp-toast-ingest`** · **PLANNED** · A dedicated ingest mailbox receives the scheduled Toast
+  report (#3); an inbox watcher extracts the CSV, normalizes, and loads a staging table. **Key on
+  `(business_date, order_number)` and upsert — never blind-insert** (§13 idempotency; the same
+  report *will* arrive twice). Dedicated mailbox, restricted access, no forwarding (§13 security).
+  done_when: ingesting the same report twice leaves one row per order. Footprint: toast join.
+
+- **`reconciliation-view`** · **PLANNED** · The three-bucket view built from day one (§13): `matched`
+  (scan joined to a Toast order), `unmatched` (order number with no Toast match → fuzzy-match on
+  `scanned_at` timestamp), `orphan` (accepted with no order number — lost attribution). The
+  **orphan rate is the health metric** — surfaced in the Marketing → Redemption-stats section; if
+  it climbs above ~10% the window workflow needs fixing, not the code (§13). Offline overrides —
+  including `unverified_code` ones (F2) — are flagged and reconciled first, and a lost race surfaces
+  the **F4** Shift-Manager notification (code / device / staff / time / value). done_when: the
+  close-bar test redemption shows `matched`, the orphan rate renders, and a reconciled lost race
+  produces the manager notification. Footprint: toast join + scanner UI (stats section).
+
+## Activity G — Planning surface honest (carried QA debt)
+
+> **Why here:** overnight-parallel, disjoint footprint. These two cards produced the **only two
+> NOT-MET KRs** of last cycle (Q-KR2, Q-KR3); they were promoted at T-46 and again at T-48 but
+> never slated, so they reddened the close through no fault of their own. Carried, not re-derived.
+> **Trace:** QA objective.
+
+- **`backlog-machine-migration`** · **PLANNED** · (Carried from last cycle's Activity 5.) Closes
+  **B-02**, **B-168**, **B-12**, **B-133**. Reshape the ~193 legacy-shape entries to the canonical
+  `B-NN` form until `night-crew backlog check` exits 0, with **content preservation proven**
+  (stripped-text diff: every entry body present before is present after; handles assigned above
+  the current max — collisions have happened, B-39→B-44). Then **arm the triage §4.5 gate** so the
+  document cannot drift back. done_when is mechanical: `check` exit 0, and `backlog list` count ==
+  document entry count. Footprint: planning docs.
+
+- **`team-records-from-hand-runs`** · **PLANNED** · (Carried from last cycle's Activity 5.) The
+  scorecard sees no rostered role on this hand-run target — every close renders `—` for all four
+  teams. Scope: emit the per-run scorecard files the CLI already reads, from this repo's hand-run
+  slate/closeout ritual (template + ritual step). If that provably requires CLI changes, the card
+  records the finding, files it clone-side, and closes with the target-side half done. Footprint:
+  planning docs.
 
 ---
 
 ## Backlog dispositions this round
 
-**Walked:** all 63 CLI-visible open items, in 8 groups. **Not walked:** the ~62 document-only
-legacy entries (invisible to `backlog list` — the exact gap `backlog-machine-migration`
-closes; they become walkable next round). Group labels were this round's scaffolding and are
-deliberately **not** written into `BACKLOG.md`; only each entry's status is.
+**Walked:** the QR offline-redemption **handoff** (`docs/qr-offline-redemption-handoff.md`) —
+promoted whole, decomposed into Activities 0–F — and the **two carried QA KR producers** from
+last cycle's Activity 5 (`backlog-machine-migration`, `team-records-from-hand-runs`) — re-promoted
+into Activity G.
 
-| Group | Handles | Disposition |
-|---|---|---|
-| Live prod defects | B-146, B-29, B-137, B-175, B-28, B-173, B-135, B-17 (+B-139 folded in from Observability) | **promoted** → Activities 1–3 |
-| Ship it / sync hardening | B-171, B-160, B-149, B-157, B-140, B-18, B-10, B-167 (+B-154 as rider) | **promoted** → Activities 2, 4 |
-| Gate coordinate safety | B-169, B-164, B-151, B-152, B-134, B-150, B-170, B-165, B-158, B-159 (+B-50 aggravation) | **left `new`** — walked, and waits. The retro's candidate goes deliberately unfunded; the structural guard (test cluster, decision 155) stands; next round re-asks from scratch |
-| Observability siblings | B-81, B-82, B-86, B-93 (document-only) | **left `new`** — invisible to the tooling until the migration lands; B-139 promoted separately |
-| Armed reds / load-flake family | B-27, B-30, B-32, B-162, B-156, B-131, B-166, B-174, B-34, B-04 | **left `new`, stay armed** — retired by diagnosis, never by passing once (decision 100) |
-| UI polish | B-31, B-05 | **left `new`** — waits for a UI-themed round; becomes crew-visible once Activity 2 deploys, knowingly |
-| Measurement debts | B-15, B-07, B-153, B-24, B-23, B-144, B-155 | **left `new`, named knowingly** — B-23's vacuous spec-file floor and B-15's attended two-device cost stated out loud at the walk |
-| Planning hygiene | B-02, B-168, B-12, B-133 | **promoted** → `backlog-machine-migration` |
-| Planning hygiene (small items) | B-41, B-44, B-25, B-38, B-39, B-40, B-08, B-11, B-21, B-03, B-01 | **left `new`** |
-| Tracked elsewhere | B-33 | **dropped** — night-crew tooling defect, tracked clone-side as B-346/B-347 |
+**Not walked (deliberate, said out loud):** the round was scoped by the operator to the handoff,
+so the **46 CLI-visible `[new]` backlog items were not individually walked** this round. They stay
+untouched at `new`. The genuinely roadmap-worthy carry-overs among them are already known — they
+are the deliberately-parked families from T-46 (armed reds retired only by diagnosis per decision
+100; gate-coordinate-safety guarded structurally by the `:5434` test cluster; measurement debts)
+plus a small post-T-46 tail (`B-176` armed red; `B-349`'s remaining half tracked clone-side). The
+still-`PLANNED` `media-recovery` card (B-173) is **not** superseded by this cycle and carries
+forward as open. **A dedicated backlog-walk round is worth scheduling** once
+`backlog-machine-migration` (Activity G) makes the legacy entries machine-visible — the exact gap
+that card closes.
 
-**Round decisions recorded at this sitting** (ledger entry accompanies this commit): the PM
-rating is a weighted composite — **0.7 × forks-prevented + 0.3 × PRD-to-KR traceability**,
-with a not-computable component rendered as N/A and the rating computed from the remainder,
-labelled — never silently zero or full marks (§15bk.188 choice, made on the retro's real
-numbers). Scorecard role-visibility: worth a small card (`team-records-from-hand-runs`), not
-a recorded absence.
+| Item | Disposition |
+|---|---|
+| `docs/qr-offline-redemption-handoff.md` (design of record) | **promoted** → Activities 0–F (whole handoff, operator's scope call) |
+| `backlog-machine-migration` (B-02, B-168, B-12, B-133) | **promoted** → Activity G (carried; Q-KR2) |
+| `team-records-from-hand-runs` | **promoted** → Activity G (carried; Q-KR3) |
+| `media-recovery` (B-173) | **left open** — unrelated to this cycle; carries forward |
+| 46 CLI-visible `[new]` items | **left `new`** — not walked this round (scoped to the handoff); machine-visible walk deferred to a backlog round after Activity G |
+
+**Round notes recorded at this sitting** (ledger entry accompanies the sign-off commit): the two
+engineering calls R1 (RxDB reuse is greenfield) and R2 (redemption orchestrated in HQ Go, Supabase
+stays the sole arbiter) were decided here and are revisitable in Activity 0's spike if field
+observation (#6) changes device topology. No `/nc-retro` preceded this round; recorded as an
+absence, round proceeded on close record + backlog + OKR grades. This target has no `openspec/`, so
+cards are plain-markdown items and no OpenSpec deferral markers apply.
