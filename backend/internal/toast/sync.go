@@ -57,7 +57,15 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 	// 1. SFTP fetch with the D-10 5s/15s/30s backoff schedule.
 	pkBytes, err := os.ReadFile(cfg.SFTPKeyPath)
 	if err != nil {
-		return false, fmt.Errorf("read key %q: %w", cfg.SFTPKeyPath, err)
+		// A key that cannot be read is a DEAD transport — no data can ever land,
+		// the same class as a dial/auth failure. Classify it as ErrSFTPUnavailable
+		// so the worker fails loud (health failing + Cliq alert) instead of the
+		// plain error that runCycle's default branch mistakes for a live-transport
+		// Spaces hiccup (reachedSFTP=true → RecordSuccess). This was the 2026-09-02
+		// silent death: /app/id_rsa bind-mounted as an empty directory, every read
+		// "is a directory", yet /health stayed toast_sync:ok.
+		slog.Error("toast sync: SFTP key unreadable", "path", cfg.SFTPKeyPath, "error", err)
+		return false, fmt.Errorf("%w: read key %q: %v", ErrSFTPUnavailable, cfg.SFTPKeyPath, err)
 	}
 	dial := cfg.Dialer
 	if dial == nil {

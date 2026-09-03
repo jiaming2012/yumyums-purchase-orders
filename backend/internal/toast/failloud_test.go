@@ -121,6 +121,39 @@ func TestHandleSyncOutcome_Success_NoAlert(t *testing.T) {
 	}
 }
 
+// TestSyncDate_KeyUnreadable_ReturnsUnavailable pins the 2026-09-02 prod silent
+// death. /app/id_rsa was a DIRECTORY (docker bind-mounted a missing source), so
+// os.ReadFile failed "is a directory". The old code returned that as a PLAIN
+// error, which runCycle's default branch files as a "systemic" error — and that
+// branch sets reachedSFTP=true (it assumes a post-download Spaces hiccup, where
+// the transport is alive), so handleSyncOutcome then RecordSuccess()es and
+// /health reports toast_sync:ok on a 100%-dead pipeline. A key that cannot be
+// read is a DEAD transport, same class as a dial/auth failure, so SyncDate must
+// classify it as ErrSFTPUnavailable → the loud path (failing + alert).
+func TestSyncDate_KeyUnreadable_ReturnsUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	keyAsDir := filepath.Join(dir, "id_rsa")
+	if err := os.Mkdir(keyAsDir, 0o755); err != nil { // exact prod shape: a directory, not a file
+		t.Fatalf("mkdir key-as-dir: %v", err)
+	}
+
+	cfg := Config{
+		SFTPKeyPath:  keyAsDir,
+		SpacesBucket: "unit-bucket",
+		CacheDir:     dir,
+		Dialer:       failingDialer, // never reached — the key read fails first
+	}
+	cfg.SpacesClient = spacesSentinel()
+
+	_, err := SyncDate(t.Context(), cfg, time.Now())
+	if !errors.Is(err, ErrSFTPUnavailable) {
+		t.Fatalf("unreadable key (directory): got %v, want ErrSFTPUnavailable", err)
+	}
+	if errors.Is(err, ErrSFTPMiss) {
+		t.Fatalf("unreadable key must NOT be classified as ErrSFTPMiss (silent miss)")
+	}
+}
+
 // --- test doubles ---
 
 type fakeAlertSink struct {

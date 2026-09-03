@@ -6,7 +6,7 @@
 | **Prepared** | 2026-09-01, night-crew run `20260901`, Card 10 `counterparty-notice-prep` (Track C); reviewed + finalised by the operator 2026-09-01 (morning triage T-47). |
 | **Source** | HQ automated audit + re-verification against the pre-deploy tree. Finalised: framing settled, §3 decided (below). |
 | **Supersedes** | `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md`. That file is left in place as cited evidence; this is the record of account. |
-| **Gated act remaining** | the **deploy**. §4's checklist must be satisfied (sales-processor side aligned to `America/New_York`) **before** `task prod:deploy` runs migration `0072`; the changeover date is recorded here immediately after. |
+| **Deploy** | **Done 2026-09-02** (`task prod:deploy`, prod `git_sha` `a347bde`). Migration `0072` ran; changeover date recorded in §4. sales-processor side **verified already aligned** (host-local `America/New_York`); no change required — see §4. |
 | **Closed on finalisation** | **B-29** (the undisclosed 2026-06-06 gate change) and **B-137** (counterparty-process) — closed 2026-09-01, ledger T-48. |
 
 ## Read this first — framing
@@ -90,17 +90,16 @@ Three more in the same document:
 
 ## 4. The timezone changeover — this one needs the sales-processor side aligned before the deploy
 
-Everything above is the past. This is a deploy that has not happened yet, and it is the one item that requires action on both sides.
+Everything above is the past. This section is HQ's timezone changeover — **deployed to production on 2026-09-02**. It required action on both sides; the sales-processor side was verified 2026-09-02 and is **already aligned** — see the resolution below.
 
 **HQ's operating timezone is moving from `America/Chicago` to `America/New_York`** (ledger T-26 decision 83). A payroll week and a food-cost week must describe the same seven days, and HQ had been running two zones at once — the user-level default was already New York while the money queries had Chicago as a literal.
 
-**Status, stated precisely:**
-- The change is **written and merged** (`users.DefaultTimezone = "America/New_York"`, `pendingPeriodDateExpr` reads that single constant, migration `0072_app_timezone_new_york.sql` re-points the `cutoff_config` / `repurchase_reset_config` defaults and updates existing rows).
-- It is **not deployed.** Production still computes `America/Chicago`.
-- It takes effect on **the first HQ deploy that carries it**, **not yet scheduled.** The changeover date is the date migration `0072` first runs — recoverable exactly afterward.
-- **Changeover date, once deployed:** _(record here immediately after `task prod:deploy` — step 3 of the sequencing above; `goose_db_version.tstamp` for version 72)._
+**Status, stated precisely (updated post-deploy 2026-09-02):**
+- The change is **written, merged, and deployed** (`users.DefaultTimezone = "America/New_York"`, `pendingPeriodDateExpr` reads that single constant, migration `0072_app_timezone_new_york.sql` re-points the `cutoff_config` / `repurchase_reset_config` defaults and updates existing rows).
+- It is **deployed.** Production computes `America/New_York` as of 2026-09-02 (`task prod:deploy`, image built `2026-09-02T21:39:32Z`, prod `git_sha` `a347bde`). Before this date production computed `America/Chicago`.
+- **Changeover date: 2026-09-02.** The date migration `0072` first ran in production — the single day every weekly/daily boundary moved one hour earlier (Chicago → New York), once. Authoritative source: `goose_db_version.tstamp` for version 72. Weekly COGS/payroll figures produced before this date were computed in `America/Chicago` and are **not restated** (fix-forward, per the migration).
 
-🛑 **Do not ship the sales-processor side on the assumption HQ has already moved.** Switching before the deploy creates the same one-hour disagreement this change exists to end, in the opposite direction.
+✅ **sales-processor side — resolved 2026-09-02, already aligned.** sales-processor carries no explicit timezone: it anchors the pay week on host-local time (`main.go` `now := time.Now()` → `service.GetDateLastSunday` → `service.GetDatesStartingFromPreviousMonday`, no `.In(zone)`, no `TZ` in `.env`, no `America/*` literal). It is run via `go run main.go` on an `America/New_York` host, so it already computes New York — it always did. **HQ's Chicago → New_York move brought HQ into line with sales-processor, not the reverse; there is no one-hour disagreement to fix.** Latent fragility: sales-processor's zone is *implicit* in the run-host, so running it on a UTC/Central host would silently shift its weeks out of alignment — the same class of bug HQ's `0072` retired. Hardening it to an explicit `time.LoadLocation("America/New_York")` is a filed follow-up (handoff in the sales-processor repo: `docs/handoff-timezone-hardening.md`), not a blocker.
 
 **What actually moves, and it is narrow.** The zone enters `/period-summary` at exactly one point: the `created_at` fallback inside `pendingPeriodDateExpr`, which applies **only** to pending, unconfirmed receipts whose parser extracted no purchase date. The confirmed half has no zone dependency (`purchase_events.event_date` is a plain `DATE`). But that one expression period-filters the pending rows, so where it applies it reaches the money as well as the gate — `cogs_excl_tax`, `cogs_incl_tax`, `purchase_event_count`, `by_vendor` and `completeness.pending_review_ids`. New York is an hour ahead, so a boundary receipt created 23:00–midnight Central with no parsed date moves from one week to the next — a shift, not a widening.
 
@@ -136,4 +135,4 @@ Every claim traces to a `§0` audit row in `docs/contracts/inventory-period-summ
 
 ## Status — finalised
 
-This record is **finalised as of 2026-09-01** (operator, morning triage T-47/T-48). B-29 and B-137 are closed. The remaining gated act is the **deploy**: §4's checklist must be satisfied (the sales-processor side aligned to `America/New_York`) before `task prod:deploy` runs migration `0072`, and the changeover date is recorded in §4 immediately after (step 3 of the sequencing above). Recording that date is the last open thread of the `counterparty-combined-notice` roadmap card.
+This record was **finalised 2026-09-01** (operator, morning triage T-47/T-48; B-29 and B-137 closed) and **the deploy landed 2026-09-02** (`task prod:deploy`, prod `git_sha` `a347bde`): migration `0072` ran, HQ now computes `America/New_York`, and the changeover date (2026-09-02) is recorded in §4. The sales-processor side was **verified already aligned** the same day (it computes host-local `America/New_York`; the deploy brought HQ into line with it, §4). That closes every thread of the `counterparty-combined-notice` roadmap card. Optional follow-up (non-blocking): harden sales-processor's implicit timezone to an explicit `America/New_York` — handoff at `sales-processor/docs/handoff-timezone-hardening.md`.

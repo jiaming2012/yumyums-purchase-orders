@@ -42,8 +42,24 @@ func LoadConfigFromEnv() (Config, error) {
 	if keyPath == "" {
 		return Config{}, fmt.Errorf("TOAST_SFTP_KEY_PATH is required (no default — see D-12)")
 	}
-	if _, err := os.Stat(keyPath); err != nil {
+	fi, err := os.Stat(keyPath)
+	if err != nil {
 		return Config{}, fmt.Errorf("TOAST_SFTP_KEY_PATH=%q is not readable: %w", keyPath, err)
+	}
+	if !fi.Mode().IsRegular() {
+		// os.Stat SUCCEEDS on a directory. A docker bind-mount of a MISSING source
+		// creates an empty directory at the mount source, so a forgotten key file
+		// silently presents as a directory (the 2026-09-02 prod condition). Reject
+		// anything that is not a regular file so a bad key is a LOUD boot failure,
+		// not a silent per-cycle runtime death with /health still reporting ok.
+		return Config{}, fmt.Errorf("TOAST_SFTP_KEY_PATH=%q is not a regular file (mode %s) — place the key FILE at this path (a docker bind-mount of a missing source creates an empty directory)", keyPath, fi.Mode())
+	}
+	// A regular file can still be unreadable (perms) or empty — read it now so the
+	// key is proven usable at boot rather than failing every sync at runtime.
+	if b, rErr := os.ReadFile(keyPath); rErr != nil {
+		return Config{}, fmt.Errorf("TOAST_SFTP_KEY_PATH=%q is not readable: %w", keyPath, rErr)
+	} else if len(b) == 0 {
+		return Config{}, fmt.Errorf("TOAST_SFTP_KEY_PATH=%q is an empty file — no key present", keyPath)
 	}
 
 	cfg := Config{
