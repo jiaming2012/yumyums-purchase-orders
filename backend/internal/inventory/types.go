@@ -88,8 +88,9 @@ type PendingPurchase struct {
 	TotalCases  *int             `json:"total_cases,omitempty"`
 	ReceiptURL  *string          `json:"receipt_url,omitempty"`
 	ReceiptURLs []string         `json:"receipt_urls,omitempty"`
-	Reason      *string          `json:"reason,omitempty"`
-	ParseError  *string          `json:"parse_error,omitempty"`
+	Reason          *string      `json:"reason,omitempty"`
+	ParseError      *string      `json:"parse_error,omitempty"`
+	MercuryCategory *string      `json:"mercury_category,omitempty"` // Mercury's own category; NULL = uncategorised
 	Items       json.RawMessage  `json:"items"`
 	ConfirmedAt *time.Time       `json:"confirmed_at,omitempty"`
 	ConfirmedBy *string          `json:"confirmed_by,omitempty"`

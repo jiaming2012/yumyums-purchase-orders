@@ -666,7 +666,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
-			       reason, parse_error, items,
+			       reason, parse_error, mercury_category, items,
 			       confirmed_at, confirmed_by, discarded_at, created_at
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
@@ -688,7 +688,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
-				&p.Reason, &p.ParseError, &p.Items,
+				&p.Reason, &p.ParseError, &p.MercuryCategory, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 			); err != nil {
 				slog.Error("ListPendingPurchases scan failed", "error", err)

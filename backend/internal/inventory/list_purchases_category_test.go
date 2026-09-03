@@ -69,6 +69,52 @@ func TestListPendingPurchases_HidesNonCOGSCategory(t *testing.T) {
 	}
 }
 
+// TestListPendingPurchases_ReturnsMercuryCategory asserts the pending list
+// surfaces mercury_category so the operator can see what Mercury tagged (or
+// didn't). A NULL category comes back as a nil pointer (omitted); an allowlisted
+// value comes back verbatim.
+func TestListPendingPurchases_ReturnsMercuryCategory(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not set — skipping DB-coupled test")
+	}
+	resetFixtures(t)
+
+	insertPendingPurchaseFull(t, "tx-cat", "", "2026-09-01T12:00:00Z", "no_attachment_on_bank_tx", "COGS", "US Foods", -100.00)
+	insertPendingPurchaseFull(t, "tx-nocat", "", "2026-09-01T12:00:00Z", "no_attachment_on_bank_tx", "", "Thompsongas", -39.11)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ListPendingPurchasesHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var got []PendingPurchase
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v (body=%s)", err, rec.Body.String())
+	}
+
+	byVendor := map[string]PendingPurchase{}
+	for _, p := range got {
+		byVendor[p.Vendor] = p
+	}
+
+	cogs, ok := byVendor["US Foods"]
+	if !ok {
+		t.Fatalf("US Foods row missing; got %v", byVendor)
+	}
+	if cogs.MercuryCategory == nil || *cogs.MercuryCategory != "COGS" {
+		t.Errorf("US Foods mercury_category = %v, want \"COGS\"", cogs.MercuryCategory)
+	}
+
+	uncat, ok := byVendor["Thompsongas"]
+	if !ok {
+		t.Fatalf("Thompsongas row missing; got %v", byVendor)
+	}
+	if uncat.MercuryCategory != nil {
+		t.Errorf("Thompsongas mercury_category = %q, want nil (uncategorised)", *uncat.MercuryCategory)
+	}
+}
+
 // TestListPurchaseEvents_HidesNonCOGSCategory does the same for confirmed
 // purchase_events (the Purchases-tab history list): a non-food event with a
 // parsed receipt must not appear either.

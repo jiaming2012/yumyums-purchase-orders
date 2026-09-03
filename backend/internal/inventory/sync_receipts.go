@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -76,6 +77,82 @@ func SyncReceiptsHandler(pool *pgxpool.Pool, runner IngestRunner) http.HandlerFu
 			"id":         id,
 			"status":     "running",
 			"started_at": startedAt,
+		})
+	}
+}
+
+// DeepIngestRunner runs an ingest cycle over an explicit [from,to] window.
+// The production closure wraps receipt.RunIngestCycleWindow + receiptCfg.
+type DeepIngestRunner func(ctx context.Context, from, to time.Time) (receipt.IngestResult, error)
+
+// DeepSyncReceiptsHandler triggers a deep re-sync over a caller-specified date
+// range (POST body {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}). Unlike the rolling
+// SyncReceiptsHandler it re-pulls an older window, so a charge the operator
+// re-categorised in Mercury months ago gets its mercury_category refreshed on
+// the existing pending/event row. Shares the receipt_sync_runs single-flight
+// row (triggered_by='deep') so only one sync of any kind runs at a time.
+func DeepSyncReceiptsHandler(pool *pgxpool.Pool, runner DeepIngestRunner) http.HandlerFunc {
+	const layout = "2006-01-02"
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		from, err := time.Parse(layout, body.From)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "from must be YYYY-MM-DD")
+			return
+		}
+		to, err := time.Parse(layout, body.To)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "to must be YYYY-MM-DD")
+			return
+		}
+		if to.Before(from) {
+			writeError(w, http.StatusBadRequest, "from must be <= to")
+			return
+		}
+		// Include the whole `to` day.
+		to = to.AddDate(0, 0, 1).Add(-time.Second)
+		// Cap the window so a runaway range can't hammer Mercury or download
+		// hundreds of receipts in one shot.
+		if to.Sub(from) > 200*24*time.Hour {
+			writeError(w, http.StatusBadRequest, "range too large (max 200 days)")
+			return
+		}
+
+		var id int64
+		var startedAt time.Time
+		err = pool.QueryRow(r.Context(),
+			`INSERT INTO receipt_sync_runs (status, triggered_by)
+			 VALUES ('running', 'deep')
+			 RETURNING id, started_at`,
+		).Scan(&id, &startedAt)
+		if err != nil {
+			if isUniqueViolation(err) {
+				writeError(w, http.StatusConflict, "sync_already_running")
+				return
+			}
+			slog.Error("DeepSyncReceipts insert failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Capture the window for the detached goroutine.
+		go runSyncGoroutine(pool, func(ctx context.Context) (receipt.IngestResult, error) {
+			return runner(ctx, from, to)
+		}, id)
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":         id,
+			"status":     "running",
+			"started_at": startedAt,
+			"from":       body.From,
+			"to":         body.To,
 		})
 	}
 }
