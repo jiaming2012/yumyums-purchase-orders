@@ -119,9 +119,10 @@ func DeepSyncReceiptsHandler(pool *pgxpool.Pool, runner DeepIngestRunner) http.H
 		// Include the whole `to` day.
 		to = to.AddDate(0, 0, 1).Add(-time.Second)
 		// Cap the window so a runaway range can't hammer Mercury or download
-		// hundreds of receipts in one shot.
-		if to.Sub(from) > 200*24*time.Hour {
-			writeError(w, http.StatusBadRequest, "range too large (max 200 days)")
+		// hundreds of receipts in one shot. The modal defaults to a 200-day
+		// window; this leaves headroom to widen it.
+		if to.Sub(from) > 400*24*time.Hour {
+			writeError(w, http.StatusBadRequest, "range too large (max 400 days)")
 			return
 		}
 
