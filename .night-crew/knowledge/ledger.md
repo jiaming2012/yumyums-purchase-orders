@@ -3632,9 +3632,16 @@ after ~5 weeks dead. Told as the user stories the work served:
   4. A cycle that **reached SFTP but persisted 0 dates** due to write errors still reported `ok`;
      it now reports `failing` (an all-miss "nothing to pull" cycle stays healthy) (`worker.go`).
 
-  **Close-bar leg 3 (kill-drill): now possible but not yet witnessed.** Before these fixes the
-  drill could not have passed — the pipeline could die silently. The operator's personal
-  observation of a deliberate break announcing itself remains the close requirement.
+  **Close-bar leg 3 (kill-drill): RUN and PASSED, 2026-09-03 (operator-directed).** The prod key
+  was deliberately overwritten with garbage and the container restarted; the server booted (the
+  guard passes a non-empty file) and the first sync cycle failed auth — within one cycle
+  `/health` flipped to `toast_sync: {status: "failing", last_error_summary: "…ssh parse private
+  key: ssh: no key found"}` AND the Cliq alert dispatched ("Toast sync FAILING: cannot
+  open/authenticate SFTP — no sales data is landing"), while the app's overall `status` stayed
+  `ok` (Toast fails loud without taking the server down). The real key was then restored
+  (sha256-verified) and `toast_sync` returned to `ok` with `synced=7`. Before today's fixes this
+  same break went silent (`toast_sync: ok` on a dead pipeline); it is now loud on both channels.
+  Operator directed the drill and reviews the captured evidence.
 
 - **Deploy-flow lesson (B-349, target-side now shipped):** the first deploy attempt failed on the
   wrong machine, the second silently shipped 9-day-stale `main` because the `dev→main` merge was
@@ -3643,5 +3650,6 @@ after ~5 weeks dead. Told as the user stories the work served:
   clone-side half.
 
 Commits: `2a704ef` (key-read + boot guard), `80ce737` (cache dir + persist-0 honesty), plus the
-prod:ship tooling and the §4 changeover stamp. Milestone close still pending leg 3 + the operator
-personally seeing all three.
+prod:ship tooling and the §4 changeover stamp. **All three close-bar legs now demonstrated
+(parity SHA-verified, ingest alive 7d/52 rows, kill-drill run + passed);** the milestone is ready
+for `/nc-milestone-close` at the operator's confirmation.
