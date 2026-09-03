@@ -3656,3 +3656,40 @@ Commits: `2a704ef` (key-read + boot guard), `80ce737` (cache dir + persist-0 hon
 prod:ship tooling and the §4 changeover stamp. **All three close-bar legs now demonstrated
 (parity SHA-verified, ingest alive 7d/52 rows, kill-drill run + passed);** the milestone is ready
 for `/nc-milestone-close` at the operator's confirmation.
+
+### T-50 close line — milestone "Prod current and honest" CLOSED at /nc-milestone-close, 2026-09-03
+
+Graded by reading (hand-run nights; no computed metrics) plus live read-only prod verification
+through the tunnel: **12 MET · 0 PARTIAL · 2 NOT MET** across 14 KRs (Product 3/0/0 · Delivery
+3/0/0 · Engineering 4/0/0 · QA 2/0/2).
+
+- **Close bar (P-KR1) MET and live-verified.** All three legs operator-observed: parity — prod
+  `/api/v1/health` `git_sha 80ce737` == `origin/main`, backend `0.4.0` / frontend `1.5.0` ==
+  local `version.go` == `package.json`, 0 drift (verified live at close, not from the ledger
+  alone); Toast ingest alive — `toast_sync: ok`, `last_success 2026-09-03T13:41:51Z`; kill-drill
+  alert witnessed on the operator's device (T-49).
+- **D-KR3 (rollback) MET, verified at close.** The `:rollback` image tag exists on the deploy box
+  and targets a real prior image (created 2026-09-03 11:26:50, ~7m before the live prod build
+  `built_at 2026-09-03T11:34:15Z`), consistent with `prod:deploy` re-tagging the outgoing image
+  before each build. Recorded here alongside the live parity check per the KR.
+- **Retired this cycle:** D-KR1 (inherited two-cycle parity KR — 0 drift); D-KR2 (per-card stamp
+  discipline — 11/11 cards carry implementer/G6/fix-return, never backfilled, per-card median
+  ~24m, N=11, 0 excluded — last cycle's PARTIAL); Q-KR4 (the signed slate carries its Gate-cost
+  section at signing — last cycle's only NOT MET). B-376/B-377's producer fixes held a full cycle.
+- **P-KR2 MET** on its own terms: the Toast gap is enumerated and dispositioned day-by-day (10
+  aged-out written off with retention evidence, 28 recoverable), 0 days silently absent — the KR
+  asks for the disposition, not an un-instructed backfill of the recoverable slice. (First-pass
+  graded PARTIAL; corrected at the operator's challenge — the backfill was never an instructed
+  close act, and the card author mapped P-KR2 to the disposition.)
+- **NOT MET (2), both derived:** Q-KR2 — `night-crew backlog check` exits 1 (BACKLOG un-migrated);
+  Q-KR3 — `night-crew scorecard` renders "No runs" and the OR-arm's target-side card is PLANNED.
+  Both producing cards (`backlog-machine-migration`, `team-records-from-hand-runs`) were promoted
+  at the T-46 roadmap round but not slated into run `20260901`, so neither was buildable this
+  cycle.
+- Aggregate export hand-authored and transferred to the night-crew **dev** clone at
+  `reference/milestones/hq-20260903.md` (`/Users/jamal/projects/night-crew`, on `dev` — NOT
+  `night-crew-main`, the pinned `main` worktree the skill symlink resolves to). One
+  tool-implicating finding offered + consented, captured there as **B-394** (origin
+  `milestone-close hq 20260903`), verified by handle (`verify-transfers` 1/1 backed). Marker
+  `hq-20260903` written — carrying no boundary, as every marker here does while nothing writes run
+  records. This target has no reflections store; recorded as an absence.
