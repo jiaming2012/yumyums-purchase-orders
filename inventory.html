@@ -41,6 +41,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-btn{width:100%;padding:11px 14px;background:#dcfce7;color:#14532d;border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
 @media(prefers-color-scheme:dark){.sync-btn{background:#14532d;color:#86efac}}
 .sync-btn:disabled{opacity:0.6;cursor:default}
+.sync-row{display:flex;gap:8px}
+.sync-row .sync-btn{width:auto;white-space:nowrap}
+.sync-row #sync-receipts-btn{flex:3}
+.sync-row #deep-sync-btn{flex:1;padding-left:8px;padding-right:8px}
 .sync-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut)}
 .sync-chip.ok{color:var(--info-tx);background:var(--info-bg)}
 .sync-chip.err{color:var(--warn-tx);background:var(--warn-bg)}
@@ -360,9 +364,11 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
   </div>
   <div id="s1" style="display:none">
     <div class="sync-bar">
-      <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+      <div class="sync-row">
+        <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+        <button id="deep-sync-btn" class="sync-btn" type="button" style="display:none">Deep Sync…</button>
+      </div>
       <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Reprocess All Pending</button>
-      <button id="deep-sync-btn" class="sync-btn" type="button" style="display:none">Deep Sync…</button>
       <div id="sync-receipts-chip" style="display:none"></div>
     </div>
     <div id="deep-sync-overlay" class="ds-overlay">
