@@ -3595,3 +3595,101 @@ writes run records. This target has no reflections store; recorded as an absence
   treat those docs as the spec of record — re-diff a contract's stated SQL against its handler
   whenever the handler changes, and notify the peer (even when the peer is yourself) before the
   change ships, because the notice is the pre-deploy checklist, not a courtesy.
+
+### T-49 — Prod deployed, Toast ingest resurrected, fail-loud actually made to hold (2026-09-03, attended-delegated)
+
+The "Prod current and honest" deploy landed and the Toast pipeline is genuinely alive again
+after ~5 weeks dead. Told as the user stories the work served:
+
+- **As the owner whose payroll rides HQ's numbers, I want production running today's code —**
+  and it does. `dev` → `main` shipped and `task prod:deploy` ran on the winbox; prod
+  `/api/v1/health` `git_sha` is `80ce737` == `origin/main` (SHA-verified parity, not the
+  semver false-green of B-349). Backend `0.4.0` / frontend `1.5.0`. **Close-bar leg 1: MET.**
+
+- **As that same owner, I want the weekly numbers computed from real sales —** and Toast ingest
+  now lands them. Root cause of the outage: the SFTP key was **never placed** on the box, so
+  Docker's `./id_rsa:/app/id_rsa` bind-mount created an empty **directory** at the source. The
+  real key (from `sales-processor/creds/id_rsa`, the same key that peer uses; `ssh-rsa`,
+  sha256 `a0fba834…`) was placed on the prod box this session and verified byte-identical. First
+  boot cycle after the fix: **7 days synced (20260827–20260902), 52 sales rows upserted**, real
+  `toast/YYYYMMDD/` archives in Spaces + cache. **Close-bar leg 2: MET.**
+
+- **As the operator, I want a dead Toast pipeline to announce itself, never masquerade as
+  healthy.** This is the milestone's whole reason to exist, and on the first deploy it was
+  violated live: the key-as-directory made every sync fail while `/health` still said
+  `toast_sync: ok`. Four fixes now make it hold (all red-first, `internal/toast` green):
+  1. An **unreadable key** is a dead transport → classified `ErrSFTPUnavailable` → health
+     `failing` + Cliq alert, instead of a plain error the worker mistook for a live-transport
+     hiccup and recorded as success (`sync.go`).
+  2. The **boot guard** required only `os.Stat`, which passes on a directory; it now requires a
+     regular, readable, non-empty file and fails fast (`os.Exit`) otherwise (`config.go`).
+     Operator's standing choice, recorded: **fail loudly** — the server refuses to boot on a bad
+     key rather than run degraded-and-silent.
+  3. The forensic **cache dir** was uncreatable by the non-root container user (`/app` root-owned;
+     `mkdir backend: permission denied`), which blocked every date — masked until the key was
+     fixed. The image now ships a chowned `/app/cache/toast` and pins `TOAST_CACHE_DIR`
+     (`Dockerfile`).
+  4. A cycle that **reached SFTP but persisted 0 dates** due to write errors still reported `ok`;
+     it now reports `failing` (an all-miss "nothing to pull" cycle stays healthy) (`worker.go`).
+
+  **Close-bar leg 3 (kill-drill): RUN and PASSED, 2026-09-03 (operator-directed).** The prod key
+  was deliberately overwritten with garbage and the container restarted; the server booted (the
+  guard passes a non-empty file) and the first sync cycle failed auth — within one cycle
+  `/health` flipped to `toast_sync: {status: "failing", last_error_summary: "…ssh parse private
+  key: ssh: no key found"}` AND the Cliq alert dispatched ("Toast sync FAILING: cannot
+  open/authenticate SFTP — no sales data is landing"), while the app's overall `status` stayed
+  `ok` (Toast fails loud without taking the server down). The real key was then restored
+  (sha256-verified) and `toast_sync` returned to `ok` with `synced=7`. Before today's fixes this
+  same break went silent (`toast_sync: ok` on a dead pipeline); it is now loud on both channels.
+  Operator directed the drill AND **personally received the Cliq push notification on their device**
+  (2026-09-03) — the alert path is proven end-to-end to the operator, which is precisely leg 3's
+  "the failure announces itself, observed by the operator" requirement. Leg 3 is witnessed, not
+  merely demonstrated.
+
+- **Deploy-flow lesson (B-349, target-side now shipped):** the first deploy attempt failed on the
+  wrong machine, the second silently shipped 9-day-stale `main` because the `dev→main` merge was
+  never automated. `task prod:ship` / `prod:release` + a fail-loud stale-guard in `prod:deploy`
+  shipped this session; the `/nc-status` + close-bar prod-`git_sha` awareness remain the
+  clone-side half.
+
+Commits: `2a704ef` (key-read + boot guard), `80ce737` (cache dir + persist-0 honesty), plus the
+prod:ship tooling and the §4 changeover stamp. **All three close-bar legs now demonstrated
+(parity SHA-verified, ingest alive 7d/52 rows, kill-drill run + passed);** the milestone is ready
+for `/nc-milestone-close` at the operator's confirmation.
+
+### T-50 close line — milestone "Prod current and honest" CLOSED at /nc-milestone-close, 2026-09-03
+
+Graded by reading (hand-run nights; no computed metrics) plus live read-only prod verification
+through the tunnel: **12 MET · 0 PARTIAL · 2 NOT MET** across 14 KRs (Product 3/0/0 · Delivery
+3/0/0 · Engineering 4/0/0 · QA 2/0/2).
+
+- **Close bar (P-KR1) MET and live-verified.** All three legs operator-observed: parity — prod
+  `/api/v1/health` `git_sha 80ce737` == `origin/main`, backend `0.4.0` / frontend `1.5.0` ==
+  local `version.go` == `package.json`, 0 drift (verified live at close, not from the ledger
+  alone); Toast ingest alive — `toast_sync: ok`, `last_success 2026-09-03T13:41:51Z`; kill-drill
+  alert witnessed on the operator's device (T-49).
+- **D-KR3 (rollback) MET, verified at close.** The `:rollback` image tag exists on the deploy box
+  and targets a real prior image (created 2026-09-03 11:26:50, ~7m before the live prod build
+  `built_at 2026-09-03T11:34:15Z`), consistent with `prod:deploy` re-tagging the outgoing image
+  before each build. Recorded here alongside the live parity check per the KR.
+- **Retired this cycle:** D-KR1 (inherited two-cycle parity KR — 0 drift); D-KR2 (per-card stamp
+  discipline — 11/11 cards carry implementer/G6/fix-return, never backfilled, per-card median
+  ~24m, N=11, 0 excluded — last cycle's PARTIAL); Q-KR4 (the signed slate carries its Gate-cost
+  section at signing — last cycle's only NOT MET). B-376/B-377's producer fixes held a full cycle.
+- **P-KR2 MET** on its own terms: the Toast gap is enumerated and dispositioned day-by-day (10
+  aged-out written off with retention evidence, 28 recoverable), 0 days silently absent — the KR
+  asks for the disposition, not an un-instructed backfill of the recoverable slice. (First-pass
+  graded PARTIAL; corrected at the operator's challenge — the backfill was never an instructed
+  close act, and the card author mapped P-KR2 to the disposition.)
+- **NOT MET (2), both derived:** Q-KR2 — `night-crew backlog check` exits 1 (BACKLOG un-migrated);
+  Q-KR3 — `night-crew scorecard` renders "No runs" and the OR-arm's target-side card is PLANNED.
+  Both producing cards (`backlog-machine-migration`, `team-records-from-hand-runs`) were promoted
+  at the T-46 roadmap round but not slated into run `20260901`, so neither was buildable this
+  cycle.
+- Aggregate export hand-authored and transferred to the night-crew **dev** clone at
+  `reference/milestones/hq-20260903.md` (`/Users/jamal/projects/night-crew`, on `dev` — NOT
+  `night-crew-main`, the pinned `main` worktree the skill symlink resolves to). One
+  tool-implicating finding offered + consented, captured there as **B-394** (origin
+  `milestone-close hq 20260903`), verified by handle (`verify-transfers` 1/1 backed). Marker
+  `hq-20260903` written — carrying no boundary, as every marker here does while nothing writes run
+  records. This target has no reflections store; recorded as an absence.
