@@ -2052,7 +2052,7 @@ func TestListPendingPurchases_ReceiptURLsField(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	ListPendingPurchasesHandler(testPool).ServeHTTP(rec, req)
+	ListPendingPurchasesHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 	}

@@ -313,7 +313,7 @@ func UpdatePendingItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // ListPurchaseEventsHandler returns purchase events with nested line items.
 // Accepts optional ?vendor_id and ?page query params (LIMIT 50 per page).
-func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vendorID := r.URL.Query().Get("vendor_id")
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -326,6 +326,13 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			rows pgx.Rows
 			err  error
 		)
+		// Same non-food filter as the pending queue (see
+		// ListPendingPurchasesHandler): hide confirmed events Mercury has
+		// categorised as non-COGS; keep NULL (uncategorised) and allowlisted.
+		// A non-food charge with a parseable receipt (e.g. a software invoice)
+		// otherwise auto-confirms into purchase_events and would leak into the
+		// Purchases-tab history. Display filter only — COGS/stock/trends run
+		// their own queries.
 		if vendorID != "" {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
@@ -333,9 +340,10 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
+				  AND (pe.mercury_category IS NULL OR pe.mercury_category = ANY($2))
 				ORDER BY pe.event_date DESC
-				LIMIT 50 OFFSET $2`,
-				vendorID, offset,
+				LIMIT 50 OFFSET $3`,
+				vendorID, cogsAllowlist, offset,
 			)
 		} else {
 			rows, err = pool.Query(r.Context(), `
@@ -343,9 +351,10 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
+				WHERE (pe.mercury_category IS NULL OR pe.mercury_category = ANY($1))
 				ORDER BY pe.event_date DESC
-				LIMIT 50 OFFSET $1`,
-				offset,
+				LIMIT 50 OFFSET $2`,
+				cogsAllowlist, offset,
 			)
 		}
 		if err != nil {
@@ -643,8 +652,17 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // ListPendingPurchasesHandler returns pending purchases that have not been confirmed or discarded.
-func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
+func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Hide charges Mercury has definitively categorised as non-food
+		// (mercury_category KNOWN and NOT in the COGS allowlist) so non-COGS
+		// card spend — printing, software, fuel — doesn't clutter the food
+		// review queue. NULL category (Mercury hasn't classified yet) stays
+		// visible so a food purchase never silently vanishes before Mercury
+		// tags it; a later sync poll refreshes the category (receipt/worker.go)
+		// and drops it if it turns out non-food. These rows still exist in the
+		// table (recoverable) and /period-summary already excludes them from
+		// payroll, so this is a display filter only, not a data change.
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
@@ -652,7 +670,9 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			       confirmed_at, confirmed_by, discarded_at, created_at
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
+			  AND (mercury_category IS NULL OR mercury_category = ANY($1))
 			ORDER BY created_at DESC`,
+			cogsAllowlist,
 		)
 		if err != nil {
 			slog.Error("ListPendingPurchases query failed", "error", err)

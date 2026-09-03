@@ -662,9 +662,9 @@ func main() {
 					r.Post("/vendors", inventory.CreateVendorHandler(pool))
 					r.Put("/vendors", inventory.UpdateVendorHandler(pool))
 					r.Post("/vendors/merge", inventory.MergeVendorsHandler(pool))
-					r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
+					r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool, cogsAllowlist))
 					r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
-					r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
+					r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool, cogsAllowlist))
 					// On-demand Mercury receipt sync (260607-bir): durable single-flight
 					// runner backed by receipt_sync_runs. closes over receiptCfg above.
 					r.Post("/sync-receipts", inventory.SyncReceiptsHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
