@@ -3641,7 +3641,10 @@ after ~5 weeks dead. Told as the user stories the work served:
   `ok` (Toast fails loud without taking the server down). The real key was then restored
   (sha256-verified) and `toast_sync` returned to `ok` with `synced=7`. Before today's fixes this
   same break went silent (`toast_sync: ok` on a dead pipeline); it is now loud on both channels.
-  Operator directed the drill and reviews the captured evidence.
+  Operator directed the drill AND **personally received the Cliq push notification on their device**
+  (2026-09-03) — the alert path is proven end-to-end to the operator, which is precisely leg 3's
+  "the failure announces itself, observed by the operator" requirement. Leg 3 is witnessed, not
+  merely demonstrated.
 
 - **Deploy-flow lesson (B-349, target-side now shipped):** the first deploy attempt failed on the
   wrong machine, the second silently shipped 9-day-stale `main` because the `dev→main` merge was
