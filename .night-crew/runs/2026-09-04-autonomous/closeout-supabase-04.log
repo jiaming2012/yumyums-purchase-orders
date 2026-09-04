@@ -1,0 +1,156 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/hq/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/hq
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T06:59:58Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788505203222
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788505204094 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T07:00:04Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── migration + seed (idempotent, server-side as supabase_admin) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:36: NOTICE:  relation "campaigns" already exists, skipping
+psql:<stdin>:54: NOTICE:  relation "codes" already exists, skipping
+psql:<stdin>:56: NOTICE:  relation "codes_updated_at_idx" already exists, skipping
+psql:<stdin>:78: NOTICE:  relation "scan_attempts" already exists, skipping
+psql:<stdin>:80: NOTICE:  relation "scan_attempts_join_idx" already exists, skipping
+psql:<stdin>:101: NOTICE:  relation "marketing_settings" already exists, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── leg R: the harness detects the defect class (naive analog double-wins) ──
+NOTICE:  function public.redeem_naive_analog_card2(uuid,text) does not exist, skipping
+  try 1: winners=2  [true|<NULL> true|<NULL> ]
+  ✓ defect class demonstrated: both clients won on one code (analog dropped again)
+
+── leg G: public.redeem — 20 rounds × 2 concurrent clients, fresh code each ──
+  round 01: winners=1 loser_reason=already_used
+  round 02: winners=1 loser_reason=already_used
+  round 03: winners=1 loser_reason=already_used
+  round 04: winners=1 loser_reason=already_used
+  round 05: winners=1 loser_reason=already_used
+  round 06: winners=1 loser_reason=already_used
+  round 07: winners=1 loser_reason=already_used
+  round 08: winners=1 loser_reason=already_used
+  round 09: winners=1 loser_reason=already_used
+  round 10: winners=1 loser_reason=already_used
+  round 11: winners=1 loser_reason=already_used
+  round 12: winners=1 loser_reason=already_used
+  round 13: winners=1 loser_reason=already_used
+  round 14: winners=1 loser_reason=already_used
+  round 15: winners=1 loser_reason=already_used
+  round 16: winners=1 loser_reason=already_used
+  round 17: winners=1 loser_reason=already_used
+  round 18: winners=1 loser_reason=already_used
+  round 19: winners=1 loser_reason=already_used
+  round 20: winners=1 loser_reason=already_used
+  ✓ 20 rounds, exactly one winner each, 0 double-wins, every loser 'already_used'
+
+── leg E: seeded expired fixture …0003 refuses BOTH clients with 'expired' ──
+  [false|expired false|expired ]
+  ✓ both refused, row stays unredeemed
+
+── leg A: seeded pre-redeemed fixture …0004 answers 'already_used' ──
+  redeem(…0004) → false|already_used
+
+── leg N: unknown uuid answers 'not_found' — GAP-1's taxonomy, never NULL ──
+  redeem(d4511e03-1437-4d04-ac6b-522643ebb26c) → false|not_found
+
+── leg H: seeded race-target fixture …0002 — happy path + updated_at advances ──
+  (fixture staging on the throwaway substrate: …0002 reset to unredeemed)
+  redeem(…0002) → true|<NULL>
+  row after: redeemed_by|redeemed_at set|updated_at advanced = device-1788505205-1285-happy|true|true
+
+── leg P: the device-facing surface — /rpc/redeem through PostgREST ──
+#   rest            : http://127.0.0.1:55368
+  minted role=authenticated sub=device-rpc-1788505205-1285
+  device POST /rpc/redeem (fresh code): HTTP 200  [{"ok":true,"reason":null}]
+  device POST /rpc/redeem (same code again): HTTP 200  [{"ok":false,"reason":"already_used"}]
+  anonymous POST /rpc/redeem: HTTP 401  {"code":"42501","details":null,"hint":null,"message":"permission denied for function redeem"}
+  ✓ device wins, device re-call answers already_used, anonymous cannot execute
+
+── cleanup: deleting this run's per-run race codes (fixture state restored) ──
+  seeded this run: 22 · remaining after cleanup: 0
+
+✅ VERDICT: GREEN — public.redeem is race-proof against the in-repo migration (20 rounds, 0 double-wins), the defect class is detectable (leg R), the full reason taxonomy holds (already_used / expired / not_found — GAP-1 closed), updated_at advances on redemption, and the device RPC surface discriminates
+EXIT=0
