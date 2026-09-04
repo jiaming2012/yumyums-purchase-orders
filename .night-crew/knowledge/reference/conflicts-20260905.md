@@ -95,3 +95,35 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   (3) out-of-window rows never `_deleted` locally — unbounded growth, no owner yet;
   (4) merge-intent omits `marketingCollectionSpec()` from its API list (wiring recipe
   in replicas.js:26-28 covers it).
+
+## Merge 4 — `wo-scan-attempts-push-conflict` (Card 3, Track B)
+
+- **Cards involved:** Card 3 (merge-base `786be13`) onto the run branch. Intersection
+  with landed cards: `roadmap.md` only; Card 2's modules byte-untouched (new sibling
+  files only).
+- **Files/hunks:** clean merge — NEW `marketing/sync/push-replication.js`, NEW push
+  harness (`push-run.sh`, `push-harness.mjs`), spike-ledger GAP-1 `validated:` line,
+  roadmap flip, merge-intent + card3-red.log + card3-harness.log (+ G6's
+  `card3-g6-harness.log`, copied out and committed with this entry). No page/sw.js/
+  backend/tests/night-crew.toml → Playwright/Go/G4 legitimately n/a.
+- **Intents read:** Card 3's merge-intent (API surface for Cards 5/6: SCAN_ATTEMPTS_SCHEMA,
+  scanAttemptsCollectionSpec, enqueueAttempt, makePushHandler, startScanAttemptsReplica;
+  queue shape §4 + 5 local-only fields, stripped from the landing body — verified).
+- **Resolution:** none needed.
+- **Gate result after merge:** tree identical to reviewed branch. Harness EXIT=0
+  (implementer first attempt + G6 independent re-run incl. psql server-side
+  enumeration); RF red proven pre-fix in history (module absent at red commit).
+  G6 **PASS-WITH-NOTES**. Findings to triage + Cards 5/6:
+  (1) **BELT-2 UNBOUNDED ACROSS SESSIONS (demonstrated)** — after local-store loss
+  (iOS PWA eviction), a device re-scanning its own earlier-redeemed code gets the new
+  attempt arbitrated ACCEPTED: 2 accepted server rows for one code, UI shows
+  "redeemed ✓" where F3 says "already used" — double-serve + §9 audit corruption.
+  Slate's own prescribed belt shape → design gap for TRIAGE, not implementer error.
+  Candidate fix: accept only when `redeemed_at >= scanned_at` (skew slack), else
+  rejected with winner = own device. (2) `enqueueAttempt` dedupe not atomic
+  (find-then-insert) — two rapid same-code scans can both insert and both be accepted;
+  Card 5's wiring should serialize enqueue per code. (3) A stuck attempt
+  head-of-line-blocks the batch (RxDB push contract; retries resumable, no data loss).
+  (4) merge-intent doesn't say what Card 6 renders for `deduped:true`; ties into (1).
+  (5) `push-run.sh` header documents the red-mode exit contract inverted vs the
+  implementation (exit 1 IS the demonstrated red) — comment fix on a follow-up branch.

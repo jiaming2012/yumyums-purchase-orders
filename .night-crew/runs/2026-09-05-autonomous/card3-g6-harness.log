@@ -1,0 +1,404 @@
+# G6 independent re-run — card 3 scan-attempts-push-conflict — 2026-09-04T23:01:18Z
+# reviewer: G6 adversarial subagent, fresh context
+
+════════ MODE: red-gap1 ════════
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260905-c3/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260905-c3
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T23:01:18Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788562882764
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788562883635 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T23:01:23Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  race target code        = 60c4b368-f06d-4593-b799-91078500897b
+  land-fail window code   = e62ebdbf-4782-44e3-b264-d73ec10f0eb0  (GAP-1 belt 1)
+  lost-response code      = 743e39ec-2f66-41fc-af1e-2279c88472e1  (GAP-1 belt 2)
+
+── device JWTs (throwaway secret from the compose file) ──
+
+── mode: red-gap1 ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# red-gap1 — naive redeem-then-land handler; FIRST landing insert fails after a successful redeem()
+  redeem() → ok=true reason=-
+  (replication error, retrying: injected: network failure before the request was sent)
+  redeem() → ok=false reason=already_used
+  local row resolved → rejected/already_used
+# outcome: local row status=rejected reason=already_used
+# injected failures: 1 (fail-now)
+# redeem() calls: 2, verdicts: [{"ok":true,"reason":null},{"ok":false,"reason":"already_used"}]
+RED: GAP-1 demonstrated — the WINNING device's local row mis-flipped to rejected/already_used after a transient landing failure (the retry re-ran redeem() and believed the already_used echo of its own burn)
+
+🔴 RED-FIRST DEMONSTRATED (red-gap1): the naive probe reds the assertion (node exit 1). This non-zero exit IS the evidence.
+RED_EXIT=1
+
+════════ MODE: green (PRIMARY gate) ════════
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260905-c3/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260905-c3
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T23:01:44Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788562908768
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788562909545 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T23:01:49Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  race target code        = 369ba67b-3aa5-46ba-b028-a87be9df5b66
+  land-fail window code   = e5145969-aa8f-4b6e-90f1-2797e5525822  (GAP-1 belt 1)
+  lost-response code      = 094721e0-42dd-427b-b01d-56a9adcc8aed  (GAP-1 belt 2)
+
+── device JWTs (throwaway secret from the compose file) ──
+
+── mode: green ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# leg A HELD — both devices hold a pending offline attempt for the same code; ids are real uuids; re-enqueue dedupes
+# leg B — local rows after the concurrent push:
+    {"device":"device-a","status":"accepted","reason":null,"winner_device":null,"winner_at":null}
+    {"device":"device-b","status":"rejected","reason":"already_used","winner_device":"device-a","winner_at":"2026-09-04T23:01:52.730972+00:00"}
+  leg B HELD — exactly one accepted (device-a); handler invocations device-a=2 device-b=2
+  leg C HELD — "already used at 2026-09-04T23:01:52.730972+00:00 by device-a" rendered from the loser's OWN codes pull replica; zero scan_attempts reads in either device's trace
+  (device-a replication error, retrying: 
+
+Error message: RxReplication push handler threw an error - see .errors for more details
+Error code: RC_PUSH
+Cause: The push handler of the replication threw an error.
+Fix: Check the error details in the .errors observable.
+Docs: https://rxdb.info/replication.html?console=errors&code=RC_PUSH
+Find out more about this error here: https://rxdb.info/errors.html?console=errors#RC_PUSH 
+
+--------------------
+Parameters:
+pushRows: [
+  {
+    "assumedMasterState": null,
+    "newDocumentState": {
+      "id": "86c03533-4fcc-4ee4-acec-537279f08f34",
+      "code_id": "e5145969-aa8f-4b6e-90f1-2797e5525822",
+      "device_id": "device-a",
+      "scanned_at": "2026-09-04T23:01:53.057Z",
+      "status": "pending",
+      "reason": null,
+      "offline_override": true,
+      "override_by": null,
+      "unverified_code": false,
+      "pos_order_number": null,
+      "pos_business_date": "2026-09-04",
+      "redeemed_value": null,
+      "burn_ok": null,
+      "burn_reason": null,
+      "landed": false,
+      "winner_device": null,
+      "winner_at": null,
+      "_deleted": false
+    }
+  }
+]
+errors: {"name":"TypeError","message":"injected: network failure before the request was sent","stack":"TypeError: injected: network failure before the request was sent \n     at wrapper (file:///Users/jamal/projects/yumyums/wt-20260905-c3/marketing/sync/harness/push-harness.mjs:80:13) \n     at pushHandler (file:///Users/jamal/projects/yumyums/wt-20260905-c3/marketing/sync/push-replication.js:257:26) \n     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) \n     at async Object.masterWrite (file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js:244:24) \n     at async file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/upstream.js:272:33 \n     at async Promise.all (index 0) \n     at async file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/upstream.js:265:7"}
+direction: "push"
+)
+# leg D — land-fails-after-redeem window: status=accepted, redeem requests=1, landing requests=2, injected=1, status history=[pending → accepted]
+  leg D HELD — burn outcome persisted before landing: ONE redeem, landing retried, winner never flipped (GAP-1 belt 1 validated)
+  (device-b replication error, retrying: 
+
+Error message: RxReplication push handler threw an error - see .errors for more details
+Error code: RC_PUSH
+Cause: The push handler of the replication threw an error.
+Fix: Check the error details in the .errors observable.
+Docs: https://rxdb.info/replication.html?console=errors&code=RC_PUSH
+Find out more about this error here: https://rxdb.info/errors.html?console=errors#RC_PUSH 
+
+--------------------
+Parameters:
+pushRows: [
+  {
+    "assumedMasterState": null,
+    "newDocumentState": {
+      "id": "dddf9f78-24dd-46e1-805a-03ca99fb3e9c",
+      "code_id": "094721e0-42dd-427b-b01d-56a9adcc8aed",
+      "device_id": "device-b",
+      "scanned_at": "2026-09-04T23:01:53.665Z",
+      "status": "pending",
+      "reason": null,
+      "offline_override": true,
+      "override_by": null,
+      "unverified_code": false,
+      "pos_order_number": null,
+      "pos_business_date": "2026-09-04",
+      "redeemed_value": null,
+      "burn_ok": null,
+      "burn_reason": null,
+      "landed": false,
+      "winner_device": null,
+      "winner_at": null,
+      "_deleted": false
+    }
+  }
+]
+errors: {"name":"TypeError","message":"injected: response lost after the server committed","stack":"TypeError: injected: response lost after the server committed \n     at wrapper (file:///Users/jamal/projects/yumyums/wt-20260905-c3/marketing/sync/harness/push-harness.mjs:85:13) \n     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) \n     at async pushHandler (file:///Users/jamal/projects/yumyums/wt-20260905-c3/marketing/sync/push-replication.js:217:21) \n     at async Object.masterWrite (file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js:244:24) \n     at async file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/upstream.js:272:33 \n     at async Promise.all (index 0) \n     at async file:///Users/jamal/projects/yumyums/wt-20260905-c3/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/upstream.js:265:7"}
+direction: "push"
+)
+# leg E — redeem-response-lost window: status=accepted, redeem requests=2, injected=1, status history=[pending → accepted]
+  leg E HELD — own-device already_used arbitrated as accepted via the codes replica (GAP-1 belt 2 validated)
+# leg F — device SELECT scan_attempts → HTTP 403
+  leg F HELD — the write-only property stands (403 / no rows visible)
+# push request log — device-a(race) (2 requests):
+    #1 redeem attempt=2f1b13ec… code=369ba67b…
+    #2 land attempt=2f1b13ec… code=369ba67b…
+# push request log — device-b(race) (2 requests):
+    #1 redeem attempt=bf6a777b… code=369ba67b…
+    #2 land attempt=bf6a777b… code=369ba67b…
+# push request log — W1 (3 requests):
+    #1 redeem attempt=86c03533… code=e5145969…
+    #2 land attempt=86c03533… code=e5145969…
+    #3 land attempt=86c03533… code=e5145969…
+# push request log — W2 (3 requests):
+    #1 redeem attempt=dddf9f78… code=094721e0…
+    #2 redeem attempt=dddf9f78… code=094721e0…
+    #3 land attempt=dddf9f78… code=094721e0…
+ALL LEGS HELD
+
+── server-side enumeration (supabase_admin via psql — devices provably cannot read this) ──
+  race code attempts:
+    device-a|accepted|-
+    device-b|rejected|already_used
+  codes.redeemed_by = device-a (accepted attempt's device: device-a)
+  W1 (land-fail) attempt: device-a|accepted|-
+  W2 (lost-response) attempt: device-b|accepted|-
+
+✅ VERDICT: GREEN — offline queue, concurrent push, exactly-one-winner, pull-replica-sourced loser flip, both GAP-1 windows survived, write-only RLS holds.
+GREEN_EXIT=0
+
+════════ G6 SUMMARY ════════
+red-gap1 re-run : EXIT=1  (mis-flip demonstrated — matches committed card3-red.log; non-zero IS the red evidence per the run's convention)
+green re-run    : EXIT=0  (PRIMARY gate; legs A–F all held; RLS 403 re-verified in THIS run; server enumeration: race 2 rows 1 accepted/1 rejected|already_used, codes.redeemed_by = accepted device, W1 device-a|accepted, W2 device-b|accepted)
+
+════════ G6 ADVERSARIAL PROBE — belt 2 across sessions (beyond done_when) ════════
+Scenario: device-a redeemed a code in an EARLIER session (server: codes.redeemed_by=device-a,
+accepted attempt row landed). Local store then lost (iOS PWA storage eviction — fresh RxDB db
+by construction). Crew re-scans the SAME code on device-a today.
+Driver/probe: scratchpad c3-g6/belt2-drive.sh + belt2-probe.mjs (production modules:
+push-replication.js handler + replicas.js codes pull replica; spike-supabase substrate,
+RECONCILE; probe rows cleaned up after).
+
+Transcript (verbatim):
+  == last week: device-a redeems the code ==
+  [{"ok":true,"reason":null}]
+  == last week: attempt row landed accepted (HTTP code below) ==
+  201
+  == today: fresh session, store evicted, re-scan of the used code ==
+  # codes replica pulled: redeemed_by=device-a redeemed_at=2026-09-04T23:03:56.465996+00:00
+  # enqueue: deduped=false (fresh store — dedupe cannot see last week's attempt)
+  # NEW attempt after push: status=accepted reason=- winner_device=- landed=true
+  PROBE RESULT: BUG — the re-scan of an ALREADY-USED code was arbitrated ACCEPTED (belt 2
+  unbounded); UI shows "redeemed ok" instead of F3's "already used"
+  == server attempt rows for the one code ==
+  device-a|accepted|-
+  device-a|accepted|-
+  ACCEPTED_ROWS_FOR_ONE_CODE=2
+  (probe rows cleaned up)
+
+Finding: belt 2 (own-device already_used = accepted) has NO time bound — it cannot distinguish
+"this attempt's lost burn" from "we redeemed this code in ANY past session". The enqueue dedupe
+that merge-intent engineering call #4 leans on only holds while the local store survives; the
+slate's own binding build-fact prescribed the belt shape, so this is a design gap for triage,
+not an implementer deviation. Consequence: false "redeemed ✓" at the window (double-serve) +
+a second accepted scan_attempts row for one code (§9 audit corruption). Candidate fix: arbitrate
+accepted only when the replica's redeemed_at >= this attempt's scanned_at (clock-skew slack);
+otherwise rejected/already_used with winner_device = own device ("already used — by you").
