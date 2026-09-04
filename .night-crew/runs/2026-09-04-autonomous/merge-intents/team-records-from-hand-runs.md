@@ -106,6 +106,16 @@ Re-observed on THIS worktree before any change (`card4-red-scorecard-before.log`
   `git ls-files .night-crew/knowledge/scorecard/` at landing lists exactly
   `TEMPLATE.md` + `milestones.jsonl`.
 
+**Result (landed):** both greens hold as described. The validation render's Teams
+table, verbatim rows: `product / delivery / engineering / qa`, each `Runs 1 ·
+Rating 80 · Value per token 0.01 · Points done 2 · Regressions 0`, plus the
+run-summary line `Latest run 00000000: 4 of 4 work orders merged and standing;
+velocity 1.00; first-pass rate 1.00` — EXIT=0. The record was built by following
+`TEMPLATE.md`'s copy-and-substitute instructions literally, so the render also
+proves the template is followable verbatim (what the control loop does tonight).
+Cleanup proof at landing: working tree + index hold no `scorecard/*.jsonl` besides
+the pre-existing `milestones.jsonl`.
+
 ## Commit plan (stated per mechanics rule 2)
 
 1. This merge-intent + the before-red log (FIRST commit, before any change).
