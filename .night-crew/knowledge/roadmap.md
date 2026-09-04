@@ -253,7 +253,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > independently offline, this activity collapses to a thin live cache and its cards shrink.
 > **Trace:** Engineering objective.
 
-- **`rxdb-pull-replica`** · **PLANNED** · Two server-owned, **pull-only** replicas (§4) via
+- **`rxdb-pull-replica`** · **DRAFTING** (overnight-20260905, branch `wo-rxdb-pull-replica` —
+  `marketing/sync/` pull modules with the keyset `{updated_at, id}` checkpoint closing GAP-1,
+  vendor surface widened (`replicateRxCollection` + `Subject`), standalone substrate harness
+  green, modules deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  Two server-owned, **pull-only** replicas (§4) via
   `replicateRxCollection` with an `updated_at` checkpoint: (1) `codes` / redemption-state, filtered
   `expires_at > now() - interval '2 days'` (§5.3), so the scanner knows offline which codes are
   already spent or expired (§5); (2) **non-expired offers**, filtered `expires_at > now()` and
