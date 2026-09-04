@@ -122,6 +122,74 @@ self-healing on any row update. Mitigations (one-shot RESYNC after first capture
 reset on large offset change) are Cards 5/6 wiring choices or policy calls — deliberately not
 invented here.
 
-## Gate evidence
+## Gate evidence (run in this worktree; full logs committed beside this file)
 
-(amended when gates run — logs land beside this file)
+- **RF (Red-first)** — `bash marketing/sync/harness/clock-run.sh red-skew` → **EXIT=1**
+  (`card4-red.log`, committed `f709e5d` BEFORE the production clock existed — git history is
+  the chronology). Both naive failures enumerated against real wire data: clock 2 days
+  BEHIND → the dead code (expired −1d, in-window) **ACCEPTED** (§5.1's hole, the spike's
+  direction); clock 2 days AHEAD → the valid (+1d) code **FALSELY REJECTED**. The pull
+  response's Date header (the ignored serverNow source) is printed in the log.
+- **PRIMARY (standalone harness, B-345 precedent)** —
+  `bash marketing/sync/harness/clock-run.sh green` → **EXIT=0, first attempt**
+  (`card4-harness.log`, committed `c23b9ae`). Substrate coordinates printed read-only by
+  lib.sh before any write (spike-supabase RECONCILE; ports Docker-assigned). Every clause,
+  enumerated:
+  - **Capture**: 7 successful pulls (4 codes + 3 offers) → `clock.captures = 7` — "on every
+    successful pull" held exactly; offset recovered the +2d skew to **164 ms** error and the
+    −2d skew to **197 ms** (spike neighborhood: 196 ms; tolerance 10 s).
+  - **Stored beside the checkpoint**: injected `persist` fired once per capture (7 states);
+    last persisted state equals the live clock.
+  - **Window bounds follow the clock**: request windows enumerated from the logged URLs —
+    fast leg #1 (pre-capture) floor ≈ real now (the unadjusted +2d clock's distortion),
+    corrected to real now − 2d from request #2; behind leg #1 floor ≈ real now − 4d,
+    corrected identically. The capture feeds the VERY NEXT request.
+  - **done_when (E-KR4)**: clock 2 days FAST, replication cancelled (offline) — the expired
+    code is REJECTED (`isExpired=true`) and the valid code still resolves (`isExpired=false`;
+    `resolveOffers(hash, {now: clock.now})` → exactly the valid offer, while the RAW fast
+    deviceNow falsely returns `[]` — the prevented false rejection, asserted as contrast).
+  - **§5.1 closed**: clock 2 days BEHIND, offline — the naive check ACCEPTS the dead code
+    (asserted, proving the defect class live on this data), the adjusted check REJECTS the
+    same row under the same skew.
+  - **State contract**: a clock rebooted from persisted `initialState` (0 captures — the
+    reloaded-offline device) still rejects the dead code; a headerless response returns null
+    and retains the prior offset (observable, never silent); unreadable `expires_at` reads
+    as expired (fail-closed).
+- **Sibling regression (the byte-identical claim, proven by execution)** — Card 2's
+  `run.sh green` → **EXIT=0** (`card4-regression-c2.log`) and Card 3's
+  `push-run.sh green` → **EXIT=0** (`card4-regression-c3.log`), both on THIS branch's edited
+  `pull-replication.js`/`replicas.js`, both clock-less — the optional `clock` parameter
+  changed nothing for existing callers.
+- **G1 / G2 (Go)** — n/a: `backend/` untouched (verified by the branch diff).
+- **G2 (Playwright)** — n/a by the slate's own gate rule: no page file, no `sw.js`, no test
+  file touched; the diff stays inside `marketing/sync/` + run artifacts + the roadmap flip.
+  The clock module is unreferenced by any page tonight (Cards 5/6 wire).
+- **G4** — n/a: `sw.js` not regenerated; no asset added, removed, or changed under it.
+
+## Engineering calls (recorded for the merge record)
+
+1. **Where the offset lives**: in the `createSyncClock` instance's state
+   `{offset_ms, captured_at_device, captured_at_server}` — in-memory for the session, handed
+   to the injected `persist` on every capture. Cards 5/6 store that object beside the
+   checkpoint in the page's storage and hand it back as `initialState` on boot; RxDB's own
+   checkpoint shape is untouched (smuggling the offset INTO the keyset checkpoint would have
+   re-shaped the surface Card 2's intent froze).
+2. **The offline expiry API is `clock.isExpired(expiresAt)`** — one call, §5.1's comparison
+   exactly (`deviceNow + offset >= expires_at`). Fail-closed on unreadable input: a code
+   whose expiry cannot be parsed is not accepted offline (input-validation safety, not a
+   policy — the schema requires `expires_at`, so the branch is unreachable on server data).
+3. **Skew-update cadence**: every successful (HTTP 200) pull response captures; the latest
+   capture wins. No smoothing, no thresholds, no grace windows — pure arithmetic, per the
+   card. Capture sits in `makePullHandler` after the status check and before the body parse,
+   so the corrected offset reaches the NEXT request's window bound; a capture miss (absent /
+   unparseable Date header) is non-fatal to a pull that delivered rows and observable via
+   `clock.captures`.
+4. **Window bounds follow the clock by default**: `startReplica` resolves
+   `now = clock ? clock.now : Date.now` unless an explicit `now` is injected (explicit wins —
+   harness/test precedence). The §5.3 floor a skewed device sends the server is itself an
+   `expires_at` comparison, and `replicas.js` had already named `now` as this card's
+   injection point.
+5. **PARK note check**: nothing policy-shaped arose — no grace windows, no clamps, no
+   maximum-skew rejection were needed or added; `night-crew decisions log` was not owed a
+   question. The direction reconciliation (Red-first above) is an arithmetic reading of the
+   slate's wording, exercised in BOTH signs rather than adjudicated.
