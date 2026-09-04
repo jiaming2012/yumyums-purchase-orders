@@ -112,3 +112,16 @@ and the naive red-analog for the card's red-first leg.
   re-validation run of this spike (or a successor against the built
   `supabase/` migration) in the sitting it lands, recorded as a `validated:`
   line naming GAP-1.
+- validated: GAP-1 — re-validated 2026-09-04 against the BUILT migration, in the
+  `redeem-rpc-race-proof` card's own sitting (run 20260904, branch
+  `wo-redeem-rpc-race-proof`). The card built `redeem()` with the v2 body
+  (`supabase/migrations/20260904000200_redeem_rpc.sql`) and the spike's successor
+  harness (`supabase/verify/04-redeem-race.sh`, self-contained in-repo) ran
+  against it: **exit 0** — unknown uuid → `(false, 'not_found')` (leg N, never a
+  NULL reason), 20 rounds × 2 concurrent clients with exactly one winner each and
+  every loser `already_used` (race behavior unchanged by the fix, as legs G/V
+  predicted), expired arm `(false, 'expired')`. Red-first held: the same legs
+  exited 1 with an observed round-01 double-win when the naive check-then-update
+  body was installed as `public.redeem`. Evidence:
+  `.night-crew/runs/2026-09-04-autonomous/card2-green-04-redeem-race.log`
+  (EXIT=0) and `card2-red-04-race-naive.log` (EXIT=1). GAP-1 is closed.

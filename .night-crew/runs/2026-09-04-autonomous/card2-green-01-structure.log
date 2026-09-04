@@ -1,0 +1,243 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/gsd-workspaces/nc-20260904/c02/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/gsd-workspaces/nc-20260904/c02
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T05:57:43Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788501467303
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788501468045 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T05:57:48Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── staging fresh state: dropping this card's objects only (throwaway substrate) ──
+  bare.
+
+── apply #1 (fresh: objects do not exist, the migration creates them) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── assertions, each enumerated by name ──
+· tables in public (the 3 arbiter tables + the #5 settings table):
+    campaigns
+    codes
+    marketing_settings
+    scan_attempts
+· scan_attempts.unverified_code (F2) is a boolean:
+    unverified_code:boolean
+· codes never stores a raw token (no token/raw_token column):
+    raw-token-shaped columns on codes: 0
+· codes indexes (unique token_hash + the updated_at checkpoint key):
+    codes_pkey :: CREATE UNIQUE INDEX codes_pkey ON public.codes USING btree (id)
+    codes_token_hash_key :: CREATE UNIQUE INDEX codes_token_hash_key ON public.codes USING btree (token_hash)
+    codes_updated_at_idx :: CREATE INDEX codes_updated_at_idx ON public.codes USING btree (updated_at)
+· scan_attempts join-key index (pos_business_date, pos_order_number):
+    scan_attempts_join_idx
+· RLS enabled (relrowsecurity) on all four:
+    campaigns:true
+    codes:true
+    marketing_settings:true
+    scan_attempts:true
+· policies by name (and marketing_settings has NONE — server-side only):
+    campaigns.campaigns_select_device
+    codes.codes_select_device
+    scan_attempts.scan_attempts_insert_own
+· scan_attempts is push-only STRUCTURALLY (Card 2, handed-down G6 finding):
+  · no SELECT (or FOR ALL) policy on scan_attempts — negative, enumerated:
+      scan_attempts_insert_own:INSERT
+  · no SELECT grant on scan_attempts to client roles (anon/authenticated):
+      SELECT grants to anon/authenticated: 0
+· marketing_settings client grants (must be zero for anon/authenticated):
+    grants to anon/authenticated: 0
+· marketing_settings shape (#5): threshold column + singleton guard by name:
+    requires_online_threshold_cents:integer
+    constraint: marketing_settings_singleton
+· marketing_settings is seeded, single-row, threshold 2000 ($20):
+    rows:threshold = 1:2000
+· TEST campaigns seeded (one requires_online=false, one true — derived from face value vs the threshold):
+    a0000000-0000-4000-8000-000000000001 false TEST — $2 wing discount (offline-eligible)
+    a0000000-0000-4000-8000-000000000002 true TEST — $40 catering credit (online-only)
+· TEST codes seeded (5 fixed fixtures for Card 2 + the RLS/Realtime legs):
+    c0000000-0000-4000-8000-000000000001 unredeemed active
+    c0000000-0000-4000-8000-000000000002 unredeemed active
+    c0000000-0000-4000-8000-000000000003 unredeemed expired
+    c0000000-0000-4000-8000-000000000004 redeemed active
+    c0000000-0000-4000-8000-000000000005 unredeemed active
+· redeem(p_code uuid, p_device text) — Card 2's atomic arbiter, by name:
+    redeem(p_code uuid, p_device text):secdef=true
+    proconfig: search_path=""
+· redeem() execute grants (authenticated may, anon may NOT — covers PUBLIC too):
+    authenticated:true anon:false
+· supabase_realtime publication membership (§7.1):
+    public.checklist_submissions
+    public.checklist_templates
+    public.codes
+    public.hq_sync_checklists
+    public.spike_notes
+    public.submission_rejections
+    public.submission_responses
+
+── apply #2 (warm: 'applies clean' must survive a re-run on its own output) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:36: NOTICE:  relation "campaigns" already exists, skipping
+psql:<stdin>:54: NOTICE:  relation "codes" already exists, skipping
+psql:<stdin>:56: NOTICE:  relation "codes_updated_at_idx" already exists, skipping
+psql:<stdin>:78: NOTICE:  relation "scan_attempts" already exists, skipping
+psql:<stdin>:80: NOTICE:  relation "scan_attempts_join_idx" already exists, skipping
+psql:<stdin>:101: NOTICE:  relation "marketing_settings" already exists, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── assertions, each enumerated by name ──
+· tables in public (the 3 arbiter tables + the #5 settings table):
+    campaigns
+    codes
+    marketing_settings
+    scan_attempts
+· scan_attempts.unverified_code (F2) is a boolean:
+    unverified_code:boolean
+· codes never stores a raw token (no token/raw_token column):
+    raw-token-shaped columns on codes: 0
+· codes indexes (unique token_hash + the updated_at checkpoint key):
+    codes_pkey :: CREATE UNIQUE INDEX codes_pkey ON public.codes USING btree (id)
+    codes_token_hash_key :: CREATE UNIQUE INDEX codes_token_hash_key ON public.codes USING btree (token_hash)
+    codes_updated_at_idx :: CREATE INDEX codes_updated_at_idx ON public.codes USING btree (updated_at)
+· scan_attempts join-key index (pos_business_date, pos_order_number):
+    scan_attempts_join_idx
+· RLS enabled (relrowsecurity) on all four:
+    campaigns:true
+    codes:true
+    marketing_settings:true
+    scan_attempts:true
+· policies by name (and marketing_settings has NONE — server-side only):
+    campaigns.campaigns_select_device
+    codes.codes_select_device
+    scan_attempts.scan_attempts_insert_own
+· scan_attempts is push-only STRUCTURALLY (Card 2, handed-down G6 finding):
+  · no SELECT (or FOR ALL) policy on scan_attempts — negative, enumerated:
+      scan_attempts_insert_own:INSERT
+  · no SELECT grant on scan_attempts to client roles (anon/authenticated):
+      SELECT grants to anon/authenticated: 0
+· marketing_settings client grants (must be zero for anon/authenticated):
+    grants to anon/authenticated: 0
+· marketing_settings shape (#5): threshold column + singleton guard by name:
+    requires_online_threshold_cents:integer
+    constraint: marketing_settings_singleton
+· marketing_settings is seeded, single-row, threshold 2000 ($20):
+    rows:threshold = 1:2000
+· TEST campaigns seeded (one requires_online=false, one true — derived from face value vs the threshold):
+    a0000000-0000-4000-8000-000000000001 false TEST — $2 wing discount (offline-eligible)
+    a0000000-0000-4000-8000-000000000002 true TEST — $40 catering credit (online-only)
+· TEST codes seeded (5 fixed fixtures for Card 2 + the RLS/Realtime legs):
+    c0000000-0000-4000-8000-000000000001 unredeemed active
+    c0000000-0000-4000-8000-000000000002 unredeemed active
+    c0000000-0000-4000-8000-000000000003 unredeemed expired
+    c0000000-0000-4000-8000-000000000004 redeemed active
+    c0000000-0000-4000-8000-000000000005 unredeemed active
+· redeem(p_code uuid, p_device text) — Card 2's atomic arbiter, by name:
+    redeem(p_code uuid, p_device text):secdef=true
+    proconfig: search_path=""
+· redeem() execute grants (authenticated may, anon may NOT — covers PUBLIC too):
+    authenticated:true anon:false
+· supabase_realtime publication membership (§7.1):
+    public.checklist_submissions
+    public.checklist_templates
+    public.codes
+    public.hq_sync_checklists
+    public.spike_notes
+    public.submission_rejections
+    public.submission_responses
+
+── #5 leg: an operator-changed threshold SURVIVES a migration re-apply ──
+psql:<stdin>:36: NOTICE:  relation "campaigns" already exists, skipping
+psql:<stdin>:54: NOTICE:  relation "codes" already exists, skipping
+psql:<stdin>:56: NOTICE:  relation "codes_updated_at_idx" already exists, skipping
+psql:<stdin>:78: NOTICE:  relation "scan_attempts" already exists, skipping
+psql:<stdin>:80: NOTICE:  relation "scan_attempts_join_idx" already exists, skipping
+psql:<stdin>:101: NOTICE:  relation "marketing_settings" already exists, skipping
+    threshold after operator-set 2500 + re-apply: 2500
+    restored to the seeded default 2000
+
+✅ VERDICT: GREEN — migration applies clean twice (fresh + warm), every structural claim present by name, #5 config survives re-apply
+EXIT=0

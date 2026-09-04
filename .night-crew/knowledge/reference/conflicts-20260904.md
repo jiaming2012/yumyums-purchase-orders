@@ -21,3 +21,25 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   anon-on-campaigns untested (exposure nil — anon fully revoked); seed.sql has no
   structural guard against a future hosted apply (flagged for Activity 0's
   `external-accounts-provision`).
+
+## Merge 2 — `wo-redeem-rpc-race-proof` (Card 2)
+
+- **Cards involved:** Card 2 onto Card 1's merged tree (serial by design — Card 2 extends
+  Card 1's migration and harness).
+- **Files/hunks:** clean merge, no conflicts — new migration
+  (`20260904000200_redeem_rpc.sql`), `04-redeem-race.sh` harness, additive extensions to
+  `01-structure.sh`/`lib.sh`/README, run-dir evidence (merge-intent + `card2-*.log`),
+  one roadmap card flip, one append to the spike ledger's `## Comebacks` (GAP-1
+  `validated:` line).
+- **Intents read:** Card 2's merge-intent (Card 1's consulted for the fixture-UUID
+  contract — honored, seed.sql untouched).
+- **Resolution:** none needed.
+- **Gate result after merge:** G6 PASS-WITH-NOTES on identical tree content. Independent
+  re-run: 01/02/03 all 0, race red-analog 1 (winners=2 observed), race gate 0 (20/20
+  rounds winners=1), warm assert 0; three mutation probes each red 1 and were restored.
+  Notes to triage: `updated_at = now()` in the winning UPDATE is a named semantic delta
+  from the signed v2 text (judged in-remit: enforcement predicate/atomicity/taxonomy
+  byte-equivalent; it advances the replication checkpoint Card 1's schema indexes);
+  `reset_bare` not extended to drop `public.redeem` (stale-function false-green risk for
+  future red probes); red-analog runs leave their per-run race code until a full
+  01-structure restore (disclosed in harness header).
