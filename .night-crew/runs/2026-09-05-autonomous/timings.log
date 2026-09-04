@@ -1,1 +1,11 @@
+2026-09-04 12:43:37 EDT
+card1 marketing-tile-and-page: impl dispatched 12:45 EDT, final report 14:10 EDT (~1h25m incl. two full e2e suites 28.1m+26.6m and one B-140 fix round)
+card1 G6 dispatched 14:12 EDT (incl. base-tree leg for 4 unproven e2e reds)
+card1 merged 6d7a8f5 + docs 73c36bc at 14:40 EDT — Wave 0 complete
+card2 + card7 worktrees cut, implementers dispatched ~14:42 EDT (concurrent tracks open)
+RATE-LIMIT STALL: session limit hit ~mid-afternoon, both track implementers terminated mid-card; limit reset 17:40 EDT, both resumed from transcripts (concurrent shape retained; will degrade to serial if it recurs)
+card7 impl final report ~18:05 EDT (5 commits, go 1.26.2 bump, no network fetch needed); G6-c7 dispatched ~18:07 EDT incl. targeted PARITY-NA-FRESH cross-card probe
+card2 impl through harness/red-first/G4 by 17:50 EDT; full e2e suite in flight
+G6-c7 verdict ~18:25 EDT: FAIL (cross-card parity tripwire fires on marketing route; MaxRetries=0 in prod construction) — fix round dispatched to card7 implementer
 2026-09-04T21:51:53Z card7 gstate-arbitration-machine: toolchain bump go1.25.5->go1.26.2 required NO network fetch (go1.26.2 toolchain + gstate v0.3.1 + go-nanoid already in the local module cache from the spike run). -ldflags smoke build on 1.26.2 exit 0, GitSHA injection verified via strings. Docker build smoke SKIPPED (optional per slate; golang:1.26-alpine would need a pull) — Dockerfile bump verified by inspection.
+card7 fix round 98e189e + G6 re-verify PASS; merged ~18:25 EDT — Track D COMPLETE (timings.log collision with card7's committed copy resolved by concatenation)
