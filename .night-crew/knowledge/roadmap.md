@@ -164,7 +164,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 | 2 | Toast order-number format (digits/prefix/reset) | Activity 0 spike (a day of real checks) |
 | 3 | Which Toast scheduled report carries order# + business date + discounts | Activity 0 spike (Toast reporting menu) |
 | 4 | Toll-free vs 10DLC | **Resolved:** toll-free for the cycle (de-risk leg 1); 10DLC registered in parallel for later scale |
-| 5 | `requires_online` face-value threshold | Operator business call, at Activity A (schema seed) |
+| 5 | `requires_online` face-value threshold | **Resolved (operator, slate-20260904 sitting): make the $ amount configurable** — a settings surface (`marketing_settings.requires_online_threshold_cents`, seeded default $20, changeable without a migration) rather than a hardcoded policy; campaign creation derives `requires_online` from face value vs the setting. The Activity A schema card carries it |
 | 6 | Do the 3 devices genuinely go offline independently, or always together on one hotspot | **Activity 0 field observation — load-bearing; can re-scope Activity B** |
 | 8 | Welcome-offer definition + per-code expiry window | Operator business call, at Activity A/E |
 | 9 | Confirm-then-burn vs burn-on-scan | **Recommend confirm-then-burn** (§14) — locked at Activity C unless operator differs |
