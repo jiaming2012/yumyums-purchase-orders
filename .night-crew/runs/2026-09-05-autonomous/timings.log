@@ -9,3 +9,4 @@ card2 impl through harness/red-first/G4 by 17:50 EDT; full e2e suite in flight
 G6-c7 verdict ~18:25 EDT: FAIL (cross-card parity tripwire fires on marketing route; MaxRetries=0 in prod construction) — fix round dispatched to card7 implementer
 2026-09-04T21:51:53Z card7 gstate-arbitration-machine: toolchain bump go1.25.5->go1.26.2 required NO network fetch (go1.26.2 toolchain + gstate v0.3.1 + go-nanoid already in the local module cache from the spike run). -ldflags smoke build on 1.26.2 exit 0, GitSHA injection verified via strings. Docker build smoke SKIPPED (optional per slate; golang:1.26-alpine would need a pull) — Dockerfile bump verified by inspection.
 card7 fix round 98e189e + G6 re-verify PASS; merged ~18:25 EDT — Track D COMPLETE (timings.log collision with card7's committed copy resolved by concatenation)
+card2 impl report ~19:20 EDT (8 commits, harness green first try); G6-c2 PASS-WITH-NOTES ~19:35; merged — Track B advances to card 3 ~19:40 EDT
