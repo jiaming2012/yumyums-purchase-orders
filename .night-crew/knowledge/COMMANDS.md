@@ -34,6 +34,32 @@ overnight → morning).
 5. **(launch prompt)** — Paste the slate's launch prompt into a **fresh session**.
    Runs autonomously on branch `overnight-YYYYMMDD`. Never push, never touch `main`.
 
+   **Closeout scorecard record (ARMED as of run 20260904 — every hand-run night's
+   closeout emits one; this step is mandatory).** At the run's CLOSEOUT — after the
+   last card's merge, with the closing commit set on the run branch — the control
+   loop does, verbatim:
+
+   1. Copy the 5-line JSONL block from
+      `.night-crew/knowledge/scorecard/TEMPLATE.md` into a new file
+      `.night-crew/knowledge/scorecard/<run-id>.jsonl` (run id = the run's date id,
+      e.g. `20260904` — must equal the filename stem).
+   2. Fill every field from the night's actuals per the template's field table:
+      replace every `YYYYMMDD` with the run id, `ts` with closeout UTC time, the
+      run-scorecard counters from the slate + merge results, and one `team` line
+      each for `product` / `delivery` / `engineering` / `qa` (ratings 0–100;
+      team `points_completed` sums to the run's; `value_per_token` = nominal
+      `0.01` when no token accounting exists).
+   3. Verify: run `night-crew scorecard --repo .` — it must **exit 0**, render the
+      run id, and show all four roles as record-backed rows (no "No runs to
+      show."). A failed render is fixed before the closing commit, never skipped —
+      a skipped ritual step reads exactly like a clean one (B-133). Record the
+      render's exit line in the closeout notes (HANDOFF.md).
+   4. Commit the file on the run branch with the run's `Night-Crew-Run:` trailer.
+      This file is a CLOSING artifact in the run-evidence oracle: emit it exactly
+      once per run, at closeout, never earlier, never for a run that didn't
+      happen, and never as a template/example (those stay `.md` — any other
+      `*.jsonl` in that directory renders as a real run).
+
 6. **`/nc-morning-triage`** — Next morning: review the run branch, merge to `dev`,
    resolve `DECISIONS-NEEDED` forks with the operator, record resolutions to
    DESIGN §15x, flip roadmap cards + HANDOFF flags. Then loop back to step 2 (or
