@@ -25,9 +25,12 @@ every other card tonight). Card authority: slate-20260905 Card 1. Footprint: sca
 - `tests/marketing.spec.js` (NEW) — this card's tile/permission/seed assertions
   (the red-first artifact). Cards 5–6 will extend this file; nothing in it hardcodes
   a count another card would move.
-- `backend/internal/auth/permission_test.go` — one appended Go test block for the
-  seed + grants (marketing rows registered; grants seeded; re-running SeedHQApps does
-  NOT resurrect a revoked grant). Appended only; no existing test edited.
+- `backend/internal/auth/marketing_seed_test.go` (NEW — a new file rather than the
+  append to permission_test.go this intent first planned: cleaner merge surface, and
+  it needs its own helpers) — the Go seed/grant tests (marketing rows registered;
+  grants seed on first registration only; a revoked grant survives a SeedHQApps
+  re-run; the entitlement is NOT implied by the app grant at the gate).
+  `permission_test.go` itself is untouched.
 - `sw.js` + `CLAUDE.md` (precache-count line 31→32) — regenerated AFTER the
   marketing.html commit (build-sw.js reads git HEAD), committed together in the same
   change set. Cards 5 and 6 move the count again (each states its own move).
@@ -80,13 +83,28 @@ every other card tonight). Card authority: slate-20260905 Card 1. Footprint: sca
 
 ## Red-first
 
-(To be filled as evidence lands — greenfield-shaped RF per the slate: the
-tile/permission assertions red on the pre-change tree because the behavior does not
-exist yet.)
+Greenfield-shaped RF per the slate: the tile/permission assertions were written
+FIRST and RUN on the pre-change tree (dev @ 0670798 + only the new test files),
+where every one reds because the behavior does not exist. Full logs with commands
+and exit codes: `.night-crew/runs/2026-09-05-autonomous/card1-red.log` (committed
+`7a2e9e0`).
 
-- Playwright: `tests/marketing.spec.js` — nothing here yet.
-- Go: seed/grant test in `backend/internal/auth/permission_test.go` — nothing here
-  yet.
+- **Go leg** — `DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c1?sslmode=disable'
+  go test -count=1 -run 'TestSeedHQApps_RegistersMarketingSurfaces|TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly|TestOfflineOverride_EntitlementNotImpliedByAppGrant' -v ./internal/auth/`
+  → **EXIT=1**, 3/3 FAIL. Named reds:
+  `TestSeedHQApps_RegistersMarketingSurfaces` (`hq_apps slug "marketing": got 0
+  enabled rows, want 1`), `TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly`
+  (`marketing role grants … got [], want [admin manager team_member]`),
+  `TestOfflineOverride_EntitlementNotImpliedByAppGrant` (no surface to grant).
+- **Playwright leg** — `TEST_PORT=3101 TEST_DB_NAME=hq_test_e2e_c1 npx bddgen &&
+  npx playwright test tests/marketing.spec.js --retries=0` → **EXIT=1**, 6/6 failed:
+  the SEED test (no `marketing` row from `/api/v1/apps/permissions`), both tile
+  tests (`a.tile[href="marketing.html"]` count 0 / `marketing app must exist to be
+  strippable`), the shell test (`.tabs button` count 0 — /marketing.html serves no
+  page), both entitlement tests (`#access-marketing` count 0 / `entitlement surface
+  must exist` got null).
+- **Green**: the same commands re-run after implementation — see
+  `card1-green.log` and the gate logs below.
 
 ## Engineering calls (recorded for the merge record)
 
