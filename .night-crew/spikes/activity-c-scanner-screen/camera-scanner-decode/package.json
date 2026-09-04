@@ -1,0 +1,9 @@
+{
+  "name": "spike-decode-and-hash-chain",
+  "private": true,
+  "description": "Spike-local deps only (qrcode = QR PNG generation, html5-qrcode = the candidate decode library). Never installed at repo root; node_modules is git-ignored.",
+  "dependencies": {
+    "html5-qrcode": "^2.3.8",
+    "qrcode": "^1.5.4"
+  }
+}

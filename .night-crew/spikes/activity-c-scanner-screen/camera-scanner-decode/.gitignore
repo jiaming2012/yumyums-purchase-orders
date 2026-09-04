@@ -1,0 +1,5 @@
+node_modules/
+package-lock.json
+web/qr.png
+web/html5-qrcode.min.js
+test-results/

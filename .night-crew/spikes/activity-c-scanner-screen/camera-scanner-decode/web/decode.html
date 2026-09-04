@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>spike: decode-and-hash-chain</title></head>
+<body>
+  <!-- the candidate library, vendored as ONE file — the no-build premise -->
+  <script src="html5-qrcode.min.js"></script>
+  <div id="reader"></div>
+  <input type="file" id="file">
+  <div id="out"></div>
+  <script>
+    // The §12 chain, exactly as the scanner screen will run it: decode →
+    // extract token from the #10 URL wrapper → WebCrypto SHA-256 → lowercase
+    // hex (the replica key). No frameworks, no build step.
+    document.getElementById('file').addEventListener('change', async (e) => {
+      const out = document.getElementById('out');
+      try {
+        const scanner = new Html5Qrcode('reader');
+        const text = await scanner.scanFile(e.target.files[0], false);
+        const m = text.match(/\/r\/([^/?#]+)$/);
+        const token = m ? m[1] : '';
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+        const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        out.dataset.payload = text;
+        out.dataset.token = token;
+        out.dataset.hash = hex;
+        out.dataset.state = 'done';
+      } catch (err) {
+        out.dataset.err = String(err);
+        out.dataset.state = 'error';
+      }
+    });
+  </script>
+</body>
+</html>

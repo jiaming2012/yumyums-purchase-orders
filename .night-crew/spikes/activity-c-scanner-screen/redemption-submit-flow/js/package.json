@@ -1,0 +1,9 @@
+{
+  "name": "spike-redemption-submit-flow-machines",
+  "private": true,
+  "type": "module",
+  "description": "Spike-local dep only (xstate = the framework candidate). The hand-rolled candidate deliberately has none. node_modules is git-ignored.",
+  "dependencies": {
+    "xstate": "^5.19.0"
+  }
+}
