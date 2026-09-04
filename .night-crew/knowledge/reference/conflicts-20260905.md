@@ -58,3 +58,35 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   notification); F4's scan_attempts-status bullet owned by NO card tonight; server
   trusts client `offline_override` flag (F4 flagging only); next full-suite count
   expectation 566 with-subtest results (28 redemption).
+
+## Merge 3 — `wo-rxdb-pull-replica` (Card 2, Track B)
+
+- **Cards involved:** Card 2 (base `73c36bc`) onto the run branch that already carries
+  Card 7 (Track D merged first under concurrent dispatch).
+- **Files/hunks:** clean merge — Card 7 intersection is `.night-crew/knowledge/roadmap.md`
+  only, different card lines (~256 vs ~352), auto-merged. New `marketing/sync/`
+  (pull-replication.js, replicas.js, harness), `marketing/package.json`,
+  `vendor/src/rxdb-hq-entry.mjs` + regenerated `vendor/rxdb.bundle.js` (+717 B, rxdb@17.4.0
+  pin unchanged, surface widened for Cards 5/6), `sw.js` (count 32, bundle revision +
+  disclosed lockfile-true workbox reshape), spike-ledger GAP-1 `validated:` line,
+  roadmap flip, merge-intent + 6 gate logs (incl. G6's `card2-g6-harness.log`).
+- **Intents read:** Card 2's merge-intent (unwired-tonight call; entry points + vendor
+  surface named for Cards 5/6; sw.js stale-toolchain hazard). Card 7's consulted —
+  no overlap beyond roadmap.
+- **Resolution:** none needed. 🛑 **Deliberate: no sw.js regen in the main checkout
+  after this merge** — the main checkout's node_modules carries stale workbox 7.3.0
+  (Card 2's triage finding); a regen here would revert the lockfile-true output with a
+  spurious whole-file reshape. G4 idempotency was proven in the card worktree on
+  lockfile-true deps (card2-g4.log + G6's own regen, tree clean).
+- **Gate result after merge:** tree content identical to reviewed branch. Harness
+  EXIT=0 (implementer first attempt + G6 independent re-run, 105 ms propagation);
+  e2e 828/9/6 fully accounted (4 known + 5 flakes proven by targeted same-tree re-run
+  5/5); G4 idempotent at count 32; RF reds proven to predate the fix in history.
+  G6 **PASS-WITH-NOTES**. Notes to triage: (1) **commit-order skew** — `updated_at`
+  is txn-START time, so a long transaction can commit rows behind an advanced
+  checkpoint, permanently invisible to replicas (RESYNC never rewinds) — backlog
+  candidate (checkpoint rewind on RESYNC or commit-ordered cursor); (2) CHANNEL_ERROR/
+  JWT-expiry dead-nudge-stream modeling is OWED BY CARDS 5/6 (no fallback poll);
+  (3) out-of-window rows never `_deleted` locally — unbounded growth, no owner yet;
+  (4) merge-intent omits `marketingCollectionSpec()` from its API list (wiring recipe
+  in replicas.js:26-28 covers it).
