@@ -96,3 +96,34 @@ migration.)
   `|| true` on the two extraction pipelines, with comments — so the double-win
   is now reported by the ASSERTION, loudly. No assertion was weakened; the
   detection got stronger.)
+- GREEN (structural, fresh + warm): `supabase/verify/01-structure.sh` →
+  **EXIT=0** (`card2-green-01-structure.log`). Both migrations apply clean over
+  bare AND over their own output; the full Card 1 assertion set plus the new
+  push-only structural negatives and the redeem-by-name block (signature,
+  SECURITY DEFINER, `search_path=""`, `authenticated:true anon:false`) hold on
+  both passes; the #5 config-survives-reapply leg still green. **The anon:false
+  assertion caught a real hole on the first green attempt:** this substrate's
+  `ALTER DEFAULT PRIVILEGES` hands `anon` an EXPLICIT execute grant at CREATE
+  FUNCTION time, so the migration's original `revoke … from public` left
+  `anon:true` (EXIT=1). Fixed by revoking from `public, anon` both — the
+  assertion did exactly what the G6 finding wanted the structural layer to do.
+- GREEN (the card's gate): `supabase/verify/04-redeem-race.sh` → **EXIT=0**
+  (`card2-green-04-redeem-race.log`). Leg R: naive analog double-won on try 1
+  (winners=2), analog dropped. Leg G: **20 rounds × 2 concurrent clients,
+  exactly one winner every round, 0 double-wins, 0 zero-win rounds, every
+  loser `already_used`**. Leg E: expired fixture …0003 refused both clients
+  with `expired`, row stayed unredeemed. Leg A: pre-redeemed fixture …0004 →
+  `already_used`. Leg N: unknown uuid → `(false, not_found)` — GAP-1 closed
+  against the BUILT migration. Leg H: fixture …0002 happy path,
+  `updated_at` ADVANCED. Leg P: device JWT `POST /rpc/redeem` → 200
+  `{"ok":true}`, re-call 200 `already_used`, anonymous → 401 `42501`.
+  Cleanup: 22 per-run codes seeded, 0 remaining.
+- GREEN (Card 1 regression): `02-rls-six-legs.sh` → **EXIT=0**
+  (`card2-green-02-rls.log`); `03-realtime-second-subscriber.sh` → **EXIT=0**
+  (`card2-green-03-realtime.log`). Card 1's behavioral surface is unchanged by
+  the new migration.
+
+All runs printed the resolved substrate coordinates read-only before any write:
+compose project `spike-supabase`, db container `b4d825247a2d…`, db host port
+55342 / rest 55368 (Docker-assigned), role `supabase_admin` via `docker exec` —
+NOT :5433, NOT :5434, no hosted project.

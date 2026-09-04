@@ -54,6 +54,7 @@ harnesses (and Card 2's) use.
 supabase/verify/01-structure.sh   # applies fresh + warm; every claim by name
 supabase/verify/02-rls-six-legs.sh
 supabase/verify/03-realtime-second-subscriber.sh
+supabase/verify/04-redeem-race.sh # the race gate: 20×2 clients, 0 double-wins
 supabase/verify/reset-bare.sh     # fixture action: drop ONLY this card's objects
 ```
 
@@ -82,3 +83,31 @@ is stored on the campaign row; devices only ever read `campaigns.requires_online
 - The threshold applies **at creation time**; already-created campaigns keep
   their stored flag (a threshold change is not retroactive by design — a
   campaign's offline policy must not flip under devices mid-flight).
+
+## redeem() — the atomic arbiter (§6)
+
+`public.redeem(p_code uuid, p_device text) → (ok boolean, reason text)`
+(`migrations/20260904000200_redeem_rpc.sql`, card `redeem-rpc-race-proof`). The
+single conditional `UPDATE … WHERE redeemed_by IS NULL AND expires_at > now()`
+is the **only** thing enforcing single use in the whole design — two concurrent
+callers get exactly one `ok=true`, arbitrated by Postgres row locking.
+
+- **Reason taxonomy (complete, never NULL):** `already_used` · `expired` ·
+  `not_found`. The `not_found` arm is GAP-1's fix (spike-proven, operator-signed
+  v2 body): the handoff §6 text returned a NULL reason for a nonexistent code,
+  which would make a forged code read as a system outage downstream.
+- **The winning UPDATE also bumps `codes.updated_at`** — the replication
+  checkpoint key. Without it a redemption would be invisible to the pull
+  replica (Activity B) until some other write touched the row.
+- **SECURITY DEFINER, `search_path` pinned empty**; EXECUTE granted to
+  `authenticated` + `service_role` only. The migration revokes from **both**
+  `public` and `anon`: this substrate (like hosted Supabase) carries default
+  privileges that hand `anon` an *explicit* function grant at create time, so
+  revoking PUBLIC alone leaves `anon` executable. Devices drive it via
+  PostgREST `POST /rpc/redeem`.
+- **Gate:** `verify/04-redeem-race.sh` — 20 rounds × 2 concurrent clients (one
+  `docker exec psql` connection per client), 0 double-wins, every loser
+  `already_used`; expired / already_used / not_found arms on the seed fixtures;
+  `updated_at`-advances leg; device-JWT RPC leg. `--red-analog` installs a
+  naive check-then-update body AS `public.redeem` and proves the same legs red
+  on the defect class (exit 1 is the expected evidence there — red is red).

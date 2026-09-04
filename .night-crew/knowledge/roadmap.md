@@ -228,7 +228,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   in-repo under `supabase/`. done_when: schema applies clean against a fresh Supabase project and
   a row inserted on one client appears on a second subscriber. Footprint: supabase arbiter.
 
-- **`redeem-rpc-race-proof`** · **PLANNED** · The `redeem(p_code, p_device)` plpgsql function
+- **`redeem-rpc-race-proof`** · **DRAFTING** (overnight-20260904, branch
+  `wo-redeem-rpc-race-proof` — atomic `redeem()` with the operator-signed v2 body landed as
+  `supabase/migrations/20260904000200_redeem_rpc.sql` + repeatable race harness
+  `supabase/verify/04-redeem-race.sh`; 20 rounds × 2 clients, 0 double-wins, red-first against the
+  naive analog, `not_found` leg green, GAP-1 `validated:` recorded; awaiting morning triage) · The `redeem(p_code, p_device)` plpgsql function
   (§6) — conditional `UPDATE … WHERE redeemed_by IS NULL AND expires_at > now()` returning
   `(ok, reason)` — **and the race test that is the point of this card**: two concurrent clients
   fire at one code; **exactly one** gets `ok=true`, the other gets `already_used`. Red-first: the
