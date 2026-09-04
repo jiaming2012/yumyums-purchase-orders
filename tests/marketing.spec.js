@@ -28,6 +28,7 @@
 // at the gate itself.
 
 const { test, expect } = require('@playwright/test');
+const path = require('path');
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -259,5 +260,309 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
         user_grants: (before.user_grants || []).map(String),
       });
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Camera scanner decode — card camera-scanner-decode (run 20260905, Activity C,
+// design §12/§4/§10, F3/F5/F6, D-KR3; spike
+// .night-crew/knowledge/spikes/activity-c-scanner-screen/camera-scanner-decode.md)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST (greenfield): every test in this describe was written and RUN
+// against the pre-change tree (Card 1's shell — no scanner, no
+// window.MarketingScan), where it reds as a set. Evidence:
+// .night-crew/runs/2026-09-05-autonomous/card5-red.log and the ## Red-first
+// section of merge-intents/camera-scanner-decode.md.
+//
+// What this describe pins (the card's done_when + landed-card obligations):
+//   * decode-from-image headless (html5-qrcode file-scan path, spike-proven)
+//     and hash-equals-committed-seed-literal (§12/§4 — the replica-key contract);
+//   * resolution order: local replica FIRST, then the QR-embedded offer
+//     (D-KR3) for a not-yet-replicated customer, else unknownCode (F2);
+//   * F3: offline → spentLocally reject; online → NO reject on the local flag
+//     (server decides at submit — Card 6's slot);
+//   * offline expiry via clock.isExpired (never raw Date.now()) and the clock
+//     persist/initialState round-trip across a reload;
+//   * F5: offers are DISPLAYED, never auto-picked;
+//   * hash caching and per-code serialized enqueue (Card 6's entry point).
+//
+// All resolution tests seed the LOCAL RxDB collections directly (fixtures
+// mirroring supabase/seed.sql literals) — the replica MECHANISM is Card 2's
+// substrate-harness-proven surface; this card proves the resolution wiring
+// against those fixtures, per the slate's own gate note.
+
+const FIXTURE_1_TOKEN_HASH = 'c5a1641409efd198e5a55417f209eda33500fd199f1fa7fa0d8a2567ee1f9680'; // sha256("card1-test-code-fixture-1") — committed seed literal
+const FIXTURE_4_TOKEN_HASH = 'a939afc9a3040327594b0f3c1d3db90a317f93188c114bac807ffdc64eb09097'; // sha256("card1-test-code-fixture-4") — the seeded REDEEMED code
+const WALKUP_TOKEN_HASH    = '9dd1e09332d19dfa4055a8d36ae633753b58277bc2101e9ee0e36f7612466d3c'; // sha256("walkup-not-yet-synced-1") — in no replica
+
+const FIXTURE_1_PAYLOAD = 'https://hq.yumyums.kitchen/r/card1-test-code-fixture-1';
+const FIXTURE_4_PAYLOAD = 'https://hq.yumyums.kitchen/r/card1-test-code-fixture-4';
+// The #10 hybrid with the D-KR3 embedded-offer descriptor (candidate reader
+// encoding, locked for real at Activity E): #o=<base64url(JSON)>.
+const WALKUP_DESCRIPTOR = 'eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiYTAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwiZXhwaXJlc19hdCI6IjIwMjgtMDEtMDFUMDA6MDA6MDBaIiwiZmFjZV92YWx1ZSI6Mn0';
+const WALKUP_PAYLOAD = 'https://hq.yumyums.kitchen/r/walkup-not-yet-synced-1#o=' + WALKUP_DESCRIPTOR;
+
+// Local-replica rows mirroring supabase/seed.sql (§4 shape, RxDB schema fields).
+function fixture1Row(overrides = {}) {
+  return Object.assign({
+    id: 'c0000000-0000-4000-8000-000000000001',
+    token_hash: FIXTURE_1_TOKEN_HASH,
+    campaign_id: 'a0000000-0000-4000-8000-000000000001',
+    expires_at: '2028-01-01T00:00:00.000Z',
+    redeemed_at: null,
+    redeemed_by: null,
+    updated_at: '2026-09-01T00:00:00.000Z',
+  }, overrides);
+}
+function fixture4RedeemedRow(overrides = {}) {
+  return Object.assign({
+    id: 'c0000000-0000-4000-8000-000000000004',
+    token_hash: FIXTURE_4_TOKEN_HASH,
+    campaign_id: 'a0000000-0000-4000-8000-000000000001',
+    expires_at: '2028-01-01T00:00:00.000Z',
+    redeemed_at: '2026-09-01T12:00:00.000Z',
+    redeemed_by: 'test-device-seed',
+    updated_at: '2026-09-01T12:00:00.000Z',
+  }, overrides);
+}
+
+async function openScanner(page) {
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto('/marketing.html');
+  await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+}
+
+async function seedLocal(page, docs) {
+  await page.evaluate(async (d) => {
+    const MS = window.MarketingScan;
+    for (const row of (d.codes || [])) await MS.collections.codes.upsert(row);
+    for (const row of (d.offers || [])) await MS.collections.offers.upsert(row);
+  }, docs);
+}
+
+async function scanText(page, payload) {
+  await page.evaluate(async (p) => { await window.MarketingScan.scanText(p); }, payload);
+}
+
+async function scanImage(page, fixtureFile) {
+  await page.setInputFiles('#scan-file', path.join(__dirname, 'fixtures', fixtureFile));
+  await page.waitForSelector('#scan-result[data-kind]', { state: 'attached' });
+}
+
+test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
+
+  // ── decode-from-image + the §12/§4 hash contract ───────────────────────────
+
+  test('a printed QR decodes from an image and its on-device hash equals the committed seed literal', async ({ page }) => {
+    await openScanner(page);
+    // Nothing seeded and no descriptor on this payload → unknownCode (F2 —
+    // display here; the override path is submit-time, Card 6). The load-bearing
+    // assertion is the hash attribute: the browser's WebCrypto SHA-256 of the
+    // token EXTRACTED from the #10 URL wrapper IS the committed seed literal.
+    await scanImage(page, 'qr-fixture-1.png');
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-token-hash', FIXTURE_1_TOKEN_HASH);
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    await expect(result).toContainText('Code not recognized');
+    // §12 hygiene: the raw token never lands in the DOM — only its hash.
+    const html = await result.innerHTML();
+    expect(html).not.toContain('card1-test-code-fixture-1');
+  });
+
+  // ── done_when: synced customer's offer, offline, from the replica ──────────
+
+  test('done_when: a synced customer\'s offer resolves OFFLINE from the local replica (image decode)', async ({ page }) => {
+    await openScanner(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await page.context().setOffline(true);
+    await scanImage(page, 'qr-fixture-1.png');
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'replica');
+    await expect(result).toHaveAttribute('data-token-hash', FIXTURE_1_TOKEN_HASH);
+    const rows = result.locator('.offer-row');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-000000000001');
+    await expect(rows.first()).toContainText('Expires');
+    // F5: the app DISPLAYS offers; staff apply in Toast by hand. No pick/apply
+    // control exists inside an offer row.
+    await expect(rows.first().locator('button')).toHaveCount(0);
+    await expect(result.locator('.result-note')).toContainText('Toast');
+    await expect(result.locator('.result-note')).toContainText('never auto-applies');
+  });
+
+  // ── done_when: un-synced customer falls back to the QR-embedded offer ──────
+
+  test('done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode)', async ({ page }) => {
+    await openScanner(page);
+    // Nothing seeded — the walk-up customer's hash is in NO replica (D-KR3).
+    await page.context().setOffline(true);
+    await scanImage(page, 'qr-embedded.png');
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'embeddedOffer');
+    await expect(result).toHaveAttribute('data-source', 'embedded');
+    await expect(result).toHaveAttribute('data-token-hash', WALKUP_TOKEN_HASH);
+    await expect(result).toContainText('Free side of wings');
+    // The trust note (roadmap Activity E trust note): embedded is display-only,
+    // unauthenticated — staff see that it is not server-verified.
+    await expect(result.locator('.result-note')).toContainText('not yet verified');
+    // Submit-time handling (F2) is Card 6's — its mount slot is present.
+    await expect(result.locator('#scan-submit-slot')).toHaveCount(1);
+  });
+
+  // ── resolution order: replica beats embedded; neither → unknownCode ────────
+
+  test('resolution order: the local replica beats the QR-embedded offer when both exist', async ({ page }) => {
+    await openScanner(page);
+    await seedLocal(page, {
+      offers: [fixture1Row({ id: 'c0000000-0000-4000-8000-00000000w001', token_hash: WALKUP_TOKEN_HASH })],
+      codes:  [fixture1Row({ id: 'c0000000-0000-4000-8000-00000000w001', token_hash: WALKUP_TOKEN_HASH })],
+    });
+    await scanText(page, WALKUP_PAYLOAD); // carries the descriptor too
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'replica');
+    // The embedded label is NOT what renders — the replica list is.
+    await expect(result.locator('.offer-row')).toHaveCount(1);
+  });
+
+  test('a token in neither replica with no descriptor resolves unknownCode (F2 display)', async ({ page }) => {
+    await openScanner(page);
+    await scanText(page, 'https://hq.yumyums.kitchen/r/never-seen-token-xyz');
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    await expect(result).toContainText('Code not recognized');
+  });
+
+  test('a payload that is not a Yumyums code resolves invalidPayload, loudly', async ({ page }) => {
+    await openScanner(page);
+    await scanText(page, 'https://example.com/not-our-shape');
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'invalidPayload');
+    await expect(result).toContainText('Not a Yumyums code');
+  });
+
+  // ── F3: stale local "already used" ─────────────────────────────────────────
+
+  test('F3 offline: a locally-redeemed code rejects immediately as spentLocally', async ({ page }) => {
+    await openScanner(page);
+    await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
+    // Default online probe is () => false (no reachability machine tonight —
+    // Card 6's #13). Offline is the default truth.
+    await scanText(page, FIXTURE_4_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'spentLocally');
+    await expect(result).toContainText('Already used');
+    await expect(result).toContainText('test-device-seed'); // when + which device (F3/§16)
+    // A hard offline reject mounts NO submit slot.
+    await expect(result.locator('#scan-submit-slot')).toHaveCount(0);
+  });
+
+  test('F3 online: the local redeemed flag does NOT reject — the server decides at submit', async ({ page }) => {
+    await openScanner(page);
+    await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
+    await page.evaluate(() => { window.MarketingScan.setOnlineProbe(() => true); });
+    await scanText(page, FIXTURE_4_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'deferToServer');
+    await expect(result).toContainText('used on this device');
+    await expect(result).toContainText('server has the final say');
+    // The server call happens at submit — Card 6 mounts into this slot.
+    await expect(result.locator('#scan-submit-slot')).toHaveCount(1);
+  });
+
+  // ── §5.1: offline expiry via the offset clock, and its reload round-trip ───
+
+  test('offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live', async ({ page }) => {
+    await openScanner(page);
+    const soon = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h device time
+    await seedLocal(page, {
+      codes:  [fixture1Row({ expires_at: soon })],
+      offers: [fixture1Row({ expires_at: soon })],
+    });
+    // Server is 2h ahead of the device (offset = serverNow − deviceNow = +2h):
+    // clock.now() > expires_at even though Date.now() < expires_at.
+    await page.evaluate(() => {
+      window.MarketingScan.clock.captureFromResponse({
+        headers: { get: () => new Date(Date.now() + 2 * 60 * 60 * 1000).toUTCString() },
+      });
+    });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'expiredLocally');
+    await expect(result).toContainText('Expired');
+  });
+
+  test('the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset', async ({ page }) => {
+    await openScanner(page);
+    // A capture persists…
+    await page.evaluate(() => {
+      window.MarketingScan.clock.captureFromResponse({
+        headers: { get: () => new Date(Date.now() + 123456).toUTCString() },
+      });
+    });
+    const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('hq_marketing_clock_v1')).offset_ms);
+    expect(Math.abs(persisted - 123456)).toBeLessThan(5000); // Date-header = whole-second resolution + eval latency
+    // …and a reload boots FROM the persisted state (0 captures — the
+    // reloaded-offline device), still carrying the offset.
+    await page.reload();
+    await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+    const after = await page.evaluate(() => ({
+      offset: window.MarketingScan.clock.offsetMs,
+      captures: window.MarketingScan.clock.captures,
+    }));
+    expect(Math.abs(after.offset - 123456)).toBeLessThan(5000);
+    expect(after.captures).toBe(0);
+  });
+
+  // ── engineering-call guards: hash caching, serialized enqueue, F6 re-scan ──
+
+  test('hash caching: repeated scans of one token digest once', async ({ page }) => {
+    await openScanner(page);
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    const stats = await page.evaluate(() => window.MarketingScan.hasherStats());
+    expect(stats.misses).toBe(1);
+    expect(stats.hits).toBeGreaterThanOrEqual(1);
+  });
+
+  test('enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt', async ({ page }) => {
+    await openScanner(page);
+    // The landed Card 3 note: enqueueAttempt's dedupe is find-then-insert, NOT
+    // atomic — two concurrent raw calls can both insert. Card 5's wrapper
+    // serializes per code_id; Card 6 must enqueue through it.
+    const out = await page.evaluate(async () => {
+      const MS = window.MarketingScan;
+      const fields = { code_id: 'c0000000-0000-4000-8000-000000000002', device_id: 'dev-c5-test' };
+      const [a, b] = await Promise.all([MS.enqueue(fields), MS.enqueue(fields)]);
+      const docs = await MS.collections.scan_attempts
+        .find({ selector: { code_id: fields.code_id } }).exec();
+      return { deduped: [a.deduped, b.deduped].sort(), count: docs.length };
+    });
+    expect(out.count).toBe(1);
+    expect(out.deduped).toEqual([false, true]);
+  });
+
+  test('F6: re-scanning the same code re-shows the result instead of erroring or duplicating', async ({ page }) => {
+    await openScanner(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result.locator('.offer-row')).toHaveCount(1);
+  });
+
+  // ── the camera leg's ERROR state (UI-R6) — the live leg is ATTENDED ────────
+
+  test('camera failure is loud and retryable (headless has no camera; live decode is the attended morning check)', async ({ page }) => {
+    await openScanner(page);
+    await page.click('[data-action="start-camera"]');
+    const err = page.locator('#scanner-host .cam-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText('Camera unavailable');
+    // Retry affordance: the same labeled action, still present and clickable.
+    await expect(page.locator('[data-action="start-camera"]')).toBeVisible();
   });
 });
