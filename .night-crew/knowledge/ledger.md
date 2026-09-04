@@ -3740,3 +3740,75 @@ items; no OpenSpec deferral markers apply). Previous pair archived to
 - **Next (correct flow, target repo):** `/nc-spike-open` on Activity 0 (prove #6, the race, RxDB
   feasibility) → the `/nc-pm-session` → `/nc-pm-grill-back` evening → `/nc-slate-plan` (gated on
   the spike extraction records) → overnight run. `/nc-slate-plan` is last, not next.
+
+### T-52 — Morning triage: run `20260904` reviewed and merged to `dev` (2026-09-04, attended)
+
+- **Run merged.** `overnight-20260904` (19 commits: 15 patches + 4 clean merges, 50 files,
+  +5,336/−699) merged `--no-ff` → `dev` at `b9beddd`. **4 of 4 cards landed, 0 parked, 0 open
+  forks** — serial dispatch 1→2→3→4 as chosen at the slate sitting. Wall ≈1h35m vs the serial
+  mid-estimate ≈3h40m; first-pass rate 1.00. Cards: `supabase-schema-and-rls` (a1a3401),
+  `redeem-rpc-race-proof` (4617b8a), `backlog-machine-migration` (846e572),
+  `team-records-from-hand-runs` (5062d3e). All four roadmap cards flipped DONE. The merged
+  `dev` tree is byte-identical to the reviewed run-branch tip, so the adversarial gate
+  evidence transfers to `dev` unmodified.
+- **Gate evidence from an independent adversarial re-run** (fresh subagent, own scratch dir,
+  never the closeout's own gate lines): backlog check exit 0 "valid — 209 entries" with
+  mutation probes red (duplicate handle, mangled head); supabase verify 01/02/03/04 all exit 0
+  on the final tree — the race gate's 20/20 rounds `winners=1` counted by line, and the naive
+  red-analog reproduced the double-win (winners=2) under the reviewer's own execution;
+  scorecard renders 20260904 with 4/4 record-backed roles and the `.md`-inert template claim
+  was mechanically confirmed; `replay`/`testdata` diff empty; G4 greps N/A-VACUOUS exactly as
+  B-14 states. Card 3's preservation claim independently re-proved: lost=0 under three
+  case-sensitive tokenizations plus per-entry containment (B-76/B-92/B-145/B-77 + 5 random).
+  Substrate discipline held: docker-exec into the spike stack only; :5432/:5433/:5434 never
+  touched; repo left byte-identical. Unverified (reported, not assumed): the closeout's
+  Temporal `workers check` line (no artifact; container in a restart loop at triage) and the
+  historical process claims (timings, dispatch order).
+- **Decision 163 — Card 2's delta from the signed text stands as shipped.** The adversarial
+  diff showed the HANDOFF's "only `updated_at`" phrasing was too narrow: the deployed body is
+  logically identical (enforcement predicate, atomicity, result taxonomy) but adds the
+  `updated_at = now()` stamp AND envelope wiring — SECURITY DEFINER, `search_path = ''`,
+  explicit revoke/grant, pgrst reload — disclosed in the migration header. Put to the operator
+  with the full list; chosen **stands as shipped** over *strip the timestamp* and *re-sign the
+  full text*: the race-proven body is the body that ships, the stamp feeds the replication
+  checkpoint Card 1 indexes, and the wiring is the required hardening for an RLS-fronted RPC.
+  Routed as `dec-92b5e3d46632` (escalated, correctly — a signed artifact's content sits past
+  delegation/P-1's bound).
+- **Decision 164 — capture-on-answer: candidate `delegation/C-2` proposed.** The ruling's
+  class — behavior-identical body + disclosed envelope wiring + bookkeeping stamps on rows the
+  function already updates may ship overnight and be reviewed as a named line at triage — was
+  offered back and the operator said yes, choosing the **envelope + stamps** Bound over the
+  stricter wiring-only scope, and adopting the offered Bound sentence as their own words after
+  a jargon walk-through (teller's keys / binder lock / door policy / margin notes). Pending,
+  not adopted: `night-crew preferences adopt delegation/C-2` is the operator's own act. Once
+  adopted it covers the exact gray area today's `decisions audit` names as uncovered (coverage
+  50% — 1 of 2; the covered one leaned on delegation/P-1).
+- **Decision 165 — stranded work: record and leave.** The worktree sweep found
+  `workspace/hq-scheduling-app` (31 commits never on `dev`) and the pinned `main` worktree's 3
+  deploy-fix commits (the same three B-348 already records — re-confirmed, not re-filed).
+  Chosen **record-and-leave** over *summarize-first* and *rule-now*: B-415 filed for the
+  workspace; no branch merged or deleted (patch-equivalent branches can still
+  content-duplicate on merge, B-133 class). Routed as `dec-d0b83278fed6` (escalated).
+- **Conflict-log audit clean.** 4 entries for 4 merges, clean merges logged, every entry names
+  intents that exist; all four merge-intents carry the three durable fields with explicit
+  "nothing here" markers. Notes read against diffs on every shared surface (COMMANDS.md dual
+  stanzas byte-intact, roadmap flips, GAP-1 `validated:` ledger append) — all truthful. Two
+  cosmetic dishonesties recorded, no action owed: Card 1's merge-intent prose says
+  "PLANNED → DONE" where the diff (correctly) flips DRAFTING; HANDOFF's "B-412 residuals
+  verified verbatim" reads as if the handle pre-existed when Card 3 newly assigned it.
+- **Filed / reconciled.** New: **B-415** (stranded hq-scheduling-app workspace), **B-416**
+  (`reset_bare` stale functions — G6's note widened by the adversarial run to three spike-era
+  functions), **B-417** (`01-structure.sh` non-deterministic ~7-min hang, retry clean),
+  **B-418** (scorecard rounding + stem-rule nit), **B-419** (`seed.sql` hosted-apply guard,
+  rides `external-accounts-provision`), **B-420** (backlog check validates structure, not
+  census — silent deletion passes). Reconciled: B-76/B-92 heads `new` → `done` (their ✅
+  RESOLVED continuations date to 2026-08-04); the line-147 comment claiming the check rejects
+  the document corrected (it passes since the migration). `backlog check` green after all
+  edits: **valid — 215 entries** (the armed §4.5 gate's first real firing). Card actuals
+  appended for all four cards (re-export class again far under band; followup-batch at doc
+  scale ~40m vs the 110m risk price).
+- **Standing flags unchanged:** Playwright armed reds B-174 ×3 + B-176 ×1 and the B-178
+  sync-RLS environmental red were untouched by tonight (no card owed them). The attended
+  follow-ups the slate scoped remain: hosted `supabase/` apply once Activity 0 provisions
+  (~15m attended), `external-accounts-provision` scheduling (A2P/10DLC 1–3 week lead gates
+  Activity E), and the now-possible backlog walk over the 46 `[new]` CLI-visible items.

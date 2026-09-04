@@ -9,3 +9,9 @@ The one item worth ratification eyes — Card 2's `updated_at = now()` delta fro
 operator-signed v2 text — is NOT a fork: G6 judged it in-remit (enforcement predicate,
 atomicity, taxonomy unchanged) and it ships. It is named in HANDOFF.md §Decisions and
 merge 2's conflict-log entry so triage can ratify or reverse it with one look.
+
+> **RESOLVED 2026-09-04 — recorded as ledger T-52.** No open forks stood; triage
+> confirmed the considered-and-empty state. The one ratification item (Card 2's
+> `updated_at` + SECURITY DEFINER wiring delta) was put to the operator with the full
+> delta list from the adversarial re-run: **ratified, stands as shipped.** Captured as
+> candidate preference `delegation/C-2` (pending, not adopted).

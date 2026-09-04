@@ -1275,3 +1275,22 @@ visibility/notice/tooling).
 | 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | ~17:05 (~8m impl) | ~17:12 (PASS) | none | ~17:04 `8dcf506` | **~15m** (est 50–85m; far under; build-tooling card, Playwright deferred) |
+
+## Run 20260904 (night of 2026-09-03, SERIAL 1→2→3→4, 4 cards)
+
+Serial dispatch as chosen at the slate sitting (Track A 1→2, then G1, then G2 in one
+lane). Times from `timings.log` (EDT). Wall clock 01:27→03:02 ≈ **1h35m** vs the slate's
+serial mid ≈ 3h40m. First-pass rate 1.00 — no fix rounds. All four G6s PASS-WITH-NOTES.
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `supabase-schema-and-rls` | A | new-mechanism | 40–70m | 01:39 (~12m impl) | 01:45 (PASS-W-NOTES, ~4.5m) | none | 01:45 `a1a3401` | **~18m** (est 40–70m; far under — re-export class held: spike fixture + assertions were the working draft) |
+| 2 | `redeem-rpc-race-proof` | A | new-mechanism | 35–60m | 02:01 (~15m impl) | 02:09 (PASS-W-NOTES, ~8m — G6 ran race red-analog + 3 mutation probes) | none | 02:09 `4617b8a` | **~24m** (est 35–60m; under; race rounds cheap as the spike predicted) |
+| 3 | `backlog-machine-migration` | G1 | followup-batch | 60–110m risk-flagged | 02:41 (~30m impl — 297-issue reshape + preservation proof) | 02:50 (PASS-W-NOTES, ~8m — reviewer re-proved preservation independently) | none | 02:50 `846e572` | **~40m** (est 60–110 use-110; well under the risk price — first doc-migration card now has an actual) |
+| 4 | `team-records-from-hand-runs` | G2 | small-additive | 20–40m | 02:55 (~4.5m impl) | 02:59 (PASS-W-NOTES, ~3m) | none | 02:59 `5062d3e` | **~9.5m** (est 20–40m; far under; QA/harness class again beats its band) |
+
+Sizing-class notes: the re-export class (~18–24m actuals here) continues to price well
+below new-mechanism bands — when a spike's harness IS the working draft, estimate against
+the harness, not the mechanism. followup-batch at doc scale (297 issues) came in at ~40m;
+the 110m risk price was insurance against the no-analog case and can narrow next time.
+Serial per-merge overhead ≈ 0 (all clean); closeout ≈ 2m (scorecard emit + verify).

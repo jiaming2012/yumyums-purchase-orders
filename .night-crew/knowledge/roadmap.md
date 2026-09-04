@@ -217,9 +217,9 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > `redeem()`. The single conditional `UPDATE` is the **only** thing enforcing single use (§6).
 > **Trace:** Product + Engineering objectives.
 
-- **`supabase-schema-and-rls`** · **DRAFTING** (overnight-20260904, branch
+- **`supabase-schema-and-rls`** · **DONE** (overnight-20260904, branch
   `wo-supabase-schema-and-rls` — migration + seed + verify harness landed in `supabase/`, all
-  gates green fresh+warm against the local substrate; awaiting morning triage) · The `campaigns` / `codes` / `scan_attempts`
+  gates green fresh+warm against the local substrate; triaged 2026-09-04, merged to dev) · The `campaigns` / `codes` / `scan_attempts`
   schema (§4 — including the `unverified_code boolean` flag on `scan_attempts`, F2) with
   `token_hash` never storing the raw token, the `updated_at` index (the
   replication checkpoint key), RLS policies that let each device see only what it needs (§7.2),
@@ -228,11 +228,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   in-repo under `supabase/`. done_when: schema applies clean against a fresh Supabase project and
   a row inserted on one client appears on a second subscriber. Footprint: supabase arbiter.
 
-- **`redeem-rpc-race-proof`** · **DRAFTING** (overnight-20260904, branch
+- **`redeem-rpc-race-proof`** · **DONE** (overnight-20260904, branch
   `wo-redeem-rpc-race-proof` — atomic `redeem()` with the operator-signed v2 body landed as
   `supabase/migrations/20260904000200_redeem_rpc.sql` + repeatable race harness
   `supabase/verify/04-redeem-race.sh`; 20 rounds × 2 clients, 0 double-wins, red-first against the
-  naive analog, `not_found` leg green, GAP-1 `validated:` recorded; awaiting morning triage) · The `redeem(p_code, p_device)` plpgsql function
+  naive analog, `not_found` leg green, GAP-1 `validated:` recorded; triaged 2026-09-04, merged to dev) · The `redeem(p_code, p_device)` plpgsql function
   (§6) — conditional `UPDATE … WHERE redeemed_by IS NULL AND expires_at > now()` returning
   `(ok, reason)` — **and the race test that is the point of this card**: two concurrent clients
   fire at one code; **exactly one** gets `ok=true`, the other gets `already_used`. Red-first: the
@@ -409,11 +409,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > never slated, so they reddened the close through no fault of their own. Carried, not re-derived.
 > **Trace:** QA objective.
 
-- **`backlog-machine-migration`** · **DRAFTING** (overnight-20260904, branch
+- **`backlog-machine-migration`** · **DONE** (overnight-20260904, branch
   `wo-backlog-machine-migration` — all 297 issues retired: `backlog check --repo .` exit 0
   `valid — 209 entries`, list count == the checker's own parse, whole-document token-multiset
   containment proven 0-lost against the red-baseline commit, handles B-350..B-414 assigned,
-  triage §4.5 gate armed in COMMANDS.md; awaiting morning triage) · (Carried from last cycle's Activity 5.) Closes
+  triage §4.5 gate armed in COMMANDS.md; triaged 2026-09-04, merged to dev) · (Carried from last cycle's Activity 5.) Closes
   **B-02**, **B-168**, **B-12**, **B-133**. Reshape the ~193 legacy-shape entries to the canonical
   `B-NN` form until `night-crew backlog check` exits 0, with **content preservation proven**
   (stripped-text diff: every entry body present before is present after; handles assigned above
@@ -421,13 +421,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   document cannot drift back. done_when is mechanical: `check` exit 0, and `backlog list` count ==
   document entry count. Footprint: planning docs.
 
-- **`team-records-from-hand-runs`** · **DRAFTING** (overnight-20260904, branch
+- **`team-records-from-hand-runs`** · **DONE** (overnight-20260904, branch
   `wo-team-records-from-hand-runs` — template landed at
   `.night-crew/knowledge/scorecard/TEMPLATE.md` (.md by design — inert to the union read,
   proven) + closeout ritual stanza armed under COMMANDS.md step 5; validation render green:
   transient fake-run-id record → all four roles record-backed, EXIT=0, record deleted, no
   real-run-id jsonl committed — tonight's `20260904.jsonl` is emitted by the run's closeout
-  per the new stanza; awaiting morning triage) · (Carried from last cycle's Activity 5.) The
+  per the new stanza; triaged 2026-09-04, merged to dev) · (Carried from last cycle's Activity 5.) The
   scorecard sees no rostered role on this hand-run target — every close renders `—` for all four
   teams. Scope: emit the per-run scorecard files the CLI already reads, from this repo's hand-run
   slate/closeout ritual (template + ritual step). If that provably requires CLI changes, the card

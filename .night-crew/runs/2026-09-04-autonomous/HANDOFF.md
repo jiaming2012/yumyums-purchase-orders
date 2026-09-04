@@ -80,3 +80,15 @@ get one-line-class entries so an empty log can't masquerade as "no conflicts").
 4. Standing armed reds untouched by tonight (unowed, unchanged): Playwright B-174 ×3 +
    B-176 ×1; B-178 sync-RLS environmental red — attended relay cleanup still
    recommended.
+
+---
+
+**Triage stamp 2026-09-04 (attended):** run merged `--no-ff` → `dev` (T-52). Independent
+adversarial re-execution reproduced every gate green (backlog 209, supabase 01–04 incl.
+race 20/20 winners=1 by line count, scorecard 4/4 roles) and confirmed the Card 3
+preservation claim (lost=0 under 3 tokenizations). Card 2 delta ratified by the operator:
+stands as shipped (full delta = updated_at stamp + SECURITY DEFINER + pinned search_path
++ grants — wider than this file's "only updated_at" phrasing; body logically identical).
+Notes 3/5/6 graduated as B-416/B-418/B-419; adversarial findings filed as B-417/B-420;
+stranded-worktree findings: B-415 filed (hq-scheduling-app), B-348 re-confirmed (main).
+Notes 1/2 + the B-412 handle-attribution nit recorded in T-52, no action owed.
