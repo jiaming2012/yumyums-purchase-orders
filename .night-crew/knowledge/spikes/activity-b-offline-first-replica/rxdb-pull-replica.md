@@ -129,3 +129,18 @@ already guards it.
   tiebreak in the checkpoint (or over-fetching one row); that card owes ONE
   validation run exercising a same-timestamp batch boundary (found
   2026-09-04, /nc-spike-close).
+  - validated: GAP-1 — run 20260905, card `rxdb-pull-replica` (branch
+    `wo-rxdb-pull-replica`). The card kept the id tiebreak in the checkpoint
+    (`{updated_at, id}` + PostgREST keyset
+    `or=(updated_at.gt."TS",and(updated_at.eq."TS",id.gt."ID"))`,
+    `order=updated_at.asc,id.asc` — marketing/sync/pull-replication.js) and ran
+    the owed validation: a 5-row same-`updated_at` tie group pulled at
+    batchSize 2, so batch boundaries fell INSIDE the group. Red first: the
+    naive gt-only cursor silently missed **3 of 5** tie rows
+    (`card2-red.log`, EXIT=1, missed ids enumerated). Then green: the keyset
+    checkpoint walked the group — **2 pull requests observably resumed
+    mid-group** from compound cursors sharing the tie timestamp, all 5 rows
+    landed, request log enumerated (`card2-harness.log` leg 2, EXIT=0, both
+    logs under `.night-crew/runs/2026-09-05-autonomous/`). The silent-miss
+    class this gap named — a redemption never reaching device B — is closed
+    in the shipped module, not just the spike.
