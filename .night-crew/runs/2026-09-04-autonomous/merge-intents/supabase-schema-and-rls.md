@@ -61,6 +61,30 @@ migration exists, then GREEN after it applies, fresh and warm.)
   assertion failure against genuinely absent objects. The harness commit
   carrying this evidence contains NO migration SQL; the migration lands in the
   following commit, so the ordering is auditable from git alone.
-- GREEN (fresh + warm): pending
-- RLS six legs: pending
-- Realtime second subscriber: pending
+- GREEN (fresh + warm): `supabase/verify/01-structure.sh` → **EXIT=0**
+  (`card1-green-01-structure.log`). Fresh apply over bare, full named
+  assertion set (4 tables, F2 boolean, no raw-token column, unique
+  `codes_token_hash_key` + `codes_updated_at_idx`, `scan_attempts_join_idx`,
+  RLS ×4, 3 policies + zero on `marketing_settings`, zero client grants on
+  `marketing_settings`, singleton constraint by name, 1 row @ 2000, 2 TEST
+  campaigns, 5 TEST codes with expired/redeemed fixtures, `public.codes` in
+  `supabase_realtime`); warm re-apply, same set again; plus the #5 leg:
+  operator-set 2500 survives a third re-apply (then restored to 2000).
+- RLS six legs: `supabase/verify/02-rls-six-legs.sh` → **EXIT=0**
+  (`card1-green-02-rls.log`). Through PostgREST: (1) device read 200 with
+  seeded code …0001; (2) anonymous 401/42501; (3) own-device insert 201;
+  (4) spoofed device_id 403 (`new row violates row-level security`);
+  (5) device SELECT on scan_attempts 403 (push-only holds); (6) server-side
+  counts 1 own / 0 spoof (per-run device ids, so re-runs stay exact).
+- Realtime second subscriber: `supabase/verify/03-realtime-second-subscriber.sh`
+  → **EXIT=0** (`card1-green-03-realtime.log`). Authenticated-role rtprobe:
+  JOIN-OK, READY subscribed=1 failed=0, no SYS-ERR; server-side
+  `updated_at = now()` touch on code …0001 arrived as
+  `RTP EVENT label=codes type=UPDATE table=public.codes id=c0000000-…-0001`
+  inside the 20s window; rtprobe exit=0.
+
+All three green legs printed the resolved substrate coordinates read-only
+before any write: compose project `spike-supabase`, db container
+`b4d825247a2d…`, db host port 55342 / rest 55368 / realtime 55371
+(Docker-assigned), role `supabase_admin` via `docker exec` — NOT :5433,
+NOT :5434, no hosted project.

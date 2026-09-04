@@ -217,7 +217,9 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > `redeem()`. The single conditional `UPDATE` is the **only** thing enforcing single use (§6).
 > **Trace:** Product + Engineering objectives.
 
-- **`supabase-schema-and-rls`** · **PLANNED** · The `campaigns` / `codes` / `scan_attempts`
+- **`supabase-schema-and-rls`** · **DRAFTING** (overnight-20260904, branch
+  `wo-supabase-schema-and-rls` — migration + seed + verify harness landed in `supabase/`, all
+  gates green fresh+warm against the local substrate; awaiting morning triage) · The `campaigns` / `codes` / `scan_attempts`
   schema (§4 — including the `unverified_code boolean` flag on `scan_attempts`, F2) with
   `token_hash` never storing the raw token, the `updated_at` index (the
   replication checkpoint key), RLS policies that let each device see only what it needs (§7.2),
