@@ -270,7 +270,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   renders offline; and an un-synced customer falls back to the embedded offer. Footprint: rxdb
   replica.
 
-- **`scan-attempts-push-conflict`** · **PLANNED** · The device-owned, **push-only**
+- **`scan-attempts-push-conflict`** · **DRAFTING** (overnight-20260905, branch
+  `wo-scan-attempts-push-conflict` — `marketing/sync/push-replication.js` device-owned push
+  module: offline queue + `enqueueAttempt` dedupe + redeem-then-land handler with GAP-1's two
+  belts (persisted burn outcome before landing; own-device `already_used` = accepted), loser's
+  flip rendered from the codes-side pull replica, standalone substrate harness; module
+  deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  The device-owned, **push-only**
   `scan_attempts` collection (§4 — opposite replication direction, the key structural decision).
   The push handler batches pending attempts through `redeem()` and writes the outcome back onto
   the local row; the `conflictHandler` flips a losing device's UI from "redeemed ✓" to "already
