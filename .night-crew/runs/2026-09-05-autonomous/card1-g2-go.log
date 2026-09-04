@@ -1,0 +1,1650 @@
+════ card1-g2-go.log — G2 (Go): full suite, -p 1, isolated DB hq_test_go_c1 on :5434 ════
+── environment proof (decision 108 / B-36): HQ_SYNC_* must be UNSET ──
+grep_exit=1 (1 = both unset)
+$ DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c1?sslmode=disable' go test -p 1 -count=1 -v ./...
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+?   	github.com/yumyums/hq/cmd/server	[no test files]
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+=== RUN   TestLoadConfigDeliveryDisabledByDefault
+--- PASS: TestLoadConfigDeliveryDisabledByDefault (0.00s)
+=== RUN   TestLoadConfigDeliveryEnabledExplicitly
+--- PASS: TestLoadConfigDeliveryEnabledExplicitly (0.00s)
+=== RUN   TestLoadConfigDeliveryValueIsStrict
+--- PASS: TestLoadConfigDeliveryValueIsStrict (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/alerts	0.471s
+2026/09/04 13:03:30 goose: no migrations to run. current version: 76
+2026/09/04 13:03:30 INFO database migrations applied successfully
+=== RUN   TestSeedHQApps_RegistersMarketingSurfaces
+--- PASS: TestSeedHQApps_RegistersMarketingSurfaces (0.01s)
+=== RUN   TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly
+--- PASS: TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly (0.02s)
+=== RUN   TestOfflineOverride_EntitlementNotImpliedByAppGrant
+--- PASS: TestOfflineOverride_EntitlementNotImpliedByAppGrant (0.04s)
+=== RUN   TestSeedHQApps_RegistersPerTabSlugs
+--- PASS: TestSeedHQApps_RegistersPerTabSlugs (0.01s)
+=== RUN   TestRequirePermission_WithoutGrant_403
+--- PASS: TestRequirePermission_WithoutGrant_403 (0.01s)
+=== RUN   TestRequirePermission_WithTabGrant_Passes
+--- PASS: TestRequirePermission_WithTabGrant_Passes (0.02s)
+=== RUN   TestRequirePermission_UmbrellaAppGrant_Passes
+--- PASS: TestRequirePermission_UmbrellaAppGrant_Passes (0.01s)
+=== RUN   TestRequirePermission_MixedGrant_TrendsOnly
+--- PASS: TestRequirePermission_MixedGrant_TrendsOnly (0.02s)
+=== RUN   TestRequirePermission_UnrelatedGrant_DoesNotLeak
+--- PASS: TestRequirePermission_UnrelatedGrant_DoesNotLeak (0.02s)
+=== RUN   TestRequirePermission_Superadmin_Passes
+--- PASS: TestRequirePermission_Superadmin_Passes (0.00s)
+=== RUN   TestRequirePermission_AdminRoleAlone_IsNotAGrant
+--- PASS: TestRequirePermission_AdminRoleAlone_IsNotAGrant (0.01s)
+=== RUN   TestRequirePermission_NoUser_401
+--- PASS: TestRequirePermission_NoUser_401 (0.00s)
+=== RUN   TestRequirePermission_DisabledApp_DoesNotGrant
+--- PASS: TestRequirePermission_DisabledApp_DoesNotGrant (0.01s)
+=== RUN   TestRequirePermission_DBError_FailsClosed
+2026/09/04 13:03:30 ERROR RequirePermission grant lookup failed error="closed pool" grant=inventory-trends user_id=00000000-0000-0000-0000-000000000001
+--- PASS: TestRequirePermission_DBError_FailsClosed (0.00s)
+=== RUN   TestRequirePermission_DBError_SuperadminStillPasses
+--- PASS: TestRequirePermission_DBError_SuperadminStillPasses (0.00s)
+=== RUN   TestServiceTokenMiddleware
+=== RUN   TestServiceTokenMiddleware/missing_Authorization_header_→_401
+=== RUN   TestServiceTokenMiddleware/header_without_Bearer_prefix_→_401
+=== RUN   TestServiceTokenMiddleware/Bearer_prefix_with_wrong_token_→_401
+=== RUN   TestServiceTokenMiddleware/Bearer_prefix_with_correct_token_→_200,_next_called
+=== RUN   TestServiceTokenMiddleware/empty_expectedToken_(env_unset)_→_503,_next_NOT_called
+--- PASS: TestServiceTokenMiddleware (0.00s)
+    --- PASS: TestServiceTokenMiddleware/missing_Authorization_header_→_401 (0.00s)
+    --- PASS: TestServiceTokenMiddleware/header_without_Bearer_prefix_→_401 (0.00s)
+    --- PASS: TestServiceTokenMiddleware/Bearer_prefix_with_wrong_token_→_401 (0.00s)
+    --- PASS: TestServiceTokenMiddleware/Bearer_prefix_with_correct_token_→_200,_next_called (0.00s)
+    --- PASS: TestServiceTokenMiddleware/empty_expectedToken_(env_unset)_→_503,_next_NOT_called (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/auth	0.741s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+2026/09/04 13:03:32 goose: no migrations to run. current version: 76
+2026/09/04 13:03:32 INFO database migrations applied successfully
+=== RUN   TestItemAliases
+=== RUN   TestItemAliases/add_then_list
+=== RUN   TestItemAliases/alias_equal_to_own_description_is_a_no-op
+=== RUN   TestItemAliases/re-adding_re-points_to_the_new_item
+=== RUN   TestItemAliases/delete_removes_and_404s_when_absent
+=== RUN   TestItemAliases/merge_carries_aliases_and_learns_source_name
+--- PASS: TestItemAliases (0.66s)
+    --- PASS: TestItemAliases/add_then_list (0.15s)
+    --- PASS: TestItemAliases/alias_equal_to_own_description_is_a_no-op (0.12s)
+    --- PASS: TestItemAliases/re-adding_re-points_to_the_new_item (0.11s)
+    --- PASS: TestItemAliases/delete_removes_and_404s_when_absent (0.12s)
+    --- PASS: TestItemAliases/merge_carries_aliases_and_learns_source_name (0.17s)
+=== RUN   TestListPendingPurchases_HidesNonCOGSCategory
+--- PASS: TestListPendingPurchases_HidesNonCOGSCategory (0.11s)
+=== RUN   TestListPendingPurchases_ReturnsMercuryCategory
+--- PASS: TestListPendingPurchases_ReturnsMercuryCategory (0.11s)
+=== RUN   TestListPurchaseEvents_HidesNonCOGSCategory
+--- PASS: TestListPurchaseEvents_HidesNonCOGSCategory (0.13s)
+=== RUN   TestPeriodSummary
+=== RUN   TestPeriodSummary/ready=true_with_linked_items_and_no_pending
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=false_when_pending_purchase_in_range_is_unconfirmed
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=false_when_a_confirmed_event_has_an_unlinked_line_item
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=0 unlinked_line_item_count=1
+=== RUN   TestPeriodSummary/discarded_pending_purchase_does_NOT_block_ready
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=false_when_no_attachment_on_bank_tx_pending_row_in_range
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/bad_date_format_returns_400
+=== RUN   TestPeriodSummary/from_>_to_returns_400
+=== RUN   TestPeriodSummary/placeholder_line_item_lands_in_cogs_excl_tax
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/placeholder_does_NOT_trip_unlinked_line_item_ids
+2026/09/04 13:03:34 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/end-to-end_empty-items_confirm_increments_cogs
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/by_vendor:_shape_+_sums_match_+_order
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/by_vendor:_empty_period_renders_[]_not_null
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/by_vendor:_zero-line-items_event_still_appears_(regression)
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/allowlist_excludes_non-COGS_rows
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/NULL_mercury_category_is_excluded_by_default
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/custom_multi-element_allowlist_includes_both
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=false_when_pending_row_has_event_date_in_range_but_created_at_out_of_range
+2026/09/04 13:03:35 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=true_when_pending_row_has_event_date_out_of_range_but_created_at_in_range
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=false_when_pending_row_has_NULL_event_date_and_created_at_in_range
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/ready=true_when_pending_row_has_NULL_event_date_and_created_at_out_of_range
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_empty_period_renders_[]_not_null
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_all_states_present,_deduped,_sorted
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_period_boundary_uses_COALESCE(event_date,_created_at::app-tz)
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=2 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_parity_with_pending_review_ids
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=3 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_populates_vendor/event_date/bank_total/reason
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_event_date_falls_back_to_the_app-tz_cast_of_created_at
+2026/09/04 13:03:36 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_vendor=''_serializes_as_empty_string
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_serializes_as_[]_when_empty_period
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_a_food_no_attachment_blocks
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_b_food_parse_failed_rolls_into_cogs
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_c_non_food_no_attachment_does_not_block_or_roll
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_d_non_food_parse_failed_does_not_block_or_roll
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/null_mercury_category_with_no_attachment_does_not_block
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/date_filter_still_applies_to_blocking_row_out_of_period
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/pending_review_details_parity_under_narrowed_gate
+2026/09/04 13:03:37 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=1 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_b_by_vendor_match_merges_into_vendor_row
+2026/09/04 13:03:38 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_b_by_vendor_unmatched_renders_with_empty_vendor_id
+2026/09/04 13:03:38 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+=== RUN   TestPeriodSummary/case_b_by_vendor_vendor_name_fuzz_joins_case_and_trim_insensitive
+2026/09/04 13:03:38 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=true pending_review_count=0 unlinked_line_item_count=0
+--- PASS: TestPeriodSummary (4.26s)
+    --- PASS: TestPeriodSummary/ready=true_with_linked_items_and_no_pending (0.14s)
+    --- PASS: TestPeriodSummary/ready=false_when_pending_purchase_in_range_is_unconfirmed (0.11s)
+    --- PASS: TestPeriodSummary/ready=false_when_a_confirmed_event_has_an_unlinked_line_item (0.12s)
+    --- PASS: TestPeriodSummary/discarded_pending_purchase_does_NOT_block_ready (0.12s)
+    --- PASS: TestPeriodSummary/ready=false_when_no_attachment_on_bank_tx_pending_row_in_range (0.11s)
+    --- PASS: TestPeriodSummary/bad_date_format_returns_400 (0.09s)
+    --- PASS: TestPeriodSummary/from_>_to_returns_400 (0.11s)
+    --- PASS: TestPeriodSummary/placeholder_line_item_lands_in_cogs_excl_tax (0.12s)
+    --- PASS: TestPeriodSummary/placeholder_does_NOT_trip_unlinked_line_item_ids (0.10s)
+    --- PASS: TestPeriodSummary/end-to-end_empty-items_confirm_increments_cogs (0.15s)
+    --- PASS: TestPeriodSummary/by_vendor:_shape_+_sums_match_+_order (0.14s)
+    --- PASS: TestPeriodSummary/by_vendor:_empty_period_renders_[]_not_null (0.11s)
+    --- PASS: TestPeriodSummary/by_vendor:_zero-line-items_event_still_appears_(regression) (0.10s)
+    --- PASS: TestPeriodSummary/allowlist_excludes_non-COGS_rows (0.12s)
+    --- PASS: TestPeriodSummary/NULL_mercury_category_is_excluded_by_default (0.13s)
+    --- PASS: TestPeriodSummary/custom_multi-element_allowlist_includes_both (0.15s)
+    --- PASS: TestPeriodSummary/ready=false_when_pending_row_has_event_date_in_range_but_created_at_out_of_range (0.11s)
+    --- PASS: TestPeriodSummary/ready=true_when_pending_row_has_event_date_out_of_range_but_created_at_in_range (0.11s)
+    --- PASS: TestPeriodSummary/ready=false_when_pending_row_has_NULL_event_date_and_created_at_in_range (0.11s)
+    --- PASS: TestPeriodSummary/ready=true_when_pending_row_has_NULL_event_date_and_created_at_out_of_range (0.13s)
+    --- PASS: TestPeriodSummary/tracked_bank_tx_ids:_empty_period_renders_[]_not_null (0.10s)
+    --- PASS: TestPeriodSummary/tracked_bank_tx_ids:_all_states_present,_deduped,_sorted (0.12s)
+    --- PASS: TestPeriodSummary/tracked_bank_tx_ids:_period_boundary_uses_COALESCE(event_date,_created_at::app-tz) (0.11s)
+    --- PASS: TestPeriodSummary/pending_review_details_parity_with_pending_review_ids (0.10s)
+    --- PASS: TestPeriodSummary/pending_review_details_populates_vendor/event_date/bank_total/reason (0.10s)
+    --- PASS: TestPeriodSummary/pending_review_details_event_date_falls_back_to_the_app-tz_cast_of_created_at (0.10s)
+    --- PASS: TestPeriodSummary/pending_review_details_vendor=''_serializes_as_empty_string (0.10s)
+    --- PASS: TestPeriodSummary/pending_review_details_serializes_as_[]_when_empty_period (0.11s)
+    --- PASS: TestPeriodSummary/case_a_food_no_attachment_blocks (0.11s)
+    --- PASS: TestPeriodSummary/case_b_food_parse_failed_rolls_into_cogs (0.12s)
+    --- PASS: TestPeriodSummary/case_c_non_food_no_attachment_does_not_block_or_roll (0.10s)
+    --- PASS: TestPeriodSummary/case_d_non_food_parse_failed_does_not_block_or_roll (0.10s)
+    --- PASS: TestPeriodSummary/null_mercury_category_with_no_attachment_does_not_block (0.09s)
+    --- PASS: TestPeriodSummary/date_filter_still_applies_to_blocking_row_out_of_period (0.11s)
+    --- PASS: TestPeriodSummary/pending_review_details_parity_under_narrowed_gate (0.10s)
+    --- PASS: TestPeriodSummary/case_b_by_vendor_match_merges_into_vendor_row (0.11s)
+    --- PASS: TestPeriodSummary/case_b_by_vendor_unmatched_renders_with_empty_vendor_id (0.11s)
+    --- PASS: TestPeriodSummary/case_b_by_vendor_vendor_name_fuzz_joins_case_and_trim_insensitive (0.10s)
+=== RUN   TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached
+--- PASS: TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached (0.09s)
+=== RUN   TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment
+--- PASS: TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment (0.11s)
+=== RUN   TestConfirmPending_RejectsTotalMismatchWith422
+--- PASS: TestConfirmPending_RejectsTotalMismatchWith422 (0.10s)
+=== RUN   TestRetryParse_ClearsParseError
+2026/09/04 13:03:38 INFO RetryParse: row re-queued id=9071e1e7-686a-4068-bb44-3c0bbdeab1e2 had_parse_error=true items_mismatch=false line_total=0 bank_total=0
+--- PASS: TestRetryParse_ClearsParseError (0.14s)
+=== RUN   TestRetryParse_404OnUnknownId
+--- PASS: TestRetryParse_404OnUnknownId (0.09s)
+=== RUN   TestRetryParse_422OnConfirmedRow
+--- PASS: TestRetryParse_422OnConfirmedRow (0.13s)
+=== RUN   TestRetryParse_422WhenNothingToRetry
+--- PASS: TestRetryParse_422WhenNothingToRetry (0.07s)
+=== RUN   TestRetryParse_ItemsMismatch_Accepted
+2026/09/04 13:03:39 INFO RetryParse: row re-queued id=c2ae4508-736c-4462-9f9a-b8434eb8cc89 had_parse_error=false items_mismatch=true line_total=100 bank_total=50
+--- PASS: TestRetryParse_ItemsMismatch_Accepted (0.08s)
+=== RUN   TestRetryParse_ItemsMatchTotals_StillRejected
+--- PASS: TestRetryParse_ItemsMatchTotals_StillRejected (0.07s)
+=== RUN   TestListPendingPurchases_ReceiptURLsField
+--- PASS: TestListPendingPurchases_ReceiptURLsField (0.08s)
+=== RUN   TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone
+2026/09/04 13:03:39 INFO period-summary served from=2026-05-25 to=2026-05-31 ready=false pending_review_count=2 unlinked_line_item_count=0
+--- PASS: TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone (0.10s)
+=== RUN   TestPeriodSummary_EmitsVisibilityLog
+--- PASS: TestPeriodSummary_EmitsVisibilityLog (0.12s)
+=== RUN   TestPeriodSummary_VisibilityLogReflectsBlockedWeek
+--- PASS: TestPeriodSummary_VisibilityLogReflectsBlockedWeek (0.25s)
+=== RUN   TestRecoverReceiptsHandler_DryRun_WritesNoRunRow
+--- PASS: TestRecoverReceiptsHandler_DryRun_WritesNoRunRow (0.10s)
+=== RUN   TestRecoverReceiptsHandler_RealRun_SingleFlightAndTerminalCounts
+--- PASS: TestRecoverReceiptsHandler_RealRun_SingleFlightAndTerminalCounts (0.17s)
+=== RUN   TestRecoverReceiptsHandler_StorageUnconfigured
+--- PASS: TestRecoverReceiptsHandler_StorageUnconfigured (0.00s)
+=== RUN   TestRecoverReceiptsHandler_InvalidJSON
+--- PASS: TestRecoverReceiptsHandler_InvalidJSON (0.00s)
+=== RUN   TestReprocessAllPendingHandler_QueuesPerRowProcessing
+--- PASS: TestReprocessAllPendingHandler_QueuesPerRowProcessing (0.08s)
+=== RUN   TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning
+--- PASS: TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning (0.03s)
+=== RUN   TestReprocessAllPendingHandler_SelectsAndRoutesRows
+--- PASS: TestReprocessAllPendingHandler_SelectsAndRoutesRows (0.06s)
+=== RUN   TestClassifyStockLevel
+=== RUN   TestClassifyStockLevel/zero_quantity_is_unknown
+=== RUN   TestClassifyStockLevel/below_low_threshold_is_low
+=== RUN   TestClassifyStockLevel/equal_to_low_threshold_is_low
+=== RUN   TestClassifyStockLevel/between_low_and_high_is_medium
+=== RUN   TestClassifyStockLevel/just_below_high_threshold_is_medium
+=== RUN   TestClassifyStockLevel/equal_to_high_threshold_is_high
+=== RUN   TestClassifyStockLevel/above_high_threshold_is_high
+--- PASS: TestClassifyStockLevel (0.00s)
+    --- PASS: TestClassifyStockLevel/zero_quantity_is_unknown (0.00s)
+    --- PASS: TestClassifyStockLevel/below_low_threshold_is_low (0.00s)
+    --- PASS: TestClassifyStockLevel/equal_to_low_threshold_is_low (0.00s)
+    --- PASS: TestClassifyStockLevel/between_low_and_high_is_medium (0.00s)
+    --- PASS: TestClassifyStockLevel/just_below_high_threshold_is_medium (0.00s)
+    --- PASS: TestClassifyStockLevel/equal_to_high_threshold_is_high (0.00s)
+    --- PASS: TestClassifyStockLevel/above_high_threshold_is_high (0.00s)
+=== RUN   TestSyncReceiptsStatus_ReturnsLookbackDays
+--- PASS: TestSyncReceiptsStatus_ReturnsLookbackDays (0.01s)
+=== RUN   TestSyncReceipts_SingleFlight_Returns409
+--- PASS: TestSyncReceipts_SingleFlight_Returns409 (0.02s)
+=== RUN   TestSyncReceipts_Goroutine_UpdatesRowToDone
+--- PASS: TestSyncReceipts_Goroutine_UpdatesRowToDone (0.04s)
+=== RUN   TestSyncReceipts_Goroutine_RecoversFromPanic
+--- PASS: TestSyncReceipts_Goroutine_RecoversFromPanic (0.04s)
+=== RUN   TestDeepSyncReceiptsHandler_Validation
+=== RUN   TestDeepSyncReceiptsHandler_Validation/invalid_json
+=== RUN   TestDeepSyncReceiptsHandler_Validation/bad_from
+=== RUN   TestDeepSyncReceiptsHandler_Validation/bad_to
+=== RUN   TestDeepSyncReceiptsHandler_Validation/from_after_to
+=== RUN   TestDeepSyncReceiptsHandler_Validation/range_too_large
+--- PASS: TestDeepSyncReceiptsHandler_Validation (0.06s)
+    --- PASS: TestDeepSyncReceiptsHandler_Validation/invalid_json (0.01s)
+    --- PASS: TestDeepSyncReceiptsHandler_Validation/bad_from (0.01s)
+    --- PASS: TestDeepSyncReceiptsHandler_Validation/bad_to (0.01s)
+    --- PASS: TestDeepSyncReceiptsHandler_Validation/from_after_to (0.01s)
+    --- PASS: TestDeepSyncReceiptsHandler_Validation/range_too_large (0.01s)
+=== RUN   TestDeepSyncReceiptsHandler_HappyPath
+--- PASS: TestDeepSyncReceiptsHandler_HappyPath (0.02s)
+=== RUN   TestTrends
+    trends_test.go:329: identity on 2026-06-15..2026-09-04: published reconciles=953.8000 vs period_summary.cogs_excl_tax=953.8000 | display Σcells=650.7100 + Σunlinked=63.1000 + pending=240.00 = 953.8100 (drift 0.0100 over 15 cells) | unitemized_remainder=29.01, excluded by design
+--- PASS: TestTrends (0.20s)
+=== RUN   TestTrendsAllowlistIsNotHardcoded
+--- PASS: TestTrendsAllowlistIsNotHardcoded (0.19s)
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/UTC_has_rolled_into_Monday,_New_York_is_still_Sunday_evening
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/mid-week,_UTC_is_a_day_ahead_of_New_York
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/midday,_both_zones_agree
+--- PASS: TestTrendsWindow_IsEvaluatedInAppTimezone (0.00s)
+    --- PASS: TestTrendsWindow_IsEvaluatedInAppTimezone/UTC_has_rolled_into_Monday,_New_York_is_still_Sunday_evening (0.00s)
+    --- PASS: TestTrendsWindow_IsEvaluatedInAppTimezone/mid-week,_UTC_is_a_day_ahead_of_New_York (0.00s)
+    --- PASS: TestTrendsWindow_IsEvaluatedInAppTimezone/midday,_both_zones_agree (0.00s)
+=== RUN   TestTrendsWindow_ToIsTodayInTheAppTimezone
+--- PASS: TestTrendsWindow_ToIsTodayInTheAppTimezone (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/inventory	8.263s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+2026/09/04 13:03:42 goose: no migrations to run. current version: 76
+2026/09/04 13:03:42 INFO database migrations applied successfully
+=== RUN   TestOverrideVideoWatchedRequiresManager
+--- PASS: TestOverrideVideoWatchedRequiresManager (0.02s)
+=== RUN   TestOverrideVideoWatchedRequiresReason
+--- PASS: TestOverrideVideoWatchedRequiresReason (0.01s)
+=== RUN   TestOverrideVideoWatchedWritesAttributedRow
+--- PASS: TestOverrideVideoWatchedWritesAttributedRow (0.03s)
+=== RUN   TestRecoverVideosRequiresManager
+--- PASS: TestRecoverVideosRequiresManager (0.00s)
+=== RUN   TestRecoverVideosDryRunClassifiesAndTouchesNothing
+--- PASS: TestRecoverVideosDryRunClassifiesAndTouchesNothing (0.04s)
+=== RUN   TestRecoverVideosRecoversDeadPart
+--- PASS: TestRecoverVideosRecoversDeadPart (0.03s)
+PASS
+ok  	github.com/yumyums/hq/internal/onboarding	0.681s
+=== RUN   TestStorageHealth_Unconfigured
+--- PASS: TestStorageHealth_Unconfigured (0.00s)
+=== RUN   TestStorageHealth_Reachable
+--- PASS: TestStorageHealth_Reachable (0.00s)
+=== RUN   TestStorageHealth_UnreachableOn403
+2026/09/04 13:03:43 ERROR object storage unreachable — photo/video uploads and stored media will fail bucket=test-bucket error="operation error S3: HeadBucket, https response error StatusCode: 403, RequestID: , HostID: , api error Forbidden: Forbidden"
+--- PASS: TestStorageHealth_UnreachableOn403 (0.00s)
+=== RUN   TestStorageHealth_UnreachableOnDeadEndpoint
+2026/09/04 13:03:44 ERROR object storage unreachable — photo/video uploads and stored media will fail bucket=test-bucket error="operation error S3: HeadBucket, request canceled, context deadline exceeded"
+--- PASS: TestStorageHealth_UnreachableOnDeadEndpoint (1.50s)
+=== RUN   TestStorageHealth_CachesWithinTTLAndReprobesAfter
+2026/09/04 13:03:45 ERROR object storage unreachable — photo/video uploads and stored media will fail bucket=test-bucket error="operation error S3: HeadBucket, https response error StatusCode: 403, RequestID: , HostID: , api error Forbidden: Forbidden"
+2026/09/04 13:03:45 INFO object storage reachable again bucket=test-bucket
+--- PASS: TestStorageHealth_CachesWithinTTLAndReprobesAfter (0.00s)
+=== RUN   TestDecideStorageStartup
+=== RUN   TestDecideStorageStartup/all_set,_not_required
+=== RUN   TestDecideStorageStartup/all_set,_required_(prod_happy_path)
+=== RUN   TestDecideStorageStartup/all_empty,_not_required_(deliberate_dev/test)
+=== RUN   TestDecideStorageStartup/all_empty,_required_(prod_gap_—_must_be_fatal)
+=== RUN   TestDecideStorageStartup/partial,_not_required
+=== RUN   TestDecideStorageStartup/partial_missing_region,_required
+--- PASS: TestDecideStorageStartup (0.00s)
+    --- PASS: TestDecideStorageStartup/all_set,_not_required (0.00s)
+    --- PASS: TestDecideStorageStartup/all_set,_required_(prod_happy_path) (0.00s)
+    --- PASS: TestDecideStorageStartup/all_empty,_not_required_(deliberate_dev/test) (0.00s)
+    --- PASS: TestDecideStorageStartup/all_empty,_required_(prod_gap_—_must_be_fatal) (0.00s)
+    --- PASS: TestDecideStorageStartup/partial,_not_required (0.00s)
+    --- PASS: TestDecideStorageStartup/partial_missing_region,_required (0.00s)
+=== RUN   TestDecideStorageStartupPartialNamesMissing
+--- PASS: TestDecideStorageStartupPartialNamesMissing (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/photos	2.013s
+2026/09/04 13:03:46 goose: no migrations to run. current version: 76
+2026/09/04 13:03:46 INFO database migrations applied successfully
+=== RUN   TestCronCutoffDecision
+=== RUN   TestCronCutoffDecision/does_NOT_fire_the_minute_before_cutoff
+2026/09/04 13:03:47 INFO cutoff scheduler cutoff has not yet passed cutoff_at=2026-01-07T17:00:00-06:00 now=2026-01-07T16:59:00-06:00
+=== RUN   TestCronCutoffDecision/fires_the_minute_after_cutoff_→_auto-locks_draft_PO
+2026/09/04 13:03:47 INFO cutoff scheduler locked PO po_id=13eb226e-a0e1-4c24-8a4c-761bb6b64c4b cutoff_at=2026-01-07T17:00:00-06:00
+=== RUN   TestCronCutoffDecision/does_NOT_fire_on_cutoff_day_before_cutoff_time_(Friday_config)
+2026/09/04 13:03:47 INFO cutoff scheduler cutoff has not yet passed cutoff_at=2026-01-09T17:00:00-06:00 now=2026-01-09T16:59:00-06:00
+--- PASS: TestCronCutoffDecision (0.49s)
+    --- PASS: TestCronCutoffDecision/does_NOT_fire_the_minute_before_cutoff (0.18s)
+    --- PASS: TestCronCutoffDecision/fires_the_minute_after_cutoff_→_auto-locks_draft_PO (0.17s)
+    --- PASS: TestCronCutoffDecision/does_NOT_fire_on_cutoff_day_before_cutoff_time_(Friday_config) (0.14s)
+=== RUN   TestCronReminderDecision
+=== RUN   TestCronReminderDecision/does_NOT_fire_before_the_reminder_window
+=== RUN   TestCronReminderDecision/fires_inside_the_reminder_window_→_logs_cutoff_reminder
+2026/09/04 13:03:47 INFO reminder check sent cutoff reminder week_start=2026-01-05 recipients=8
+=== RUN   TestCronReminderDecision/does_NOT_fire_after_the_reminder_window
+=== RUN   TestCronReminderDecision/is_idempotent_within_the_window_(single_send_per_week)
+2026/09/04 13:03:48 INFO reminder check sent cutoff reminder week_start=2026-01-05 recipients=8
+--- PASS: TestCronReminderDecision (0.67s)
+    --- PASS: TestCronReminderDecision/does_NOT_fire_before_the_reminder_window (0.14s)
+    --- PASS: TestCronReminderDecision/fires_inside_the_reminder_window_→_logs_cutoff_reminder (0.15s)
+    --- PASS: TestCronReminderDecision/does_NOT_fire_after_the_reminder_window (0.14s)
+    --- PASS: TestCronReminderDecision/is_idempotent_within_the_window_(single_send_per_week) (0.24s)
+=== RUN   TestCronLowStockDecision
+=== RUN   TestCronLowStockDecision/alerts_a_low_item_once_in_its_week
+2026/09/04 13:03:48 INFO low-stock check sent alert count=1 week_start=2026-01-05
+=== RUN   TestCronLowStockDecision/does_NOT_re-alert_the_same_item_later_the_same_week
+2026/09/04 13:03:48 INFO low-stock check sent alert count=1 week_start=2026-01-05
+=== RUN   TestCronLowStockDecision/re-alerts_the_same_item_in_the_next_week
+2026/09/04 13:03:48 INFO low-stock check sent alert count=1 week_start=2026-01-05
+2026/09/04 13:03:48 INFO low-stock check sent alert count=1 week_start=2026-01-12
+--- PASS: TestCronLowStockDecision (0.57s)
+    --- PASS: TestCronLowStockDecision/alerts_a_low_item_once_in_its_week (0.19s)
+    --- PASS: TestCronLowStockDecision/does_NOT_re-alert_the_same_item_later_the_same_week (0.18s)
+    --- PASS: TestCronLowStockDecision/re-alerts_the_same_item_in_the_next_week (0.20s)
+=== RUN   TestCronRepurchaseResetDecision
+=== RUN   TestCronRepurchaseResetDecision/does_NOT_fire_before_reset_time
+=== RUN   TestCronRepurchaseResetDecision/fires_after_reset_time_with_no_prior_reset_→_bumps_last_reset_at
+2026/09/04 13:03:48 INFO repurchase reset triggered automatic badge reset reset_at=2026-01-05T06:00:00-06:00
+=== RUN   TestCronRepurchaseResetDecision/does_NOT_re-fire_when_already_reset_this_week
+--- PASS: TestCronRepurchaseResetDecision (0.42s)
+    --- PASS: TestCronRepurchaseResetDecision/does_NOT_fire_before_reset_time (0.13s)
+    --- PASS: TestCronRepurchaseResetDecision/fires_after_reset_time_with_no_prior_reset_→_bumps_last_reset_at (0.14s)
+    --- PASS: TestCronRepurchaseResetDecision/does_NOT_re-fire_when_already_reset_this_week (0.14s)
+=== RUN   TestParseCutoffTime_Prove
+--- PASS: TestParseCutoffTime_Prove (0.00s)
+=== RUN   TestIsAdmin_Prove
+--- PASS: TestIsAdmin_Prove (0.00s)
+=== RUN   TestCutoffDecisionRule_Prove
+--- PASS: TestCutoffDecisionRule_Prove (0.00s)
+=== RUN   TestCurrentWeekStart_UsesAppTimezone
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_(=_Sunday_23:30_Chicago)
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Sunday_23:30_New_York_(=_Sunday_22:30_Chicago)_—_control
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Thursday_12:00_New_York_—_control
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_in_January_(=_Sunday_23:30_Chicago)
+--- PASS: TestCurrentWeekStart_UsesAppTimezone (0.00s)
+    --- PASS: TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_(=_Sunday_23:30_Chicago) (0.00s)
+    --- PASS: TestCurrentWeekStart_UsesAppTimezone/Sunday_23:30_New_York_(=_Sunday_22:30_Chicago)_—_control (0.00s)
+    --- PASS: TestCurrentWeekStart_UsesAppTimezone/Thursday_12:00_New_York_—_control (0.00s)
+    --- PASS: TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_in_January_(=_Sunday_23:30_Chicago) (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/purchasing	2.869s
+2026/09/04 13:03:51 goose: no migrations to run. current version: 76
+2026/09/04 13:03:51 INFO database migrations applied successfully
+=== RUN   TestLoadPurchaseItemsMap_IncludesAliases
+--- PASS: TestLoadPurchaseItemsMap_IncludesAliases (0.10s)
+=== RUN   TestFetchTransactions_Paginates
+--- PASS: TestFetchTransactions_Paginates (0.01s)
+=== RUN   TestFetchTransactions_StopsOnShortFirstPage
+--- PASS: TestFetchTransactions_StopsOnShortFirstPage (0.00s)
+=== RUN   TestFetchTransactions_EmptyFirstPage
+--- PASS: TestFetchTransactions_EmptyFirstPage (0.00s)
+=== RUN   TestFetchTransactions_FiltersUnsupportedKinds
+--- PASS: TestFetchTransactions_FiltersUnsupportedKinds (0.00s)
+=== RUN   TestFetchTransactions_PaginatesWhenFilterShrinksPage
+--- PASS: TestFetchTransactions_PaginatesWhenFilterShrinksPage (0.01s)
+=== RUN   TestFetchTransactions_BailsWhenCursorIgnored
+--- PASS: TestFetchTransactions_BailsWhenCursorIgnored (0.00s)
+=== RUN   TestParseJSONBody_Fixtures
+=== RUN   TestParseJSONBody_Fixtures/01_happy_simple
+=== RUN   TestParseJSONBody_Fixtures/02_float_quantities
+=== RUN   TestParseJSONBody_Fixtures/02b_float_summary_units
+=== RUN   TestParseJSONBody_Fixtures/03_markdown_fenced
+=== RUN   TestParseJSONBody_Fixtures/04_truncated_at_max_tokens
+=== RUN   TestParseJSONBody_Fixtures/05_with_leading_prose
+--- PASS: TestParseJSONBody_Fixtures (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/01_happy_simple (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/02_float_quantities (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/02b_float_summary_units (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/03_markdown_fenced (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/04_truncated_at_max_tokens (0.00s)
+    --- PASS: TestParseJSONBody_Fixtures/05_with_leading_prose (0.00s)
+=== RUN   TestParseJSONBody_DecimalQuantity
+--- PASS: TestParseJSONBody_DecimalQuantity (0.00s)
+=== RUN   TestParseJSONBody_IntegerQuantity
+--- PASS: TestParseJSONBody_IntegerQuantity (0.00s)
+=== RUN   TestParseJSONBody_MalformedReturnsError
+--- PASS: TestParseJSONBody_MalformedReturnsError (0.00s)
+=== RUN   TestParseJSONBody_FloatSummary
+--- PASS: TestParseJSONBody_FloatSummary (0.00s)
+=== RUN   TestFindDeadReceiptRows_MatchesOnlyOffPrefixURLs
+--- PASS: TestFindDeadReceiptRows_MatchesOnlyOffPrefixURLs (0.11s)
+=== RUN   TestRecoverDeadReceiptURLs_RewritesBothTables
+--- PASS: TestRecoverDeadReceiptURLs_RewritesBothTables (0.10s)
+=== RUN   TestRecoverDeadReceiptURLs_MissingAtMercury_LeavesURLsUntouched
+--- PASS: TestRecoverDeadReceiptURLs_MissingAtMercury_LeavesURLsUntouched (0.09s)
+=== RUN   TestRecoverDeadReceiptURLs_DownloadFailure_AtomicPerTx
+2026/09/04 13:03:51 INFO receipt recover: tx tx-dl-fail: download attachment 1: boom (rows left untouched)
+--- PASS: TestRecoverDeadReceiptURLs_DownloadFailure_AtomicPerTx (0.09s)
+=== RUN   TestRecoverDeadReceiptURLs_SecondRunIsNoOp
+--- PASS: TestRecoverDeadReceiptURLs_SecondRunIsNoOp (0.10s)
+=== RUN   TestUploadReceiptSlot_NoACLHeader
+--- PASS: TestUploadReceiptSlot_NoACLHeader (0.00s)
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview/empty_name
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview/whitespace-only_name
+--- PASS: TestValidateReceiptData_EmptyItemName_RoutesToReview (0.00s)
+    --- PASS: TestValidateReceiptData_EmptyItemName_RoutesToReview/empty_name (0.00s)
+    --- PASS: TestValidateReceiptData_EmptyItemName_RoutesToReview/whitespace-only_name (0.00s)
+=== RUN   TestValidateReceiptData_NamedItemsMatchingTotal_Valid
+--- PASS: TestValidateReceiptData_NamedItemsMatchingTotal_Valid (0.00s)
+=== RUN   TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults
+--- PASS: TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults (0.10s)
+=== RUN   TestInsertPendingPurchase_VendorFallback_PrefersSummary
+--- PASS: TestInsertPendingPurchase_VendorFallback_PrefersSummary (0.15s)
+=== RUN   TestBackfillPendingVendor_SetsWhenEmpty
+--- PASS: TestBackfillPendingVendor_SetsWhenEmpty (0.21s)
+=== RUN   TestBackfillPendingVendor_DoesNotOverwriteExisting
+--- PASS: TestBackfillPendingVendor_DoesNotOverwriteExisting (0.14s)
+=== RUN   TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp
+--- PASS: TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp (0.13s)
+=== RUN   TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun
+--- PASS: TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun (0.15s)
+=== RUN   TestRunIngestCycle_NoTransactions_ReturnsZeroResult
+--- PASS: TestRunIngestCycle_NoTransactions_ReturnsZeroResult (0.36s)
+=== RUN   TestInsertPendingPurchase_CoexistsWithAttachmentBranch
+--- PASS: TestInsertPendingPurchase_CoexistsWithAttachmentBranch (0.12s)
+=== RUN   TestRunIngestCycle_UpgradesPendingNoAttachmentRow
+2026/09/04 13:03:53 INFO receipt worker: tx T-upgrade-ok attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:53 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim7xSqWApeXD1XFjJZC) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim7xSqWApeXD1XFjJZC"} (continuing with partial matches)
+2026/09/04 13:03:53 INFO receipt worker: tx T-upgrade-ok matched 0/1 items to catalog
+2026/09/04 13:03:53 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestRunIngestCycle_UpgradesPendingNoAttachmentRow (0.41s)
+=== RUN   TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails
+2026/09/04 13:03:53 INFO receipt worker: Sonnet failed for tx T-upgrade-fail, retrying: haiku timeout
+2026/09/04 13:03:53 INFO receipt worker: Sonnet retry also failed for tx T-upgrade-fail: sonnet timeout — routing to review queue
+2026/09/04 13:03:53 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails (0.11s)
+=== RUN   TestRunIngestCycle_SkipsRealCached
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=0 cached=1
+--- PASS: TestRunIngestCycle_SkipsRealCached (0.09s)
+=== RUN   TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull
+2026/09/04 13:03:54 INFO receipt worker: Sonnet failed for tx T-retry-ok, retrying: haiku boom
+2026/09/04 13:03:54 INFO receipt worker: tx T-retry-ok attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:54 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim7zFEPD8L6K3PcBofA) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim7zFEPD8L6K3PcBofA"} (continuing with partial matches)
+2026/09/04 13:03:54 INFO receipt worker: tx T-retry-ok matched 0/1 items to catalog
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull (0.20s)
+=== RUN   TestRunIngestCycle_DoesNotRetryWhenParseErrorSet
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=0 cached=1
+--- PASS: TestRunIngestCycle_DoesNotRetryWhenParseErrorSet (0.08s)
+=== RUN   TestRunIngestCycle_DoesNotRetryParseFailedWithItems
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=0 cached=1
+--- PASS: TestRunIngestCycle_DoesNotRetryParseFailedWithItems (0.10s)
+=== RUN   TestRunIngestCycle_SkipsExistingPurchaseEvent
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=0 cached=1
+--- PASS: TestRunIngestCycle_SkipsExistingPurchaseEvent (0.09s)
+=== RUN   TestRunIngestCycle_DiscardedRowStaysDiscarded
+2026/09/04 13:03:54 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=0 cached=1
+--- PASS: TestRunIngestCycle_DiscardedRowStaysDiscarded (0.10s)
+=== RUN   TestClassifyExistingTx
+=== RUN   TestClassifyExistingTx/empty_DB_returns_none
+=== RUN   TestClassifyExistingTx/pending_no_attachment_row_→_pending
+=== RUN   TestClassifyExistingTx/discarded_pending_row_→_discarded_(re-ingest_blocked)
+=== RUN   TestClassifyExistingTx/confirmed_pending_row_→_event_(idempotent_like_locked_purchase)
+=== RUN   TestClassifyExistingTx/purchase_events_row_→_event
+=== RUN   TestClassifyExistingTx/legacy_items='null'_scalar_does_not_error
+--- PASS: TestClassifyExistingTx (0.57s)
+    --- PASS: TestClassifyExistingTx/empty_DB_returns_none (0.07s)
+    --- PASS: TestClassifyExistingTx/pending_no_attachment_row_→_pending (0.09s)
+    --- PASS: TestClassifyExistingTx/discarded_pending_row_→_discarded_(re-ingest_blocked) (0.09s)
+    --- PASS: TestClassifyExistingTx/confirmed_pending_row_→_event_(idempotent_like_locked_purchase) (0.11s)
+    --- PASS: TestClassifyExistingTx/purchase_events_row_→_event (0.12s)
+    --- PASS: TestClassifyExistingTx/legacy_items='null'_scalar_does_not_error (0.09s)
+=== RUN   TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason
+--- PASS: TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason (0.09s)
+=== RUN   TestMigration_DedupesExistingPendingDuplicates
+--- PASS: TestMigration_DedupesExistingPendingDuplicates (0.11s)
+=== RUN   TestRunIngestCycle_FallsBackToSonnet
+2026/09/04 13:03:55 INFO receipt worker: Sonnet failed for tx T-sonnet-ok, retrying: haiku timeout
+2026/09/04 13:03:55 INFO receipt worker: tx T-sonnet-ok attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:55 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim85xmgrWGV7mfENrFp) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim85xmgrWGV7mfENrFp"} (continuing with partial matches)
+2026/09/04 13:03:55 INFO receipt worker: tx T-sonnet-ok matched 0/1 items to catalog
+2026/09/04 13:03:55 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestRunIngestCycle_FallsBackToSonnet (0.21s)
+=== RUN   TestRunIngestCycle_BothModelsFail_StoresParseError
+2026/09/04 13:03:55 INFO receipt worker: Sonnet failed for tx T-both-fail, retrying: haiku boom
+2026/09/04 13:03:55 INFO receipt worker: Sonnet retry also failed for tx T-both-fail: sonnet boom — routing to review queue
+2026/09/04 13:03:55 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestRunIngestCycle_BothModelsFail_StoresParseError (0.09s)
+=== RUN   TestInsertPendingPurchase_ParseErrorNullByDefault
+--- PASS: TestInsertPendingPurchase_ParseErrorNullByDefault (0.09s)
+=== RUN   TestRunIngestCycle_ScenarioTable
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_first_parse_wrong_total_then_feedback_succeeds
+2026/09/04 13:03:55 INFO receipt worker: tx T-feedback-ok attempt 1/2 valid=false score=16.12 reason=Receipt derived total $804.49 does not match transaction amount $788.37 (items_sum=$804.49 + tax=$0.00)
+2026/09/04 13:03:55 INFO receipt worker: tx T-feedback-ok attempt 2/2 valid=true score=0.00 reason=
+2026/09/04 13:03:55 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim87bkTv4p5ZbNPx1ds) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim87bkTv4p5ZbNPx1ds"} (continuing with partial matches)
+2026/09/04 13:03:55 INFO receipt worker: tx T-feedback-ok matched 0/2 items to catalog
+2026/09/04 13:03:55 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_feedback_also_fails_routes_to_pending
+2026/09/04 13:03:56 INFO receipt worker: tx T-feedback-fail attempt 1/2 valid=false score=16.12 reason=Receipt derived total $804.49 does not match transaction amount $788.37 (items_sum=$804.49 + tax=$0.00)
+2026/09/04 13:03:56 INFO receipt worker: tx T-feedback-fail attempt 2/2 valid=false score=21.63 reason=Receipt derived total $810.00 does not match transaction amount $788.37 (items_sum=$810.00 + tax=$0.00)
+2026/09/04 13:03:56 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim88cX8jXgc7Uau5156) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim88cX8jXgc7Uau5156"} (continuing with partial matches)
+2026/09/04 13:03:56 INFO receipt worker: tx T-feedback-fail matched 0/1 items to catalog
+2026/09/04 13:03:56 INFO receipt worker: tx T-feedback-fail routed to review queue: Receipt derived total $804.49 does not match transaction amount $788.37 (items_sum=$804.49 + tax=$0.00)
+2026/09/04 13:03:56 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_line_item_sum_fail_then_feedback_succeeds
+2026/09/04 13:03:56 INFO receipt worker: tx T-linesum-feedback attempt 1/2 valid=false score=150.00 reason=Receipt derived total $200.00 does not match transaction amount $50.00 (items_sum=$200.00 + tax=$0.00)
+2026/09/04 13:03:56 INFO receipt worker: tx T-linesum-feedback attempt 2/2 valid=true score=0.00 reason=
+2026/09/04 13:03:56 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim89bZ5expm7BSKeGBJ) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim89bZ5expm7BSKeGBJ"} (continuing with partial matches)
+2026/09/04 13:03:56 INFO receipt worker: tx T-linesum-feedback matched 0/1 items to catalog
+2026/09/04 13:03:56 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/validation_check3_removed_auto_creates_directly
+2026/09/04 13:03:56 INFO receipt worker: tx T-check3-removed attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:56 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8ARfEaCWGr7jchxdL) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8ARfEaCWGr7jchxdL"} (continuing with partial matches)
+2026/09/04 13:03:56 INFO receipt worker: tx T-check3-removed matched 0/1 items to catalog
+2026/09/04 13:03:56 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/happy_haiku_succeeds
+2026/09/04 13:03:56 INFO receipt worker: tx T-scenario-haiku-ok attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:56 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8BQhNp1YMs3wax8P9) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8BQhNp1YMs3wax8P9"} (continuing with partial matches)
+2026/09/04 13:03:56 INFO receipt worker: tx T-scenario-haiku-ok matched 0/1 items to catalog
+2026/09/04 13:03:56 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/haiku_fails_sonnet_recovers
+2026/09/04 13:03:56 INFO receipt worker: Sonnet failed for tx T-scenario-sonnet-recovers, retrying: ParseReceipt: failed to parse JSON body: json: cannot unmarshal number 40.0 into Go struct field ReceiptItem.items.quantity of type int
+2026/09/04 13:03:56 INFO receipt worker: tx T-scenario-sonnet-recovers attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:57 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8CCaEm7a6EG9p1V11) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8CCaEm7a6EG9p1V11"} (continuing with partial matches)
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-sonnet-recovers matched 0/1 items to catalog
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/both_fail_with_realistic_errors
+2026/09/04 13:03:57 INFO receipt worker: Sonnet failed for tx T-scenario-both-fail, retrying: ParseReceipt: API call failed: 529 overloaded
+2026/09/04 13:03:57 INFO receipt worker: Sonnet retry also failed for tx T-scenario-both-fail: ParseReceiptWithSonnet: failed to parse JSON body: invalid character 'x' — routing to review queue
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/both_fail_decimal_qty
+2026/09/04 13:03:57 INFO receipt worker: Sonnet failed for tx T-scenario-decimal-qty, retrying: ParseReceipt: failed to parse JSON body: parseJSONBody: json: cannot unmarshal number 40.0 into Go struct field ReceiptItem.items.quantity of type int
+2026/09/04 13:03:57 INFO receipt worker: Sonnet retry also failed for tx T-scenario-decimal-qty: ParseReceiptWithSonnet: failed to parse JSON body: parseJSONBody: json: cannot unmarshal number 40.0 into Go struct field ReceiptItem.items.quantity of type int — routing to review queue
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/total_mismatch
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-total-mismatch attempt 1/2 valid=false score=57.49 reason=Receipt derived total $99.99 does not match transaction amount $42.50 (items_sum=$99.99 + tax=$0.00)
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-total-mismatch attempt 2/2 valid=false score=10042.50 reason=Receipt derived total $0.00 does not match transaction amount $42.50 (items_sum=$0.00 + tax=$0.00)
+2026/09/04 13:03:57 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8DxyubLumTYky63gW) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8DxyubLumTYky63gW"} (continuing with partial matches)
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-total-mismatch matched 0/1 items to catalog
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-total-mismatch routed to review queue: Receipt derived total $99.99 does not match transaction amount $42.50 (items_sum=$99.99 + tax=$0.00)
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/unnamed_item_routes_to_review
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-unnamed-item attempt 1/2 valid=false score=0.00 reason=Receipt has 1 unnamed line item(s) — verify line items
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-unnamed-item attempt 2/2 valid=false score=10024.47 reason=Receipt derived total $0.00 does not match transaction amount $24.47 (items_sum=$0.00 + tax=$0.00)
+2026/09/04 13:03:57 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8En6i1Uq6tp3KNwqC) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8En6i1Uq6tp3KNwqC"} (continuing with partial matches)
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-unnamed-item matched 0/3 items to catalog
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-unnamed-item routed to review queue: Receipt has 1 unnamed line item(s) — verify line items
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_net_auto_creates
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-multi-att attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:57 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8FyHRPt7f1f2KUFcj) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8FyHRPt7f1f2KUFcj"} (continuing with partial matches)
+2026/09/04 13:03:57 INFO receipt worker: tx T-scenario-multi-att matched 0/2 items to catalog
+2026/09/04 13:03:57 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestRunIngestCycle_ScenarioTable (2.17s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/multi_attachment_first_parse_wrong_total_then_feedback_succeeds (0.22s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/multi_attachment_feedback_also_fails_routes_to_pending (0.25s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/multi_attachment_line_item_sum_fail_then_feedback_succeeds (0.20s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/validation_check3_removed_auto_creates_directly (0.21s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/happy_haiku_succeeds (0.21s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/haiku_fails_sonnet_recovers (0.19s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/both_fail_with_realistic_errors (0.11s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/both_fail_decimal_qty (0.10s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/total_mismatch (0.19s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/unnamed_item_routes_to_review (0.19s)
+    --- PASS: TestRunIngestCycle_ScenarioTable/multi_attachment_net_auto_creates (0.30s)
+=== RUN   TestMultiAttachment_ValidateFailStoresURLsOnPending
+2026/09/04 13:03:57 INFO receipt worker: tx T-multi-pending attempt 1/2 valid=false score=211.62 reason=Receipt derived total $999.99 does not match transaction amount $788.37 (items_sum=$999.99 + tax=$0.00)
+2026/09/04 13:03:57 INFO receipt worker: tx T-multi-pending attempt 2/2 valid=false score=10788.37 reason=Receipt derived total $0.00 does not match transaction amount $788.37 (items_sum=$0.00 + tax=$0.00)
+2026/09/04 13:03:58 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8Gp8xj99P5NbCr6Ky) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8Gp8xj99P5NbCr6Ky"} (continuing with partial matches)
+2026/09/04 13:03:58 INFO receipt worker: tx T-multi-pending matched 0/1 items to catalog
+2026/09/04 13:03:58 INFO receipt worker: tx T-multi-pending routed to review queue: Receipt derived total $999.99 does not match transaction amount $788.37 (items_sum=$999.99 + tax=$0.00)
+2026/09/04 13:03:58 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestMultiAttachment_ValidateFailStoresURLsOnPending (0.18s)
+=== RUN   TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank
+2026/09/04 13:03:58 INFO receipt worker: tx T-derived-total-ok attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:58 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8HampXoQDF2SRFk2J) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8HampXoQDF2SRFk2J"} (continuing with partial matches)
+2026/09/04 13:03:58 INFO receipt worker: tx T-derived-total-ok matched 0/2 items to catalog
+2026/09/04 13:03:58 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank (0.25s)
+=== RUN   TestWorker_RetryRegression_KeepsBestAttempt
+2026/09/04 13:03:58 INFO receipt worker: tx T-regression-best attempt 1/2 valid=false score=1.63 reason=Receipt derived total $790.00 does not match transaction amount $788.37 (items_sum=$773.40 + tax=$16.60)
+2026/09/04 13:03:58 INFO receipt worker: tx T-regression-best attempt 2/2 valid=false score=10788.37 reason=Receipt derived total $0.00 does not match transaction amount $788.37 (items_sum=$0.00 + tax=$0.00)
+2026/09/04 13:03:58 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8Jg19zDbDTPgE2cxE) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8Jg19zDbDTPgE2cxE"} (continuing with partial matches)
+2026/09/04 13:03:58 INFO receipt worker: tx T-regression-best matched 0/1 items to catalog
+2026/09/04 13:03:58 INFO receipt worker: tx T-regression-best routed to review queue: Receipt derived total $790.00 does not match transaction amount $788.37 (items_sum=$773.40 + tax=$16.60)
+2026/09/04 13:03:58 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestWorker_RetryRegression_KeepsBestAttempt (0.19s)
+=== RUN   TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems
+2026/09/04 13:03:58 INFO receipt worker: tx T-sanity-empty attempt 1/2 valid=true score=10000.00 reason=
+2026/09/04 13:03:58 INFO receipt worker: tx T-sanity-empty matched 0/0 items to catalog
+2026/09/04 13:03:58 INFO receipt worker: tx T-sanity-empty sanity gate FAILED (items=0 itemsSum=0.00) — routing to review
+2026/09/04 13:03:58 INFO receipt worker: tx T-sanity-empty routed to review queue: Sanity gate: items=0 itemsSum=0.00
+2026/09/04 13:03:58 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems (0.10s)
+=== RUN   TestWorker_LineItemSumMismatch_RetriesWithFeedback
+2026/09/04 13:03:58 INFO receipt worker: tx T-linesum-mismatch-retry attempt 1/2 valid=false score=1333.96 reason=Receipt derived total $2122.33 does not match transaction amount $788.37 (items_sum=$2105.73 + tax=$16.60)
+2026/09/04 13:03:58 INFO receipt worker: tx T-linesum-mismatch-retry attempt 2/2 valid=true score=0.00 reason=
+2026/09/04 13:03:58 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8KufboMYaG4azKd3z) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8KufboMYaG4azKd3z"} (continuing with partial matches)
+2026/09/04 13:03:58 INFO receipt worker: tx T-linesum-mismatch-retry matched 0/2 items to catalog
+2026/09/04 13:03:58 INFO receipt worker: cycle complete processed=1 auto_created=1 pending_review=0 cached=0
+--- PASS: TestWorker_LineItemSumMismatch_RetriesWithFeedback (0.25s)
+=== RUN   TestWorker_PendingRow_HasPurchaseItemIDsPrefilled
+2026/09/04 13:03:58 INFO receipt worker: tx T-prefill-pending attempt 1/2 valid=false score=211.61 reason=Receipt derived total $999.98 does not match transaction amount $788.37 (items_sum=$999.98 + tax=$0.00)
+2026/09/04 13:03:58 INFO receipt worker: tx T-prefill-pending attempt 2/2 valid=false score=211.61 reason=Receipt derived total $999.98 does not match transaction amount $788.37 (items_sum=$999.98 + tax=$0.00)
+2026/09/04 13:03:59 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8LuCWjFLTHzxsfe27) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8LuCWjFLTHzxsfe27"} (continuing with partial matches)
+2026/09/04 13:03:59 INFO receipt worker: tx T-prefill-pending matched 2/3 items to catalog
+2026/09/04 13:03:59 INFO receipt worker: tx T-prefill-pending routed to review queue: Receipt derived total $999.98 does not match transaction amount $788.37 (items_sum=$999.98 + tax=$0.00)
+2026/09/04 13:03:59 INFO receipt worker: cycle complete processed=1 auto_created=0 pending_review=1 cached=0
+--- PASS: TestWorker_PendingRow_HasPurchaseItemIDsPrefilled (0.20s)
+=== RUN   TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold
+--- PASS: TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold (0.09s)
+=== RUN   TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence
+--- PASS: TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence (0.10s)
+=== RUN   TestCreatePurchaseEvent_DuplicateBankTxID_CleansPending
+2026/09/04 13:03:59 INFO receipt worker: tx T-dup-key already auto-created (duplicate bank_tx_id) — clearing residual pending row
+--- PASS: TestCreatePurchaseEvent_DuplicateBankTxID_CleansPending (0.14s)
+=== RUN   TestMatchItemsWithAI_StripsCodeFences
+--- PASS: TestMatchItemsWithAI_StripsCodeFences (0.00s)
+=== RUN   TestMatchItemsWithAI_NaturalLanguageResponseDegradesGracefully
+--- PASS: TestMatchItemsWithAI_NaturalLanguageResponseDegradesGracefully (0.00s)
+=== RUN   TestMatchItemsWithAI_EmptyInputSkipsAPICall
+--- PASS: TestMatchItemsWithAI_EmptyInputSkipsAPICall (0.00s)
+=== RUN   TestBatchReprocessFromSpaces_ProcessesEachRow
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row1 attempt 1/2 valid=true score=0.00 reason=
+2026/09/04 13:03:59 INFO receipt worker: AI item matching failed: MatchItemsWithAI: API call failed: POST "https://api.anthropic.com/v1/messages": 401 Unauthorized (Request-ID: req_011Ceim8PFqEfJU9WkRYZB77) {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011Ceim8PFqEfJU9WkRYZB77"} (continuing with partial matches)
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row1 matched 0/1 items to catalog
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row2 attempt 1/2 valid=false score=79.00 reason=Receipt derived total $99.00 does not match transaction amount $20.00 (items_sum=$99.00 + tax=$0.00)
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row2 attempt 2/2 valid=false score=79.00 reason=Receipt derived total $99.00 does not match transaction amount $20.00 (items_sum=$99.00 + tax=$0.00)
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row2 matched 1/1 items to catalog
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row2 routed to review queue: Receipt derived total $99.00 does not match transaction amount $20.00 (items_sum=$99.00 + tax=$0.00)
+2026/09/04 13:03:59 INFO receipt worker: tx sp-row3 reprocess skipped — no receipt URLs stored
+--- PASS: TestBatchReprocessFromSpaces_ProcessesEachRow (0.22s)
+=== RUN   TestParseEventDate_UnparseableFallback_UsesBusinessZoneAndIsObservable
+--- PASS: TestParseEventDate_UnparseableFallback_UsesBusinessZoneAndIsObservable (0.00s)
+=== RUN   TestParseEventDate_ParseableInputs_UnchangedAndSilent
+--- PASS: TestParseEventDate_ParseableInputs_UnchangedAndSilent (0.00s)
+=== RUN   TestRunIngestCycle_PartialDownloadFailure_KeepsAttachmentIndexingCorrect
+--- PASS: TestRunIngestCycle_PartialDownloadFailure_KeepsAttachmentIndexingCorrect (0.17s)
+PASS
+ok  	github.com/yumyums/hq/internal/receipt	8.990s
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example) (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+--- PASS: TestCost_Fixture_HandComputedToTheCent (0.17s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+--- PASS: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (0.16s)
+=== RUN   TestCost_Movers_BothOrderings
+--- PASS: TestCost_Movers_BothOrderings (0.15s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+2026/09/04 13:04:02 INFO menu-cogs served from=2026-05-04 to=2026-05-31 menu_item_count=4 breakdown=false
+--- PASS: TestCost_ReconcilesWithMenuCogs_OnMessyData (0.17s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+--- PASS: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (0.17s)
+=== RUN   TestCostHandler_ServerComputedWindow
+--- PASS: TestCostHandler_ServerComputedWindow (0.10s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+--- PASS: TestCost_EmptyDataset_ReturnsEmptyArrays (0.09s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+--- PASS: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.13s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+--- PASS: TestCost_TiedRows_DeterministicAcrossCalls (0.13s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+--- PASS: TestCreateRecipe_HappyPath (0.10s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+--- PASS: TestCreateRecipe_SumExceeds100_NamesLargestSibling (0.13s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+--- PASS: TestCreateRecipe_DuplicateReturns409 (0.11s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+--- PASS: TestCreateRecipe_InvalidSnapReturns422 (0.11s)
+=== RUN   TestUpdateRecipe_HappyPath
+--- PASS: TestUpdateRecipe_HappyPath (0.22s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+--- PASS: TestUpdateRecipe_NotFoundReturns404 (0.14s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+--- PASS: TestUpdateRecipe_SumExceeds100_NamesSibling (0.15s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+--- PASS: TestUpdateRecipe_InvalidSnapReturns422 (0.10s)
+=== RUN   TestDeleteRecipe_RemovesRow
+--- PASS: TestDeleteRecipe_RemovesRow (0.10s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+--- PASS: TestDeleteRecipe_NotFoundReturns404 (0.09s)
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (0.13s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.09s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (0.08s)
+=== RUN   TestListRecipes_HappyPath
+--- PASS: TestListRecipes_HappyPath (0.13s)
+=== RUN   TestListRecipes_InvalidDates_400
+--- PASS: TestListRecipes_InvalidDates_400 (0.08s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+--- PASS: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.10s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+2026/09/04 13:04:05 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_HappyPath_SummaryMode (0.13s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+2026/09/04 13:04:05 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=true
+--- PASS: TestMenuCogs_HappyPath_BreakdownMode (0.13s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+2026/09/04 13:04:05 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (0.12s)
+=== RUN   TestMenuCogs_FromMissing_400
+--- PASS: TestMenuCogs_FromMissing_400 (0.08s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+--- PASS: TestMenuCogs_FromAfterTo_400 (0.08s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+2026/09/04 13:04:05 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=0 breakdown=false
+--- PASS: TestMenuCogs_CacheControlHeader_OnSuccess (0.09s)
+=== RUN   TestMenuCogs_BearerMissing_401
+--- PASS: TestMenuCogs_BearerMissing_401 (0.09s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+--- PASS: TestMenuCogs_ServiceTokenUnset_503 (0.08s)
+=== RUN   TestMenuCogs_BearerWrong_401
+--- PASS: TestMenuCogs_BearerWrong_401 (0.10s)
+=== RUN   TestMenuCogs_EmitsVisibilityLog
+--- PASS: TestMenuCogs_EmitsVisibilityLog (0.14s)
+=== RUN   TestMenuCogs_VisibilityLogBreakdownMode
+--- PASS: TestMenuCogs_VisibilityLogBreakdownMode (0.13s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+--- PASS: TestRepository_CreateRecipe_HappyPath (0.10s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+--- PASS: TestRepository_CreateRecipe_SumExceeds100_Rollsback (0.11s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+--- PASS: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (0.11s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+--- PASS: TestRepository_UpdateRecipeUsagePct_NotFound (0.09s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+--- PASS: TestRepository_DeleteRecipe_RemovesRow (0.09s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.14s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.08s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+--- PASS: TestRepository_LargestSiblingAllocation_PicksDescByPct (0.10s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+--- PASS: TestComputeDrift_Unallocated_FlagsAbove10Pct (0.10s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+--- PASS: TestComputeDrift_ZeroSales_FlagsMissingItems (0.10s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+--- PASS: TestComputeDrift_Divergence_FlagsAbove20Pct (0.10s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+--- PASS: TestComputeDrift_HappyClean_NoSections (0.09s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+--- PASS: TestRunDriftWeek_IdempotentOnSecondCall (0.12s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+--- PASS: TestRunDriftWeek_SkipsWhenIngestStale (0.09s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+--- PASS: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (0.13s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+--- PASS: TestRunDriftWeek_NoEnqueueWhenClean (0.10s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+--- PASS: TestDriftBannerHandler_ReturnsLatest (0.09s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+--- PASS: TestDriftBannerHandler_EmptyObjectWhenNoRows (0.17s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	6.834s
+=== RUN   TestResolveEntityAccess_AdminReceivesLiveOps
+--- PASS: TestResolveEntityAccess_AdminReceivesLiveOps (0.21s)
+=== RUN   TestResolveEntityAccess_EmptyWhenNoMatchingUsers
+--- PASS: TestResolveEntityAccess_EmptyWhenNoMatchingUsers (0.20s)
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager+team_member×role-assigned(team_member)
+--- PASS: TestResolveEntityAccess_RoleAssignmentCartesian (2.10s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/admin×direct (0.19s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/admin×role-assigned (0.21s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/admin×not-assigned (0.19s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/manager×direct (0.19s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/manager×role-assigned (0.22s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/manager×not-assigned (0.22s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/team_member×direct (0.22s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/team_member×role-assigned (0.20s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/team_member×not-assigned (0.26s)
+    --- PASS: TestResolveEntityAccess_RoleAssignmentCartesian/manager+team_member×role-assigned(team_member) (0.21s)
+=== RUN   TestResolveEntityAccess_SubmissionEntity
+--- PASS: TestResolveEntityAccess_SubmissionEntity (0.21s)
+=== RUN   TestResolveEntityAccess_TemplateEntity
+--- PASS: TestResolveEntityAccess_TemplateEntity (0.20s)
+=== RUN   TestResolveEntityAccess_UnknownEntityType
+--- PASS: TestResolveEntityAccess_UnknownEntityType (0.18s)
+=== RUN   TestResolveEntityAccess_MissingEntityRows
+--- PASS: TestResolveEntityAccess_MissingEntityRows (0.17s)
+=== RUN   TestResolveEntityAccess_ApproverIncluded_CurrentBehavior
+--- PASS: TestResolveEntityAccess_ApproverIncluded_CurrentBehavior (0.19s)
+=== RUN   TestResolveEntityAccess_NoDuplicates
+--- PASS: TestResolveEntityAccess_NoDuplicates (0.20s)
+=== RUN   TestProjectionWriterHasNoHardcodedAppSlug
+--- PASS: TestProjectionWriterHasNoHardcodedAppSlug (0.00s)
+=== RUN   TestAppSlugResolvesPerTemplateAssociation
+--- PASS: TestAppSlugResolvesPerTemplateAssociation (0.21s)
+=== RUN   TestTokenHandler_FailsClosedWithoutSecret
+--- PASS: TestTokenHandler_FailsClosedWithoutSecret (0.00s)
+=== RUN   TestTokenHandler_RejectsAnonymous
+--- PASS: TestTokenHandler_RejectsAnonymous (0.00s)
+=== RUN   TestTokenHandler_MintsForTheCallerAndNobodyElse
+--- PASS: TestTokenHandler_MintsForTheCallerAndNobodyElse (0.02s)
+=== RUN   TestJWTBridgeRLS
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there
+    jwtbridge_rls_test.go:414: service_role sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+         {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+=== RUN   TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds
+    jwtbridge_rls_test.go:422: ADMITTED alice reads her operations rows                [chk-alice-ops-1 chk-alice-ops-2]
+=== RUN   TestJWTBridgeRLS/V1/anon_(no_token_at_all)
+    jwtbridge_rls_test.go:428: REFUSED  V1 anon                                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table hq_sync_checklists"}
+=== RUN   TestJWTBridgeRLS/V2/wrong_signature
+    jwtbridge_rls_test.go:441: REFUSED  V2 wrong signature                             HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V3/expired_token
+    jwtbridge_rls_test.go:452: REFUSED  V3 expired token                               HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+=== RUN   TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature
+    jwtbridge_rls_test.go:474: REFUSED  V4 tampered payload                            HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V5/missing_sub_claim
+    jwtbridge_rls_test.go:493: REFUSED  V5 missing sub                                 HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role)
+    jwtbridge_rls_test.go:508: REFUSED  V6 invalid role claim                          HTTP 400 {"code":"22023","details":null,"hint":null,"message":"role \"hq_superuser\" does not exist"}
+=== RUN   TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id)
+    jwtbridge_rls_test.go:515: REFUSED  V7 cross-owner read                            HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing
+    jwtbridge_rls_test.go:532: REFUSED  V8 stale grant claim                           HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V9/token_replay_after_grant_revocation
+    jwtbridge_rls_test.go:545: ADMITTED V9 before revocation, the token works          [chk-alice-ops-1 chk-alice-ops-2]
+    jwtbridge_rls_test.go:559: REFUSED  V9 replay after grant revocation               HTTP 200 []
+    jwtbridge_rls_test.go:562: V9 control: rows still present during the refusal: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+         {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+=== RUN   TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob)
+    jwtbridge_rls_test.go:579: REFUSED  V10 forged owner write                         HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"hq_sync_checklists\""}
+=== RUN   TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app)
+    jwtbridge_rls_test.go:605: REFUSED  V11 forged grant write                         HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"hq_sync_checklists\""}
+=== RUN   TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed
+    jwtbridge_rls_test.go:636: REFUSED  V12 deactivated user lockout                   HTTP 200 []
+    jwtbridge_rls_test.go:637: V12 control: rows still present during the lockout: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+         {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+=== RUN   TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control)
+    jwtbridge_rls_test.go:661: auth.uid() policy yields NOTHING for a valid token: HTTP 200 []
+    jwtbridge_rls_test.go:665: ADMITTED V13 side-by-side: the plural-GUC policy DOES discriminate [chk-alice-ops-1 chk-alice-ops-2]
+    jwtbridge_rls_test.go:673: V13 control: service_role sees [trap-alice-1 trap-bob-1] — the trap table was NOT empty
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants
+    jwtbridge_rls_test.go:682: service_role still sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+         {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+         {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+--- FAIL: TestJWTBridgeRLS (1.58s)
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there (0.06s)
+    --- PASS: TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds (0.03s)
+    --- PASS: TestJWTBridgeRLS/V1/anon_(no_token_at_all) (0.02s)
+    --- PASS: TestJWTBridgeRLS/V2/wrong_signature (0.01s)
+    --- PASS: TestJWTBridgeRLS/V3/expired_token (0.00s)
+    --- PASS: TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature (0.01s)
+    --- PASS: TestJWTBridgeRLS/V5/missing_sub_claim (0.02s)
+    --- PASS: TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role) (0.05s)
+    --- PASS: TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id) (0.02s)
+    --- PASS: TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing (0.01s)
+    --- FAIL: TestJWTBridgeRLS/V9/token_replay_after_grant_revocation (0.06s)
+    --- PASS: TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob) (0.03s)
+    --- PASS: TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app) (0.02s)
+    --- FAIL: TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed (0.04s)
+    --- PASS: TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control) (0.02s)
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants (0.01s)
+=== RUN   TestSign_IsAValidHS256JWT
+--- PASS: TestSign_IsAValidHS256JWT (0.00s)
+=== RUN   TestSign_ClaimsRoundTrip
+--- PASS: TestSign_ClaimsRoundTrip (0.00s)
+=== RUN   TestMint_NeverMintsServiceRole
+--- PASS: TestMint_NeverMintsServiceRole (0.00s)
+=== RUN   TestMint_RoleGuardIsAnAllowlist
+--- PASS: TestMint_RoleGuardIsAnAllowlist (0.00s)
+=== RUN   TestMint_FailsClosedWithoutSecret
+--- PASS: TestMint_FailsClosedWithoutSecret (0.00s)
+=== RUN   TestMintForUser_RejectsNilUser
+--- PASS: TestMintForUser_RejectsNilUser (0.00s)
+=== RUN   TestGrantedSlugs_MatchesRequirePermission
+    jwtbridge_test.go:335: non-vacuous: 2/13 slugs TRUE ([inventory operations])
+--- PASS: TestGrantedSlugs_MatchesRequirePermission (0.06s)
+=== RUN   TestGrantedSlugs_SuperadminGetsEveryEnabledApp
+--- PASS: TestGrantedSlugs_SuperadminGetsEveryEnabledApp (0.02s)
+=== RUN   TestSpikeLiveRequested
+--- PASS: TestSpikeLiveRequested (0.00s)
+=== RUN   TestProxyLive_RealtimeUpgrade
+    proxy_live_test.go:208: live proofs not requested — set HQ_SYNC_SPIKE_LIVE=1 to run them against the spike stack. SKIPPED IS NOT PASSED: with this off, the only WebSocket-upgrade evidence in this package is the hermetic test.
+--- SKIP: TestProxyLive_RealtimeUpgrade (0.20s)
+=== RUN   TestProxyLive_RESTRequest
+    proxy_live_test.go:295: live proofs not requested — set HQ_SYNC_SPIKE_LIVE=1 to run them against the spike stack. SKIPPED IS NOT PASSED: with this off, the only WebSocket-upgrade evidence in this package is the hermetic test.
+--- SKIP: TestProxyLive_RESTRequest (0.20s)
+=== RUN   TestProxy_PlainHTTPRequestReachesRESTUpstream
+--- PASS: TestProxy_PlainHTTPRequestReachesRESTUpstream (0.00s)
+=== RUN   TestProxy_WebSocketUpgradeSwitchesProtocolAndPassesBytesBothWays
+--- PASS: TestProxy_WebSocketUpgradeSwitchesProtocolAndPassesBytesBothWays (0.00s)
+=== RUN   TestProxy_ReplacesCallerSuppliedCredentials
+--- PASS: TestProxy_ReplacesCallerSuppliedCredentials (0.00s)
+=== RUN   TestProxy_HopByHopHeadersAreNotForwarded
+--- PASS: TestProxy_HopByHopHeadersAreNotForwarded (0.00s)
+=== RUN   TestProxy_UnconfiguredUpstreamFailsClosed
+--- PASS: TestProxy_UnconfiguredUpstreamFailsClosed (0.00s)
+=== RUN   TestProxy_RejectsPathTraversal
+=== RUN   TestProxy_RejectsPathTraversal/plain_dot_segments
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/../../admin
+=== RUN   TestProxy_RejectsPathTraversal/encoded_separators_after_the_room
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/..%2f..%2fadmin
+=== RUN   TestProxy_RejectsPathTraversal/encoded_separator_INSIDE_the_room_prefix
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest%2f..%2f..%2fadmin
+=== RUN   TestProxy_RejectsPathTraversal/cross-room_hop_into_the_other_upstream
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/realtime/../rest/spike_notes
+=== RUN   TestProxy_RejectsPathTraversal/single_dot_segment
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/./spike_notes
+=== RUN   TestProxy_RejectsPathTraversal/backslash-encoded_separator
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest/..%5c..%5cadmin
+--- PASS: TestProxy_RejectsPathTraversal (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/plain_dot_segments (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/encoded_separators_after_the_room (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/encoded_separator_INSIDE_the_room_prefix (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/cross-room_hop_into_the_other_upstream (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/single_dot_segment (0.00s)
+    --- PASS: TestProxy_RejectsPathTraversal/backslash-encoded_separator (0.00s)
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_{
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7B
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_}
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7D
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_|
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7C
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_^
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5E
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_\
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5C
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_"
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%22
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_<
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3C
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_>
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3E
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/encoded_backslash_under_fallback
+2026/09/04 13:04:16 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest%5Cadmin%7B
+--- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_{ (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_} (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_| (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_^ (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_\ (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_" (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_< (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_> (0.00s)
+    --- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/encoded_backslash_under_fallback (0.00s)
+=== RUN   TestProxy_LegitimatePathsStillPass
+--- PASS: TestProxy_LegitimatePathsStillPass (0.00s)
+=== RUN   TestProxy_BridgeSecretUnsetFailsClosed
+--- PASS: TestProxy_BridgeSecretUnsetFailsClosed (0.00s)
+=== RUN   TestProxy_AnonymousIsRejected
+--- PASS: TestProxy_AnonymousIsRejected (0.00s)
+=== RUN   TestProxy_UnknownSubPathIs404
+--- PASS: TestProxy_UnknownSubPathIs404 (0.00s)
+=== RUN   TestProxy_UpstreamFailureDoesNotLeakInternals
+2026/09/04 13:04:21 ERROR sync proxy upstream error upstream=rest target=internal-rest.sync.local:1 path=/spike_notes error="dial tcp: lookup internal-rest.sync.local: no such host"
+--- PASS: TestProxy_UpstreamFailureDoesNotLeakInternals (5.00s)
+=== RUN   TestProxy_UpstreamServerHeaderIsStripped
+--- PASS: TestProxy_UpstreamServerHeaderIsStripped (0.00s)
+=== RUN   TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack
+2026/09/04 13:04:21 "GET http://127.0.0.1:61981/sync/rest/spike_notes?select=id HTTP/1.1" from 127.0.0.1:61982 - 200 14B in 624.849µs
+2026/09/04 13:04:21 "GET http://127.0.0.1:61981/sync/realtime/socket/websocket?vsn=1.0.0 HTTP/1.1" from 127.0.0.1:61984 - 000 0B in 1.455325ms
+--- PASS: TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack (0.00s)
+=== RUN   TestRVFixtureGuard_RefusalFiresBeforeSubstrate
+--- PASS: TestRVFixtureGuard_RefusalFiresBeforeSubstrate (0.02s)
+=== RUN   TestRVFixtureDBNameCheck_Boundary
+--- PASS: TestRVFixtureDBNameCheck_Boundary (0.00s)
+=== RUN   TestRVFixtureDefault_PerProcessAndInsideBoundary
+--- PASS: TestRVFixtureDefault_PerProcessAndInsideBoundary (0.00s)
+=== RUN   TestRVClaimFixtureDatabase_RefusesExisting
+--- PASS: TestRVClaimFixtureDatabase_RefusesExisting (2.56s)
+=== RUN   TestRowVisibilityRLS
+2026/09/04 13:04:24 OK   0001_users.sql (22.26ms)
+2026/09/04 13:04:24 OK   0002_sessions.sql (31.56ms)
+2026/09/04 13:04:24 OK   0003_invite_tokens.sql (28.02ms)
+2026/09/04 13:04:24 OK   0004_hq_apps.sql (33.12ms)
+2026/09/04 13:04:24 OK   0005_app_permissions.sql (60.74ms)
+2026/09/04 13:04:24 OK   0006_checklist_templates.sql (24.1ms)
+2026/09/04 13:04:24 OK   0007_checklist_schedules.sql (19.86ms)
+2026/09/04 13:04:24 OK   0008_template_assignments.sql (22.07ms)
+2026/09/04 13:04:24 OK   0009_checklist_sections.sql (16.9ms)
+2026/09/04 13:04:24 OK   0010_checklist_fields.sql (16.65ms)
+2026/09/04 13:04:24 OK   0011_checklist_submissions.sql (24.04ms)
+2026/09/04 13:04:24 OK   0012_submission_responses.sql (41.54ms)
+2026/09/04 13:04:24 OK   0013_submission_fail_notes.sql (35.91ms)
+2026/09/04 13:04:24 OK   0014_submission_rejections.sql (63.57ms)
+2026/09/04 13:04:24 OK   0015_ops.sql (30.28ms)
+2026/09/04 13:04:24 OK   0016_lamport_ts.sql (21.28ms)
+2026/09/04 13:04:24 OK   0017_users_naming.sql (24.85ms)
+2026/09/04 13:04:24 OK   0018_ob_templates.sql (31.1ms)
+2026/09/04 13:04:24 OK   0019_ob_items.sql (39.34ms)
+2026/09/04 13:04:25 OK   0020_ob_progress.sql (30.26ms)
+2026/09/04 13:04:25 OK   0021_ob_signoffs.sql (26.38ms)
+2026/09/04 13:04:25 OK   0022_ob_template_assignments.sql (22ms)
+2026/09/04 13:04:25 OK   0023_multi_role.sql (33.98ms)
+2026/09/04 13:04:25 OK   0024_inventory.sql (68.18ms)
+2026/09/04 13:04:25 OK   0025_pending_purchases.sql (21.36ms)
+2026/09/04 13:04:25 OK   0026_ob_progress_faq.sql (9.45ms)
+2026/09/04 13:04:25 OK   0027_ob_section_signoff_roles.sql (8.42ms)
+2026/09/04 13:04:25 OK   0028_ob_video_upgrade.sql (22.27ms)
+2026/09/04 13:04:25 OK   0029_ob_templates_archived_at.sql (10.06ms)
+2026/09/04 13:04:25 OK   0030_item_groups_unique_name.sql (27.92ms)
+2026/09/04 13:04:25 OK   0031_remove_placeholder_items.sql (45.18ms)
+2026/09/04 13:04:25 OK   0032_item_group_thresholds.sql (27.64ms)
+2026/09/04 13:04:25 OK   0033_stock_count_overrides.sql (21.75ms)
+2026/09/04 13:04:25 OK   0034_purchase_orders.sql (39.3ms)
+2026/09/04 13:04:25 OK   0035_purchase_items_photo_store.sql (10.35ms)
+2026/09/04 13:04:25 OK   0036_purchase_items_full_name.sql (10.49ms)
+2026/09/04 13:04:25 OK   0037_cutoff_config.sql (22.09ms)
+2026/09/04 13:04:25 OK   0038_po_status_extend.sql (29.72ms)
+2026/09/04 13:04:25 OK   0039_purchase_items_vendor.sql (18.4ms)
+2026/09/04 13:04:25 OK   0040_shopping_lists.sql (69.29ms)
+2026/09/04 13:04:25 OK   0041_notification_channel.sql (21.21ms)
+2026/09/04 13:04:25 OK   0042_repurchase_tracking.sql (24.54ms)
+2026/09/04 13:04:25 OK   0043_alert_log.sql (18.67ms)
+2026/09/04 13:04:25 OK   0044_low_stock_alert_log.sql (33.13ms)
+2026/09/04 13:04:25 OK   0045_notification_channel_array.sql (31.85ms)
+2026/09/04 13:04:25 OK   0046_user_timezone.sql (10.1ms)
+2026/09/04 13:04:25 OK   0047_employee_fields.sql (27.44ms)
+2026/09/04 13:04:25 OK   0048_notification_default_both.sql (6.84ms)
+2026/09/04 13:04:25 OK   0049_ob_sub_items.sql (189.47ms)
+2026/09/04 13:04:25 OK   0050_ob_progress_sub_item.sql (15.07ms)
+2026/09/04 13:04:25 OK   0051_rejection_field_fk.sql (7.95ms)
+2026/09/04 13:04:25 OK   0052_template_name_unique.sql (6.89ms)
+2026/09/04 13:04:25 OK   0053_response_field_fk.sql (8.59ms)
+2026/09/04 13:04:25 OK   0054_failnote_field_fk.sql (9.36ms)
+2026/09/04 13:04:25 OK   0055_item_location_in_store.sql (12.25ms)
+2026/09/04 13:04:25 OK   0056_ob_progress_photo.sql (19.29ms)
+2026/09/04 13:04:26 OK   0057_ob_items_photo_type.sql (13.25ms)
+2026/09/04 13:04:26 OK   0058_ob_sub_items_photos.sql (19.84ms)
+2026/09/04 13:04:26 OK   0059_cleanup_photo_items.sql (9.95ms)
+2026/09/04 13:04:26 OK   0060_menu_items.sql (32.48ms)
+2026/09/04 13:04:26 OK   0061_daily_menu_sales.sql (20.52ms)
+2026/09/04 13:04:26 OK   0062_recipes.sql (18.11ms)
+2026/09/04 13:04:26 OK   0063_drift_check_results.sql (16.36ms)
+2026/09/04 13:04:26 OK   0064_no_itemized_receipt_seed.sql (11.94ms)
+2026/09/04 13:04:26 OK   0065_mercury_category_on_purchase_events.sql (10.02ms)
+2026/09/04 13:04:26 OK   0066_mercury_category_on_pending_purchases.sql (9.22ms)
+2026/09/04 13:04:26 OK   0067_receipt_sync_runs.sql (19.11ms)
+2026/09/04 13:04:26 OK   0068_pending_purchases_bank_tx_uniq.sql (11.68ms)
+2026/09/04 13:04:26 OK   0069_pending_purchases_parse_error.sql (7.83ms)
+2026/09/04 13:04:26 OK   0070_receipt_urls.sql (6.89ms)
+2026/09/04 13:04:26 OK   0071_submission_fail_notes_unique.sql (9.04ms)
+2026/09/04 13:04:26 OK   0072_app_timezone_new_york.sql (11.42ms)
+2026/09/04 13:04:26 OK   0073_sync_fdw_views.sql (18.6ms)
+2026/09/04 13:04:26 OK   0074_sync_fdw_approver_view.sql (8.13ms)
+2026/09/04 13:04:26 OK   0075_item_aliases.sql (19.5ms)
+2026/09/04 13:04:26 OK   0076_checklist_template_app.sql (22.27ms)
+2026/09/04 13:04:26 goose: successfully migrated database to version: 76
+2026/09/04 13:04:26 INFO database migrations applied successfully
+=== RUN   TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated
+    rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_template_assignees       4 rows
+    rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_user_roles               4 rows
+    rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_field_templates          8 rows
+    rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_template_approvers       2 rows
+=== RUN   TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire
+    rowvisibility_rls_test.go:1114: FDW POPULATION  hq_template_assignees            4 rows across the wire
+    rowvisibility_rls_test.go:1114: FDW POPULATION  hq_user_roles                    4 rows across the wire
+    rowvisibility_rls_test.go:1114: FDW POPULATION  hq_field_templates               8 rows across the wire
+    rowvisibility_rls_test.go:1114: FDW POPULATION  hq_template_approvers            2 rows across the wire
+=== RUN   TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there
+    rowvisibility_rls_test.go:1125: ADMITTED service_role sees ALL templates                [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:1126: ADMITTED service_role sees ALL submissions              [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+    rowvisibility_rls_test.go:1127: ADMITTED service_role sees ALL responses                [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+    rowvisibility_rls_test.go:1129: ADMITTED service_role sees ALL rejections               [rej-alice]
+=== RUN   TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template
+    rowvisibility_rls_test.go:1143: ADMITTED alice                                          [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+=== RUN   TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one
+    rowvisibility_rls_test.go:1147: ADMITTED bob                                            [22222222-2222-4222-8222-000000000002]
+=== RUN   TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment
+    rowvisibility_rls_test.go:1153: ADMITTED dave (role=manager)                            [22222222-2222-4222-8222-000000000003]
+=== RUN   TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan
+    rowvisibility_rls_test.go:1161: ADMITTED carol (admin)                                  [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+=== RUN   TestRowVisibilityRLS/V1/anon_(no_token_at_all)
+    rowvisibility_rls_test.go:1170: REFUSED  V1 anon                                              HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_templates"}
+=== RUN   TestRowVisibilityRLS/V2/wrong_signature
+    rowvisibility_rls_test.go:1181: REFUSED  V2 wrong signature                                   HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestRowVisibilityRLS/V3/expired_token
+    rowvisibility_rls_test.go:1190: REFUSED  V3 expired token                                     HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+=== RUN   TestRowVisibilityRLS/V4/tampered_payload,_original_signature
+    rowvisibility_rls_test.go:1211: REFUSED  V4 tampered payload                                  HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestRowVisibilityRLS/V5/missing_sub_claim
+    rowvisibility_rls_test.go:1226: REFUSED  V5 missing sub                                       HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id
+    rowvisibility_rls_test.go:1234: REFUSED  V6 alice -> tplBob                                   HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise
+    rowvisibility_rls_test.go:1245: ADMITTED alice with a LYING admin claim                 [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:1246: REFUSED  V7 claim injection (orphan must stay hidden)         HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ
+    rowvisibility_rls_test.go:1263: ADMITTED before revocation                              [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:1270: ADMITTED after revocation, SAME token                   [22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:1271: REFUSED  V8 revocation replay                                 HTTP 200 []
+    rowvisibility_rls_test.go:1281: ADMITTED after restore, still the SAME token            [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+=== RUN   TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything
+    rowvisibility_rls_test.go:1288: ADMITTED bob before                                     [22222222-2222-4222-8222-000000000002]
+    rowvisibility_rls_test.go:1295: ADMITTED bob after, SAME token                          [22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000004]
+    rowvisibility_rls_test.go:1302: ADMITTED bob restored                                   [22222222-2222-4222-8222-000000000002]
+=== RUN   TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template
+    rowvisibility_rls_test.go:1319: REFUSED  V10 forged insert                                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+=== RUN   TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template
+    rowvisibility_rls_test.go:1338: REFUSED  V11 forged update                                    HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template
+    rowvisibility_rls_test.go:1353: ADMITTED alice's submissions                            [55555555-5555-4555-8555-000000000001]
+    rowvisibility_rls_test.go:1354: REFUSED  V12 alice -> bob's submission                        HTTP 200 []
+    rowvisibility_rls_test.go:1356: ADMITTED carol (admin) sees all submissions             [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+=== RUN   TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission
+    rowvisibility_rls_test.go:1366: ADMITTED alice's drafts                                 [resp-alice resp-approver]
+    rowvisibility_rls_test.go:1368: ADMITTED dave's draft (reached by role)                 [resp-byrole]
+    rowvisibility_rls_test.go:1370: REFUSED  V13 alice -> bob's draft                             HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included
+    rowvisibility_rls_test.go:1381: ADMITTED carol sees every RESOLVABLE response           [resp-alice resp-approver resp-bob resp-byrole]
+    rowvisibility_rls_test.go:1384: REFUSED  V14 orphan response, asked by an ADMIN               HTTP 200 []
+=== RUN   TestRowVisibilityRLS/V15-17,20/V15_hq_user_roles_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / anon                             HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+    rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / alice                            HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+    rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / carol the admin                  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+=== RUN   TestRowVisibilityRLS/V15-17,20/V16_hq_template_assignees_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / anon                     HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+    rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / alice                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+    rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / carol the admin          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+=== RUN   TestRowVisibilityRLS/V15-17,20/V17_hq_field_templates_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / anon                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+    rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / alice                       HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+    rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / carol the admin             HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+=== RUN   TestRowVisibilityRLS/V15-17,20/V20_hq_template_approvers_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / anon                     HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+    rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / alice                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+    rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / carol the admin          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+=== RUN   TestRowVisibilityRLS/V18/submission_rejections_READ_is_field-scoped_—_the_deny-all_is_deliberately_gone
+    rowvisibility_rls_test.go:1462: ADMITTED alice reads the rejection on HER OWN field     [rej-alice]
+    rowvisibility_rls_test.go:1464: ADMITTED carol the admin reads it too                   [rej-alice]
+    rowvisibility_rls_test.go:1469: REFUSED  V18 bob -> a rejection on a field he cannot see      HTTP 200 []
+    rowvisibility_rls_test.go:1471: REFUSED  V18 anon -> rejections                               HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table submission_rejections"}
+    rowvisibility_rls_test.go:1476: ADMITTED service_role sees every rejection              [rej-alice]
+=== RUN   TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates
+    rowvisibility_rls_test.go:1495: ADMITTED plural GUC (this card) DISCRIMINATES           [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:1505: REFUSED  V19 auth.uid() policy returns NOTHING                HTTP 200 []
+    rowvisibility_rls_test.go:1514: CONTROL  V19 trap is NOT empty                                [trap-alice-1 trap-bob-1]
+=== RUN   TestRowVisibilityRLS/LIST-1/THE_LIST_SCOPE_DISCRIMINATES_—_three_users,_three_disjoint_lists
+    rowvisibility_rls_test.go:1563: ADMITTED LIST-1 alice's own list                        [55555555-5555-4555-8555-000000000001]
+    rowvisibility_rls_test.go:1565: ADMITTED LIST-1 bob's own list                          [55555555-5555-4555-8555-000000000002]
+    rowvisibility_rls_test.go:1567: ADMITTED LIST-1 dave's own list — reached by ROLE, holding no direct assignment [55555555-5555-4555-8555-000000000003]
+    rowvisibility_rls_test.go:1573: ADMITTED LIST-1 service_role sees every submission in the union [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+=== RUN   TestRowVisibilityRLS/LIST-2/AND_IT_REFUSES_—_alice_issues_BOB'S_list_scope_verbatim_and_gets_nothing
+    rowvisibility_rls_test.go:1587: REFUSED  LIST-2 alice asks for bob's list                     HTTP 200 []
+    rowvisibility_rls_test.go:1589: REFUSED  LIST-2 bob asks for alice's list                     HTTP 200 []
+    rowvisibility_rls_test.go:1591: REFUSED  LIST-2 anon asks for anyone's list                   HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_submissions"}
+    rowvisibility_rls_test.go:1596: ADMITTED LIST-2 control — the row alice was refused IS there [55555555-5555-4555-8555-000000000002]
+=== RUN   TestRowVisibilityRLS/LIST-3/THE_DATE_FLOOR_IS_DOING_WORK_—_the_same_user,_the_same_templates,_one_day_apart
+    rowvisibility_rls_test.go:1617: ADMITTED LIST-3 alice's list WITH the floor excludes the 90-day-old submission [55555555-5555-4555-8555-000000000001]
+    rowvisibility_rls_test.go:1627: ADMITTED LIST-3 the SAME query with NO floor pulls history [55555555-5555-4555-8555-000000000001 list3-old-submission]
+=== RUN   TestRowVisibilityRLS/LIST-4/THE_APPROVALS_RESIDUAL_—_the_client_scope_is_the_floor_ALONE,_and_the_SERVER_is_what_refuses
+    rowvisibility_rls_test.go:1651: ADMITTED LIST-4 alice's approvals list is her own feedback only [rej-alice]
+    rowvisibility_rls_test.go:1653: ADMITTED LIST-4 bob's approvals list is HIS own feedback only [list4-rej-bob]
+    rowvisibility_rls_test.go:1658: ADMITTED LIST-4 control — both rejections are above the floor [list4-rej-bob rej-alice]
+=== RUN   TestRowVisibilityRLS/WP1/alice_PUSHES_a_submission_under_her_own_template
+    rowvisibility_rls_test.go:1696: ADMITTED WP1 alice -> her own template                            HTTP 201 [{"id":"wp1-sub-alice","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000001","submitted_at":"2026-09-04T17:04:30.15792+00:00","status":"pending","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-09-04T17:04:30.15792+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.15792+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP1b/a_peer's_row_inside_a_template_you_CAN_see_is_admitted_—_decision_111,_asserted
+    rowvisibility_rls_test.go:1718: ADMITTED WP1b alice -> a row attributed to bob, in HER template   HTTP 201 [{"id":"wp1b-sub-peer","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000002","submitted_at":"2026-09-04T17:04:30.198077+00:00","status":"pending","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-09-04T17:04:30.198077+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.198077+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP2/alice_UPDATES_her_own_submission
+    rowvisibility_rls_test.go:1726: ADMITTED WP2 alice updates subAlice                               HTTP 200 [{"id":"55555555-5555-4555-8555-000000000001","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000001","submitted_at":"2026-09-04T17:04:26.454447+00:00","status":"completed","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-09-04T17:04:26.454447+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.239597+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP3/alice_PUSHES_an_OFFLINE_DRAFT_—_submission_id_IS_NULL
+    rowvisibility_rls_test.go:1752: ADMITTED WP3 alice -> a draft with a NULL submission_id           HTTP 201 [{"id":"wp3-resp-draft","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000006","value":true,"answered_by":"11111111-1111-4111-8111-000000000001","answered_at":"2026-09-04T17:04:30.288734+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.288734+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP4/dave_PUSHES_a_draft_on_a_field_he_reaches_by_ROLE_ONLY
+    rowvisibility_rls_test.go:1767: ADMITTED WP4 dave (role=manager) -> a draft                       HTTP 201 [{"id":"wp4-resp-role","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000007","value":true,"answered_by":"11111111-1111-4111-8111-000000000004","answered_at":"2026-09-04T17:04:30.330834+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.330834+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP5/alice_writes_an_approval_on_the_template_she_APPROVES
+    rowvisibility_rls_test.go:1787: ADMITTED WP5 alice the APPROVER -> a rejection                    HTTP 201 [{"id":"wp5-rej-approver","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000005","comment":"redo the temp log","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000001","rejected_at":"2026-09-04T17:04:30.364909+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.364909+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP5b/dave_approves_by_ROLE_—_the_approver_view_carries_BOTH_disjuncts
+    rowvisibility_rls_test.go:1803: ADMITTED WP5b dave the ROLE-approver -> a rejection               HTTP 201 [{"id":"wp5b-rej-role-approver","submission_id":"55555555-5555-4555-8555-000000000003","field_id":"44444444-4444-4444-8444-000000000003","comment":"role-reached approval","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000004","rejected_at":"2026-09-04T17:04:30.419768+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.419768+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP6/carol_the_admin_writes_an_approval_on_a_template_she_approves_NOTHING_on
+    rowvisibility_rls_test.go:1817: ADMITTED WP6 carol the admin -> a rejection on bob's field        HTTP 201 [{"id":"wp6-rej-admin","submission_id":"55555555-5555-4555-8555-000000000002","field_id":"44444444-4444-4444-8444-000000000002","comment":"admin arm","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000003","rejected_at":"2026-09-04T17:04:30.468938+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.468938+00:00"}]
+=== RUN   TestRowVisibilityRLS/WP7/the_assignee_READS_BACK_the_feedback_an_approver_wrote_—_push+pull_closes
+    rowvisibility_rls_test.go:1834: ADMITTED WP7 carol writes the feedback                            HTTP 201 [{"id":"wp7-rej-roundtrip","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000001","comment":"photo is blurry","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000003","rejected_at":"2026-09-04T17:04:30.509866+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.509866+00:00"}]
+    rowvisibility_rls_test.go:1839: ADMITTED WP7 alice pulls her own feedback back          [wp7-rej-roundtrip]
+    rowvisibility_rls_test.go:1843: REFUSED  WP7 bob does NOT receive alice's feedback            HTTP 200 []
+=== RUN   TestRowVisibilityRLS/WP8/an_APPROVER_MOVES_a_rejection_to_another_field_of_the_template_she_approves
+    rowvisibility_rls_test.go:1878: ADMITTED WP8 alice the APPROVER moves a rejection within her template HTTP 200 [{"id":"wp8-rej-move","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000008","comment":"move me","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000001","rejected_at":"2026-09-04T17:04:30.638669+00:00","_deleted":false,"_modified":"2026-09-04T17:04:30.646958+00:00"}]
+=== RUN   TestRowVisibilityRLS/W1/templates:_alice's_forged_INSERT_is_still_refused_after_0004
+    rowvisibility_rls_test.go:1914: REFUSED  W1 alice inserts a template [representation]             HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+    rowvisibility_rls_test.go:1914: REFUSED  W1 alice inserts a template [minimal]                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+=== RUN   TestRowVisibilityRLS/W2/templates:_alice's_forged_UPDATE_of_bob's_template_is_still_refused
+    rowvisibility_rls_test.go:1921: REFUSED  W2 alice renames bob's template [representation]         HTTP 200 []
+    rowvisibility_rls_test.go:1921: REFUSED  W2 alice renames bob's template [minimal]                HTTP 204 
+=== RUN   TestRowVisibilityRLS/W3/templates:_CAROL_THE_ADMIN_cannot_write_one_either
+    rowvisibility_rls_test.go:1938: REFUSED  W3 carol the admin inserts a template [representation]   HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+    rowvisibility_rls_test.go:1938: REFUSED  W3 carol the admin inserts a template [minimal]          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+    rowvisibility_rls_test.go:1943: REFUSED  W3 carol the admin renames a template [representation]   HTTP 200 []
+    rowvisibility_rls_test.go:1943: REFUSED  W3 carol the admin renames a template [minimal]          HTTP 204 
+=== RUN   TestRowVisibilityRLS/W4/alice_pushes_a_submission_claiming_a_template_she_CANNOT_see
+    rowvisibility_rls_test.go:1956: REFUSED  W4 alice -> a submission under tplBob [representation]   HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+    rowvisibility_rls_test.go:1956: REFUSED  W4 alice -> a submission under tplBob [minimal]          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+    rowvisibility_rls_test.go:1964: REFUSED  W4 alice -> a submission under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+    rowvisibility_rls_test.go:1964: REFUSED  W4 alice -> a submission under the orphan [minimal]      HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+=== RUN   TestRowVisibilityRLS/W5/ESCALATION_BY_UPDATE_—_alice_moves_her_own_row_into_a_template_she_cannot_see
+    rowvisibility_rls_test.go:2009: REFUSED  W5 alice re-parents subAlice under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+    rowvisibility_rls_test.go:2009: REFUSED  W5 alice re-parents subAlice under the orphan [minimal]  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+=== RUN   TestRowVisibilityRLS/W6/alice_pushes_a_response_on_a_field_she_cannot_see
+    rowvisibility_rls_test.go:2030: REFUSED  W6 alice -> a response on fldBob [representation]        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2030: REFUSED  W6 alice -> a response on fldBob [minimal]               HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+=== RUN   TestRowVisibilityRLS/W7/ESCALATION_BY_UPDATE_—_alice_repoints_her_own_response_at_dave's_field
+    rowvisibility_rls_test.go:2062: REFUSED  W7 alice repoints resp-alice at fldByRole [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2062: REFUSED  W7 alice repoints resp-alice at fldByRole [minimal]      HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+=== RUN   TestRowVisibilityRLS/W8/an_UNRESOLVABLE_field_is_UNWRITABLE_for_everyone,_ADMINS_INCLUDED
+    rowvisibility_rls_test.go:2087: REFUSED  W8 carol the admin -> a response on a GHOST field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2087: REFUSED  W8 carol the admin -> a response on a GHOST field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2106: REFUSED  W8 carol the admin -> a rejection on a GHOST field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2106: REFUSED  W8 carol the admin -> a rejection on a GHOST field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+=== RUN   TestRowVisibilityRLS/W9/🛑_THE_ASYMMETRY_—_an_ASSIGNEE_cannot_reject_their_own_work
+    rowvisibility_rls_test.go:2130: REFUSED  W9 alice the ASSIGNEE -> a rejection on her own field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2130: REFUSED  W9 alice the ASSIGNEE -> a rejection on her own field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2141: ADMITTED W9 control — the same alice READS rejections on this field [rej-alice]
+=== RUN   TestRowVisibilityRLS/W10/an_approver_cannot_reach_OUTSIDE_the_template_they_approve
+    rowvisibility_rls_test.go:2152: REFUSED  W10 alice the approver -> a rejection on bob's field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2152: REFUSED  W10 alice the approver -> a rejection on bob's field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+=== RUN   TestRowVisibilityRLS/W11/READ_≠_WRITE_ON_ONE_ROW_—_alice_can_pull_rej-alice_and_cannot_edit_it
+    rowvisibility_rls_test.go:2192: REFUSED  W11 alice edits the rejection written about her [representation] HTTP 200 []
+    rowvisibility_rls_test.go:2192: REFUSED  W11 alice edits the rejection written about her [minimal] HTTP 204 
+=== RUN   TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED
+    rowvisibility_rls_test.go:2239: REFUSED  W16 alice moves a rejection onto her OWN assigned field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2239: REFUSED  W16 alice moves a rejection onto her OWN assigned field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+=== RUN   TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve
+    rowvisibility_rls_test.go:2312: ADMITTED W17 control — alice SEES the row she is about to be refused [w17-rej-using-axis]
+    rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [representation] HTTP 200 []
+    rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [minimal] HTTP 204 
+=== RUN   TestRowVisibilityRLS/W12/DELETE_is_deny-all_on_every_replicated_table
+    rowvisibility_rls_test.go:2394: GATE  public.checklist_templates    authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+    rowvisibility_rls_test.go:2394: GATE  public.checklist_submissions  authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+    rowvisibility_rls_test.go:2394: GATE  public.submission_responses   authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+    rowvisibility_rls_test.go:2394: GATE  public.submission_rejections  authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+    rowvisibility_rls_test.go:2420: REFUSED  W12 submission                                           HTTP 204 
+    rowvisibility_rls_test.go:2420: REFUSED  W12 response                                             HTTP 204 
+    rowvisibility_rls_test.go:2420: REFUSED  W12 rejection                                            HTTP 204 
+=== RUN   TestRowVisibilityRLS/W13/claim_injection_on_the_WRITE_path_—_a_token_that_ASSERTS_admin
+    rowvisibility_rls_test.go:2435: REFUSED  W13 lying admin -> a template [representation]           HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+    rowvisibility_rls_test.go:2435: REFUSED  W13 lying admin -> a template [minimal]                  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+    rowvisibility_rls_test.go:2440: REFUSED  W13 lying admin -> a rejection on her own field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2440: REFUSED  W13 lying admin -> a rejection on her own field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+    rowvisibility_rls_test.go:2446: REFUSED  W13 lying admin -> a submission under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+    rowvisibility_rls_test.go:2446: REFUSED  W13 lying admin -> a submission under the orphan [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+=== RUN   TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ
+    rowvisibility_rls_test.go:2467: ADMITTED W14 before revocation                                    HTTP 201 [{"id":"w14-before","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000006","value":true,"answered_by":"11111111-1111-4111-8111-000000000001","answered_at":"2026-09-04T17:04:32.286162+00:00","_deleted":false,"_modified":"2026-09-04T17:04:32.286162+00:00"}]
+    rowvisibility_rls_test.go:2482: REFUSED  W14 after revocation, SAME unexpired token [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2482: REFUSED  W14 after revocation, SAME unexpired token [minimal]     HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+    rowvisibility_rls_test.go:2502: ADMITTED W14 after restore, still the SAME token                  HTTP 201 [{"id":"w14-after","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000006","value":true,"answered_by":"11111111-1111-4111-8111-000000000001","answered_at":"2026-09-04T17:04:32.420156+00:00","_deleted":false,"_modified":"2026-09-04T17:04:32.420156+00:00"}]
+=== RUN   TestRowVisibilityRLS/W15/the_JWT_layer_refuses_writes_too_—_anon,_expired,_unsigned
+    rowvisibility_rls_test.go:2524: REFUSED  W15 anon POST                                            HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_submissions"}
+    rowvisibility_rls_test.go:2532: REFUSED  W15 expired token POST                                   HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+    rowvisibility_rls_test.go:2545: REFUSED  W15 wrong-signature POST                                 HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants
+    rowvisibility_rls_test.go:2567: ADMITTED templates still all there                      [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:2568: ADMITTED submissions still all there                    [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+    rowvisibility_rls_test.go:2569: ADMITTED responses still all there                      [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+    rowvisibility_rls_test.go:2576: ADMITTED rejections are back to exactly the seeded one  [rej-alice]
+    rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_assignees       4 rows
+    rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_user_roles               4 rows
+    rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_field_templates          8 rows
+    rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_approvers       2 rows
+    rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_assignees            4 rows across the wire
+    rowvisibility_rls_test.go:2579: FDW POPULATION  hq_user_roles                    4 rows across the wire
+    rowvisibility_rls_test.go:2579: FDW POPULATION  hq_field_templates               8 rows across the wire
+    rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_approvers            2 rows across the wire
+--- PASS: TestRowVisibilityRLS (8.93s)
+    --- PASS: TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated (0.02s)
+    --- PASS: TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire (0.16s)
+    --- PASS: TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there (0.05s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template (0.14s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one (0.10s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment (0.08s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan (0.04s)
+    --- PASS: TestRowVisibilityRLS/V1/anon_(no_token_at_all) (0.00s)
+    --- PASS: TestRowVisibilityRLS/V2/wrong_signature (0.00s)
+    --- PASS: TestRowVisibilityRLS/V3/expired_token (0.00s)
+    --- PASS: TestRowVisibilityRLS/V4/tampered_payload,_original_signature (0.01s)
+    --- PASS: TestRowVisibilityRLS/V5/missing_sub_claim (0.10s)
+    --- PASS: TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id (0.02s)
+    --- PASS: TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise (0.09s)
+    --- PASS: TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ (0.32s)
+    --- PASS: TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything (0.38s)
+    --- PASS: TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template (0.01s)
+    --- PASS: TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template (0.02s)
+    --- PASS: TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template (0.16s)
+    --- PASS: TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission (0.34s)
+    --- PASS: TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included (0.13s)
+    --- PASS: TestRowVisibilityRLS/V15-17,20/V15_hq_user_roles_is_not_readable_over_PostgREST (0.03s)
+    --- PASS: TestRowVisibilityRLS/V15-17,20/V16_hq_template_assignees_is_not_readable_over_PostgREST (0.03s)
+    --- PASS: TestRowVisibilityRLS/V15-17,20/V17_hq_field_templates_is_not_readable_over_PostgREST (0.04s)
+    --- PASS: TestRowVisibilityRLS/V15-17,20/V20_hq_template_approvers_is_not_readable_over_PostgREST (0.05s)
+    --- PASS: TestRowVisibilityRLS/V18/submission_rejections_READ_is_field-scoped_—_the_deny-all_is_deliberately_gone (0.16s)
+    --- PASS: TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates (0.16s)
+    --- PASS: TestRowVisibilityRLS/LIST-1/THE_LIST_SCOPE_DISCRIMINATES_—_three_users,_three_disjoint_lists (0.10s)
+    --- PASS: TestRowVisibilityRLS/LIST-2/AND_IT_REFUSES_—_alice_issues_BOB'S_list_scope_verbatim_and_gets_nothing (0.09s)
+    --- PASS: TestRowVisibilityRLS/LIST-3/THE_DATE_FLOOR_IS_DOING_WORK_—_the_same_user,_the_same_templates,_one_day_apart (0.10s)
+    --- PASS: TestRowVisibilityRLS/LIST-4/THE_APPROVALS_RESIDUAL_—_the_client_scope_is_the_floor_ALONE,_and_the_SERVER_is_what_refuses (0.13s)
+    --- PASS: TestRowVisibilityRLS/WP1/alice_PUSHES_a_submission_under_her_own_template (0.03s)
+    --- PASS: TestRowVisibilityRLS/WP1b/a_peer's_row_inside_a_template_you_CAN_see_is_admitted_—_decision_111,_asserted (0.04s)
+    --- PASS: TestRowVisibilityRLS/WP2/alice_UPDATES_her_own_submission (0.05s)
+    --- PASS: TestRowVisibilityRLS/WP3/alice_PUSHES_an_OFFLINE_DRAFT_—_submission_id_IS_NULL (0.05s)
+    --- PASS: TestRowVisibilityRLS/WP4/dave_PUSHES_a_draft_on_a_field_he_reaches_by_ROLE_ONLY (0.03s)
+    --- PASS: TestRowVisibilityRLS/WP5/alice_writes_an_approval_on_the_template_she_APPROVES (0.06s)
+    --- PASS: TestRowVisibilityRLS/WP5b/dave_approves_by_ROLE_—_the_approver_view_carries_BOTH_disjuncts (0.05s)
+    --- PASS: TestRowVisibilityRLS/WP6/carol_the_admin_writes_an_approval_on_a_template_she_approves_NOTHING_on (0.04s)
+    --- PASS: TestRowVisibilityRLS/WP7/the_assignee_READS_BACK_the_feedback_an_approver_wrote_—_push+pull_closes (0.13s)
+    --- PASS: TestRowVisibilityRLS/WP8/an_APPROVER_MOVES_a_rejection_to_another_field_of_the_template_she_approves (0.11s)
+    --- PASS: TestRowVisibilityRLS/W1/templates:_alice's_forged_INSERT_is_still_refused_after_0004 (0.03s)
+    --- PASS: TestRowVisibilityRLS/W2/templates:_alice's_forged_UPDATE_of_bob's_template_is_still_refused (0.02s)
+    --- PASS: TestRowVisibilityRLS/W3/templates:_CAROL_THE_ADMIN_cannot_write_one_either (0.06s)
+    --- PASS: TestRowVisibilityRLS/W4/alice_pushes_a_submission_claiming_a_template_she_CANNOT_see (0.15s)
+    --- PASS: TestRowVisibilityRLS/W5/ESCALATION_BY_UPDATE_—_alice_moves_her_own_row_into_a_template_she_cannot_see (0.12s)
+    --- PASS: TestRowVisibilityRLS/W6/alice_pushes_a_response_on_a_field_she_cannot_see (0.08s)
+    --- PASS: TestRowVisibilityRLS/W7/ESCALATION_BY_UPDATE_—_alice_repoints_her_own_response_at_dave's_field (0.12s)
+    --- PASS: TestRowVisibilityRLS/W8/an_UNRESOLVABLE_field_is_UNWRITABLE_for_everyone,_ADMINS_INCLUDED (0.11s)
+    --- PASS: TestRowVisibilityRLS/W9/🛑_THE_ASYMMETRY_—_an_ASSIGNEE_cannot_reject_their_own_work (0.15s)
+    --- PASS: TestRowVisibilityRLS/W10/an_approver_cannot_reach_OUTSIDE_the_template_they_approve (0.06s)
+    --- PASS: TestRowVisibilityRLS/W11/READ_≠_WRITE_ON_ONE_ROW_—_alice_can_pull_rej-alice_and_cannot_edit_it (0.06s)
+    --- PASS: TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED (0.22s)
+    --- PASS: TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve (0.14s)
+    --- PASS: TestRowVisibilityRLS/W12/DELETE_is_deny-all_on_every_replicated_table (0.06s)
+    --- PASS: TestRowVisibilityRLS/W13/claim_injection_on_the_WRITE_path_—_a_token_that_ASSERTS_admin (0.15s)
+    --- PASS: TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ (0.17s)
+    --- PASS: TestRowVisibilityRLS/W15/the_JWT_layer_refuses_writes_too_—_anon,_expired,_unsigned (0.02s)
+    --- PASS: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.09s)
+=== RUN   TestSpikeResolution_OptOutIsTheOnlySkipDoor
+--- PASS: TestSpikeResolution_OptOutIsTheOnlySkipDoor (0.00s)
+=== RUN   TestSpikeSubstrateOptional_IsExplicit
+--- PASS: TestSpikeSubstrateOptional_IsExplicit (0.00s)
+=== RUN   TestSpikeGate_Asymmetry
+--- PASS: TestSpikeGate_Asymmetry (0.00s)
+=== RUN   TestRowVisibilitySubtestCount_Structural
+--- PASS: TestRowVisibilitySubtestCount_Structural (0.00s)
+=== RUN   TestRVTopLevelSubtestCount_CountsWhatItClaims
+--- PASS: TestRVTopLevelSubtestCount_CountsWhatItClaims (0.00s)
+=== RUN   TestRowVisibilitySubtestCount_Executed
+--- PASS: TestRowVisibilitySubtestCount_Executed (13.08s)
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry/no_opt-out_declared_and_the_substrate_cannot_be_resolved_->_NON-ZERO
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry/HQ_SYNC_SUBSTRATE_OPTIONAL=1_->_ZERO
+--- PASS: TestSubstrateGate_ExitCodeAsymmetry (4.46s)
+    --- PASS: TestSubstrateGate_ExitCodeAsymmetry/no_opt-out_declared_and_the_substrate_cannot_be_resolved_->_NON-ZERO (2.61s)
+    --- PASS: TestSubstrateGate_ExitCodeAsymmetry/HQ_SYNC_SUBSTRATE_OPTIONAL=1_->_ZERO (1.85s)
+=== RUN   TestGateChildGuard_IsNotASkipDoor
+=== RUN   TestGateChildGuard_IsNotASkipDoor/unset_—_this_process_is_a_parent
+=== RUN   TestGateChildGuard_IsNotASkipDoor/the_pre-fix_flag_value_`1`_—_the_door_this_closes
+=== RUN   TestGateChildGuard_IsNotASkipDoor/any_bare_value
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token
+=== RUN   TestGateChildGuard_IsNotASkipDoor/right_shape,_no_such_token_file
+=== RUN   TestGateChildGuard_IsNotASkipDoor/right_shape,_token_file_holds_a_different_nonce
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_relative_token_path
+=== RUN   TestGateChildGuard_IsNotASkipDoor/an_externally-set_HQ_SYNC_GATE_CHILD=1_now_FAILS_the_guarded_test
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token_still_SKIPS_the_guarded_test_(fork_bomb_stays_prevented)
+--- PASS: TestGateChildGuard_IsNotASkipDoor (5.14s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/unset_—_this_process_is_a_parent (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/the_pre-fix_flag_value_`1`_—_the_door_this_closes (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/any_bare_value (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/right_shape,_no_such_token_file (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/right_shape,_token_file_holds_a_different_nonce (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/a_relative_token_path (0.00s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/an_externally-set_HQ_SYNC_GATE_CHILD=1_now_FAILS_the_guarded_test (2.70s)
+    --- PASS: TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token_still_SKIPS_the_guarded_test_(fork_bomb_stays_prevented) (2.43s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	45.734s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+=== RUN   TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig
+--- PASS: TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathEmpty_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathEmpty_FailsFast (0.00s)
+=== RUN   TestSyncDate_DialFailure_ReturnsUnavailable
+2026/09/04 13:04:58 ERROR toast sync: SFTP unavailable (dial/auth failed) date=20260904 error="ssh dial: unable to authenticate"
+--- PASS: TestSyncDate_DialFailure_ReturnsUnavailable (0.00s)
+=== RUN   TestHandleSyncOutcome_SFTPUnavailable_FailsLoud
+2026/09/04 13:04:58 ERROR toast worker: ALERT dispatched (SFTP unavailable) message="Toast sync FAILING: cannot open/authenticate SFTP — no sales data is landing. Last error: toast sync: sftp dial/auth failed"
+--- PASS: TestHandleSyncOutcome_SFTPUnavailable_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_Success_NoAlert
+--- PASS: TestHandleSyncOutcome_Success_NoAlert (0.00s)
+=== RUN   TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud
+2026/09/04 13:04:58 ERROR toast worker: cycle reached SFTP but persisted nothing summary="mkdir cache: permission denied"
+--- PASS: TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_AllMiss_IsHealthy
+--- PASS: TestHandleSyncOutcome_AllMiss_IsHealthy (0.00s)
+=== RUN   TestSyncDate_KeyUnreadable_ReturnsUnavailable
+2026/09/04 13:04:58 ERROR toast sync: SFTP key unreadable path=/var/folders/g0/hwllc2mn0259b8kbd8zpky5c0000gn/T/TestSyncDate_KeyUnreadable_ReturnsUnavailable553972014/001/id_rsa error="read /var/folders/g0/hwllc2mn0259b8kbd8zpky5c0000gn/T/TestSyncDate_KeyUnreadable_ReturnsUnavailable553972014/001/id_rsa: is a directory"
+--- PASS: TestSyncDate_KeyUnreadable_ReturnsUnavailable (0.00s)
+=== RUN   TestParseHappyPath
+--- PASS: TestParseHappyPath (0.00s)
+=== RUN   TestParseExcludesVoidedRows
+--- PASS: TestParseExcludesVoidedRows (0.00s)
+=== RUN   TestParseAggregatesSameMasterIdSameDay
+--- PASS: TestParseAggregatesSameMasterIdSameDay (0.00s)
+=== RUN   TestParseHandlesUTF8BOMInFirstHeader
+--- PASS: TestParseHandlesUTF8BOMInFirstHeader (0.00s)
+=== RUN   TestParseMissingRequiredColumnFails
+--- PASS: TestParseMissingRequiredColumnFails (0.00s)
+=== RUN   TestParseDecimalQtyTolerated
+--- PASS: TestParseDecimalQtyTolerated (0.00s)
+=== RUN   TestParseEmptyMenuSubgroupBecomesNil
+--- PASS: TestParseEmptyMenuSubgroupBecomesNil (0.00s)
+=== RUN   TestParseEmbeddedDuplicateHeader
+--- PASS: TestParseEmbeddedDuplicateHeader (0.00s)
+=== RUN   TestSyncStatus_UnknownBeforeAnyCycle
+--- PASS: TestSyncStatus_UnknownBeforeAnyCycle (0.00s)
+=== RUN   TestSyncStatus_FailingAfterSFTPFailure
+--- PASS: TestSyncStatus_FailingAfterSFTPFailure (0.00s)
+=== RUN   TestSyncStatus_OKAfterSuccess
+--- PASS: TestSyncStatus_OKAfterSuccess (0.00s)
+=== RUN   TestSyncStatus_FailureThenRecovery
+--- PASS: TestSyncStatus_FailureThenRecovery (0.00s)
+=== RUN   TestSyncStatus_StaleWhenLastSuccessOld
+--- PASS: TestSyncStatus_StaleWhenLastSuccessOld (0.00s)
+=== RUN   TestSyncStatus_NilSafe
+--- PASS: TestSyncStatus_NilSafe (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/toast	0.748s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+2026/09/04 13:05:00 goose: no migrations to run. current version: 76
+2026/09/04 13:05:00 INFO database migrations applied successfully
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud
+2026/09/04 13:05:00 ERROR save approval feedback error="ERROR: invalid input syntax for type uuid: \"not-a-valid-uuid\" (SQLSTATE 22P02)" submission_id=042684c6-f3e7-478b-9fb2-cdb8582e527e field_id=not-a-valid-uuid
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud (0.13s)
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistedReturnsOK
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistedReturnsOK (0.05s)
+=== RUN   TestApproveSubmission_NonApproverNonAdmin_403
+--- PASS: TestApproveSubmission_NonApproverNonAdmin_403 (0.05s)
+=== RUN   TestRejectItem_NonApproverNonAdmin_403
+--- PASS: TestRejectItem_NonApproverNonAdmin_403 (0.04s)
+=== RUN   TestApproveSubmission_UserApproverAssignment_200
+--- PASS: TestApproveSubmission_UserApproverAssignment_200 (0.04s)
+=== RUN   TestApproveSubmission_RoleApproverAssignment_200
+--- PASS: TestApproveSubmission_RoleApproverAssignment_200 (0.04s)
+=== RUN   TestRejectItem_AdminWithoutAssignment_200
+--- PASS: TestRejectItem_AdminWithoutAssignment_200 (0.03s)
+=== RUN   TestApproveSubmission_SuperadminWithoutAssignment_200
+--- PASS: TestApproveSubmission_SuperadminWithoutAssignment_200 (0.04s)
+=== RUN   TestApproveSubmission_ApproverOnOtherTemplate_403
+--- PASS: TestApproveSubmission_ApproverOnOtherTemplate_403 (0.08s)
+=== RUN   TestApproveSubmission_AssigneeRoleIsNotApprover_403
+--- PASS: TestApproveSubmission_AssigneeRoleIsNotApprover_403 (0.05s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_NonApprover_Refused
+--- PASS: TestApproveSubmissionFunc_OpsPath_NonApprover_Refused (0.05s)
+=== RUN   TestRejectItemFunc_OpsPath_NonApprover_Refused
+--- PASS: TestRejectItemFunc_OpsPath_NonApprover_Refused (0.04s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_Approver_Allowed
+--- PASS: TestApproveSubmissionFunc_OpsPath_Approver_Allowed (0.04s)
+=== RUN   TestApproveSubmissionFunc_NoUserInContext_Refused
+--- PASS: TestApproveSubmissionFunc_NoUserInContext_Refused (0.04s)
+=== RUN   TestUpdateTemplateHandler_OpEmittedTransactionally
+--- PASS: TestUpdateTemplateHandler_OpEmittedTransactionally (0.10s)
+=== RUN   TestSaveResponse_SingleRowWrite_CDCTrigger
+--- PASS: TestSaveResponse_SingleRowWrite_CDCTrigger (0.27s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated (0.17s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteEditWins
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteEditWins (0.10s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives (0.08s)
+=== RUN   TestListTemplatesToleratesNullCreatedBy
+--- PASS: TestListTemplatesToleratesNullCreatedBy (0.03s)
+=== RUN   TestGetTemplateByIDToleratesNullCreatedBy
+--- PASS: TestGetTemplateByIDToleratesNullCreatedBy (0.01s)
+=== RUN   TestMyChecklistsToleratesNullCreatedBy
+--- PASS: TestMyChecklistsToleratesNullCreatedBy (0.03s)
+=== RUN   TestCreateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestCreateTemplateFuncRejectsApproverlessApproval (0.01s)
+=== RUN   TestUpdateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestUpdateTemplateFuncRejectsApproverlessApproval (0.03s)
+=== RUN   TestTemplateWritesStillAcceptedWhenValid
+--- PASS: TestTemplateWritesStillAcceptedWhenValid (0.08s)
+=== RUN   TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto (0.06s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto (0.08s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto (0.06s)
+=== RUN   TestResubmit_SubStepRequirePhoto_NotBlocked
+--- PASS: TestResubmit_SubStepRequirePhoto_NotBlocked (0.06s)
+=== RUN   TestResubmit_NeverRejectedField_Unaffected
+--- PASS: TestResubmit_NeverRejectedField_Unaffected (0.06s)
+=== RUN   TestResubmit_RejectedWithoutRequirePhoto_NotGated
+--- PASS: TestResubmit_RejectedWithoutRequirePhoto_NotGated (0.07s)
+=== RUN   TestUpdateTemplate_StableFieldIdentity
+--- PASS: TestUpdateTemplate_StableFieldIdentity (0.07s)
+=== RUN   TestSaveResponse_UnknownFieldRejected
+--- PASS: TestSaveResponse_UnknownFieldRejected (0.02s)
+=== RUN   TestSaveResponseHandler_UnknownField422
+--- PASS: TestSaveResponseHandler_UnknownField422 (0.01s)
+=== RUN   TestSubmitNoApprovalTemplate_StatusNotLeftPending
+--- PASS: TestSubmitNoApprovalTemplate_StatusNotLeftPending (0.03s)
+=== RUN   TestSubmitApprovalTemplate_StillPending
+--- PASS: TestSubmitApprovalTemplate_StillPending (0.04s)
+=== RUN   TestPendingApprovals_NoApprovalSubmissionDoesNotLeak
+--- PASS: TestPendingApprovals_NoApprovalSubmissionDoesNotLeak (0.05s)
+=== RUN   TestPendingApprovals_RealPendingStillVisible
+--- PASS: TestPendingApprovals_RealPendingStillVisible (0.06s)
+=== RUN   TestTemplateSnapshotCarriesRequiresApproval
+    submission_status_test.go:265: real row 3ca1fbbe-c7c8-4582-9005-291dcce15ae2: template_snapshot->>'requires_approval' = false; snapshot keys = [assignments created_at created_by id name requires_approval schedules sections updated_at]
+--- PASS: TestTemplateSnapshotCarriesRequiresApproval (0.04s)
+PASS
+ok  	github.com/yumyums/hq/internal/workflow	3.410s
+FAIL
+EXIT=1
