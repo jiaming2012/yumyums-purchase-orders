@@ -421,7 +421,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   document cannot drift back. done_when is mechanical: `check` exit 0, and `backlog list` count ==
   document entry count. Footprint: planning docs.
 
-- **`team-records-from-hand-runs`** · **PLANNED** · (Carried from last cycle's Activity 5.) The
+- **`team-records-from-hand-runs`** · **DRAFTING** (overnight-20260904, branch
+  `wo-team-records-from-hand-runs` — template landed at
+  `.night-crew/knowledge/scorecard/TEMPLATE.md` (.md by design — inert to the union read,
+  proven) + closeout ritual stanza armed under COMMANDS.md step 5; validation render green:
+  transient fake-run-id record → all four roles record-backed, EXIT=0, record deleted, no
+  real-run-id jsonl committed — tonight's `20260904.jsonl` is emitted by the run's closeout
+  per the new stanza; awaiting morning triage) · (Carried from last cycle's Activity 5.) The
   scorecard sees no rostered role on this hand-run target — every close renders `—` for all four
   teams. Scope: emit the per-run scorecard files the CLI already reads, from this repo's hand-run
   slate/closeout ritual (template + ritual step). If that provably requires CLI changes, the card

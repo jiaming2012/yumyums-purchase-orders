@@ -67,3 +67,27 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   carrying `✅ RESOLVED` continuation blocks (faithful to the before-document; triage
   should reconcile the heads); B-145 `done —` and B-412 `promoted →` were implementer
   judgment calls, verified as carrying the residuals verbatim.
+
+## Merge 4 — `wo-team-records-from-hand-runs` (Card 4)
+
+- **Cards involved:** Card 4 onto the tree carrying Cards 1–3. Shared surface with
+  Card 3: `COMMANDS.md` — Card 4 adds a closeout-scorecard stanza under step 5; Card 3's
+  §4.5 triage stanza under step 6 verified byte-untouched by Card 4's G6. Serial
+  dispatch removed the collision the slate planned for.
+- **Files/hunks:** clean merge, no conflicts — `scorecard/TEMPLATE.md` (new, .md-inert
+  by design: a .jsonl template would render as a real run), `COMMANDS.md` (one +26-line
+  stanza), one roadmap card flip, run-dir evidence (merge-intent + 3 `card4-*.log`).
+- **Intents read:** Card 4's merge-intent (its COMMANDS.md note honors Card 3's "keep
+  both additions").
+- **Resolution:** none needed.
+- **Gate result after merge:** G6 PASS-WITH-NOTES on identical tree content. Independent
+  re-run: inert render "No runs to show." exit 0; validation record rebuilt from the
+  template's own instructions with no improvised field, 4/4 roles record-backed, exit 0;
+  closing-artifact negative checked per-commit (none, tip or history);
+  `milestones.jsonl` blob-identical to base. Notes to triage: template's
+  filename-stem==run_id rule was deviated from by the validation file (CLI reads run_id
+  from content — safer for a transient, moot at a real closeout); team-line points split
+  has no rounding guidance for uneven totals (two closeouts could split differently).
+- **NOT emitted by the card (deliberate):** `scorecard/20260904.jsonl` — it is a closing
+  artifact in the run-evidence oracle; the run's closeout emits it (first consumer
+  proves the producer), immediately after this merge.
