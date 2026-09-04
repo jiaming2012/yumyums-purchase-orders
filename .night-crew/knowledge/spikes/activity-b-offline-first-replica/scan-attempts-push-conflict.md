@@ -114,3 +114,27 @@ patched-row loop but not that partial-failure window.
   device` as accepted (or persisting the burn outcome locally before
   landing); that card owes ONE validation run exercising the
   land-fails-after-redeem window.
+  - validated: GAP-1 — run 20260905, card `scan-attempts-push-conflict`
+    (branch `wo-scan-attempts-push-conflict`). The card shipped BOTH fixes the
+    gap named: the handler persists the `redeem()` outcome onto the local row
+    (`burn_ok`/`burn_reason`) BEFORE the landing insert, so a failed landing
+    retries the landing only and never re-burns; AND `already_used` where the
+    codes pull replica names the device's OWN id as `redeemed_by` is
+    arbitrated as accepted (covering the lost-response window the persisted
+    outcome cannot see) — `marketing/sync/push-replication.js`. The owed
+    validation run exercised the land-fails-after-redeem window itself:
+    red first, the naive redeem-then-land shape under an injected network
+    failure on the FIRST landing insert after `redeem()` answered `ok=true` —
+    the push retry re-burned and the WINNER's local row mis-flipped to
+    `rejected/already_used` (`card3-red.log`, EXIT=1, both redeem verdicts
+    enumerated). Then green: the production handler under the SAME injection —
+    exactly ONE redeem request, the landing retried (2 landing requests),
+    status history `[pending → accepted]` with no transient flip, and the
+    landed server row `device-a|accepted` (`card3-harness.log` leg D, EXIT=0;
+    leg E additionally validated the lost-response variant: first redeem
+    response dropped after the server committed, retry's `already_used`
+    arbitrated accepted via the codes replica, server row
+    `device-b|accepted`; both logs under
+    `.night-crew/runs/2026-09-05-autonomous/`). The mis-flip class this gap
+    named — a transient landing failure flipping the winning device's UI — is
+    closed in the shipped module, not just the spike.
