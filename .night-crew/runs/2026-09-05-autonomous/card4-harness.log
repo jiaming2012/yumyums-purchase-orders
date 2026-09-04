@@ -1,0 +1,152 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260905-c4/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260905-c4
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T23:17:46Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788563871017
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788563871956 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T23:17:52Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  dead (expired -1d, in-window) = 6b17abae-a821-4182-8100-deea7544c227
+  valid (expires +1d)           = 18eb9dc8-0c6c-44dc-b3ac-db50358844e5  (hash: c4-hash-valid-18eb9dc8-0c6c-44dc-b3ac-db50358844e5)
+
+── device JWT (throwaway secret from the compose file) ──
+
+── mode: green ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# leg A — device clock 2 days FAST (deviceNow = real + 2d); codes + offers replicas, one clock
+  pulls: 4 codes + 3 offers; clock.captures = 7
+  offset = -172800164ms (expected ~-172800000ms, err 164ms)
+  persisted 7 states; last = {offset_ms: -172800164, captured_at_server: 2026-09-04T23:17:55.000Z}
+  codes request windows (4 requests):
+    #1 expires_at > 2026-09-04T23:17:55.069Z
+    #2 expires_at > 2026-09-02T23:17:55.004Z
+    #3 expires_at > 2026-09-02T23:17:55.000Z
+    #4 expires_at > 2026-09-02T23:17:55.001Z
+  leg A HELD — offset captured on every pull (Date header), persisted, and fed back into the very next request's window
+# leg B — done_when: offline expiry under the fast clock
+  offline (both replications cancelled)
+  dead code:  naive=reject  adjusted isExpired=true
+  valid code: naive=REJECT (the false rejection the clock prevents)  adjusted isExpired=false
+  resolveOffers(valid hash, clock.now) → [18eb9dc8-0c6c-44dc-b3ac-db50358844e5]; (raw fast deviceNow) → []; (dead hash) → []
+  leg B HELD — clock ≥2d fast: expired code rejected offline, valid code still resolves
+# leg C — device clock 2 days BEHIND (deviceNow = real − 2d); codes replica
+  offset = 172799803ms (expected ~172800000ms, err 197ms)
+  codes request windows (4 requests):
+    #1 expires_at > 2026-08-31T23:17:55.176Z
+    #2 expires_at > 2026-09-02T23:17:55.000Z
+    #3 expires_at > 2026-09-02T23:17:55.001Z
+    #4 expires_at > 2026-09-02T23:17:55.000Z
+  offline (replication cancelled)
+  dead code:  naive=ACCEPT (the §5.1 hole)  adjusted isExpired=true
+  leg C HELD — same row, same skew: naive accepts the dead code, the adjusted check rejects it; the valid code still resolves
+# leg D — state round-trip + capture edge cases (pure local)
+  reloaded-offline clock (initialState, 0 captures) still rejects the dead code (offset 172799803ms)
+  headerless response → capture returns null, prior offset retained (observable, not silent)
+  unreadable expires_at → expired (fail-closed)
+  leg D HELD
+# request log — fast codes (4), fast offers (3), behind codes (4)
+# sample pull URL (fast codes #1): http://127.0.0.1:55368/codes?select=id%2Ctoken_hash%2Ccampaign_id%2Cexpires_at%2Credeemed_at%2Credeemed_by%2Cupdated_at%2C_deleted&or=(updated_at.gt.%221970-01-01T00%3A00%3A00%2B00%3A00%22,and(updated_at.eq.%221970-01-01T00%3A00%3A00%2B00%3A00%22,id.gt.%2200000000-0000-0000-0000-000000000000%22))&expires_at=gt.2026-09-04T23%3A17%3A55.069Z&order=updated_at.asc,id.asc&limit=2
+ALL LEGS HELD
+
+✅ VERDICT: GREEN — offset captured from the pull Date header on every successful pull; offline expiry rejects the dead code and accepts the valid one under BOTH ±2d skews; window bounds follow the adjusted clock.
+EXIT=0

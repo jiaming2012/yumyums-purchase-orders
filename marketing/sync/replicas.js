@@ -83,7 +83,8 @@ export function marketingCollectionSpec() {
 function startReplica(deps, { table, windowBound, replicationIdentifier }) {
   const {
     replicateRxCollection, collection, restUrl, bearer, fetchImpl, stream$,
-    batchSize = 50, now = Date.now, requestLog, waitForLeadership = false,
+    batchSize = 50, clock, now = clock ? clock.now : Date.now,
+    requestLog, waitForLeadership = false,
   } = deps;
   const pullHandler = makePullHandler({
     restUrl,
@@ -92,6 +93,7 @@ function startReplica(deps, { table, windowBound, replicationIdentifier }) {
     bearer,
     fetchImpl,
     requestLog,
+    clock,
   });
   return startPullReplica({
     replicateRxCollection,
@@ -107,10 +109,15 @@ function startReplica(deps, { table, windowBound, replicationIdentifier }) {
 /**
  * The codes / redemption-state replica (§5.3 window).
  * @param {object} deps  {replicateRxCollection, collection, restUrl, bearer,
- *                        fetchImpl, stream$, batchSize?, now?, requestLog?,
- *                        waitForLeadership?, replicationIdentifier?}
- *   `now` is the injection point for the clock-offset card (§5.1): pass an
- *   offset-adjusted clock and every window bound follows it.
+ *                        fetchImpl, stream$, batchSize?, clock?, now?,
+ *                        requestLog?, waitForLeadership?, replicationIdentifier?}
+ *   `clock` (card clock-offset-on-sync, §5.1): a createSyncClock instance
+ *   (clock.js). Every successful pull calibrates it from the response's Date
+ *   header, and — unless an explicit `now` is injected — every window bound
+ *   follows clock.now, so a skewed device clock stops distorting the §5.3
+ *   window. Offline expiry checks are clock.isExpired(expires_at); pass
+ *   {now: clock.now} into resolveOffers. An explicit `now` still wins
+ *   (harness/test injection precedence).
  */
 export function startCodesReplica(deps) {
   return startReplica(deps, {
