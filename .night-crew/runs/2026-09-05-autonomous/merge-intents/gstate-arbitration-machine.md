@@ -145,6 +145,17 @@ deterministic, no fire-and-forget), derives the wire result, and stops the actor
 observer decides/emits the domain event; the sink persists it; no DB work ever runs
 under the actor lock.
 
+## Gate evidence (completed post-build)
+
+| Gate | Verdict | Log |
+|---|---|---|
+| G1 | PASS — `go build ./...` exit 0, `go vet ./...` exit 0, on `go1.26.2 darwin/amd64`, from `backend/` | `card7-g1.log` |
+| G2 (Go) | PASS against armed-reds baseline — 12 test-bearing packages (baseline 11 + `internal/redemption` NEW), 562 with-subtest results (≈538 baseline + 24 new), `internal/workflow` 39 ≥ 35, sync's 59-subtest gates self-asserted PASS, `HQ_SYNC_SUBSTRATE_OPTIONAL`/`HQ_SYNC_GATE_CHILD` both unset. `SUITE_EXIT=1` is entirely the base-proven pre-existing `TestJWTBridgeRLS` (same 4 subtests + parent as `card1-baseline-jwtbridge.log`); zero failures outside it | `card7-g2-go.log` |
+| G2 (Playwright) | N/A per signed slate — backend-only card, no page file touched (touched paths carry no `[e2e.seams]` entry) | — |
+| RF | Three named reds captured with command + exit code before the greening code; greens re-run individually | `card7-red.log` / `card7-green.log` |
+| G4 | Not owed — no frontend asset changed, `sw.js` untouched | — |
+| Docker build | Smoke SKIPPED (optional per slate; `golang:1.26-alpine` would need a network pull). Builder-image bump verified by inspection; `-ldflags` path verified by a direct `go build -ldflags` smoke on 1.26.2 (exit 0, injected GitSHA present in binary via `strings`) | `timings.log` note |
+
 **Machine wiring** (v0.3.1 API fact discovered building this: `After(d)` delayed
 transitions DROP Guard/Assign — `executeInternalTransition` rebuilds a bare
 `TransitionDef{Target}` — so §18's sketch of a guarded/bounded retry directly on
