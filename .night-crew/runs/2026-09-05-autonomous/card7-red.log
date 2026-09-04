@@ -1,0 +1,120 @@
+# Card 7 · gstate-arbitration-machine — RED-FIRST captures
+# 2026-09-04T21:45:50Z · go version go1.26.2 darwin/amd64
+# Tree state: red-capture commit — route_outcome fallback ABSENT, F4 emission ABSENT,
+# check-then-act analog test asserting single-winner (the claim a naive impl would make).
+
+── RED 1 · E-KR2 fallthrough ──────────────────────────────────────────
+$ go test -count=1 -run '^TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired$' ./internal/redemption/
+--- FAIL: TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired (2.00s)
+    machine_test.go:208: E-KR2 (status ""): arbitration errored (redemption: arbitration reached no terminal within budget) instead of terminating failed — the fallthrough is absent
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	2.591s
+FAIL
+EXIT=1
+
+── RED 2 · F4 RaceLostReconciled emission + notification ──────────────
+$ DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c7?sslmode=disable' go test -count=1 -run '^TestF4_RaceLostReconciledEmitsNotification$' ./internal/redemption/
+2026/09/04 17:46:01 OK   0001_users.sql (18.76ms)
+2026/09/04 17:46:01 OK   0002_sessions.sql (12.98ms)
+2026/09/04 17:46:01 OK   0003_invite_tokens.sql (9.77ms)
+2026/09/04 17:46:01 OK   0004_hq_apps.sql (12.37ms)
+2026/09/04 17:46:02 OK   0005_app_permissions.sql (58.2ms)
+2026/09/04 17:46:02 OK   0006_checklist_templates.sql (113.81ms)
+2026/09/04 17:46:02 OK   0007_checklist_schedules.sql (9.91ms)
+2026/09/04 17:46:02 OK   0008_template_assignments.sql (11.26ms)
+2026/09/04 17:46:02 OK   0009_checklist_sections.sql (9.53ms)
+2026/09/04 17:46:02 OK   0010_checklist_fields.sql (12.73ms)
+2026/09/04 17:46:02 OK   0011_checklist_submissions.sql (11.57ms)
+2026/09/04 17:46:02 OK   0012_submission_responses.sql (15.04ms)
+2026/09/04 17:46:02 OK   0013_submission_fail_notes.sql (11.22ms)
+2026/09/04 17:46:02 OK   0014_submission_rejections.sql (11.1ms)
+2026/09/04 17:46:02 OK   0015_ops.sql (15.1ms)
+2026/09/04 17:46:02 OK   0016_lamport_ts.sql (8.34ms)
+2026/09/04 17:46:02 OK   0017_users_naming.sql (9.74ms)
+2026/09/04 17:46:02 OK   0018_ob_templates.sql (28.97ms)
+2026/09/04 17:46:02 OK   0019_ob_items.sql (23.11ms)
+2026/09/04 17:46:02 OK   0020_ob_progress.sql (19.21ms)
+2026/09/04 17:46:02 OK   0021_ob_signoffs.sql (12.3ms)
+2026/09/04 17:46:02 OK   0022_ob_template_assignments.sql (15.03ms)
+2026/09/04 17:46:02 OK   0023_multi_role.sql (37.91ms)
+2026/09/04 17:46:02 OK   0024_inventory.sql (50.42ms)
+2026/09/04 17:46:02 OK   0025_pending_purchases.sql (13.04ms)
+2026/09/04 17:46:02 OK   0026_ob_progress_faq.sql (5.65ms)
+2026/09/04 17:46:02 OK   0027_ob_section_signoff_roles.sql (4.28ms)
+2026/09/04 17:46:02 OK   0028_ob_video_upgrade.sql (10.89ms)
+2026/09/04 17:46:02 OK   0029_ob_templates_archived_at.sql (4.15ms)
+2026/09/04 17:46:02 OK   0030_item_groups_unique_name.sql (13.15ms)
+2026/09/04 17:46:02 OK   0031_remove_placeholder_items.sql (5.7ms)
+2026/09/04 17:46:02 OK   0032_item_group_thresholds.sql (7.13ms)
+2026/09/04 17:46:02 OK   0033_stock_count_overrides.sql (11.35ms)
+2026/09/04 17:46:02 OK   0034_purchase_orders.sql (25.49ms)
+2026/09/04 17:46:02 OK   0035_purchase_items_photo_store.sql (6.53ms)
+2026/09/04 17:46:02 OK   0036_purchase_items_full_name.sql (5.71ms)
+2026/09/04 17:46:02 OK   0037_cutoff_config.sql (10.37ms)
+2026/09/04 17:46:02 OK   0038_po_status_extend.sql (9.57ms)
+2026/09/04 17:46:02 OK   0039_purchase_items_vendor.sql (7.58ms)
+2026/09/04 17:46:02 OK   0040_shopping_lists.sql (32.76ms)
+2026/09/04 17:46:02 OK   0041_notification_channel.sql (9.53ms)
+2026/09/04 17:46:02 OK   0042_repurchase_tracking.sql (17.23ms)
+2026/09/04 17:46:02 OK   0043_alert_log.sql (12.8ms)
+2026/09/04 17:46:02 OK   0044_low_stock_alert_log.sql (18.21ms)
+2026/09/04 17:46:02 OK   0045_notification_channel_array.sql (15.54ms)
+2026/09/04 17:46:02 OK   0046_user_timezone.sql (3.42ms)
+2026/09/04 17:46:02 OK   0047_employee_fields.sql (14.16ms)
+2026/09/04 17:46:02 OK   0048_notification_default_both.sql (4ms)
+2026/09/04 17:46:02 OK   0049_ob_sub_items.sql (14.95ms)
+2026/09/04 17:46:02 OK   0050_ob_progress_sub_item.sql (5.13ms)
+2026/09/04 17:46:02 OK   0051_rejection_field_fk.sql (4.23ms)
+2026/09/04 17:46:02 OK   0052_template_name_unique.sql (5.38ms)
+2026/09/04 17:46:02 OK   0053_response_field_fk.sql (3.74ms)
+2026/09/04 17:46:02 OK   0054_failnote_field_fk.sql (3.77ms)
+2026/09/04 17:46:02 OK   0055_item_location_in_store.sql (7.11ms)
+2026/09/04 17:46:02 OK   0056_ob_progress_photo.sql (8.99ms)
+2026/09/04 17:46:02 OK   0057_ob_items_photo_type.sql (10.82ms)
+2026/09/04 17:46:02 OK   0058_ob_sub_items_photos.sql (8.06ms)
+2026/09/04 17:46:02 OK   0059_cleanup_photo_items.sql (4.11ms)
+2026/09/04 17:46:02 OK   0060_menu_items.sql (19.12ms)
+2026/09/04 17:46:02 OK   0061_daily_menu_sales.sql (15.87ms)
+2026/09/04 17:46:02 OK   0062_recipes.sql (15.6ms)
+2026/09/04 17:46:02 OK   0063_drift_check_results.sql (10.92ms)
+2026/09/04 17:46:02 OK   0064_no_itemized_receipt_seed.sql (8.07ms)
+2026/09/04 17:46:02 OK   0065_mercury_category_on_purchase_events.sql (8.25ms)
+2026/09/04 17:46:02 OK   0066_mercury_category_on_pending_purchases.sql (8.62ms)
+2026/09/04 17:46:02 OK   0067_receipt_sync_runs.sql (16.8ms)
+2026/09/04 17:46:02 OK   0068_pending_purchases_bank_tx_uniq.sql (9.99ms)
+2026/09/04 17:46:02 OK   0069_pending_purchases_parse_error.sql (5.37ms)
+2026/09/04 17:46:02 OK   0070_receipt_urls.sql (6.82ms)
+2026/09/04 17:46:02 OK   0071_submission_fail_notes_unique.sql (8.11ms)
+2026/09/04 17:46:02 OK   0072_app_timezone_new_york.sql (8.39ms)
+2026/09/04 17:46:02 OK   0073_sync_fdw_views.sql (29.57ms)
+2026/09/04 17:46:02 OK   0074_sync_fdw_approver_view.sql (6.57ms)
+2026/09/04 17:46:02 OK   0075_item_aliases.sql (15.06ms)
+2026/09/04 17:46:02 OK   0076_checklist_template_app.sql (10.52ms)
+2026/09/04 17:46:03 OK   0077_race_lost_notifications.sql (14.29ms)
+2026/09/04 17:46:03 goose: successfully migrated database to version: 77
+2026/09/04 17:46:03 INFO database migrations applied successfully
+--- FAIL: TestF4_RaceLostReconciledEmitsNotification (0.01s)
+    f4_test.go:107: F4: already_used on a synced offline_override did NOT flag race_lost_reconciled
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	1.623s
+FAIL
+EXIT=1
+
+── RED 3 · no-TOCTOU (§18 #1) — harness catches the check-then-act analog ──
+# The single-winner property holds by construction in any honest machine, so its
+# red is the redeem-rpc-race-proof precedent shape: the SAME single-winner
+# assertion pointed at a naive check-then-act analog demonstrably fails — the
+# double-win §18 edge-case 1 names. Green flips this test into the permanent
+# inverted control (analog MUST double-win or the harness lost its teeth).
+$ go test -count=1 -run '^TestNoTOCTOU_CheckThenActAnalogDoubleWins$' ./internal/redemption/
+--- FAIL: TestNoTOCTOU_CheckThenActAnalogDoubleWins (0.03s)
+    machine_test.go:322: check-then-act analog produced 8 winners for one code (map[redeemed:8]) — the TOCTOU double-win the harness must catch
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	0.469s
+FAIL
+EXIT=1
+
+# Companion at red stage: the real-machine single-winner test (already-honest wiring):
+$ go test -count=1 -run '^TestNoTOCTOU_ConcurrentAttemptsSingleWinner$' ./internal/redemption/
+ok  	github.com/yumyums/hq/internal/redemption	0.470s
+EXIT=0

@@ -8,7 +8,7 @@
 #     -t yumyums-hq:latest .
 
 # ─── Build stage ──────────────────────────────────────────────────────────────
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 ARG GIT_SHA=unknown
 ARG BUILT_AT=unknown

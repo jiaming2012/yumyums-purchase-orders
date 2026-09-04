@@ -1,0 +1,12 @@
+# Card 7 · fix round (G6) — FINDING-2 RED capture
+# 2026-09-04T22:10:39Z · go version go1.26.2 darwin/amd64
+# Tree: green commit 030ccf8 + the new regression test ONLY (fix not yet applied).
+# NewArbitrator defaults MaxRetries only when NEGATIVE; main.go passes Config{} → MaxRetries=0,
+# so the documented default (1 bounded retry) is unreachable in production.
+$ go test -count=1 -run '^TestProductionDefaultConfigRetriesTransientError$' ./internal/redemption/
+--- FAIL: TestProductionDefaultConfigRetriesTransientError (0.00s)
+    machine_test.go:264: terminal=failed, want redeemed — the default config did not retry the transient error (§18 bounded retry disabled as deployed)
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	3.795s
+FAIL
+EXIT=1
