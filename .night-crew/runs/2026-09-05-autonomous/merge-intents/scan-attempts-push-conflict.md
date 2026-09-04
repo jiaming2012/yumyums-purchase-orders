@@ -84,14 +84,56 @@ no sw.js, no backend).
 
 ## Red-first
 
-To be captured to `card3-red.log` BEFORE the production module exists in the tree (git history
-is the chronology, Card 2's pattern): the naive handler shape (redeem → land → patch, no
-persisted burn outcome, no own-device arbitration) with an INJECTED network failure on the
-first `scan_attempts` landing insert AFTER a successful `redeem()` — the push retry re-runs
-`redeem()`, the re-burn answers `already_used` to the device that in fact WON, and the naive
-handler flips the winner's local row to `rejected/already_used`. That mis-flip failing the
-"winner stays accepted" assertion (EXIT=1) is GAP-1's exact window, demonstrated. Then green:
-the production module against the same injection.
+Captured to `card3-red.log` (committed `1288e8f`) BEFORE the production module existed in the
+tree (it lands in the NEXT commit, `90fc5f7` — git history is the chronology, Card 2's
+pattern). The probe is the spike's naive handler shape (redeem → land → patch; no persisted
+burn outcome, no own-device arbitration), inline in the harness, never the production code:
+
+- **red-gap1** — `bash marketing/sync/harness/push-run.sh red-gap1` → **EXIT=1**. Single
+  device, injected network failure on the FIRST `scan_attempts` landing insert AFTER
+  `redeem()` answered `ok=true` (the device provably WON — both verdicts enumerated in the
+  log: `[{ok:true}, {ok:false, reason:already_used}]`). The push retry re-ran `redeem()`, the
+  re-burn echoed `already_used`, and the naive handler flipped the WINNER's local row to
+  `rejected/already_used` — GAP-1's exact land-fails-after-redeem window, demonstrated.
+- **Green**: the production module under the same injection (and more) — `card3-harness.log`,
+  EXIT=0 first attempt (below).
+
+## Gate evidence (run in this worktree; full logs committed beside this file)
+
+- **PRIMARY (standalone harness, B-345 precedent)** —
+  `bash marketing/sync/harness/push-run.sh green` → **EXIT=0, first attempt**
+  (`card3-harness.log`, committed `90fc5f7`). Substrate coordinates printed read-only by
+  lib.sh before any write (spike-supabase RECONCILE; db/rest/realtime ports Docker-assigned).
+  Every done_when clause held, enumerated:
+  - **Offline queue**: both devices enqueued a `pending` attempt for ONE code before any
+    replication ran; ids asserted to be real uuids (build-fact 1); re-enqueue deduped to the
+    existing doc (leg A).
+  - **Concurrent push, exactly one accepted**: both push replicas started together;
+    device-a `accepted`, device-b `rejected/already_used`; handler invocations bounded at
+    **2 per device** — the resolution write-back does not loop (leg B).
+  - **Loser's flip carries winner + time, FROM the codes pull replica**: the loser's local
+    row showed `already used at 2026-09-04T22:55:11.479216+00:00 by device-a`, and the values
+    were asserted EQUAL to the loser's own local codes-replica row (`redeemed_by`/
+    `redeemed_at`) — plus **zero GET /scan_attempts in either device's full request trace**
+    (leg C).
+  - **GAP-1, the owed validation (belt 1)**: injected network failure on the first landing
+    insert after a winning `redeem()` — **exactly 1 redeem request** (the persisted burn
+    outcome suppressed the re-burn), **2 landing requests** (failed + retried), status
+    history `[pending → accepted]` — **the winner never flipped, even transiently** (leg D).
+  - **GAP-1 belt 2 (lost redeem response)**: first redeem response dropped AFTER the server
+    committed; the retry's `already_used` was arbitrated as ACCEPTED because the codes
+    replica named the device's own id — status history `[pending → accepted]` (leg E).
+  - **Write-only holds**: device SELECT on `scan_attempts` → **HTTP 403** (leg F).
+  - **Server-side enumeration (psql, supabase_admin)**: race code = exactly 2 attempt rows,
+    1 accepted / 1 rejected|already_used, `codes.redeemed_by` = the accepted row's device;
+    W1 row `device-a|accepted`; W2 row `device-b|accepted`.
+- **G2 (Playwright)** — **n/a by the slate's own gate rule**: no page file, no `sw.js`, no
+  test file touched. The diff's production surface is `marketing/sync/` only — unreferenced
+  by any page tonight (Cards 5/6 wire), outside the precache by design (B-37 reachability),
+  and `night-crew.toml` declares no seam for it. Nothing e2e-observable changed.
+- **G1 / G2 (Go)** — n/a: `backend/` untouched (verified by the diff).
+- **G4** — n/a: `sw.js` not regenerated; no asset added, removed, or changed under it.
+- **RF** — the Red-first section above; red exit 1 (`1288e8f`), green exit 0 (`90fc5f7`).
 
 ## Engineering calls (recorded for the merge record; evidence lands below when gates run)
 
