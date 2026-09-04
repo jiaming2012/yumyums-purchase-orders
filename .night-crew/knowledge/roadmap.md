@@ -283,7 +283,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   used at 6:42pm" (§6). done_when: a lost-race attempt renders "already used" with the winning
   time/device. Footprint: rxdb replica.
 
-- **`clock-offset-on-sync`** · **PLANNED** · On every successful sync, store
+- **`clock-offset-on-sync`** · **DRAFTING** (overnight-20260905, branch
+  `wo-clock-offset-on-sync` — `marketing/sync/clock.js` sync clock capturing
+  `offset = serverNow − deviceNow` from the pull response's `Date` header on every successful
+  pull (spike-proven source), persisted-beside-the-checkpoint state via injected `persist`,
+  `clock.isExpired()` as the offline expiry API, window bounds following `clock.now`; both skew
+  signs exercised in the standalone substrate harness; module deliberately unwired pending
+  Cards 5/6; awaiting morning triage) · On every successful sync, store
   `serverNow − deviceNow` and apply that offset in the offline `expires_at` comparison (§5.1) —
   a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
   set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
