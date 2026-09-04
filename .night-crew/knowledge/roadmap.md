@@ -146,10 +146,13 @@ build to — cited so the cards trace to them:
   re-shows its terminal result; a different code mid-session prompts to finish the current customer
   first. → `redemption-submit-flow`.
 
-**Modeling approach (§19.1/19.2):** the client scanner is a parallel/orthogonal state machine (the
-addendum models it in XState; a hand-rolled equivalent is acceptable given HQ's no-framework
-convention — **decided by a spike near Activity C** (operator's call this round), not in the
-abstract now), and the server side is the per-aggregate gstate machines
+**Modeling approach (§19.1/19.2):** the client scanner is a parallel/orthogonal state machine —
+**decided at slate-20260905 (operator, overriding the spike extraction's hand-rolled
+recommendation): XState, overlay-region variant, with no-silent-no-ops strictness** — every
+(state, event) pair is a declared decision; undeclared pairs throw in dev/test and raise a
+modeled, visible `unexpectedEvent` error state in production. Rationale on the record: explicit
+modeling "brings out design decisions … for raising edge cases." The server side is the
+per-aggregate gstate machines
 (§18): the redemption-attempt machine (Activity D), plus the Reward-Code, Campaign and
 Issuance/Delivery lifecycles that map onto Activity E and the deferred campaign-admin (#11).
 
@@ -165,12 +168,12 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 | 3 | Which Toast scheduled report carries order# + business date + discounts | Activity 0 spike (Toast reporting menu) |
 | 4 | Toll-free vs 10DLC | **Resolved:** toll-free for the cycle (de-risk leg 1); 10DLC registered in parallel for later scale |
 | 5 | `requires_online` face-value threshold | **Resolved (operator, slate-20260904 sitting): make the $ amount configurable** — a settings surface (`marketing_settings.requires_online_threshold_cents`, seeded default $20, changeable without a migration) rather than a hardcoded policy; campaign creation derives `requires_online` from face value vs the setting. The Activity A schema card carries it |
-| 6 | Do the 3 devices genuinely go offline independently, or always together on one hotspot | **Activity 0 field observation — load-bearing; can re-scope Activity B** |
+| 6 | Do the 3 devices genuinely go offline independently, or always together on one hotspot | **Activity 0 field observation — still owed.** Operator chose (slate-20260905 sitting) to slate Activity B ahead of it: the spike record prices both topologies (the pull mechanism is what a thin live cache would use too), so the worst case is bounded over-build, not rework. The observation can still re-scope B's *remaining* surface |
 | 8 | Welcome-offer definition + per-code expiry window | Operator business call, at Activity A/E |
-| 9 | Confirm-then-burn vs burn-on-scan | **Recommend confirm-then-burn** (§14) — locked at Activity C unless operator differs |
+| 9 | Confirm-then-burn vs burn-on-scan | **Resolved (operator, slate-20260905 sitting): confirm-then-burn, locked** — the code burns only when staff submit with the Toast order number; a mis-scan costs nothing and every redemption carries the join key |
 | 10 | QR payload shape | **Resolved (operator, this round):** URL-wrapping the identity token (→ full server-side entitlements when online) **plus an embedded offer descriptor** for offline viewing — hybrid; locked at Activity E |
 | 11 | Campaign admin in HQ Go/Postgres vs Supabase directly | Activity A/D (arbiter is Supabase either way) |
-| 12 | Who holds `offline_override` | Operator business call, at Activity C (permission seed) |
+| 12 | Who holds `offline_override` | **Resolved (operator, slate-20260905 sitting): a per-user ENTITLEMENT managed in the HQ Users app**, grantable to any role (admin, manager, or team member) — not derived from role. Engineering call, stated: seeded `true` for admins so the branch isn't dead on day one; everyone else by explicit grant/revoke in `users.html` |
 | 13 | Reachability signal (heartbeat interval / probe timeout) | Build call at Activity C |
 
 ## Module footprints (independent → parallelizable)
