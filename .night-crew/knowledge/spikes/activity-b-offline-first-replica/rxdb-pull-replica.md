@@ -119,3 +119,13 @@ already guards it.
 
 - n/a for this goal alone — no corrections here; the sitting's batch review
   (see the sibling ledgers) covers the goals that have them.
+
+## Comebacks
+
+- gap: GAP-1 — the spiked `gt`-cursor checkpoint can skip same-`updated_at`
+  rows at a batch boundary (theoretical missed-row edge the spike's own
+  conclusion names; the silent-miss class is a redemption never reaching
+  device B). Fix lands with Activity B's pull-replica card keeping the id
+  tiebreak in the checkpoint (or over-fetching one row); that card owes ONE
+  validation run exercising a same-timestamp batch boundary (found
+  2026-09-04, /nc-spike-close).

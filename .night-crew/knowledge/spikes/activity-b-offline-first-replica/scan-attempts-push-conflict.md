@@ -102,3 +102,15 @@ patched-row loop but not that partial-failure window.
 - signed: operator, 2026-09-04 — covers 1 correction(s) (one-sitting batch
   across Activities B/C/D; "Sign off all three" on the phrase-checked batch
   question at the sitting's close).
+
+## Comebacks
+
+- gap: GAP-1 — redeem-then-land is not atomic client-side: a transient
+  landing failure after a successful `redeem()` makes the push retry re-burn
+  and answer `already_used` to the WINNING device, mis-flipping its UI (spike
+  hit the retry path on its red first run, 2026-09-04; the green run's
+  resolved-row skip does not cover this window). Fix lands with Activity B's
+  scan-attempts card treating `already_used where codes.redeemed_by == own
+  device` as accepted (or persisting the burn outcome locally before
+  landing); that card owes ONE validation run exercising the
+  land-fails-after-redeem window.

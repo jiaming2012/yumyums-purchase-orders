@@ -356,3 +356,17 @@ strongest XState-side candidate for the card's design.
   fixes, the strict-mode experiment, and the overlay variant (Addenda 1–3)
   were operator-directed in the same sitting — reviewed by direction, not
   part of the agent-corrections batch.
+
+## Comebacks
+
+- gap: GAP-1 — the §19.1 design carried eight missing-state gap classes
+  (dead-end terminals without `NEXT_CUSTOMER`, dead-end `overridePending` /
+  `promptFinishCurrent`, no P-KR4 auto-resume, mid-submit scans yanking
+  in-flight verdicts, no error retry, XState flag leaks across customers,
+  stale-probe hole), found by the missing-states deep dive (lockstep fuzz +
+  design-back audit, 2026-09-04).
+- validated: GAP-1 — fixed red-first in both machines the same sitting; suite
+  grew 10 → 18 and re-ran 18/18 on all candidates, lockstep fuzz 40,000
+  walks × 20 × 2 seeds with zero divergence, exit 0 (2026-09-04). The card
+  inherits the 18-sequence suite + fuzz as its tests, so the fix survives the
+  throwaway scripts.
