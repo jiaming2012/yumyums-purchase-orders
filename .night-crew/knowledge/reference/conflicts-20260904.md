@@ -43,3 +43,27 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   `reset_bare` not extended to drop `public.redeem` (stale-function false-green risk for
   future red probes); red-analog runs leave their per-run race code until a full
   01-structure restore (disclosed in harness header).
+
+## Merge 3 — `wo-backlog-machine-migration` (Card 3)
+
+- **Cards involved:** Card 3 onto the Track-A tree. Shared-surface note: Card 3 edits
+  `COMMANDS.md` (triage step 6, the §4.5 backlog gate); Card 4 will edit the same file's
+  closeout moment — Card 4 was cut AFTER this merge, so it inherits this text (serial
+  dispatch removes the collision the slate planned for).
+- **Files/hunks:** clean merge, no conflicts — `BACKLOG.md` (207→209 entries, canonical
+  form), `COMMANDS.md` (§4.5 gate stanza in the triage step), one roadmap card flip,
+  run-dir evidence (merge-intent with red baseline + preservation proof,
+  `card3-*.log`, `card3-preservation-proof.py`, `card3-reshape.py`).
+- **Intents read:** Card 3's merge-intent (its COMMANDS.md merge note — "keep both
+  additions" — recorded for Card 4's merge).
+- **Resolution:** none needed.
+- **Gate result after merge:** G6 PASS-WITH-NOTES on identical tree content. Independent
+  re-run: check exit 0 "valid — 209 entries", list 209==209 by the reviewer's own count;
+  reviewer's OWN preservation proof (3 tokenizations, case-sensitive) lost = 0, plus a
+  per-entry containment check — 0 per-entry loss, nothing invented, B-77 the only
+  (declared) fold; 15 sampled entries all meaning-preserved. Notes to triage: stale HTML
+  comment after line 147 still claims the document is invalid (now false — append a
+  correction on next touch, preservation kept the tokens); B-76/B-92 head `new` while
+  carrying `✅ RESOLVED` continuation blocks (faithful to the before-document; triage
+  should reconcile the heads); B-145 `done —` and B-412 `promoted →` were implementer
+  judgment calls, verified as carrying the residuals verbatim.

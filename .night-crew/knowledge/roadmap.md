@@ -409,7 +409,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > never slated, so they reddened the close through no fault of their own. Carried, not re-derived.
 > **Trace:** QA objective.
 
-- **`backlog-machine-migration`** · **PLANNED** · (Carried from last cycle's Activity 5.) Closes
+- **`backlog-machine-migration`** · **DRAFTING** (overnight-20260904, branch
+  `wo-backlog-machine-migration` — all 297 issues retired: `backlog check --repo .` exit 0
+  `valid — 209 entries`, list count == the checker's own parse, whole-document token-multiset
+  containment proven 0-lost against the red-baseline commit, handles B-350..B-414 assigned,
+  triage §4.5 gate armed in COMMANDS.md; awaiting morning triage) · (Carried from last cycle's Activity 5.) Closes
   **B-02**, **B-168**, **B-12**, **B-133**. Reshape the ~193 legacy-shape entries to the canonical
   `B-NN` form until `night-crew backlog check` exits 0, with **content preservation proven**
   (stripped-text diff: every entry body present before is present after; handles assigned above

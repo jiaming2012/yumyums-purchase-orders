@@ -39,6 +39,29 @@ overnight → morning).
    DESIGN §15x, flip roadmap cards + HANDOFF flags. Then loop back to step 2 (or
    step 1 at a milestone boundary).
 
+   **§4.5 backlog gate (ARMED as of run 20260904 — this step is mandatory, and it
+   passes now).** After any triage edit to `.night-crew/knowledge/BACKLOG.md` —
+   and before the triage merge commit — run:
+
+   ```
+   night-crew backlog check --repo .
+   ```
+
+   It must **exit 0**. The document was migrated to full canonical form by
+   `backlog-machine-migration` (run 20260904: `backlog: valid — 209 entries`,
+   content-preservation proven in that card's merge-intent), so a red here is a
+   real grammar defect **introduced by the edit just made** — fix that entry to
+   the canonical shape
+   `- **B-NN · Title** — one-line description · origin · status · lead: plain line`
+   (statuses: `new` · `promoted → <card>` · `landed → <artifact>` ·
+   `done — <what shipped>` · `dropped — reason`; new handles above the current
+   max, **never reused**). Never skip the check, never narrate around a red —
+   a skipped ritual step reads exactly like a clean one (B-133). Ledger decision
+   141's "the verb is advisory for this file" rider is **retired** by the
+   migration: the gate is binding again. Record the check's exit line in the
+   triage notes. Prefer `night-crew backlog add` for new entries — it emits the
+   canonical shape and assigns the next handle itself.
+
 ## Flags & args
 
 **Only `/nc-slate-plan` takes any.** The other four are invoked bare — they read

@@ -1,0 +1,15 @@
+# card3 done_when comparator — backlog list count vs the checker's own 'across M entries' parse
+# date: run 20260904, post-reshape landing; anchored on the CLI's own parses, never a hand grep
+night-crew backlog list --repo . -> EXIT=0
+  total non-empty output lines : 210
+  entry-shaped lines (B-NN [status]): 209
+  non-entry lines: 1 (the view-time footer)
+    footer: priority derived at view time from document signals alone — no run evidence in the scorecard window yet
+checker parse (card3-green-01-check-final.log): 'backlog: valid — 209 entries', EXIT=0
+COMPARATOR: list entry-count 209 == checker entry-count 209 -> MATCH
+baseline was: list 208 lines (207 entries + footer) vs check 'across 207 entries' — both sides moved together:
+  +1 the [PRIORITY] Resume-GSD-Phase-23 bullet (machine-invisible before; now B-350)
+  +1 the Rejection-feedback-on-SUB-STEPS bullet (machine-invisible before; now B-387)
+  +1 B-54 (nested bold broke its title run; parses now)
+  -1 the duplicate-handle B-77 DIAGNOSIS bullet (folded verbatim into B-77's lead)
+EXIT=0

@@ -1,0 +1,12 @@
+# card3 content-preservation proof — token-multiset containment, PRE (from git) vs LANDED
+# date: 2026-09-04T06:39:17Z
+# whole-document token-multiset containment proof
+BEFORE ref : 426e51a8f163f26e42ec9f3480d21a46f5be083f:.night-crew/knowledge/BACKLOG.md
+  sha256(content): 342c96cdc429adf764edbba413dcba23e9c60118507b0a4ec44eaa61e31e5f0b
+  tokens: 58307 occurrences / 6070 distinct
+AFTER path : .night-crew/knowledge/BACKLOG.md (working tree at the landing commit)
+  sha256(content): ede3a29ae8927e8c436d935db29a63130106a42d33291c0943196b86998b898e
+  tokens: 59661 occurrences / 6138 distinct
+before − after (lost token occurrences): 0
+VERDICT: GREEN — every token occurrence present before is present after
+EXIT=0
