@@ -108,6 +108,32 @@ func TestSubmitHandlerValidation(t *testing.T) {
 	}
 }
 
+// G6-flagged missing coverage, endpoint level: sink failure after a race-lost
+// verdict → 500 race_lost_notification_failed (the merge-intent contract's
+// loud + retryable arm).
+func TestSubmitHandler500OnNotificationFailure(t *testing.T) {
+	stub := &atomicStubArbiter{}
+	arb := testArbitrator(stub, &failingSink{})
+	h := SubmitHandler(arb)
+
+	// Attempt 1 wins.
+	rec1 := httptest.NewRecorder()
+	h.ServeHTTP(rec1, submitReq(t, `{"token_hash":"h500","device_id":"device-a"}`, crewUser))
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("attempt 1 status %d, want 200", rec1.Code)
+	}
+
+	// Attempt 2: synced offline override loses → F4 write fails → 500.
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, submitReq(t, `{"token_hash":"h500","device_id":"device-b","offline_override":true}`, crewUser))
+	if rec2.Code != http.StatusInternalServerError {
+		t.Fatalf("attempt 2 status %d, want 500; body %s", rec2.Code, rec2.Body.String())
+	}
+	if !strings.Contains(rec2.Body.String(), "race_lost_notification_failed") {
+		t.Fatalf("body %q lacks race_lost_notification_failed", rec2.Body.String())
+	}
+}
+
 func TestSubmitHandlerNoSessionUser401(t *testing.T) {
 	h := SubmitHandler(testArbitrator(&stubRedeemer{status: OutcomeRedeemed}, nil))
 	rec := httptest.NewRecorder()

@@ -145,6 +145,58 @@ deterministic, no fire-and-forget), derives the wire result, and stops the actor
 observer decides/emits the domain event; the sink persists it; no DB work ever runs
 under the actor lock.
 
+## Fix round (G6)
+
+G6 verdict FAIL — two findings, both fixed on this branch; machine/taxonomy/
+TOCTOU/toolchain/migration untouched per the review.
+
+**FAIL-1 (blocking) — Card 1's parity tripwire fired.** PARITY-EQ's
+contradiction arm and PARITY-NA-FRESH both red on this tree
+(`card7-g6-parity.log`, exit 1, 2 failed / 12 passed): the `marketing` entry
+in `tests/grant-enforcement-parity.spec.js` NA_WITH_REASON recorded the slug
+N/A while this card mounted `RequirePermission("marketing")` at
+`backend/cmd/server/main.go` — exactly the future its own reason text
+pre-authorized ("must mount RequirePermission(\"marketing\") and delete this
+entry"). Fix: deleted the `marketing` entry; the slug is now covered by
+PARITY-EQ's enforced set. **Engineering call — NO runtime APP_PAIRS entry
+yet, on purpose:** the endpoint is POST-only and fail-closed (503
+`redemption_not_configured` until `HQ_SYNC_REST_URL` + `HQ_SYNC_SERVICE_KEY`
+are configured), so the pair harness's "granted ⇒ probe serves 200" contract
+cannot hold on a test stack without a live substrate — a naive pair reds the
+suite exactly as G6 warned. The WITHOUT-403 behavior rides the same audited
+RequirePermission middleware every existing pair exercises; the deferral and
+its trigger ("when a card configures the arbiter on the e2e stack, add the
+pair") are recorded as a comment at the deletion site. The
+`marketing-offline-override` NA entry stays — still truthful, no such mount
+exists (that enforcer belongs to the submit-flow card, narrow mount, no
+umbrella).
+
+**FINDING-2 (medium) — production default silently disabled §18's bounded
+retry.** `NewArbitrator` defaulted `MaxRetries` only when NEGATIVE, while
+main.go constructs with `Config{}` (MaxRetries=0) — the documented zero-value
+default (1 retry) was unreachable as deployed. Per the repo bug-fix protocol
+the regression test came FIRST: `TestProductionDefaultConfigRetriesTransientError`
+drives the exact production construction (`Config{}`) and was captured RED
+(`card7-fix-red.log`, exit 1, terminal=failed after 1 call). **Engineering
+call — zero-value defaulting with an explicit sentinel:** `MaxRetries == 0 →
+defaultMaxRetries (1)`; new exported `MaxRetriesNone = -1` (any negative) →
+retries clamped to 0, so "no retries" is a readable, deliberate act at the
+call site, never a silent zero-value accident. Test call sites whose intent
+was no-retries (`raceWinners`, the ctx-cancel leg) now say `MaxRetriesNone`;
+`TestMaxRetriesNoneDisablesRetry` pins the sentinel. Also added the
+G6-flagged missing coverage for the sink-failure arm (previously held by code
+reading only): `TestSinkFailureIsLoudErrNotificationFailed` (arbitrator:
+`ErrNotificationFailed` carried alongside the real verdict) and
+`TestSubmitHandler500OnNotificationFailure` (endpoint: 500
+`race_lost_notification_failed`). All green in `card7-fix-green.log` —
+redemption package now 28 tests, exit 0.
+
+Fix-round footprint: `backend/internal/redemption/{arbitrator.go,
+machine_test.go, handler_test.go}`, `tests/grant-enforcement-parity.spec.js`,
+this file. main.go deliberately untouched (the fix makes its `Config{}` mean
+the documented default). Full Go suite not re-run per the fix-round gate
+instruction (nothing outside arbitrator/tests/spec files changed).
+
 ## Gate evidence (completed post-build)
 
 | Gate | Verdict | Log |

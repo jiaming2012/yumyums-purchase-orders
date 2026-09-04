@@ -10,12 +10,20 @@ import (
 )
 
 // Config tunes one arbitration. Zero values fall back to the defaults below;
-// tests inject short budgets.
+// tests inject short budgets. To disable retries ON PURPOSE, pass
+// MaxRetriesNone — a literal 0 means "default", not "none" (G6 finding-2:
+// the first shape defaulted only negative values, so main.go's Config{}
+// silently shipped §18's bounded retry disabled).
 type Config struct {
 	RetryDelay time.Duration // backoff before a bounded burn retry (§18's "After 2s")
-	MaxRetries int           // burn-ERROR retries beyond the first attempt (definitive verdicts never retry)
+	MaxRetries int           // burn-ERROR retries beyond the first attempt; 0 = default, MaxRetriesNone = none
 	Timeout    time.Duration // await budget for a terminal
 }
+
+// MaxRetriesNone is the explicit "no retries" sentinel for Config.MaxRetries.
+// Any negative value behaves the same; the name exists so intent is readable
+// at the call site.
+const MaxRetriesNone = -1
 
 const (
 	defaultRetryDelay = 2 * time.Second // §18 sketch
@@ -64,8 +72,10 @@ func NewArbitrator(redeemer Redeemer, sink RaceLostSink, cfg Config) *Arbitrator
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = defaultTimeout
 	}
-	if cfg.MaxRetries < 0 {
-		cfg.MaxRetries = defaultMaxRetries
+	if cfg.MaxRetries == 0 {
+		cfg.MaxRetries = defaultMaxRetries // the documented zero-value default
+	} else if cfg.MaxRetries < 0 {
+		cfg.MaxRetries = 0 // MaxRetriesNone (or any negative): explicitly no retries
 	}
 	return &Arbitrator{redeemer: redeemer, sink: sink, cfg: cfg}
 }

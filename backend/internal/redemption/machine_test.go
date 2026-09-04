@@ -106,7 +106,7 @@ func raceWinners(t *testing.T, r Redeemer, n int) map[string]int {
 	t.Helper()
 	arb := NewArbitrator(r, nil, Config{
 		RetryDelay: 50 * time.Millisecond,
-		MaxRetries: 0,
+		MaxRetries: MaxRetriesNone, // each attempt burns exactly once
 		Timeout:    5 * time.Second,
 	})
 	var wg sync.WaitGroup
@@ -246,6 +246,79 @@ func TestBoundedRetryRecoversTransientError(t *testing.T) {
 	}
 }
 
+// 🔴 G6 FINDING-2 regression — the PRODUCTION construction path must retry.
+// main.go constructs the arbitrator as NewArbitrator(redeemer, sink, Config{})
+// and the Config doc promises "zero values fall back to the defaults below"
+// (defaultMaxRetries = 1). The original defaulting only replaced NEGATIVE
+// MaxRetries, so the deployed arbitrator silently ran with §18's bounded
+// retry DISABLED. This test drives the exact production shape (Config{}) and
+// reds on that tree: a transient first burn must be retried once.
+func TestProductionDefaultConfigRetriesTransientError(t *testing.T) {
+	db := &stubRedeemer{status: OutcomeRedeemed, failFirst: true}
+	arb := NewArbitrator(db, nil, Config{}) // exactly main.go's construction
+	res, err := arb.Arbitrate(context.Background(), Attempt{TokenHash: "h", DeviceID: "device-a"})
+	if err != nil {
+		t.Fatalf("arbitrate: %v", err)
+	}
+	if res.Terminal != Redeemed {
+		t.Fatalf("terminal=%s, want redeemed — the default config did not retry the transient error (§18 bounded retry disabled as deployed)", res.Terminal)
+	}
+	if got := db.calls.Load(); got != 2 {
+		t.Fatalf("Redeemer invoked %d times, want 2 (initial + defaultMaxRetries=1)", got)
+	}
+}
+
+// The explicit no-retries sentinel: a transient error goes straight to the
+// failed terminal after exactly one burn.
+func TestMaxRetriesNoneDisablesRetry(t *testing.T) {
+	db := &stubRedeemer{status: OutcomeRedeemed, failFirst: true}
+	arb := NewArbitrator(db, nil, Config{RetryDelay: 50 * time.Millisecond, MaxRetries: MaxRetriesNone, Timeout: 2 * time.Second})
+	res, err := arb.Arbitrate(context.Background(), Attempt{TokenHash: "h", DeviceID: "device-a"})
+	if err != nil {
+		t.Fatalf("arbitrate: %v", err)
+	}
+	if res.Terminal != Failed || res.Result != ResultError {
+		t.Fatalf("terminal=%s result=%s, want failed/error", res.Terminal, res.Result)
+	}
+	if got := db.calls.Load(); got != 1 {
+		t.Fatalf("Redeemer invoked %d times with MaxRetriesNone, want exactly 1", got)
+	}
+}
+
+// failingSink refuses every Emit — the F4 persistence-failure path.
+type failingSink struct{ calls atomic.Int32 }
+
+func (s *failingSink) Emit(ctx context.Context, ev RaceLostReconciled) error {
+	s.calls.Add(1)
+	return errors.New("insert race_lost_notifications: connection refused")
+}
+
+// G6-flagged missing coverage: a RaceLostSink failure AFTER a race-lost
+// already_used verdict must surface as ErrNotificationFailed (loud +
+// retryable), never a silent success — losing the F4 entry silently is
+// losing the Shift Manager's follow-up.
+func TestSinkFailureIsLoudErrNotificationFailed(t *testing.T) {
+	stub := &atomicStubArbiter{}
+	sink := &failingSink{}
+	arb := testArbitrator(stub, sink)
+	ctx := context.Background()
+
+	if _, err := arb.Arbitrate(ctx, Attempt{TokenHash: "one-code", DeviceID: "device-a"}); err != nil {
+		t.Fatalf("attempt 1: %v", err)
+	}
+	res, err := arb.Arbitrate(ctx, Attempt{TokenHash: "one-code", DeviceID: "device-b", OfflineOverride: true})
+	if !errors.Is(err, ErrNotificationFailed) {
+		t.Fatalf("err=%v, want ErrNotificationFailed when the sink write fails", err)
+	}
+	if got := sink.calls.Load(); got != 1 {
+		t.Fatalf("sink Emit called %d times, want 1", got)
+	}
+	// The verdict itself is still carried — the arbitration was real.
+	if res.Result != ResultAlreadyUsed || !res.RaceLostReconciled {
+		t.Fatalf("result=%s raceLost=%t, want already_used/true alongside the error", res.Result, res.RaceLostReconciled)
+	}
+}
+
 // Retry budget exhausted → failed terminal, wire error — the machine never
 // spins unbounded (v0.3.1's After drops guards, so the bound lives in
 // route_failure; this is the test that pins it).
@@ -271,7 +344,7 @@ func TestRetryExhaustionIsFailedError(t *testing.T) {
 // flavor; this pins the arbitrator's own timeout→Stop path.)
 func TestInvokeCtxCancelledWhenArbitrationAbandoned(t *testing.T) {
 	db := &stubRedeemer{blockCtx: true, cancelled: make(chan struct{})}
-	arb := NewArbitrator(db, nil, Config{RetryDelay: 50 * time.Millisecond, MaxRetries: 0, Timeout: 300 * time.Millisecond})
+	arb := NewArbitrator(db, nil, Config{RetryDelay: 50 * time.Millisecond, MaxRetries: MaxRetriesNone, Timeout: 300 * time.Millisecond})
 	_, err := arb.Arbitrate(context.Background(), Attempt{TokenHash: "h", DeviceID: "device-a"})
 	if !errors.Is(err, ErrTimeout) {
 		t.Fatalf("arbitrate err=%v, want ErrTimeout while the burn hangs", err)
