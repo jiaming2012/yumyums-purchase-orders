@@ -69,7 +69,12 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   `vendor/src/rxdb-hq-entry.mjs` + regenerated `vendor/rxdb.bundle.js` (+717 B, rxdb@17.4.0
   pin unchanged, surface widened for Cards 5/6), `sw.js` (count 32, bundle revision +
   disclosed lockfile-true workbox reshape), spike-ledger GAP-1 `validated:` line,
-  roadmap flip, merge-intent + 6 gate logs (incl. G6's `card2-g6-harness.log`).
+  roadmap flip, merge-intent + 5 gate logs. 🛑 **Control-loop error, disclosed:** G6's
+  independent-harness log (`card2-g6-harness.log`, EXIT=0, all legs held, 105 ms
+  propagation) was left untracked in the card worktree and lost when the worktree was
+  removed before copying it out. The G6 report text in HANDOFF is the surviving record
+  of that re-run; the implementer's own `card2-harness.log` (same legs, EXIT=0) is
+  committed.
 - **Intents read:** Card 2's merge-intent (unwired-tonight call; entry points + vendor
   surface named for Cards 5/6; sw.js stale-toolchain hazard). Card 7's consulted —
   no overlap beyond roadmap.
