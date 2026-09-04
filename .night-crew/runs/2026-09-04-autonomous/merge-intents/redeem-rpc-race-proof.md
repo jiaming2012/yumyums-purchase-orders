@@ -73,3 +73,26 @@ assertion legs must red against the naive check-then-update analog — installed
 `public.redeem`, identical signature — BEFORE the atomic v2 migration exists in
 the tree, with observed double-wins in the log; then green against the built
 migration.)
+
+- RED (structural): **captured 2026-09-04T05:53Z, before any redeem migration
+  existed in the tree.** `supabase/verify/01-structure.sh --assert-only` →
+  **EXIT=1** (`card2-red-01-structure-assert.log`): every Card 1 assertion plus
+  the new push-only structural negatives pass, then
+  "· redeem(p_code uuid, p_device text) — Card 2's atomic arbiter, by name:
+  `<absent>`" reds. The probe does not invert its meaning — red is a genuine
+  named-object absence.
+- RED (behavioral — the card's red-first): **captured 2026-09-04T05:57Z, same
+  pre-migration tree.** `supabase/verify/04-redeem-race.sh --red-analog` →
+  **EXIT=1** (`card2-red-04-race-naive.log`): the naive check-then-update body
+  (TOCTOU window widened with `pg_sleep(0.4)`) installed AS `public.redeem`,
+  then the shipped race leg observed **round 01: winners=2** — BOTH concurrent
+  clients redeemed the same code — and the double-win assertion reds
+  ("a round produced TWO winners — the single-use premise is falsified").
+  The commit carrying this evidence contains NO migration SQL; the migration
+  lands in the following commit, so the ordering is auditable from git alone.
+  (First red-analog attempt died silently instead of red: with zero `false|`
+  lines on a double-win, the loser-reason pipeline failed under
+  `set -euo pipefail` before the assertion could speak. Fixed in the harness —
+  `|| true` on the two extraction pipelines, with comments — so the double-win
+  is now reported by the ASSERTION, loudly. No assertion was weakened; the
+  detection got stronger.)

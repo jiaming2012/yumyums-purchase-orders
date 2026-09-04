@@ -80,6 +80,16 @@ assert_all() {
   done
   echo "$POL" | grep -q '^marketing_settings\.' && fail "marketing_settings has a policy — it must stay server-side only (RLS on, no policies, no client grants)"
 
+  echo "· scan_attempts is push-only STRUCTURALLY (Card 2, handed-down G6 finding):"
+  echo "  · no SELECT (or FOR ALL) policy on scan_attempts — negative, enumerated:"
+  SAPOL="$(echo "select policyname||':'||cmd from pg_policies where schemaname='public' and tablename='scan_attempts' order by 1;" | psqlq)"
+  echo "$SAPOL" | sed 's/^/      /'
+  echo "$SAPOL" | grep -Eq ':(SELECT|ALL)$' && fail "scan_attempts carries a SELECT-capable policy — push-only means a later permissive policy must red HERE, structurally, not just in the behavioral harness"
+  echo "  · no SELECT grant on scan_attempts to client roles (anon/authenticated):"
+  SASEL="$(echo "select count(*) from information_schema.role_table_grants where table_schema='public' and table_name='scan_attempts' and privilege_type='SELECT' and grantee in ('anon','authenticated');" | psqlq)"
+  echo "      SELECT grants to anon/authenticated: $SASEL"
+  [ "$SASEL" = 0 ] || fail "scan_attempts has a SELECT grant to a client role — the table is device-owned and push-only; devices never read attempts back"
+
   echo "· marketing_settings client grants (must be zero for anon/authenticated):"
   MSG="$(echo "select count(*) from information_schema.role_table_grants where table_schema='public' and table_name='marketing_settings' and grantee in ('anon','authenticated');" | psqlq)"
   echo "    grants to anon/authenticated: $MSG"
@@ -114,6 +124,19 @@ assert_all() {
   [ "$(echo "$CODES" | grep -c .)" = 5 ] || fail "expected exactly the 5 TEST codes (idempotent seed), got: $CODES"
   echo "$CODES" | grep -q '^c0000000-0000-4000-8000-000000000003 unredeemed expired' || fail "code …0003 must be the expired fixture (Card 2's expired leg)"
   echo "$CODES" | grep -q '^c0000000-0000-4000-8000-000000000004 redeemed'           || fail "code …0004 must be the pre-redeemed fixture (Card 2's already_used leg)"
+
+  echo "· redeem(p_code uuid, p_device text) — Card 2's atomic arbiter, by name:"
+  FN="$(echo "select p.proname||'('||pg_get_function_identity_arguments(p.oid)||'):secdef='||p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='redeem';" | psqlq)"
+  echo "    ${FN:-<absent>}"
+  [ "$FN" = "redeem(p_code uuid, p_device text):secdef=true" ] || fail "public.redeem(p_code uuid, p_device text) SECURITY DEFINER missing (got: ${FN:-nothing}) — the atomic arbiter is not in place"
+  FNCFG="$(echo "select coalesce(array_to_string(p.proconfig,';'),'<none>') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='redeem';" | psqlq)"
+  echo "    proconfig: $FNCFG"
+  echo "$FNCFG" | grep -q 'search_path=' || fail "redeem() does not pin search_path — a SECURITY DEFINER function without it is hijackable via the caller's search_path"
+
+  echo "· redeem() execute grants (authenticated may, anon may NOT — covers PUBLIC too):"
+  FNG="$(echo "select 'authenticated:'||has_function_privilege('authenticated','public.redeem(uuid,text)','execute')||' anon:'||has_function_privilege('anon','public.redeem(uuid,text)','execute');" | psqlq)"
+  echo "    $FNG"
+  [ "$FNG" = "authenticated:true anon:false" ] || fail "redeem() execute grants wrong (got: $FNG) — devices (authenticated) burn codes through it, anon/PUBLIC must not execute the definer function"
 
   echo "· supabase_realtime publication membership (§7.1):"
   PUB="$(echo "select schemaname||'.'||tablename from pg_publication_tables where pubname='supabase_realtime' order by 1;" | psqlq)"
