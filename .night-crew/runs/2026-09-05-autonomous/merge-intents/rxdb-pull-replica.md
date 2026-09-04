@@ -81,11 +81,99 @@ Footprint: rxdb replica (`marketing/` NEW) + the vendor-surface widening below.
 
 ## Red-first
 
-(filled as evidence lands)
+Captured to `card2-red.log` (committed `cf2df08`) BEFORE the production modules
+existed in the tree (they land in the NEXT commit, `5b8a486` — git history is
+the chronology). The probes are the spike's naive handler shape, inline in the
+harness, never the production code:
 
-## Gate evidence
+- **red-gap1** — `bash marketing/sync/harness/run.sh red-gap1` → **EXIT=1**.
+  The naive `updated_at=gt.<ts>`-only cursor at batchSize 2 against the 5-row
+  same-`updated_at` tie group: replica held **2 of 5**; the 3 silently missed
+  ids are enumerated in the log. This is GAP-1's exact silent-miss class (a
+  redemption that never reaches device B).
+- **red-window** — `bash marketing/sync/harness/run.sh red-window` → **EXIT=1**.
+  With no `expires_at` bound, both out-of-window rows landed (the per-run
+  expired-5d code AND seed fixture …0003), named in the log.
+- **Green**: the same harness, `green` mode, after the modules landed —
+  `card2-harness.log`, EXIT=0 first attempt (below).
 
-(filled as evidence lands)
+## Gate evidence (run in this worktree; full logs committed beside this file)
+
+- **PRIMARY (standalone harness, B-345 precedent)** —
+  `bash marketing/sync/harness/run.sh green` → **EXIT=0, first attempt**
+  (`card2-harness.log`, committed `15b0f6d`). Substrate coordinates printed
+  read-only by lib.sh before any write (spike-supabase reconcile; db/rest/
+  realtime ports Docker-assigned). Every done_when clause held, enumerated:
+  - codes replica initial sync = EXACT expected set (12 docs: 4 live seed
+    fixtures + IN1 + target + offer-customer + 5 tie rows); out-of-window rows
+    (expired-5d per-run + seed …0003) did NOT land; offers replica = EXACT
+    11-doc set with IN1 (expired 1d) absent — the two windows provably differ.
+  - GAP-1: tie group stamped with one shared `updated_at`; batchSize 2 forced
+    boundaries inside it; **2 pull requests observably resumed MID-GROUP**
+    from compound `(ts, id)` cursors; **5/5 tie rows landed**. Request log
+    enumerated (9 codes requests, keyset cursors shown).
+  - §7.3: the SUBSCRIBED refetch appeared in the request log resuming from the
+    real checkpoint (never epoch); Realtime frames nudge-only.
+  - done_when core: `POST /rpc/redeem` as device-a → `{ok:true}`; device-b's
+    RUNNING replicas showed `redeemed_by=device-a` in **102 ms** (codes AND
+    offers) — no restart, no manual reSync.
+  - Offline: replication cancelled + channel removed, then
+    `resolveOffers(customer-hash)` → exactly the customer's live offer;
+    burned hash → []; redeemed seed hash → []; unknown hash → [] (the
+    embedded-offer fallback signal); recently-expired code still visible to
+    the codes replica offline.
+- **G4** — `card2-g4.log`. Pass 1 on committed HEAD d4aa372: EXIT=0, **32
+  files precached** (count unchanged — deliberate; only the vendor bundle's
+  revision moved, every other url/revision pair identical). Pass 2 after the
+  sw.js commit (917a3be): tree clean — idempotent. Version parity
+  1.6.2 ≡ 1.6.2 ≡ 1.6.2 (version.go Frontend / package.json / version.json).
+  Two environment notes recorded in the log: the npm 10.8.2 "Exit handler"
+  bug left node_modules/.bin missing after a clean `npm ci` (repaired with
+  `npm rebuild`; playwright 1.59.1 + bddgen resolve locally), and the
+  TOOLCHAIN FINDING below.
+- **G2 (Playwright, FULL suite)** — vendor bundle + sw.js are page-referenced,
+  so no subset confinement. Two runs, per-failure verdicts:
+  - **Run 1** (`card2-e2e.log`, HEAD 917a3be): EXIT=1 — **828 passed /
+    9 failed / 6 skipped (39.1m)**, exactly one summary block (grep-verified).
+    Notably SLOW (Card 1's runs: 26.6–28.1m) — consistent with a concurrent
+    Track-A leg on this box. The 9, judged:
+    1. `onboarding.spec.js:696` — slate-named known flake.
+    2. `onboarding.spec.js:2268` — slate-named known flake.
+    3. `sw-api-cache-partition` B1-XT-02 — known pre-existing (base-proven by
+       Card 1's G6).
+    4. `sw-api-cache-partition` B1-XT-05 — known pre-existing (ditto).
+    5. `onboarding.spec.js:2233` — 30s-timeout shape, same helper + same
+       describe as known-flake 2268 → **flake, proven below**.
+    6. `persistence.spec.js:715` OFF-06 (timer-tick retry) → **flake, proven**.
+    7. `sync.spec.js:135` SYN-03 → **flake, proven**.
+    8. `sync.spec.js:928` SYN-09 (cursor race) → **flake, proven**.
+    9. `users.spec.js:480` (30s timeout; users.html untouched by this diff —
+       no mechanism connects it) → **flake, proven**.
+    The slate's other two recurring reds — B1-XT-01 and workflows DBL-05 —
+    were GREEN in this run (they flap; further evidence for the shape).
+  - **Run 2** (`card2-e2e-2.log`, SAME tree, serial targeted re-run of exactly
+    the five non-baseline reds): **5 passed (21.0s), EXIT=0** — every one
+    green, at normal durations (1.1–3.4s vs 9.6s–30s timeouts under load).
+    Two logs disagreeing on identical code = flake, per Card 1's judging
+    precedent. **No failure in either run is attributable to this diff**; the
+    four remaining reds are the slate's pre-existing set.
+- **G1 / G2 (Go)** — n/a: `backend/` untouched (verified by the diff).
+
+## Toolchain finding (triage-worthy, discovered by this card)
+
+The committed `sw.js` has always been generated by the MAIN checkout's STALE
+node_modules (workbox-build **7.3.0** / rollup 2.80.0 / terser 5.47.1 —
+predating the 2026-07-17 lockfile pin `3b1be67`). A clean `npm ci` in this
+worktree yields the LOCKFILE-TRUE toolchain (workbox-build **7.4.1** / rollup
+4.62.2 / terser 5.49.0), whose output reorders the precache manifest array
+(content-equivalent, same 32 url/revision pairs) and emits the inert
+`//# sourceMappingURL=sw.js.map` comment twice (*.map is gitignored, the
+reference was already unserved). This card committed the lockfile-true output
+— the reproducible one — and states it here because the next card to
+regenerate sw.js on the stale main-checkout env will see a spurious
+whole-file reshape. The committed artifact should not depend on which
+machine's stale install built it; recommend triage aligns the main checkout
+(`npm ci`) or re-pins the lockfile deliberately.
 
 ## Engineering calls (recorded for the merge record)
 
