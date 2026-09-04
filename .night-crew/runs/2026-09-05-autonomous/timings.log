@@ -11,3 +11,4 @@ G6-c7 verdict ~18:25 EDT: FAIL (cross-card parity tripwire fires on marketing ro
 card7 fix round 98e189e + G6 re-verify PASS; merged ~18:25 EDT — Track D COMPLETE (timings.log collision with card7's committed copy resolved by concatenation)
 card2 impl report ~19:20 EDT (8 commits, harness green first try); G6-c2 PASS-WITH-NOTES ~19:35; merged — Track B advances to card 3 ~19:40 EDT
 card3 impl ~20:00 EDT first-attempt green; G6-c3 PASS-WITH-NOTES (belt-2 cross-session gap demonstrated → triage); merged ~20:15 EDT — Track B advances to card 4
+2026-09-04 19:19 EDT card4 clock-offset-on-sync: merge-intent+flip 537b0b6; red-first f709e5d (EXIT=1 both skew signs); clock module green c23b9ae (harness EXIT=0 first attempt, offset err 164/197ms); sibling harness regressions c2+c3 both EXIT=0 (clock-less byte-identical proven)

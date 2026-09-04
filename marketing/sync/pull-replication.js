@@ -105,8 +105,13 @@ export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, ba
  * @param {function} cfg.fetchImpl
  * @param {string} [cfg.select]
  * @param {Array}  [cfg.requestLog]
+ * @param {object} [cfg.clock]  a createSyncClock instance (clock.js). When
+ *   given, EVERY successful (HTTP 200) pull response calibrates it from the
+ *   response's Date header — §5.1's serverNow source (card clock-offset-on-sync;
+ *   spike-proven, no extra endpoint). Optional and additive: clock-less
+ *   callers get byte-identical behavior.
  */
-export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl, select = REPLICA_SELECT, requestLog }) {
+export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl, select = REPLICA_SELECT, requestLog, clock }) {
   return async function pullHandler(checkpoint, batchSize) {
     const cp = normalizeCheckpoint(checkpoint);
     const url = buildPullUrl({ restUrl, table, select, checkpoint: cp, windowIso: windowBound(), batchSize });
@@ -118,6 +123,11 @@ export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl
     if (res.status !== 200) {
       throw new Error(`[marketing-sync] pull ${table} answered HTTP ${res.status}`);
     }
+    // Capture BEFORE parsing the body: the offset feeds the NEXT request's
+    // window bound. A missing/unparseable Date header skips the capture and
+    // keeps the previous offset — observable via clock.captures, never fatal
+    // to a pull that delivered rows.
+    if (clock) clock.captureFromResponse(res);
     const rows = await res.json();
     const last = rows[rows.length - 1];
     return {

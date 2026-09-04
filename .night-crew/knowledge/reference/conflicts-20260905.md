@@ -127,3 +127,32 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   (4) merge-intent doesn't say what Card 6 renders for `deduped:true`; ties into (1).
   (5) `push-run.sh` header documents the red-mode exit contract inverted vs the
   implementation (exit 1 IS the demonstrated red) — comment fix on a follow-up branch.
+
+## Merge 5 — `wo-clock-offset-on-sync` (Card 4, Track B)
+
+- **Cards involved:** Card 4 (merge-base `37aa1a6`) onto the run branch.
+- **Files/hunks:** ONE CONFLICT — `timings.log`, append-append (control loop's card-3
+  line vs the card's own timing line), resolved by UNION (both lines kept, chronology
+  preserved). All else clean: NEW `marketing/sync/clock.js` + clock harness siblings;
+  EDITs confined to `makePullHandler` (capture after HTTP 200, before body parse) and
+  `startReplica` (clock threading, explicit-now precedence); push-replication.js
+  zero-diff (audited: no expiry decisions); roadmap flip; merge-intent + 5 logs
+  (+ G6's `card4-g6-harness.log`, copied out and committed here).
+- **Intents read:** Card 4's (offset beside — not inside — Card 2's checkpoint;
+  Cards 5/6 API: `clock.isExpired()`/`clock.now()`, persist/initialState round-trip
+  binding on their wiring). Cards 2/3's consulted — their harnesses byte-untouched and
+  re-run green on this tree (card4-regression-c2/c3.log, both EXIT=0).
+- **Resolution:** union of the two timings appends; no code hunk conflicted, tree code
+  content identical to the G6-reviewed branch → G1/G2 re-run not owed (conflicted path
+  is a run-artifact text file outside every gate's subject; stated deliberately).
+- **Gate result after merge:** harness EXIT=0 (implementer + G6 independent re-run);
+  RF both-skew-signs red proven pre-fix in history. G6 **PASS-WITH-NOTES**. Notes to
+  triage: (a) ms-level offset figures are second-boundary artifacts of the whole-second
+  Date header (G6 re-run: 675/708 ms) — never read as sub-second capability; harmless
+  at the 2-day threat model; (b) the slate's done_when literal alone is
+  non-discriminating (naive-fast also rejects expired) — the harness's
+  valid-code-still-resolves assertion is load-bearing and must survive into E-KR4's
+  pinning test; (c) marketing/sync files carry no [e2e.seams] entry — Playwright-n/a
+  rests on the slate's explicit gate assignment (precedent stated, not drifted);
+  (d) pre-capture isExpired degrades to naive until first successful pull — residual
+  named here since the merge-intent names only the window-bound half.
