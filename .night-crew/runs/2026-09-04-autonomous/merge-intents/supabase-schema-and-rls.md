@@ -51,7 +51,16 @@ Card authority: slate-20260904 Card 1. Footprint: `supabase/` NEW + spike harnes
 harness must run RED against a bare substrate — objects don't exist — BEFORE the
 migration exists, then GREEN after it applies, fresh and warm.)
 
-- RED: pending
+- RED: **captured 2026-09-04T05:35Z, before any migration file existed in the
+  tree.** Fixture action `supabase/verify/reset-bare.sh` (EXIT=0,
+  `card1-red-00-reset-bare.log`) dropped only the card's four objects from the
+  throwaway substrate; probe `supabase/verify/01-structure.sh --assert-only`
+  → **EXIT=1** (`card1-red-01-structure-assert.log`): first assertion
+  "expected 4 tables (campaigns, codes, marketing_settings, scan_attempts),
+  got: <empty>". The probe does not invert its meaning — red is a genuine
+  assertion failure against genuinely absent objects. The harness commit
+  carrying this evidence contains NO migration SQL; the migration lands in the
+  following commit, so the ordering is auditable from git alone.
 - GREEN (fresh + warm): pending
 - RLS six legs: pending
 - Realtime second subscriber: pending
