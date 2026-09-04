@@ -95,8 +95,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 // camera + submit flow into #scanner-host. Campaigns / Subscribers / Stats are
 // labeled placeholders. Their eventual backend gates are §16's permissions
 // table (view/create campaigns & stats = manager tier), enforced INSIDE the
-// handlers when those endpoints land — the tab is not the gate. Until then the
-// slugs are recorded N/A-with-reason in tests/grant-enforcement-parity.spec.js.
+// handlers once those endpoints exist — the tab is not the gate. Meanwhile the
+// slugs carry N/A-with-reason records in tests/grant-enforcement-parity.spec.js.
 function show(n){
   [1,2,3,4].forEach(i=>{
     document.getElementById('s'+i).style.display=i===n?'block':'none';

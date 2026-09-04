@@ -83,9 +83,10 @@ func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 	// the offline_override entitlement to admin only ("seeded true for admin
 	// users" — managers and team members get it by explicit grant, never by
 	// role implication). Campaigns/stats view+create are manager-tier gates
-	// enforced INSIDE their handlers when those endpoints land (§16: middleware
-	// grants tab access; the tab is not the create/stats gate) — recorded
-	// N/A-with-reason in tests/grant-enforcement-parity.spec.js until then.
+	// enforced INSIDE their handlers once those endpoints exist (§16:
+	// middleware grants tab access; the tab is not the create/stats gate) —
+	// carried as N/A-with-reason records in
+	// tests/grant-enforcement-parity.spec.js meanwhile.
 	_, err := pool.Exec(ctx, `
 		WITH seeded AS (
 			INSERT INTO hq_apps (slug, name, icon) VALUES
