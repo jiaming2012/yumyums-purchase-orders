@@ -1,0 +1,11 @@
+2026-09-04 01:27:15 run start — branch overnight-20260904 cut at c158311; card 1 (supabase-schema-and-rls) worktree c01 created
+2026-09-04 01:39:58 card 1 implementer done — 3 commits on wo-supabase-schema-and-rls (1497d9e, f3321d5, b2312f7), ~12m; dispatching G6
+2026-09-04 01:45:34 card 1 G6 PASS-WITH-NOTES (~4.5m); merged clean to overnight-20260904
+2026-09-04 01:45:50 card 2 (redeem-rpc-race-proof) worktree c02 created off a1a3401
+2026-09-04 02:01:07 card 2 implementer done — 4 commits on wo-redeem-rpc-race-proof (6507670..1248661), ~14.5m; dispatching G6
+2026-09-04 02:09:53 card 2 G6 PASS-WITH-NOTES (~8m); merged clean; Track A done, starting Track G
+2026-09-04 02:41:06 card 3 implementer done — 3 commits on wo-backlog-machine-migration (426e51a, 1e7970b, 777ec50), ~30m; dispatching G6
+2026-09-04 02:50:02 card 3 G6 PASS-WITH-NOTES (~8m); merged clean; dispatching card 4
+2026-09-04 02:55:15 card 4 implementer done — 3 commits on wo-team-records-from-hand-runs (7c5c831, b535105, 36d5dd3), ~4.5m; dispatching G6
+2026-09-04 02:59:26 card 4 G6 PASS-WITH-NOTES (~3m); merged clean; 4/4 cards landed, starting closeout
+2026-09-04 03:01:42 closeout — scorecard record emitted + verified (fa1e298); HANDOFF/DECISIONS-NEEDED/closeout record written; committing

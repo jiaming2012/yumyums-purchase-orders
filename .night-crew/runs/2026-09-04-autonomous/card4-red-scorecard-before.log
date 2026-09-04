@@ -1,0 +1,11 @@
+# card4-red-scorecard-before — Q-KR4 red re-observed on this worktree (branch wo-team-records-from-hand-runs), run 20260904
+# command: night-crew scorecard --repo .
+# binary: /Users/jamal/go/bin/night-crew (night-crew v3.4.0+1 — 1 commit(s) past v3.4.0; NOT a released version)
+# date: 2026-09-04T06:52:01Z
+# committed scorecard dir enumerated:
+#   milestones.jsonl
+
+# Team scorecard
+
+No runs to show.
+EXIT=0

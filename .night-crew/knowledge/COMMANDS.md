@@ -34,10 +34,59 @@ overnight → morning).
 5. **(launch prompt)** — Paste the slate's launch prompt into a **fresh session**.
    Runs autonomously on branch `overnight-YYYYMMDD`. Never push, never touch `main`.
 
+   **Closeout scorecard record (ARMED as of run 20260904 — every hand-run night's
+   closeout emits one; this step is mandatory).** At the run's CLOSEOUT — after the
+   last card's merge, with the closing commit set on the run branch — the control
+   loop does, verbatim:
+
+   1. Copy the 5-line JSONL block from
+      `.night-crew/knowledge/scorecard/TEMPLATE.md` into a new file
+      `.night-crew/knowledge/scorecard/<run-id>.jsonl` (run id = the run's date id,
+      e.g. `20260904` — must equal the filename stem).
+   2. Fill every field from the night's actuals per the template's field table:
+      replace every `YYYYMMDD` with the run id, `ts` with closeout UTC time, the
+      run-scorecard counters from the slate + merge results, and one `team` line
+      each for `product` / `delivery` / `engineering` / `qa` (ratings 0–100;
+      team `points_completed` sums to the run's; `value_per_token` = nominal
+      `0.01` when no token accounting exists).
+   3. Verify: run `night-crew scorecard --repo .` — it must **exit 0**, render the
+      run id, and show all four roles as record-backed rows (no "No runs to
+      show."). A failed render is fixed before the closing commit, never skipped —
+      a skipped ritual step reads exactly like a clean one (B-133). Record the
+      render's exit line in the closeout notes (HANDOFF.md).
+   4. Commit the file on the run branch with the run's `Night-Crew-Run:` trailer.
+      This file is a CLOSING artifact in the run-evidence oracle: emit it exactly
+      once per run, at closeout, never earlier, never for a run that didn't
+      happen, and never as a template/example (those stay `.md` — any other
+      `*.jsonl` in that directory renders as a real run).
+
 6. **`/nc-morning-triage`** — Next morning: review the run branch, merge to `dev`,
    resolve `DECISIONS-NEEDED` forks with the operator, record resolutions to
    DESIGN §15x, flip roadmap cards + HANDOFF flags. Then loop back to step 2 (or
    step 1 at a milestone boundary).
+
+   **§4.5 backlog gate (ARMED as of run 20260904 — this step is mandatory, and it
+   passes now).** After any triage edit to `.night-crew/knowledge/BACKLOG.md` —
+   and before the triage merge commit — run:
+
+   ```
+   night-crew backlog check --repo .
+   ```
+
+   It must **exit 0**. The document was migrated to full canonical form by
+   `backlog-machine-migration` (run 20260904: `backlog: valid — 209 entries`,
+   content-preservation proven in that card's merge-intent), so a red here is a
+   real grammar defect **introduced by the edit just made** — fix that entry to
+   the canonical shape
+   `- **B-NN · Title** — one-line description · origin · status · lead: plain line`
+   (statuses: `new` · `promoted → <card>` · `landed → <artifact>` ·
+   `done — <what shipped>` · `dropped — reason`; new handles above the current
+   max, **never reused**). Never skip the check, never narrate around a red —
+   a skipped ritual step reads exactly like a clean one (B-133). Ledger decision
+   141's "the verb is advisory for this file" rider is **retired** by the
+   migration: the gate is binding again. Record the check's exit line in the
+   triage notes. Prefer `night-crew backlog add` for new entries — it emits the
+   canonical shape and assigns the next handle itself.
 
 ## Flags & args
 

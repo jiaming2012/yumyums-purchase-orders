@@ -1,0 +1,35 @@
+# Team scorecard — 1 run (latest 20260904)
+
+## Red flags
+
+None.
+
+## Milestone progress
+
+**Milestone "Close the loop" — card count unavailable; nothing it has delivered has since regressed.**
+
+- Window: every run — milestone "hq-20260903" was marked before any run existed. Name from the OKR page's milestone descriptor.
+- Cards: not counted — no roadmap in this repo carries an activity named "Close the loop". No card figure is shown rather than a denominator this report cannot stand behind.
+- Key results: none of the 15 key results could be graded — the OKR page, graded against run 20260904. That is a gap in what is measurable, not a score of zero.
+- Delivery: 1 run closed; 4 of 4 work orders merged and standing; 8 points completed; 0 regressions (run scorecard records).
+- Finish date: not computed, and deliberately so. Nothing the scorecard reads records a target date or when each card was finished, so this section reports progress to date — not a projection, not a rate, and no claim that the remaining work fits the time left. Recording those two facts is what a schedule verdict would need.
+
+## Teams
+
+| Team | Runs | Rating | Trend | Value per token | Trend | Points done | Regressions |
+|---|---|---|---|---|---|---|---|
+| product | 1 | 92 | — | 0.01 | — | 1 | 0 |
+| delivery | 1 | 90 | — | 0.01 | — | 2 | 0 |
+| engineering | 1 | 88 | — | 0.01 | — | 3 | 0 |
+| qa | 1 | 90 | — | 0.01 | — | 2 | 0 |
+
+Latest run 20260904: 4 of 4 work orders merged and standing; velocity 1.00; first-pass rate 1.00; escape rate 0.00; spend 0.
+
+## Decisions
+
+12 gray areas routed through the resolver: 0 auto-resolved, 12 escalated — an auto-resolution rate of 0%.
+Citation-floor compliance: — of auto-resolutions met the floor for their severity.
+Constitutional-tier decisions: 0, of which 0 auto-resolved.
+12 decisions logged for a run that has not been executed yet, counted here but shown against no run.
+
+EXIT=0
