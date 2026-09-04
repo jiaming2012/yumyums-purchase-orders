@@ -43,6 +43,12 @@ func (o *terminalObserver) OnStateEntered(_ context.Context, e *gstate.StateEven
 		return
 	}
 	s := settled{state: e.State, attempt: *e.Data()}
+	// F4 / E-KR3: an already_used terminal on a SYNCED offline_override is a
+	// reconciled lost race — the observer carries the RaceLostReconciled
+	// emission decision; the awaiting Arbitrate persists it via the sink.
+	if e.State == AlreadyUsed && s.attempt.OfflineOverride {
+		s.raceLost = true
+	}
 	select {
 	case o.done <- s:
 	default:

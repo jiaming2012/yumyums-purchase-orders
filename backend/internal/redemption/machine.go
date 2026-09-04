@@ -2,6 +2,7 @@ package redemption
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/floodfx/gstate"
@@ -53,10 +54,23 @@ func Machine(db Redeemer, retryDelay time.Duration, maxRetries int) *gstate.Mach
 			}, RouteOutcome, RouteFailure)
 		}).
 		State(RouteOutcome, func(s *gstate.StateBuilder[State, Event, Attempt]) {
-			// Eventless fan-out on the burn verdict (ordered).
+			// Eventless fan-out on the burn verdict (ordered; last is the
+			// fallback). E-KR2 / §18 edge-case 3: an unknown or EMPTY burn
+			// result must be an explicit error branch to the failed terminal
+			// — never a silent expired. not_found (a definitive verdict, not
+			// a malfunction) also lands here; wireResult reports it as
+			// not_found while anything unknown stays a loud error.
 			s.Always().Guard(func(a Attempt) bool { return a.Outcome == OutcomeRedeemed }).GoTo(Redeemed)
 			s.Always().Guard(func(a Attempt) bool { return a.Outcome == OutcomeAlreadyUsed }).GoTo(AlreadyUsed)
 			s.Always().Guard(func(a Attempt) bool { return a.Outcome == OutcomeExpired }).GoTo(Expired)
+			s.Always().
+				Assign(func(a Attempt) Attempt {
+					if a.Outcome != OutcomeNotFound {
+						a.Err = fmt.Sprintf("unknown burn outcome %q", a.Outcome)
+					}
+					return a
+				}).
+				GoTo(Failed)
 		}).
 		State(RouteFailure, func(s *gstate.StateBuilder[State, Event, Attempt]) {
 			s.Always().

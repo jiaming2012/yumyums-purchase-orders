@@ -309,16 +309,17 @@ func TestNoTOCTOU_ConcurrentAttemptsSingleWinner(t *testing.T) {
 	}
 }
 
-// 🔴 RED-CAPTURE STATE — this body currently asserts the check-then-act
-// analog behaves like the atomic arbiter (single winner). It CANNOT: the
-// analog acts on a stale read, so concurrent attempts double-win. The failure
-// this produces is the recorded proof that the race harness catches the §18
-// edge-case-1 defect class (the redeem-rpc-race-proof precedent). The green
-// commit inverts this into the permanent control asserting the double-win IS
-// detected.
+// Permanent inverted control (the redeem-rpc-race-proof precedent). At red
+// capture this body asserted the check-then-act analog single-wins — it
+// failed with 8/8 winners (card7-red.log), proving the race harness catches
+// the §18 edge-case-1 defect class. Inverted, it now guards the HARNESS: the
+// analog MUST double-win under this load. If it ever stops, the harness has
+// lost its teeth (the load no longer overlaps the check/act window) and the
+// single-winner test above is passing vacuously — fix the harness, not this
+// assertion.
 func TestNoTOCTOU_CheckThenActAnalogDoubleWins(t *testing.T) {
 	counts := raceWinners(t, &checkThenActAnalog{}, 8)
-	if counts[ResultRedeemed] != 1 {
-		t.Fatalf("check-then-act analog produced %d winners for one code (%v) — the TOCTOU double-win the harness must catch", counts[ResultRedeemed], counts)
+	if counts[ResultRedeemed] < 2 {
+		t.Fatalf("check-then-act analog produced %d winner(s) (%v) — it must demonstrably double-win, or the race harness can no longer detect the §18 #1 TOCTOU defect", counts[ResultRedeemed], counts)
 	}
 }

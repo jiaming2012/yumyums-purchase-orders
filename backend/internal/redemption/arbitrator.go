@@ -3,6 +3,7 @@ package redemption
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/floodfx/gstate"
@@ -103,6 +104,30 @@ func (arb *Arbitrator) Arbitrate(ctx context.Context, a Attempt) (Result, error)
 		}
 		if res.Result == ResultError {
 			res.Err = s.attempt.Err
+		}
+		if s.raceLost {
+			// F4: emit RaceLostReconciled and persist the Shift-Manager
+			// read-model entry SYNCHRONOUSLY — the response reports the flag
+			// only once the entry exists. A failed write is loud + retryable
+			// (ErrNotificationFailed → 500): re-arbitrating an already_used
+			// attempt is stable, so the client sync simply retries.
+			res.RaceLostReconciled = true
+			if arb.sink == nil {
+				return res, fmt.Errorf("%w: no sink wired", ErrNotificationFailed)
+			}
+			ev := RaceLostReconciled{
+				TokenHash:      s.attempt.TokenHash,
+				DeviceID:       s.attempt.DeviceID,
+				Staff:          s.attempt.AuthorizedBy,
+				OrderNumber:    s.attempt.OrderNumber,
+				ScannedAt:      s.attempt.ScannedAt,
+				Value:          s.attempt.Value,
+				ValueKnown:     s.attempt.ValueKnown,
+				UnverifiedCode: s.attempt.UnverifiedCode,
+			}
+			if err := arb.sink.Emit(ctx, ev); err != nil {
+				return res, fmt.Errorf("%w: %v", ErrNotificationFailed, err)
+			}
 		}
 		return res, nil
 	case <-ctx.Done():
