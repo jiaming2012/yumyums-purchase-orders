@@ -102,3 +102,13 @@ and the naive red-analog for the card's red-first leg.
 - signed: operator, 2026-09-03 — covers 2 correction(s) (batch sitting; the
   not_found design delta was presented as the product-changing item and signed
   "Sign off all three" — the card builds `redeem()` with the v2 body).
+
+## Comebacks
+
+- gap: GAP-1 — the handoff §6 `redeem()` returns a NULL reason for a
+  nonexistent code, so a forged/unknown code reads as a system failure instead
+  of `not_found` (spike leg N, 2026-09-03). Fix lands with Activity A's
+  `redeem-rpc-race-proof` card building the v2 body; that card owes ONE
+  re-validation run of this spike (or a successor against the built
+  `supabase/` migration) in the sitting it lands, recorded as a `validated:`
+  line naming GAP-1.
