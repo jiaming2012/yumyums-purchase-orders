@@ -128,6 +128,16 @@ const NA_WITH_REASON = {
   scheduling: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   hiring: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   bi: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
+  marketing: 'page shell only (card marketing-tile-and-page, run 20260905) — marketing.html has no '
+    + 'backend endpoint yet; the tile is grant-gated client-side via /me/apps. The scanner/submit '
+    + 'endpoints (cards camera-scanner-decode, redemption-submit-flow, gstate-arbitration-machine) '
+    + 'must mount RequirePermission("marketing") and delete this entry.',
+  'marketing-offline-override': 'entitlement surface seeded ahead of its enforcer — the offline '
+    + 'force-submit endpoint (redemption-submit-flow / gstate cards) must mount '
+    + 'RequirePermission("marketing-offline-override") with NO umbrella slug (an app grant must '
+    + 'never imply the override — QR design §13/§16 fork #12) and delete this entry. The narrow-'
+    + 'mount contract is already pinned at the gate by '
+    + 'backend/internal/auth/marketing_seed_test.go.',
 };
 
 // ─── Helpers (duplicated per-file, matching this suite's convention) ────────

@@ -288,7 +288,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > HQ's vanilla-JS context before the scanner cards are built. Adopting XState is a new client
 > dependency in a deliberately no-framework app; the spike settles it against the real screen.
 
-- **`marketing-tile-and-page`** · **PLANNED** · Add the **Marketing** tile to `index.html`'s grid
+- **`marketing-tile-and-page`** · **DRAFTING** (overnight-20260905, branch
+  `wo-marketing-tile-and-page` — tile + `TILE_SLUGS` entry, `marketing.html` shell (Scan live,
+  three labeled placeholders), `SeedHQApps` seeds `marketing` + the `marketing-offline-override`
+  entitlement surface with first-registration-only grants, precache 31→32; awaiting morning
+  triage) · Add the **Marketing** tile to `index.html`'s grid
   + `TILE_SLUGS`, create `marketing.html` (page shell with the four sub-sections: Scan / Campaigns
   / Subscribers / Redemption stats, §16), seed `('marketing','Marketing','📢')` in `SeedHQApps()`
   so the tile is permission-gated, and grant the `marketing` app to the relevant roles. Enforce

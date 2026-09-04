@@ -1,0 +1,83 @@
+════ card1-baseline-jwtbridge.log — pre-existing-failure proof: TestJWTBridgeRLS on the BASE tree (dev @ 0670798, throwaway worktree, fresh DB hq_test_go_c1b) ════
+Purpose: the card's G2(Go) leg failed ONLY TestJWTBridgeRLS, with spikec-* residue rows visible to service_role in the shared spike-supabase substrate. This run shows the SAME failure on the pre-change tree — pre-existing substrate contamination (Activity-C spike residue), not a defect of this branch. The branch diff contains zero references to spikec/hq_sync_checklists.
+$ go test -count=1 -run TestJWTBridgeRLS ./internal/sync/  (from base-tree/backend)
+--- FAIL: TestJWTBridgeRLS (1.33s)
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there (0.03s)
+        jwtbridge_rls_test.go:414: service_role sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+              response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+             {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+             {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+    --- FAIL: TestJWTBridgeRLS/V9/token_replay_after_grant_revocation (0.04s)
+        jwtbridge_rls_test.go:545: ADMITTED V9 before revocation, the token works          [chk-alice-ops-1 chk-alice-ops-2]
+        jwtbridge_rls_test.go:559: REFUSED  V9 replay after grant revocation               HTTP 200 []
+        jwtbridge_rls_test.go:562: V9 control: rows still present during the refusal: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+              response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+             {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+             {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+    --- FAIL: TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed (0.02s)
+        jwtbridge_rls_test.go:636: REFUSED  V12 deactivated user lockout                   HTTP 200 []
+        jwtbridge_rls_test.go:637: V12 control: rows still present during the lockout: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+              response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+             {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+             {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants (0.01s)
+        jwtbridge_rls_test.go:682: service_role still sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1 spikec-1138533b-1d04-4111-bee8-9a62e11995d4 spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2 spikec-25961112-06d6-406a-8849-28118bdc3096 spikec-37d9b214-890f-4bb1-9fce-151603e57fc1 spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493 spikec-85318376-608e-4e1f-b498-02f36a6a47ad spikec-ac00eb3d-333a-40d6-9638-61210c3be428 spikec-b8d45f77-9855-4857-9bd7-83c36562f004 spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8 spikec-c6a66887-3052-4d6d-9710-03e330d46f50 spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2 spikec-f295a677-7b5b-4193-947e-1fe55517763b]
+              response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+             {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+             {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}, 
+             {"id":"spikec-1138533b-1d04-4111-bee8-9a62e11995d4","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-16feeb23-ca45-4326-bc01-ac6dc5a401e2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-25961112-06d6-406a-8849-28118bdc3096","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-37d9b214-890f-4bb1-9fce-151603e57fc1","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-5a340a9d-efa4-4e3a-92de-5e370e6e4493","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-85318376-608e-4e1f-b498-02f36a6a47ad","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-ac00eb3d-333a-40d6-9638-61210c3be428","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-b8d45f77-9855-4857-9bd7-83c36562f004","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-bf86d3b0-b972-469b-9d12-c5b7988edcf8","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-c6a66887-3052-4d6d-9710-03e330d46f50","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-e96687f8-35a7-4c41-ba5f-661b7f9978b2","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}, 
+             {"id":"spikec-f295a677-7b5b-4193-947e-1fe55517763b","owner_id":"d4b01f0a-bd5c-4b3a-aaa9-53e98678a10c","app_slug":"operations"}]
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	1.950s
+FAIL
+EXIT=1
