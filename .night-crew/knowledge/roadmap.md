@@ -345,7 +345,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > orchestrator; R2 puts it in HQ Go. **Trace:** Engineering objective. The DB stays the arbiter
 > (§18 edge-case 1); the machine only reacts to its verdict.
 
-- **`gstate-arbitration-machine`** · **PLANNED** · `backend/internal/redemption` — the §18
+- **`gstate-arbitration-machine`** · **DRAFTING (overnight)** · `backend/internal/redemption` — the §18
   statechart (`validating → burning → route_outcome → {redeemed|already_used|expired|failed}`)
   wrapping the atomic `redeem()` via `Invoke` (ctx auto-cancel on state exit, so a hung call on a
   dropped hotspot doesn't wedge — §18 edge-case 4), plus the HQ endpoint the scanner's online
