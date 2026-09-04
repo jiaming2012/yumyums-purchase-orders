@@ -97,11 +97,30 @@ reshape commit — resolved by the proof script via
 AFTER = the landed working-tree file at the landing commit. The exact SHAs are printed
 inside `card3-green-04-preservation-proof.log`.
 
-**Result:** — filled at landing, before this branch is done —
-- BEFORE tokens (total occurrences / distinct): *pending*
-- AFTER tokens (total occurrences / distinct): *pending*
-- `before − after` (lost tokens): *pending — must be empty*
-- Verdict: *pending*
+**Result (landed):**
+- BEFORE = `426e51a8f163f26e42ec9f3480d21a46f5be083f:.night-crew/knowledge/BACKLOG.md`
+  (the red-baseline commit; content sha256 `342c96cd…e31e5f0b`, the spike-pinned pre-doc):
+  **58 307 token occurrences / 6 070 distinct**
+- AFTER = the landed `.night-crew/knowledge/BACKLOG.md`
+  (content sha256 `ede3a29ae8927e8c436d935db29a63130106a42d33291c0943196b86998b898e`):
+  **59 661 token occurrences / 6 138 distinct**
+- `before − after` (lost token occurrences): **0**
+- Verdict: **GREEN — containment holds** (`card3-green-04-preservation-proof.log`,
+  EXIT=0 inside the log; re-run:
+  `python3 .night-crew/runs/2026-09-04-autonomous/card3-preservation-proof.py`).
+  Growth (+1 354 occurrences) is the additive canonical material: 65 new handles,
+  canonical status heads, and the written/folded leads.
+
+**done_when state at landing:**
+1. `night-crew backlog check --repo .` → **EXIT=0**, `backlog: valid — 209 entries`
+   (`card3-green-01-check-final.log`).
+2. `night-crew backlog list --repo .` → EXIT=0, **209 entry-shaped lines** + 1
+   view-time footer == the checker's own 209 parse — **MATCH**
+   (`card3-green-02-list-compare.log`). Baseline 207→209 explained in that log:
+   +B-350 (the machine-invisible PRIORITY bullet), +B-387 (the machine-invisible
+   Rejection-feedback bullet), +B-54 (nested-bold title fixed), −1 (B-77
+   duplicate folded into the original B-77's lead, content moved not deleted).
+3. Preservation proof green (above).
 
 ## Commit plan (stated per mechanics rule 2)
 
