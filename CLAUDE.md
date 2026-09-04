@@ -122,7 +122,7 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - `task test` auto-runs `task sw` as a dependency. **`task prod:deploy` does NOT** — see "Deploying to prod" below
 - `build-sw.js` also writes `version.json` (frontend semver from `package.json`) which the SW precaches
 - **`sw.js` is a committed artifact.** `build-sw.js` reads **git HEAD**, not the working tree and not the index, so the manifest names only what a fresh clone can serve. Commit `sw.js` in the same change set as whatever you changed under it, or the change does not ship
-- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **32**; if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
+- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **39**; if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
 
 ### Versioning & Deployment
 
