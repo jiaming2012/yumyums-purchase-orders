@@ -47,6 +47,18 @@ COPY vendor/rxdb.bundle.js ./vendor/
 COPY sync-rxdb/*.js ./sync-rxdb/
 COPY sync-schema/collections.js ./sync-schema/
 
+# ── The Marketing scanner modules (card camera-scanner-decode, run 20260905).
+# Same decision-59 pairing as above: these two COPY lines + the
+# `cp -r ../marketing` below are INDIVISIBLE from build-sw.js's
+# 'marketing/*.js' / 'marketing/sync/*.js' globPatterns — a precached URL the
+# image cannot serve fails the ENTIRE service-worker install. Narrow on
+# purpose: *.js only, so marketing/package.json and marketing/sync/harness/
+# (the Node gate harness) are never publicly served. lib/html5-qrcode.min.js
+# (the vendored scanner lib) needs NO new line — `COPY lib ./lib` +
+# `cp -r ../lib` above/below already stage all of lib/.
+COPY marketing/*.js ./marketing/
+COPY marketing/sync/*.js ./marketing/sync/
+
 # Backend source.
 COPY backend ./backend
 
@@ -77,6 +89,7 @@ RUN set -eux; \
     cp -r ../vendor cmd/server/public/; \
     cp -r ../sync-rxdb cmd/server/public/; \
     cp -r ../sync-schema cmd/server/public/; \
+    cp -r ../marketing cmd/server/public/; \
     CGO_ENABLED=0 go build \
       -ldflags "-X github.com/yumyums/hq/internal/version.GitSHA=${GIT_SHA} -X github.com/yumyums/hq/internal/version.BuiltAt=${BUILT_AT}" \
       -o /out/server ./cmd/server

@@ -317,7 +317,12 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   deliberately) and commit it. done_when: a `team_member` sees Scan; a non-granted user sees no
   tile; `build-sw.js` exits 0. Footprint: scanner UI + redemption backend (seed) + `sw.js`.
 
-- **`camera-scanner-decode`** · **PLANNED** · Camera via `getUserMedia`, decode with
+- **`camera-scanner-decode`** · **DRAFTING** (overnight-20260905, branch
+  `wo-camera-scanner-decode` — scanner screen wired into `#scanner-host`: vendored
+  html5-qrcode (single classic script, `lib/`), on-device WebCrypto hash, replica-first
+  resolution with embedded-offer fallback + F3 offline/online branches, precache 32→39;
+  live-camera leg flagged ATTENDED for morning verification; awaiting morning triage) ·
+  Camera via `getUserMedia`, decode with
   `html5-qrcode` (or `@zxing/browser`), **hash the identity token on-device with WebCrypto before
   any lookup** (§12/§4 — a dumped replica never yields live codes), then resolve and **display**
   the customer's offers — the scanner never auto-picks one (**F5** — staff apply the right offer in
