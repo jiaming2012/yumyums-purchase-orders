@@ -34,6 +34,27 @@ export { replicateSupabase } from 'rxdb/plugins/replication-supabase';
 export { replicateRxCollection } from 'rxdb/plugins/replication';
 export { Subject } from 'rxjs';
 
+// Local schema migration. REQUIRED, not optional, from the moment any
+// collection declares `version > 0` — card `refusal-holds-before-sync`
+// (run 20260906-2) bumps SCAN_ATTEMPTS_SCHEMA to v1 for the
+// `policy_unresolved` discriminator, and rxdb 17.4.0's createRxCollection does
+//
+//     autoMigrate && collection.schema.version !== 0 && await collection.migratePromise()
+//
+// unconditionally. Without this plugin `migratePromise` resolves to the
+// un-plugged prototype stub, which THROWS ("you must add the migration-schema
+// plugin") — `addCollections` rejects and marketing/scan-page.js's boot()
+// catch renders "Scanner failed to start". Measured in the shipped bundle
+// before this line existed: `t.getMigrationState=function(){throw
+// _e("migration-schema")}`.
+//
+// `autoMigrate: false` is NOT the cheaper alternative: it would leave every
+// v0 document — i.e. the crew's UNSENT offline override attempts — stranded in
+// the old-version storage instance, invisible to the push replica. Silently
+// dropping queued redemptions is the harm this whole activity exists to
+// prevent.
+export { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
+
 // Multi-tab leader election. `waitForLeadership` defaults to TRUE in a browser;
 // W2's Node harness had to force it false (sharp edge 10). This export is what
 // lets a page observe which tab won.
