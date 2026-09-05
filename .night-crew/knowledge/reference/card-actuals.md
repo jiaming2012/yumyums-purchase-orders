@@ -1294,3 +1294,22 @@ below new-mechanism bands — when a spike's harness IS the working draft, estim
 the harness, not the mechanism. followup-batch at doc scale (297 issues) came in at ~40m;
 the 110m risk price was insurance against the no-analog case and can narrow next time.
 Serial per-merge overhead ≈ 0 (all clean); closeout ≈ 2m (scorecard emit + verify).
+
+Run 20260905 (concurrent 2-track: W0 → B→C ∥ D; rate-limit stall ~15:00–17:40 EDT split both track implementers mid-card — working-time figures below exclude it, wall-clock noted):
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `marketing-tile-and-page` | W0 | small-additive | 25–45m | 14:10 (~85m incl. TWO full e2e suites 28.1+26.6m + one B-140 fix) | 14:38 (~26m incl. base-reds leg) | in-run B-140 | 14:40 `6d7a8f5` | **~115m** (2.5× the band — the full-suite legs are ~55m of it; price full-Playwright legs separately from the class next time) |
+| 7 | `gstate-arbitration-machine` | D | new-mechanism | 60–100m risk-flagged | 18:05 (~50m working; wall 3h23m across the stall) | 18:25 **FAIL** (~20m) | fix `98e189e` + re-verify | ~18:25 `5fefd56` | **~70m working** (in band; toolchain-bump risk didn't bite — module cache had go1.26.2) |
+| 2 | `rxdb-pull-replica` | B | new-mechanism | 45–80m | 19:20 (~75m working; harness green by 17:50, e2e leg after) | 19:35 (~15m) | none | 19:40 `6bd7e13` | **~90m working** (top of band + e2e leg) |
+| 3 | `scan-attempts-push-conflict` | B | new-mechanism | 45–80m | 20:00 (~20m, first-attempt green) | ~20:12 (~12m) | none | 20:15 `9b9c669` | **~35m** (under band — the spike's push handler was the working draft, as priced) |
+| 4 | `clock-offset-on-sync` | B | small-additive | 20–40m | ~20:30 (~15m) | ~20:42 | none | 20:45 `9a77f90` | **~30m** (in band; sibling regression legs c2+c3 included) |
+| 5 | `camera-scanner-decode` | C | new-mechanism | 50–90m | 21:40 (~50m incl. full suite) | 21:55 (~15m) | none | 22:00 `e20972c` | **~70m** (in band; 375KB vendored-lib precache move uneventful) |
+| 6 | `redemption-submit-flow` | C | new-mechanism | 100–150m use 150 | ~23:00 (~87m incl. two full suites + two in-run fix finds) | park ruling ~23:00 | none | **PARKED** → merged at triage `f2f832a` | **~87m impl** (well under the 150m risk price; the park was policy, not rework — first actual for the XState-machine class) |
+
+Sizing-class notes: the spike-was-the-draft discount held again (cards 3, 7 under/at band).
+Card 1's overshoot is systematic, not noise — a small-additive card that owes TWO full
+Playwright suites is really small-additive + ~55m of gate; split the gate cost out of the
+class band. Card 6 gives the first XState/conformance-class actual: ~87m for machine +
+overlay + 18-seq conformance + fuzz. Park-for-policy costs ~0 rework (merge at triage was
+one clean command). Serial per-merge overhead ≈ 0 (5 clean + 1 union); closeout ~5m.

@@ -90,3 +90,27 @@ yes away from merging.
   to the full suite.
 - The operator attended briefly mid-run (Slack Stop-hook change on this machine —
   unrelated to the run's file surfaces).
+
+## Triage disposition (2026-09-05, attended — ledger T-53)
+
+- **Merged to dev:** run branch at `ba5efba`; **card 6 at `f2f832a`** (D-1 ratified —
+  unknown→false stands as shipped; follow-up card `requires-online-replication` named,
+  required before any real campaign). Independent adversarial re-execution reproduced
+  every executable gate claim; merged-tree Go suite re-run green vs the armed baseline
+  (sole red = base-proven TestJWTBridgeRLS); card 6 conformance 18/18 + strictness
+  re-proven at triage. Pushed to origin/dev.
+- **Standing flags:**
+  - **ATTENDED live-camera check (Card 5) — STILL ARMED.** Headless proved decode-from-image
+    only. Re-arms whenever `marketing/scanner.js` / `marketing/scan-page.js` / the vendored
+    lib change. Steps in "Next actions" #3 above.
+  - **No real campaign may be provisioned** until `requires-online-replication` lands
+    (D-1 rider; close-bar leg 3 / Q-KR1 unattestable until then).
+  - Playwright armed reds B-174 ×3 + B-176 ×1 + B-178 unchanged (no card owed them);
+    DBL-05 now filed as **B-421**.
+- **Toolchain note amended (adversarial Finding 2):** plain `npm ci` dies mid-reify in a
+  fresh clone on this box (`Exit handler never called!`, `.bin` never linked) — the working
+  sequence is **`npm ci && npm rebuild`**. Applied to the main checkout at triage (stale
+  workbox 7.3.0 trap cleared).
+- **Backlog graduated:** B-421..B-431 (see BACKLOG.md — includes the belt-2 double-serve,
+  commit-order skew, the push-harness HTTP-failure injection gap the triage mutation probe
+  M3 exposed, and the F-4 order-number seam bypass).

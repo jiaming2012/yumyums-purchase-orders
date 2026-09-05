@@ -3812,3 +3812,71 @@ items; no OpenSpec deferral markers apply). Previous pair archived to
   follow-ups the slate scoped remain: hosted `supabase/` apply once Activity 0 provisions
   (~15m attended), `external-accounts-provision` scheduling (A2P/10DLC 1–3 week lead gates
   Activity E), and the now-possible backlog walk over the 46 `[new]` CLI-visible items.
+
+### T-53 — Morning triage: run `20260905` reviewed and merged to `dev` (2026-09-05, attended)
+
+**The night:** slate-20260905, 7 cards, Activities B+C+D, concurrent 2-track. **6 landed
+overnight, card 6 complete-but-parked on fork D-1** (the run's only gray area; decisions
+journal holds exactly one record, disposition escalated). 52 commits, 96 files,
++28,560/−44 on the run branch; card 6 added 25 files / +9,296 at triage.
+
+**Adversarial re-verification (fresh scratch clone, mutation clone, dev-base clone):**
+every executable closeout claim reproduced — build+vet clean on go 1.26.2; Go suite
+337/1/2 with the sole red `TestJWTBridgeRLS` re-proven red on the dev BASE; full e2e
+848/1/6 with the lone hard red = base-proven DBL-05 and zero unexplained; `sw.js`
+byte-identical + idempotent at precache 39 (history 31→32→32→39 matches every per-card
+claim); both vendored libs byte-identical to their registry tarballs — html5-qrcode 2.3.8
+sha256 `660b12437b1d747e3e68b8be0685c08cb728140110ad213f167b14b66f8b1d8e`, xstate 5.32.6
+sha256 `e7f04e1f780f5f67b0d4286b85e6d01e16473ab42b5a466cd56282556838fa28` (the sha-recording
+item HANDOFF §4 owed — recorded here); migration 0077 + `POST /api/v1/marketing/redeem` +
+gstate v0.3.1 present; discipline greps verified vacuous (B-14), not skipped. Mutation
+probes: **5 of 6 guards real** (clock offset both signs, naive-expiry fallback, GAP-1
+burn-persist belt, GAP-1 keyset tiebreak, card 7 sink-failure loudness all red when
+weakened); the survivor is the gate hole filed as B-429. Unverified and said so: card 6's
+own in-run numbers (conformance + strictness since re-proven at triage, below), per-card
+e2e ×2 legs, red-first replays, the run-integrity narrative, the live-camera path.
+
+**Conflict-log audit clean:** 6 entries for 6 merges + an explicit no-Merge-7 park coda;
+all six merge-intents carry the three durable fields; the night's one conflict
+(timings.log append-append, union) correct; zero-diff claims verified against real diffs;
+one DISCLOSED integrity nick (card 2's independent G6 harness log lost at worktree
+removal — implementer's own log committed, loss disclosed in Merge 3).
+
+- **Decision 166 — D-1 ratified: unknown→false stands as shipped.** The §8 question —
+  which behavior applies when a campaign's `requires_online` flag is not client-readable
+  (today: always, no campaigns replica) — put to the operator as three concrete scenarios.
+  Chosen: **ratify as shipped** (force-submit behind the `marketing-offline-override`
+  entitlement + §13 confirmation, every attempt audit-flagged, revertible by one constant)
+  over *keep-parked* (redemption held out of the app, question returns) and over
+  *refuse-when-unknown* (offline redemption dead surface until the flag replicates). Card 6
+  merged `f2f832a`. Rider carried from the proposal: **follow-up card
+  `requires-online-replication` REQUIRED before any real campaign is provisioned**;
+  close-bar leg 3 / Q-KR1 unattestable until it lands. Answer captured as candidate
+  **design/C-2** (pending — adoption is the operator's own act). Routed as a
+  morning-triage decision record (escalated — correctly the operator's).
+- **Decision 167 — follow-up card named and scoped (role-level call, stated).**
+  `requires-online-replication` authored on the roadmap (Activity B): replicate the flag
+  (campaigns replica or embedded in the codes pull), arm the §8 refusal on real data, and
+  own **F-2** (unknown-code `code_id = token_hash` vs `uuid not null` — distinct landing
+  path or skip-until-arbitration guard so card 3's push handler can't retry-poison the
+  queue). Chosen over folding F-2 into a separate card: the two failure surfaces arm at
+  the same moment (provisioning), so they ship together. F-4 filed separately (B-431) —
+  hardening, not arming.
+- **Decision 168 — merge order under the frozen-run-branch rule.** Card 6 merged onto
+  `dev` AFTER the run-branch merge (`ba5efba` → `f2f832a`), not onto the run branch —
+  "do not edit a run branch once HANDOFF.md is written" outranks D-1's one-command
+  phrasing; the resulting tree is identical (dry-run proved the clean merge either way).
+  Merged-tree gates re-run at triage: full Go suite `-p 1` green vs the armed baseline
+  (sole red = base-proven TestJWTBridgeRLS); card 6 conformance **18/18** and strictness
+  (**460 declared pairs across 23 states**) re-executed green on the byte-identical tree.
+- **Decision 169 — stranded work: record-and-leave re-confirmed (Decision 165 stands).**
+  The sweep found the same two: `workspace/hq-scheduling-app` (31 commits, B-415) and
+  `main`'s 3 deploy-fix patches (B-348). Nothing merged or deleted (B-133 class). Tonight's
+  card worktree cleared the post-merge sweep — all run work reached dev.
+
+**Filed:** B-421–B-431 (backlog check green at 226). **Ratification queue:** empty (nothing
+decided under delegation — P-1's bound held). **Ratchet:** empty. **Coverage:** 0% of 1 —
+the gap is exactly what design/C-2 covers once adopted. **Toolchain:** `npm ci` broken on
+fresh clones here (B-430); `npm ci && npm rebuild` applied to the main checkout, stale
+workbox 7.3.0 trap cleared. **Still armed:** the ATTENDED live-camera check (card 5);
+no-real-campaign-before-`requires-online-replication` (Decision 166 rider).

@@ -253,10 +253,10 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > independently offline, this activity collapses to a thin live cache and its cards shrink.
 > **Trace:** Engineering objective.
 
-- **`rxdb-pull-replica`** · **DRAFTING** (overnight-20260905, branch `wo-rxdb-pull-replica` —
+- **`rxdb-pull-replica`** · **DONE** (overnight-20260905, branch `wo-rxdb-pull-replica` —
   `marketing/sync/` pull modules with the keyset `{updated_at, id}` checkpoint closing GAP-1,
   vendor surface widened (`replicateRxCollection` + `Subject`), standalone substrate harness
-  green, modules deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  green, wired by Cards 5/6; triaged 2026-09-05, merged to dev) ·
   Two server-owned, **pull-only** replicas (§4) via
   `replicateRxCollection` with an `updated_at` checkpoint: (1) `codes` / redemption-state, filtered
   `expires_at > now() - interval '2 days'` (§5.3), so the scanner knows offline which codes are
@@ -270,12 +270,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   renders offline; and an un-synced customer falls back to the embedded offer. Footprint: rxdb
   replica.
 
-- **`scan-attempts-push-conflict`** · **DRAFTING** (overnight-20260905, branch
+- **`scan-attempts-push-conflict`** · **DONE** (overnight-20260905, branch
   `wo-scan-attempts-push-conflict` — `marketing/sync/push-replication.js` device-owned push
   module: offline queue + `enqueueAttempt` dedupe + redeem-then-land handler with GAP-1's two
   belts (persisted burn outcome before landing; own-device `already_used` = accepted), loser's
-  flip rendered from the codes-side pull replica, standalone substrate harness; module
-  deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  flip rendered from the codes-side pull replica, standalone substrate harness; wired by
+  Cards 5/6; triaged 2026-09-05, merged to dev — belt-2 cross-session gap filed B-423,
+  harness HTTP-failure injection gap filed B-429) ·
   The device-owned, **push-only**
   `scan_attempts` collection (§4 — opposite replication direction, the key structural decision).
   The push handler batches pending attempts through `redeem()` and writes the outcome back onto
@@ -283,18 +284,30 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   used at 6:42pm" (§6). done_when: a lost-race attempt renders "already used" with the winning
   time/device. Footprint: rxdb replica.
 
-- **`clock-offset-on-sync`** · **DRAFTING** (overnight-20260905, branch
+- **`clock-offset-on-sync`** · **DONE** (overnight-20260905, branch
   `wo-clock-offset-on-sync` — `marketing/sync/clock.js` sync clock capturing
   `offset = serverNow − deviceNow` from the pull response's `Date` header on every successful
   pull (spike-proven source), persisted-beside-the-checkpoint state via injected `persist`,
   `clock.isExpired()` as the offline expiry API, window bounds following `clock.now`; both skew
-  signs exercised in the standalone substrate harness; module deliberately unwired pending
-  Cards 5/6; awaiting morning triage) · On every successful sync, store
+  signs exercised in the standalone substrate harness and re-proven by triage mutation probes;
+  wired by Cards 5/6; triaged 2026-09-05, merged to dev) · On every successful sync, store
   `serverNow − deviceNow` and apply that offset in the offline `expires_at` comparison (§5.1) —
   a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
   set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
 
-## Activity C — The scanner screen (staff redemption at the window)
+- **`requires-online-replication`** · **PLANNED** (named at morning triage 2026-09-05, ledger
+  T-53 — the follow-up card D-1's ratification requires) · Replicate each campaign's
+  `requires_online` flag to devices (a campaigns replica, or embed the flag in the codes pull)
+  so the §8 refusal ARMS ON REAL DATA — today every campaign resolves policy-unknown and the
+  shipped unknown→false default makes the refusal unreachable. Also owns **F-2** (G6-c6,
+  latent cross-card): the F2 unknown-code write puts `code_id = token_hash` (64 hex) into a
+  `uuid not null` column — give unverified attempts a distinct landing path or a
+  skip-until-arbitration guard so Card 3's push handler can't 400/retry-poison the queue when
+  provisioning arms sync. 🛑 **REQUIRED BEFORE any real campaign is provisioned**; close-bar
+  leg 3 / Q-KR1 cannot be attested until this lands. done_when: a `requires_online=true`
+  campaign's code, scanned offline, shows "can't verify — try again" with NO override even for
+  an entitlement holder (the branch-3 e2e flips from seam-injected to real-data); an unknown-code
+  override lands without poisoning the push queue. Footprint: rxdb replica + supabase arbiter.
 
 > **Why here:** this is the operator-facing action and the close bar's leg 1. It reads from B
 > (offline) and burns through A (online, via D). **Trace:** Product objective. **Locks §14 #9
@@ -304,11 +317,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > HQ's vanilla-JS context before the scanner cards are built. Adopting XState is a new client
 > dependency in a deliberately no-framework app; the spike settles it against the real screen.
 
-- **`marketing-tile-and-page`** · **DRAFTING** (overnight-20260905, branch
+- **`marketing-tile-and-page`** · **DONE** (overnight-20260905, branch
   `wo-marketing-tile-and-page` — tile + `TILE_SLUGS` entry, `marketing.html` shell (Scan live,
   three labeled placeholders), `SeedHQApps` seeds `marketing` + the `marketing-offline-override`
-  entitlement surface with first-registration-only grants, precache 31→32; awaiting morning
-  triage) · Add the **Marketing** tile to `index.html`'s grid
+  entitlement surface with first-registration-only grants, precache 31→32; triaged 2026-09-05,
+  merged to dev) · Add the **Marketing** tile to `index.html`'s grid
   + `TILE_SLUGS`, create `marketing.html` (page shell with the four sub-sections: Scan / Campaigns
   / Subscribers / Redemption stats, §16), seed `('marketing','Marketing','📢')` in `SeedHQApps()`
   so the tile is permission-gated, and grant the `marketing` app to the relevant roles. Enforce
@@ -317,11 +330,12 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   deliberately) and commit it. done_when: a `team_member` sees Scan; a non-granted user sees no
   tile; `build-sw.js` exits 0. Footprint: scanner UI + redemption backend (seed) + `sw.js`.
 
-- **`camera-scanner-decode`** · **DRAFTING** (overnight-20260905, branch
+- **`camera-scanner-decode`** · **DONE** (overnight-20260905, branch
   `wo-camera-scanner-decode` — scanner screen wired into `#scanner-host`: vendored
-  html5-qrcode (single classic script, `lib/`), on-device WebCrypto hash, replica-first
-  resolution with embedded-offer fallback + F3 offline/online branches, precache 32→39;
-  live-camera leg flagged ATTENDED for morning verification; awaiting morning triage) ·
+  html5-qrcode (single classic script, `lib/`, registry-verified sha256 660b1243…8b1d8e),
+  on-device WebCrypto hash, replica-first resolution with embedded-offer fallback + F3
+  offline/online branches, precache 32→39; triaged 2026-09-05, merged to dev —
+  **live-camera phone check still ATTENDED-OWED**) ·
   Camera via `getUserMedia`, decode with
   `html5-qrcode` (or `@zxing/browser`), **hash the identity token on-device with WebCrypto before
   any lookup** (§12/§4 — a dumped replica never yields live codes), then resolve and **display**
@@ -334,8 +348,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   shows its offer offline — synced (replica) and un-synced (embedded); and a locally-redeemed code
   rejects offline but defers to the server online (F3). Footprint: scanner UI.
 
-- **`redemption-submit-flow`** · **DRAFTING** (overnight-20260905, branch
-  `wo-redemption-submit-flow`) · The heart of the window workflow (§13). Large
+- **`redemption-submit-flow`** · **DONE** (overnight-20260905, branch
+  `wo-redemption-submit-flow` — strict XState submit machine (vendored xstate 5.32.6,
+  registry-verified sha256 e7f04e1f…38fa28), conformance 18/18 + strictness 460 declared
+  pairs re-proven at triage; parked overnight on fork D-1, ratified at morning triage
+  2026-09-05 (ledger T-53): unknown→false stands as shipped, follow-up card
+  `requires-online-replication` REQUIRED before any real campaign; merged to dev) ·
+  The heart of the window workflow (§13). Large
   result cards then auto-reset (§16): ✅ Redeemed (offer + entitlement) → **required Toast
   order-number entry that *completes* the redemption** (no path to "redeemed" without it — §13
   double-entry problem), with **format validation** (#2) and business-date computed from the
@@ -367,7 +386,10 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > orchestrator; R2 puts it in HQ Go. **Trace:** Engineering objective. The DB stays the arbiter
 > (§18 edge-case 1); the machine only reacts to its verdict.
 
-- **`gstate-arbitration-machine`** · **DRAFTING (overnight)** · `backend/internal/redemption` — the §18
+- **`gstate-arbitration-machine`** · **DONE** (overnight-20260905, branch
+  `wo-gstate-arbitration-machine` — gstate v0.3.1, go 1.26.2 toolchain bump,
+  `POST /api/v1/marketing/redeem`, F4 read-model migration 0077; G6 FAIL→fix `98e189e`→PASS;
+  triaged 2026-09-05, merged to dev) · `backend/internal/redemption` — the §18
   statechart (`validating → burning → route_outcome → {redeemed|already_used|expired|failed}`)
   wrapping the atomic `redeem()` via `Invoke` (ctx auto-cancel on state exit, so a hung call on a
   dropped hotspot doesn't wedge — §18 edge-case 4), plus the HQ endpoint the scanner's online

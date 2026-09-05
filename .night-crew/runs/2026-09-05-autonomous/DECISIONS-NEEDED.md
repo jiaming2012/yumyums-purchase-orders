@@ -1,3 +1,11 @@
+> **RESOLVED 2026-09-05 — recorded as ledger T-53 (Decision 166).** D-1 ratified by the
+> operator at morning triage: **unknown→false stands as shipped** (entitlement-gated,
+> §13-confirmed, audit-flagged). Card 6 merged to dev at `f2f832a`. Follow-up card
+> **`requires-online-replication`** named on the roadmap (Activity B) — replicates the flag,
+> arms the §8 refusal on real data, and owns the F-2 landing path; REQUIRED before any real
+> campaign is provisioned. F-4 (order-number guard seam bypass) filed as B-431. The answer
+> is captured as candidate preference `design/C-2` (pending adoption).
+
 # DECISIONS-NEEDED — run 20260905
 
 One fork, parked by the decisions machinery (verdict: park, top severity by the
