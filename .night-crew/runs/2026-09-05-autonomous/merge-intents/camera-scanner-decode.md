@@ -126,9 +126,50 @@ html5-qrcode single file, 375,364 B). Design authority: docs/qr-offline-redempti
 
 ## Red-first
 
-Captured to `card5-red.log` BEFORE the production files exist in the tree (git history is
-the chronology, the family pattern). Greenfield: the card's assertions — decode-from-image,
-hash-equals-seed-literal, resolution order (replica-first / embedded fallback / unknownCode),
-F3 offline-reject vs online-defer, clock round-trip, serialized enqueue — run against the
-pre-change tree (Card 1's shell, no scanner) and red as a set. Command + exit code in the log.
-(Evidence lands here when the gates run.)
+Captured to `card5-red.log` (committed `d6c2d30`) BEFORE the production files existed in
+the tree (they land in the NEXT commit, `a47ad41` — git history is the chronology, the
+family pattern). Greenfield: the full describe — decode-from-image + hash-equals-seed-
+literal, resolution order (replica-first / embedded fallback / unknownCode), F3
+offline-reject vs online-defer, offset-clock expiry + persist/initialState round-trip,
+hash caching, serialized enqueue, F6 re-scan, camera error state — ran against Card 1's
+shell and redded **14/14, EXIT=1**, every failure the same behavior-absent shape
+(`window.MarketingScan` never appears; 30s waitForFunction timeout — verified: 14
+identical error lines, zero harness errors).
+
+🛑 Process deviation, disclosed in-log and in the commit: a FIRST red attempt was
+invalidated and re-run. The implementer wrote production files into the working tree
+while that attempt's webServer (`STATIC_DIR=../` — serves the LIVE tree) was running, so
+its last 6 tests raced green against mid-run files. The production files were stashed,
+the red leg re-run start-to-finish against the untouched pre-change tree, and THAT clean
+capture is the committed log. Lesson recorded for future cards: never modify the worktree
+while a webServer-based Playwright leg is live.
+
+## Gate evidence (run in this worktree; full logs committed beside this file)
+
+- **RF** — `card5-red.log` (above): 14/14 red on pre-change tree, EXIT=1. Green: the same
+  14, targeted run on the implemented tree — **14 passed (12.0s), first attempt** (also
+  visible inside the full-suite log).
+- **G2 (Playwright, FULL suite — marketing.html + sw.js are undeclared seams → full
+  fallback, deliberate)** — `card5-e2e.log`, HEAD `8505041`: `npx bddgen && TEST_PORT=3105
+  TEST_DB_NAME=hq_test_e2e_c5 npx playwright test --retries=0` → **850 passed / 1 failed /
+  6 skipped (18.9m), EXIT=1, exactly one summary block** (grep-verified: one `passed (`
+  line). The 1 red, judged against the slate's armed baseline: `workflows.spec.js:1202`
+  **DBL-05** — a slate-NAMED pre-existing base red ("pre-existing on base — … workflows
+  DBL-05"). The other named baseline reds (sw-api-cache-partition B1-XT-01/-02/-05) were
+  GREEN this run — they flap, same shape Card 2 recorded. **No failure in this run is
+  attributable to this diff**; all 14 new scanner tests green inside the full run.
+- **G4** — `card5-g4.log`, HEAD `3272a18`: `node build-sw.js` twice — both EXIT=0, **39
+  files precached (2682.0 KB)**, tree clean after pass 2 (committed sw.js reproduced
+  byte-identical — lockfile-true npm ci env, workbox-build 7.4.1 per Card 2's toolchain
+  finding). Reachability: 26 files parsed, 41 refs resolved, 0 outside. Version parity
+  **1.6.2 ≡ 1.6.2 ≡ 1.6.2** (version.go Frontend / package.json / version.json) — no
+  bumps tonight.
+- **G1 / G2 (Go)** — n/a: no `.go` file touched (backend/Dockerfile only — asset staging
+  lines, mechanically forced by decision 59; verified by the diff).
+- **Harness leg (optional per the slate)** — not run, stated: the slate marks it
+  "Optional if your Playwright tests already prove it against fixtures", and they do —
+  resolution order (replica-first, embedded fallback, unknownCode) and both F3 branches
+  are pinned by the committed Playwright tests against local-replica fixtures mirroring
+  the seed literals; the replica MECHANISM itself is Card 2/3/4's substrate-harness-proven
+  surface, untouched by this card (their modules are wired, not edited — zero diff under
+  `marketing/sync/`).
