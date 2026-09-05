@@ -3,3 +3,5 @@
 2026-09-05 06:04 EDT  guard: no unmerged overnight-* branch; worktrees check flagged workspace/hq-scheduling-app (31c) + main (3c) — operator answered "leave both, launch"; card-branch check clean; workers check clear (night-crew, night-crew-env)
 2026-09-05 06:04 EDT  branch: overnight-20260906 cut at 4facd5e; card worktree wt-20260906-c1 on wo-requires-online-replication
 2026-09-05 06:04 EDT  card 1 requires-online-replication: implementer dispatched (session model, class new-mechanism)
+2026-09-05 06:49 EDT  card 1 implementer DONE (~44m incl. full suite 19.3m): 8 commits 81af49a..65ce45c; not parked (§9/§19 accepted+flags); gates green — harness legs 0, marketing 30 passed, full suite 858/2/6 (DBL-05 baseline, FLD-03/04 isolated-green load flake); precache 43
+2026-09-05 06:49 EDT  card 1 G6 adversarial review dispatched (session model, own detached checkout wt-20260906-g6)
