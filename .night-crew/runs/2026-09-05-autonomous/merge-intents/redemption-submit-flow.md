@@ -286,10 +286,58 @@ Evidence: `card6-red.log` (committed with the tests), greens in `card6-conforman
     in-memory by design. Explicitly NOT wired into debouncedSaveField (different
     subsystem, per the card).
 
-## Gate evidence (amended as gates run)
+## Gate evidence (run in this worktree; full logs committed beside this file)
 
-- RF: `card6-red.log` — see ## Red-first.
-- Card gate: `card6-conformance.log` (18/18 + strictness), `card6-fuzz.log`
-  (lockstep + per-step liveness).
-- G2 (Playwright): `card6-e2e.log` (full suite — page-touching card).
-- G4: `card6-g4.log` (build-sw idempotent at 43, parity).
+- **RF** — `card6-red.log` (committed `46701b2`, BEFORE any production file):
+  the three node legs EXIT=1 (production machine absent, named in-log); the
+  new Playwright describe **10/10 failed, EXIT=1**, every failure the same
+  behavior-absent shape (`window.MarketingSubmit` never appears — 30s
+  waitForFunction timeout). Greens: the same legs below. Disclosed in-log:
+  npm's "Exit handler never called" bug hit the worktree `npm ci` twice
+  (reify complete, bin links missing; `npm rebuild` restored them).
+- **THE CARD'S OWN GATE** —
+  - `card6-conformance.log` (HEAD 5f1a8ec): `run-conformance.mjs` — **ALL 18
+    SEQUENCES HELD** on the production machine in THROW mode, **0 tripwire
+    hits**, **460 declared pairs across 23 states × the 20-event alphabet**
+    (460 = 23×20: full coverage, nothing implicit); `strictness.mjs` — **9/9
+    held** (undeclared pair throws in the test build + kills the actor;
+    modeled `unexpectedEvent` in prod — alive, named, RETRY returns to the
+    interrupted state, NEXT resets, the prompt closes over it; the three
+    reachable-benign pairs declared by name). Both **EXIT=0**.
+  - `card6-fuzz.log`: lockstep vs the spike's proven hand-rolled reference —
+    **40,000 walks × 20 steps, seeds 20260904+20260905, 25-entry alphabet,
+    per-step liveness ARMED: deaths=0 (tripwire hits 0), divergences=0,
+    EXIT=0.** Pass-by-death impossible; zero behavior drift in the fuzzed
+    space.
+- **G2 (Playwright, FULL suite ×2 — page-touching card → full fallback,
+  `TEST_PORT=3106 TEST_DB_NAME=hq_test_e2e_c6 --retries=0`, one summary block
+  each):**
+  - **Run 1** (`card6-e2e.log`, HEAD 07e9835): **856 passed / 5 failed / 6
+    skipped (19.3m), EXIT=1.** Verdicts: `marketing.spec.js:521` hash-caching
+    — **INTRODUCED by this card** (the gate's private hasher starved the
+    page's cache of its hit) → fixed in `f226834` (gate shares the page's
+    memoized hasher, sw regen `3318ee5`); `workflows DBL-05` + `GATE-02` —
+    slate-armed baseline; `sync SYNC-RF-01` + `workflows DBL-04` — not
+    slate-named, both **green in isolation on the same tree** (targeted
+    re-runs, 1 passed each) → load-shaped flakes in exactly the specs the
+    seam notes call load-sensitive.
+  - **Run 2** (`card6-e2e-2.log`, HEAD 3318ee5): **859 passed / 2 failed / 6
+    skipped (18.5m), EXIT=1.** `workflows DBL-05` — the armed baseline red;
+    `marketing.spec.js:448` F3-offline — **the second and last
+    diff-attributable find**: Card 5's test assumed the `() => false` default
+    probe, which THIS card's boot replaces (a race: green in run 1, red in
+    run 2) → test setup fixed in `9c6f04e` (forces offline through the real
+    probe; assertions unchanged). Whole-file proof after both fixes:
+    `npx playwright test tests/marketing.spec.js --retries=0` → **30 passed
+    (23.4s)** — Card 1 + Card 5 + Card 6 describes all green together.
+  - Net: **zero unexplained reds**; the two attributable finds are exactly
+    the two seams this card touches (the shared hasher, the probe handoff),
+    each fixed with the existing test as the regression guard.
+- **G4** — `card6-g4.log` (final HEAD): `node build-sw.js` twice — both
+  **EXIT=0, 43 files precached (2788.5 KB)**, reachability 30 files parsed /
+  46 refs resolved / 0 outside, tree clean after pass 2 (committed sw.js
+  reproduced byte-identical; only uncommitted gate logs in status). Version
+  parity **1.6.2 ≡ 1.6.2 ≡ 1.6.2** (version.go Frontend / package.json /
+  version.json) — no bumps tonight.
+- **G1 / G2 (Go)** — n/a: no `.go` file touched (verified by the branch
+  diff); the endpoint is Card 7's landed surface, consumed as-is.

@@ -1,0 +1,25 @@
+# card6-g4.log — G4: build-sw.js exit 0 at the stated count, idempotent, parity intact. Card redemption-submit-flow, run 20260905.
+# HEAD: 9c6f04e
+
+$ node build-sw.js   (pass 1)
+import reachability: 30 precached files parsed, 46 local references resolved, 0 outside the precache
+SW built: 43 files precached (2788.5 KB)
+Frontend version: 1.6.2
+EXIT=0
+
+$ node build-sw.js   (pass 2 — idempotency)
+import reachability: 30 precached files parsed, 46 local references resolved, 0 outside the precache
+SW built: 43 files precached (2788.5 KB)
+Frontend version: 1.6.2
+EXIT=0
+
+$ git status --porcelain   (must show no sw.js drift — committed artifact reproduced byte-identical)
+?? .night-crew/runs/2026-09-05-autonomous/card6-e2e-2.log
+?? .night-crew/runs/2026-09-05-autonomous/card6-e2e.log
+?? .night-crew/runs/2026-09-05-autonomous/card6-g4.log
+STATUS_EXIT=0
+
+── version parity ──
+version.go Frontend: 	Frontend = "1.6.2"
+package.json:         "version": "1.6.2",
+version.json:        {"frontend":"1.6.2"}
