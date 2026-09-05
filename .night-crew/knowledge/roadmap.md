@@ -51,6 +51,16 @@ identity code, §10) and a measurable repeat rate.
    permissioned override** behind the §13 confirmation, writing an audit-flagged
    `offline_override` attempt that the server reconciles on the next sync. Both branches observed.
 
+   🛑 **BLOCKED as of morning triage 2026-09-05 (T-54, decision 170) — leg 3 is NOT attestable
+   on the current build.** The refusal **fails open while the campaigns replica lags**: codes,
+   offers and campaigns are three independent replicas started together, nothing gates scanning
+   or submitting on initial replication, and an as-yet-unreplicated campaign coerces to
+   "override allowed". Reproduced at triage with **zero production code mutated** — removing only
+   the `campaigns:` test seed leaves a `requires_online = true` $40 code rendering
+   `data-branch="override"`. So the leg's own promise ("refuses submit") holds only once the
+   tablet has finished syncing, which is precisely the condition leg 3 exists to test. Filed
+   **B-432**; unblocked by the card below.
+
 🛑 **The milestone may not close until the operator has personally seen all three.** No KR grade,
 card count or closeout substitutes — the standing "dev complete means the operator ran it" rule
 (decision 161's class).
@@ -305,7 +315,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   20260906000200: `code_id` nullable + `token_hash` + check constraint; lands
   `accepted`+both flags — no new terminal status per the §9/§19 re-read), branch-3 e2e
   flipped seam-injected → real data, GAP-1 validation run green (f2-run.sh re-executes
-  spike 03 against the shipped guard); awaiting morning triage. Named at morning triage
+  spike 03 against the shipped guard); **merged to `dev` at morning triage 2026-09-05
+  (ledger T-54)** — gates independently re-executed, three mutation probes confirmed the
+  policy source, the F-2 guard and the touch trigger each load-bearing; but the refusal was
+  found to **fail open while the campaigns replica lags** (B-432), so this card does NOT
+  unblock close-bar leg 3 on its own. Named at morning triage
   2026-09-05, ledger T-53 — the follow-up card D-1's ratification requires) · Replicate each campaign's
   `requires_online` flag to devices (a campaigns replica, or embed the flag in the codes pull)
   so the §8 refusal ARMS ON REAL DATA — today every campaign resolves policy-unknown and the
@@ -318,6 +332,27 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   campaign's code, scanned offline, shows "can't verify — try again" with NO override even for
   an entitlement holder (the branch-3 e2e flips from seam-injected to real-data); an unknown-code
   override lands without poisoning the push queue. Footprint: rxdb replica + supabase arbiter.
+
+- **`refusal-holds-before-sync`** · **PLANNED** · 🛑 **REQUIRED before close-bar leg 3 / Q-KR1
+  can be attested** (authored at morning triage 2026-09-05, ledger T-54 decision 170 — the
+  same "triage authors the unblocking card" precedent as decision 167). `requires-online-replication`
+  armed the refusal on real data but left it **failing open during the window before the
+  campaigns replica has delivered**: `createCampaignPolicySource` answers `null` for any
+  campaign not yet in its Map, `submit-flow.js` coerces `null → false`, and the three replicas
+  start together in `scan-page.js` with `SCAN_STATE.synced` display-only — nothing gates
+  scanning or submitting on initial replication. So a known, replicated, entitlement-bearing
+  high-value code whose campaign has not arrived is offline-overridable. 🛑 **This is NOT the
+  ratified unknown→false default (decision 166)** — that covers genuinely-unknown *codes*; this
+  is a known code with an unreplicated *campaign*, a case the ratification never considered.
+  done_when: with codes + offers replicated and the campaigns replica empty or erroring, a
+  `requires_online = true` code scanned offline shows "can't verify — try again" with NO
+  override for an entitlement holder — proven by the shipped branch-3 e2e run with the
+  `campaigns:` seed removed (the exact triage reproduction), red before, green after; and the
+  campaigns-replica failure path is distinguishable from a genuinely-unknown campaign in the
+  attempt record. Footprint: rxdb replica + submit-flow policy seam. Candidate shapes (the
+  card decides): gate override availability on campaigns-replica readiness, or fail closed for
+  codes whose campaign is unresolved, or carry the flag on the code row as the CLOSED
+  codes-embed alternative did not.
 
 > **Why here:** this is the operator-facing action and the close bar's leg 1. It reads from B
 > (offline) and burns through A (online, via D). **Trace:** Product objective. **Locks §14 #9

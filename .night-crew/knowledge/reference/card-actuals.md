@@ -1313,3 +1313,27 @@ Playwright suites is really small-additive + ~55m of gate; split the gate cost o
 class band. Card 6 gives the first XState/conformance-class actual: ~87m for machine +
 overlay + 18-seq conformance + fuzz. Park-for-policy costs ~0 rework (merge at triage was
 one clean command). Serial per-merge overhead ≈ 0 (5 clean + 1 union); closeout ~5m.
+
+## Run `20260906` (night of 2026-09-05, SERIAL, 1 card — the slate's whole content)
+
+Times from `timings.log` stamps, **not** HANDOFF prose. Note a discrepancy worth carrying:
+HANDOFF says "Implementer ~44m + G6 ~37m"; the stamps put G6 at **26m** (dispatched 06:49,
+verdict 07:15), and launch-to-merge at **74m** total, which 44+37 would overrun. The ~44m
+implementer figure matches (45m by stamps). Only the G6 number is inflated, by ~11m.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `requires-online-replication` | 45m (06:04→06:49, incl. own full suite 19.3m) | 26m (06:49→07:15, incl. own full suite 19.0m; APPROVE, no fix round) | 3m (merge `2eafa55` 07:18) | **74m** — est. 60–100 (risk-flagged, priced at 100); **in band, under the priced figure** |
+
+**new-mechanism class now: 35–90m band holds** (this card 74m, prior run `20260905` actuals
+35–90m). The slate's "spike-was-the-draft discount at full strength" call was correct — the
+spike had already run the campaigns replica on the shipped pull module, and the card came in
+26m under its risk-flagged price with zero fix rounds.
+
+🛑 **Read this actual with its quality caveat.** 74m and APPROVE understates the work still
+owed: triage's adversarial review found the card's headline capability fails open during the
+pre-sync window (B-432), which blocks close-bar leg 3 and requires a follow-up card
+(`refusal-holds-before-sync`). The cheap, fast, zero-fix-round night is real; "Activity B
+closes 4/4" is the part that did not survive review. A clean G6 at 26m is not evidence of a
+complete card — this is the second consecutive run (with `20260809`'s S2) where an APPROVE
+rested on a scope claim that an independent reproduction falsified.

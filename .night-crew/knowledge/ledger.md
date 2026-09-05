@@ -3880,3 +3880,132 @@ the gap is exactly what design/C-2 covers once adopted. **Toolchain:** `npm ci` 
 fresh clones here (B-430); `npm ci && npm rebuild` applied to the main checkout, stale
 workbox 7.3.0 trap cleared. **Still armed:** the ATTENDED live-camera check (card 5);
 no-real-campaign-before-`requires-online-replication` (Decision 166 rider).
+
+### T-54 — Morning triage: run `20260906` reviewed and merged to `dev` (2026-09-05, attended)
+
+Run `20260906` landed 1 of 1 cards (`requires-online-replication`, merge `2eafa55`) and parked
+nothing. `decisions ratify` and `preferences ratchet` both returned empty — no delegated
+decision awaited review, which for this run is a true statement rather than an unrun step.
+Merged `--no-ff`; the Go suite re-run on the merged tree is green (`internal/sync` 162 PASS /
+0 FAIL / 2 opt-in skips with the substrate up, all 11 other packages `ok`).
+
+The night's own record was accurate about everything it measured. The decisions below turn on
+something it did **not** measure, surfaced by an adversarial review briefed to falsify it.
+
+**Decision 170 — merge the card, and BLOCK close-bar leg 3 until the pre-sync window is
+closed.** The card is a strict improvement on a state where the refusal was entirely
+unreachable, and every guard it ships was mutation-proven load-bearing at triage: forcing the
+policy source to `requiresOnline:false` reds the branch-3 e2e, replacing the F-2 guard
+condition with `false` reds the f2 harness on all six assertions, and deleting the touch
+trigger reds the campaigns harness at leg 4. But the refusal **fails open while the campaigns
+replica lags** (B-432) — reproduced with **zero production code mutated**, by removing one line
+of test seeding. Close-bar leg 3 is *"offline is safe by policy"*, and a promise that holds
+only after the tablet finishes syncing is not that. Chosen: merge and block leg 3, over filing
+it as ordinary backlog and attesting leg 3 as-is (the operator would sign a promise with an
+undocumented exception, at the window, on high-value codes) and over promoting the fix ahead of
+Activity 0 (whose external lead times are the milestone's real critical path — reordering it
+to close a first-sync window trades a longer delay for a shorter one). The unblocking card
+`refusal-holds-before-sync` is authored on the roadmap under the same precedent as decision 167:
+triage authors the card that discharges the finding it raised, rather than leaving the block
+without a destination.
+
+**Decision 171 — decision 166's ratified `unknown → false` default does NOT cover an
+unreplicated campaign.** The merge-intent scopes the ratified default to "genuinely-unknown
+**codes**", and the run leaned on that framing when it measured the adjacent `none + HIGH` case
+and called the refusal "provably dead without a source". B-432 is a different object: a
+**known, replicated, entitlement-bearing** code whose *campaign* has not arrived. The operator
+ratified a policy about codes nobody has heard of; they did not ratify one about a $40 code the
+device is holding. Chosen: rule the case outside decision 166 and treat it as an open defect,
+over reading the ratification broadly enough to absorb it — which would convert an operator's
+narrow yes into standing cover for a failure mode they were never shown. Recorded as a decision
+because the broad reading is the tempting one and it is available in writing to the next reader.
+
+**Decision 172 — a named baseline red must be re-derived before it is cited again.** Run
+`20260906` characterised its full-suite reds as one base-proven flake (DBL-05, B-421) plus load
+noise. Triage ran the suite on a detached clean `dev` with no card diff: **856 / 4 / 6**, and
+**DBL-05 passed** — at whole-suite position, in single-test isolation, and in file order. The
+four actual base reds are a set the run never names, three of them in `sync.spec.js`. Nothing
+is diff-attributable, so the card's safety conclusion stands; the label does not. Chosen: file
+it (B-433) and require re-derivation before B-421 is cited, over accepting the characterisation
+because the conclusion happened to be right. An armed list exists to tell a regression from the
+baseline; a list that names the wrong test cannot do that, and it fails silently in the
+direction of "everything is known".
+
+  🛑 **Routing note — this one did NOT auto-resolve, and the disagreement is worth keeping.**
+  Put through `night-crew decisions log`, it came back **escalated / park**: the citation
+  deliberately included `process/P-3` ("unreproducible means resolved, until it recurs")
+  **against** the proposal, and the resolver correctly refused to decide on weight alone with
+  two preferences opposed at equal strength. P-3 is the preference a future reader is most
+  likely to reach for here, and reaching for it would **invert** it — retiring the *test* on
+  evidence that falsifies the *label*. A non-reproduction of a claimed baseline is a finding
+  about the claim, not a retirement of the failure. The ruling above is therefore stated as a
+  role-level call over the resolver's park, and is flagged to the operator as such rather than
+  presented as machine-endorsed; they can overrule it and nothing else in this triage moves.
+
+Evidence corrections of record (documentation-level; no gate implicated):
+
+- **"Activity B closes 4/4" and the merge-intent's "no override, for anyone" are both
+  overstated** — true once the campaigns replica has delivered, false during the window before
+  it has. HANDOFF §"What landed, functionally" carries the same unconditional phrasing. Filed
+  as B-432; the roadmap's DONE row and close-bar leg 3 corrected in this commit.
+- **HANDOFF's G6 duration is inflated by ~11 minutes** — prose says "G6 ~37m"; `timings.log`
+  puts the review at **26m** (dispatched 06:49, verdict 07:15), and launch-to-merge at 74m,
+  which "44m + 37m" would overrun. Card-actuals appended from the stamps (the T-40 precedent).
+- **HANDOFF says "pre-change 12 redeem retries"; the card's own red evidence says 10**
+  (`card1-red.log:128`, independently reproduced at triage). The 12 is the *spike's*
+  measurement, correctly attributed as spike-measured everywhere else — only HANDOFF.md:37
+  reassigns it to this card's pre-change tree. The HANDOFF outcomes table itself says 10.
+- **The conflict log's merge-integrity command is not re-runnable in this clone** — it cites
+  `git diff wo-requires-online-replication overnight-20260906 …` and that ref does not exist
+  here. The substance is true, verified via the merge's second parent (`2eafa55^2` = `65ce45c`,
+  empty diff outside `.night-crew`). The run executed on a macOS host (`card1-*.log` stack
+  traces carry `/Users/jamal/...`), which also makes HANDOFF §5's worktree claim uncheckable
+  here rather than false. See also the **triage-side** finding below.
+- **`replicas.js:198-200` describes soft-delete behavior that cannot occur** — `public.campaigns`
+  has no `_deleted` column and `CAMPAIGNS_SELECT` omits it, so a deleted campaign does not drop
+  back to unknown; the local policy row persists. Fail-safe in direction. Filed in B-434.
+
+Findings that survived attack, recorded because a refutation attempt is evidence:
+
+- **All three shipped guards are load-bearing**, each killed by its own mutation probe (above).
+- **`buildPullUrl`'s new optional expiry bound does not disturb existing callers** — proven by
+  execution, not inspection: **36 character-identical URLs** across a checkpoint × batch-size
+  matrix including legacy checkpoints and punctuation-stressed ids. `push-replication.js` is
+  55 additions / **0 deletions**, so GAP-1's two belts are literally byte-identical.
+- **The raw scan token is never persisted** — every write path traced; only a SHA-256 hex
+  reaches `token_hash`, and the attempt schema has no raw-token property. A security-relevant
+  claim, attacked and clean.
+- **Migrations are idempotent and the constraint is real** — clean bare apply plus two warm
+  re-applies; the check rejects `(no code, no flag)`, `(flagged, no hash)` and `(hash,
+  unflagged)`, and accepts `(flagged + hash)`. Activity A's migrations byte-untouched.
+- **Red-first chronology is sound to the second** — the red commit precedes all three fix
+  commits, its diff touches zero production files, and `card1-red.log` records `no token_hash
+  column`, proving the migration was absent when the red was taken.
+- **The campaign flip holds in the UPGRADE direction too** — the run only tested downgrade; the
+  reviewer built the `false → true` (safety-direction) variant and it held end-to-end.
+- **GAP-2 is under-claimed, not over-claimed** — the shipped touch trigger mechanically does fix
+  it, and the note disclaims the credit. No finding.
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **`card/a3-rls-fixture-own` remains expected, not a finding** — preserved by decision 155
+  pending the attended `gate-rls-fixture-ownership` re-gate; named in `--expect` so the guard's
+  report is not read as new.
+- **The ATTENDED live-camera check (card 5, run `20260905`) stays ARMED** — untouched by this
+  run; nothing this triage saw bears on it.
+- **The full e2e suite was NOT re-run on the run branch at triage** and is recorded
+  **unverified**; the budget went to the clean-`dev` base run instead, which is what produced
+  decision 172. Stated rather than left to look like a pass.
+
+🛑 **Triage-side finding, recorded against this ritual rather than the run.** This triage was
+first run against a **month-stale clone** of this repo: local `dev` had diverged from
+`origin/dev` at `a236440` (2026-08-08) and the WSL box had been running unpushed nights while
+upstream continued on another machine. A complete `/nc-morning-triage` was performed on the
+stale tree — it merged an already-triaged run (`20260809`), wrote a duplicate `T-44`, and filed
+backlog handles upstream had used a month earlier — before the `git push` caught it. **Every
+check the ritual performs is local-only** (`skills preflight`, `worktrees check`,
+`run-evidence check`, the `--no-merged` branch lookup), so a stale clone reports a perfectly
+self-consistent picture of itself and nothing in the ritual reads `origin` until the final push.
+Nothing was pushed; the divergent line is preserved at branch `stale-dev-20260808` and `dev` was
+reset to `origin/dev` before this run's triage began. **Remedy: `git fetch origin` and compare
+`origin/dev...dev` BEFORE step 1 of any `/nc-*` ritual in this repo.** Filed as B-435.

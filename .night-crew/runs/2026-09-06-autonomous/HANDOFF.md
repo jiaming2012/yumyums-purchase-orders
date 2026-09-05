@@ -9,6 +9,38 @@ every mechanics call (publication-vs-fan-out, constraint form, harness design) w
 pre-delegated to the night by the signed slate, and the §9/§19 re-read resolved inside
 the existing taxonomy. **1 of 1 cards merged. Nothing parked.**
 
+> **TRIAGED 2026-09-05 — merged to `dev`, ledger §T-54 (decisions 170–172).** Gates
+> re-executed adversarially by a subagent briefed to falsify this file, in its own worktrees:
+> merge tree byte-identical to the card branch outside `.night-crew` · `go build`/`vet` exit 0 ·
+> **566 Go tests run / 564 PASS / 2 SKIP / 0 FAIL** across 12 packages, no package printing `ok`
+> with zero tests · `tests/marketing.spec.js` **30 passed** · `sw.js` byte-identical, **precache
+> 43**, 0 refs outside · migrations clean bare + **two warm re-applies**, check constraint proven
+> to reject all three bad shapes, Activity A's files byte-untouched · f2 harness green 0 / red 1
+> (asymmetry reproduced), campaigns + three regression legs exit 0 · machine conformance **460
+> pairs / 23 states**, strictness 9/9. Re-run on the MERGED tree at triage: Go suite green
+> (`internal/sync` 162 PASS / 0 FAIL / 2 skips with the substrate up).
+>
+> **Three mutation probes confirm the guards are load-bearing** — forcing the policy source to
+> `requiresOnline:false` reds the branch-3 e2e; replacing the F-2 guard condition with `false`
+> reds the f2 harness on all six assertions; deleting the touch trigger reds the campaigns
+> harness at leg 4. Proven by execution rather than inspection: `buildPullUrl`'s new optional
+> bound yields **36 character-identical URLs** for existing callers, and the raw scan token is
+> **never persisted** (every write path traced; only a SHA-256 hex reaches `token_hash`).
+> Red-first chronology verified to the second, with the red commit's diff touching zero
+> production files. The reviewer additionally built the **upgrade** direction of the campaign
+> flip, which this run never tested — it held.
+>
+> 🛑 **One finding changes the milestone, not the merge: B-432 — the refusal FAILS OPEN while
+> the campaigns replica lags.** Reproduced with zero production code mutated. **Close-bar leg 3
+> is now BLOCKED** (decision 170) and the unblocking card `refusal-holds-before-sync` is
+> authored on the roadmap. §"What landed, functionally" below overstates the result: the
+> refusal arms on real data *once the campaigns replica has delivered*, not unconditionally.
+>
+> **Standing flags:** the ATTENDED live-camera check (card 5, run `20260905`) **remains armed** —
+> untouched by this run. The full e2e suite was **not** re-run on the run branch at triage
+> (unverified); instead the budget went to a clean-`dev` base run, which **falsified** this run's
+> "sole common red = base-proven DBL-05" characterisation — see **B-433**.
+
 ## Per-card outcomes
 
 | # | Card | Outcome | Gates (final tree) | G6 |

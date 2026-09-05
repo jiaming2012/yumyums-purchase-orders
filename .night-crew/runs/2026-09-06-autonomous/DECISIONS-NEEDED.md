@@ -1,3 +1,11 @@
+> **RESOLVED 2026-09-05 — recorded as `ledger.md` §T-54 (decisions 170–172).**
+> The run's own statement below is confirmed: nothing was parked, no delegated decision awaited
+> ratification, and `night-crew decisions ratify` / `preferences ratchet` both returned empty at
+> triage. The one operator call this triage put was **not** a fork the run left open — it was
+> raised BY the triage's adversarial review: the must-verify-online refusal fails open while the
+> campaigns replica lags (B-432). Answered *"merge, and block close-bar leg 3 on the fix"*
+> (decision 170). Kept as the analysis record.
+
 # DECISIONS-NEEDED — overnight run 20260906
 
 **Nothing parked, and no delegated decisions await ratification.** Stated explicitly so
