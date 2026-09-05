@@ -253,9 +253,40 @@ Evidence: `card6-red.log` (committed with the tests), greens in `card6-conforman
    embedded card; an override on it honestly writes `unverified_code=true`);
    `expiredLocally`→`expiredLocally`; `spentLocally`→`spentLocally`;
    `invalidPayload`/`decodeError` never reach the machine (no token → no session).
-7. **`code_id` for an unknown-code attempt = the token_hash** (64 hex < the
-   column's 100): no code row exists to name; the local queue needs a dedupe key
-   and the arbitration card owns server-side resolution of unverified attempts.
+7. **`code_id` for an unknown-code attempt = the token_hash** — CORRECTED at
+   G6 review (the first version of this call recorded a falsehood; amended
+   here, code deliberately unchanged per the control loop's instruction):
+   - **What the original justification got wrong:** "64 hex < the column's
+     100" reads the LOCAL RxDB schema's `maxLength: 100`
+     (`marketing/sync/push-replication.js` SCAN_ATTEMPTS_SCHEMA), not the
+     server. The SERVER column is **`scan_attempts.code_id uuid not null`**
+     (`supabase/migrations/20260904000100_qr_attribution_spine.sql:66`) and
+     the arbiter is **`redeem(p_code uuid, p_device text)`**
+     (`20260904000200_redeem_rpc.sql`). A 64-hex token_hash is not a uuid —
+     the value as written can never land server-side.
+   - **The latent defect (unreachable tonight; real the moment provisioning
+     arms sync):** Card 3's push handler has NO unverified_code branch — it
+     POSTs `{p_code: doc.code_id, …}` to `/rpc/redeem` for every pending
+     attempt (`push-replication.js:222-227`) and THROWS on any non-200. For
+     an F2 unverified attempt (`code_id` = 64-hex, submit-flow.js:240) the
+     POST draws a 400 uuid-coercion, the throw hands it to RxDB's push
+     retry, and the deterministic 400 **permanently retry-poisons the
+     device's push queue**. Tonight no sync is provisioned (no coordinates;
+     startSync unwired), so the write stays queue-local and the defect is
+     latent, not live.
+   - **Why the local shape still stands:** no code row exists to name for an
+     unknown code; the local queue needs a per-code dedupe key and the
+     token_hash is the only stable identity the device has. The F2 done_when
+     (the local `offline_override=true AND unverified_code=true` write) is
+     correct and tested.
+   - **Named follow-up (a future card's work, owed BEFORE provisioning arms
+     the scan_attempts push replica):** unverified attempts require either a
+     **distinct landing path** (server-side token_hash → code resolution at
+     arbitration time — F2's "when sync arbitrates" clause) or a
+     **skip-until-arbitration guard in the push handler** (an
+     `unverified_code=true` attempt is ineligible for the `/rpc/redeem` burn
+     as-shaped and must never enter the retry loop). Either lands in the
+     push/arbitration surface, not this card's footprint.
 8. **Entitlement (`canOverride`)**: read from `/api/v1/me/apps`
    (slug `marketing-offline-override` — #12, any role, per-user grant), cached in
    localStorage so an offline RELOAD keeps the grant (the override exists FOR
