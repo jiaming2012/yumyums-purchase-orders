@@ -132,3 +132,39 @@ recorded in the attempt row as `policy_unresolved = true`. Filed as **B-436**.
   `marketing/sync/harness/refusal-run.sh red-preserved` re-runs the validation harness against
   the pre-change `null`-answering policy shape and must exit NON-ZERO; the green mode runs the
   shipped source. Logs under the same run directory.
+
+---
+
+## Deltas discovered while building (recorded, not smoothed over)
+
+1. **The schema bump forced a vendor rebuild, and it was found by a crash, not by
+   reasoning.** `vendor/rxdb.bundle.js` did not carry `rxdb/plugins/migration-schema`, and rxdb
+   17.4.0 runs `autoMigrate && version !== 0 && await migratePromise()` unconditionally against a
+   prototype stub that throws. The first `refusal-run.sh` invocation died at `addCollections`
+   with the plugin's own error text. **Two LANDED gates would have died the same way** —
+   `f2-harness.mjs` and `push-harness.mjs` both build the scan_attempts collection — so both now
+   register the plugin, and all three landed harnesses (`f2-run.sh`, `campaigns-run.sh`,
+   `push-run.sh`) were re-run on the substrate: EXIT=0 each.
+
+2. **The landing whitelist gained the field on BOTH paths, not one.** Build-fact 5 priced it at
+   one line. Under the fail-closed predicate a known-code override implies a resolved campaign,
+   so the normal path's value is constant `false` — *except* on B-436's path, where it is
+   genuinely `true`. Landing a provable constant is free; landing a lie about an unresolved
+   policy is how B-432 stayed invisible for a run.
+
+3. **Two shipped e2e tests moved, and they were wrong before, not broken by this.** `offline
+   branch 1` and `offline branch 2` seeded a known code with **no** `campaigns` row — they were
+   modelling the B-432 window without meaning to, and passed only because of the fail-open. They
+   now seed `campaignLowRow()` (the committed seed.sql …0001 literals) so they say what they
+   mean. `P-KR4` was left alone: it asserts reachability recovery, not a branch, and passes
+   either way.
+
+4. **`TEST_DB_NAME` was renamed.** The slate's `hq_e2e_c1_20260906_2` is refused by
+   `scripts/reset-e2e-db.js`'s own guard (`/^hq_test(?:_[a-z0-9]+)*$/`, the pattern that stops a
+   mistyped name DROPping a dev database). Run as `hq_test_e2e_c1_20260906_2` /
+   `hq_test_rls_c1_20260906_2` — still unique per leg, which is what B-80 is about. The guard was
+   NOT widened.
+
+5. **B-436 opened.** The one window this card knowingly leaves open, stated above under "in
+   which window it holds", filed in `BACKLOG.md`, and made visible in the data
+   (`policy_unresolved = true`) rather than left silent.

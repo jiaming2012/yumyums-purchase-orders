@@ -298,3 +298,64 @@ terminal status (§9/§19 taxonomy unchanged).
   reproduction). Build-fact 3 binds the validation: the codes-arrive-first
   sub-case must be covered or explicitly carried (found 2026-09-05,
   /nc-spike).
+  - validated: GAP-1 — run 20260906-2, card `refusal-holds-before-sync`
+    (branch `card/c1-refusal-holds-before-sync`). The fix shipped INSIDE
+    `marketing/sync/replicas.js`'s `createCampaignPolicySource`: a KNOWN code
+    (`campaignId != null`) whose campaign is absent from the Map answers
+    `{requiresOnline: true, unresolved: true}`; `campaignId == null` still
+    answers `null`, so decision 166's F2 affordance survives by construction.
+    The owed validation re-executed spike 02 against it wrapper-free —
+    `marketing/sync/harness/refusal-run.sh`, the f2-run.sh precedent, on the
+    live substrate with the committed migrations + seed applied.
+    **Green, EXIT=0**
+    (`.night-crew/runs/2026-09-06-2-autonomous/c1-refusal-run-green.log`),
+    `alive=true trips=0` on every run (mode `throw` — zero new (state,event)
+    pairs; Card 6's 460-pair strictness proof untouched):
+
+    | run | requiresOnline | overrideAvailable | after OVERRIDE_REQUEST |
+    |---|---|---|---|
+    | window + HIGH, SHIPPED source | **true** | **false** | `blockedOffline` |
+    | window + genuinely-unknown code | false | true | `overrideConfirm` + unverified warning |
+    | window + HIGH, PRE-CARD shape | false | true | `overrideConfirm` — B-432 re-demonstrated beside the fix |
+    | ready + HIGH | true | false | `blockedOffline` |
+    | ready + LOW | false | true | `overrideConfirm` |
+    | **READY + codes-arrive-first** | **true** | **false** | `blockedOffline` |
+
+    🛑 **The codes-arrive-first sub-case is COVERED, not carried** —
+    build-fact 3's binding clause. Built for real rather than simulated: a new
+    campaign + code inserted server-side, the CODES replica resynced and the
+    CAMPAIGNS replica deliberately not, so the device holds a code naming a
+    campaign it has never seen. The harness asserts that campaign is absent
+    from the Map *before* it judges — a leg that cannot pose its question reds
+    rather than passing quietly. A bare readiness latch offers the override
+    here; the shipped predicate refuses it.
+
+    The error latch (build-fact 1) held, attributably and with no replay
+    available: `"[marketing-sync] pull campaigns answered HTTP 503"`,
+    `unresolved()` true while `awaitInitialReplication()` stayed pending.
+    After recovery the SAME handle reached ready — Map=2, `unresolved=false`,
+    `lastError=null` — with no teardown, as spike 01 measured.
+
+    The discriminator landed on the real arbiter through the shipped
+    `enqueueAttempt` + shipped push handler, post-migration
+    (`20260906000300`), with **0 redeem calls on the unverified rows** (the
+    F-2 guard still diverts before the burn):
+
+        aaaaaaaa… | accepted | override=t | unverified=t | policy_unresolved=t
+        bbbbbbbb… | accepted | override=t | unverified=t | policy_unresolved=f
+        distinct statuses on the arbiter: accepted
+
+    — no new terminal status; the §9/§19 taxonomy is unchanged.
+
+    **Red probe: `refusal-run.sh red-preserved` EXIT=1**, 5 disagreements —
+    the pre-card Map-or-null shape fails exactly the window+HIGH and
+    codes-arrive-first assertions, so the green run measures something rather
+    than passing by coincidence. Browser half:
+    `tests/marketing.spec.js` "B-432: … (branch-3 minus the `campaigns:`
+    seed)" red at `data-branch="override"` (EXIT=1) → green (EXIT=0).
+
+    Residual opened, NOT closed here: **B-436** — when the policy source fails
+    to CONSTRUCT (`CAMPAIGN_POLICY === null`), `submit-flow.js` still coerces
+    to `false` and a known code stays overridable. Unchanged from run 20260906,
+    measured by `campaigns-run.sh` leg 3's negative, and now recorded honestly
+    in the attempt row as `policy_unresolved = true`.
