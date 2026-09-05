@@ -103,6 +103,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <div class="tile-title">Inventory</div>
       <div class="tile-desc">Purchase history and stock levels</div>
     </a>
+
+    <a class="tile active" href="marketing.html">
+      <div class="tile-icon">📢</div>
+      <div class="tile-title">Marketing</div>
+      <div class="tile-desc">Scan to redeem, campaigns and subscribers</div>
+    </a>
   </div>
 </div>
 
@@ -112,7 +118,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div class="verline" id="version-line" hidden><span id="version-cached"></span><span id="version-server"></span></div>
 
 <script>
-const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding'};
+const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding','marketing.html':'marketing'};
 const APPS_CACHE_KEY='hq_apps';
 function renderUserHeader(name){
   var bar=document.createElement('div');

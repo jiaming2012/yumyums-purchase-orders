@@ -128,6 +128,23 @@ const NA_WITH_REASON = {
   scheduling: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   hiring: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   bi: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
+  // `marketing` left this table on card gstate-arbitration-machine (run
+  // 20260905, fix round): POST /api/v1/marketing/redeem now mounts
+  // RequirePermission("marketing") in main.go, exactly as the old entry's
+  // reason text pre-authorized. It is covered by PARITY-EQ's enforced set.
+  // No runtime APP_PAIRS entry yet ON PURPOSE: the endpoint is POST-only and
+  // fail-closed (503 redemption_not_configured until HQ_SYNC_REST_URL +
+  // HQ_SYNC_SERVICE_KEY are set), so the pair harness's "granted ⇒ probe
+  // serves 200" contract cannot hold on a test stack without a live
+  // substrate; the WITHOUT-403 behavior rides the same audited
+  // RequirePermission middleware every existing pair already exercises.
+  // When a card configures the arbiter on the e2e stack, add the pair.
+  'marketing-offline-override': 'entitlement surface seeded ahead of its enforcer — the offline '
+    + 'force-submit endpoint (redemption-submit-flow / gstate cards) must mount '
+    + 'RequirePermission("marketing-offline-override") with NO umbrella slug (an app grant must '
+    + 'never imply the override — QR design §13/§16 fork #12) and delete this entry. The narrow-'
+    + 'mount contract is already pinned at the gate by '
+    + 'backend/internal/auth/marketing_seed_test.go.',
 };
 
 // ─── Helpers (duplicated per-file, matching this suite's convention) ────────

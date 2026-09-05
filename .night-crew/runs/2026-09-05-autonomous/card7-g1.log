@@ -1,0 +1,7 @@
+# Card 7 · G1 — go build ./... && go vet ./... from backend/ (module root)
+# 2026-09-04T21:50:34Z
+go version go1.26.2 darwin/amd64
+$ go build ./...
+BUILD_EXIT=0
+$ go vet ./...
+VET_EXIT=0

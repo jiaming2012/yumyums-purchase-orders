@@ -1,0 +1,43 @@
+# card2-g4.log — G4 (sw regen, idempotency, version parity), card rxdb-pull-replica
+# run 20260905 · branch wo-rxdb-pull-replica
+
+## Pass 1 — regenerate on committed vendor HEAD (d4aa372)
+# cmd: node build-sw.js
+import reachability: 19 precached files parsed, 33 local references resolved, 0 outside the precache
+SW built: 32 files precached (2251.4 KB)
+Frontend version: 1.6.2
+EXIT=0
+
+Precache count: 32 — UNCHANGED from Card 1's stated 32 (deliberate: no asset
+added or removed; only vendor/rxdb.bundle.js's revision moved
+3174096a… → 325e6d4e… with the surface widening; every other url/revision
+pair identical, verified from the sw.js diff). marketing/sync/* unreferenced
+tonight → skipped by design (reachability, not completeness — B-37).
+
+Version parity: version.go Frontend "1.6.2" ≡ package.json "1.6.2" ≡
+version.json {"frontend":"1.6.2"} — no bump, parity intact.
+
+## Pass 2 — idempotency after the sw.js commit (917a3be)
+# cmd: node build-sw.js   (post-commit)
+REGEN_EXIT=0
+git status: clean except this untracked log — sw.js unchanged on regeneration.
+
+## Environment notes (honest record)
+1. First attempt failed EXIT=1 MODULE_NOT_FOUND (fresh worktree, no root
+   node_modules). Repaired with a clean `npm ci` — which itself hit npm
+   10.8.2's "Exit handler never called!" bug and completed the package tree
+   WITHOUT node_modules/.bin (npx playwright would have fallen through to the
+   registry). `npm rebuild` restored the 22 bin links; playwright 1.59.1 and
+   bddgen resolve locally. NOTE: the first npm ci attempt's failure was
+   initially masked by piping through tail — the gate-ladder false-green
+   class; re-run with the exit taken from the command itself.
+2. TOOLCHAIN FINDING (triage): this sw.js is the LOCKFILE-TRUE output
+   (workbox-build 7.4.1 / rollup 4.62.2 / terser 5.49.0 per package-lock).
+   The main checkout at /Users/jamal/projects/yumyums/hq carries a STALE
+   node_modules (workbox-build 7.3.0 / rollup 2.80.0 / terser 5.47.1 —
+   predates the 2026-07-17 lockfile pin, 3b1be67) and is what generated every
+   previously committed sw.js. The 7.4.1/rollup-4 pipeline reorders the
+   precache manifest array (content-equivalent) and emits the inert
+   `//# sourceMappingURL=sw.js.map` comment twice (*.map is gitignored — the
+   reference was already unserved). Runtime behavior identical; the committed
+   artifact should not depend on which machine's stale install built it.

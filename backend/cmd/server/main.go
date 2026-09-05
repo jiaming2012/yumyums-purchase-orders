@@ -34,6 +34,7 @@ import (
 	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/receipt"
 	"github.com/yumyums/hq/internal/recipes"
+	"github.com/yumyums/hq/internal/redemption"
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/toast"
 	"github.com/yumyums/hq/internal/users"
@@ -819,6 +820,31 @@ func main() {
 				r.Delete("/deleteTemplate/{id}", onboarding.DeleteTemplateHandler(pool))
 				r.Post("/assignTemplate", onboarding.AssignTemplateHandler(pool))
 				r.Post("/unassignTemplate", onboarding.UnassignTemplateHandler(pool))
+			})
+
+			// Marketing — QR redemption arbitration (card
+			// gstate-arbitration-machine, Activity D). The §18 machine wraps
+			// the substrate's atomic redeem() RPC; this is the endpoint the
+			// scanner's online submit posts to (R2) and the arbitration door
+			// for synced offline_override attempts (F4 emits from here).
+			//
+			// Fail-closed: with HQ_SYNC_REST_URL / HQ_SYNC_SERVICE_KEY unset
+			// (the normal state today) every POST answers 503
+			// redemption_not_configured, so registering it here is inert
+			// until a deploy configures the substrate — same doctrine as the
+			// sync proxy above.
+			redeemCfg := redemption.LoadRedeemerConfig()
+			var redeemer redemption.Redeemer
+			if redeemCfg.Configured() {
+				redeemer = redemption.NewRPCRedeemer(redeemCfg)
+			} else {
+				slog.Info("redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503",
+					"missing", redemption.RESTURLEnv+" and/or "+redemption.ServiceKeyEnv)
+			}
+			redeemArb := redemption.NewArbitrator(redeemer, redemption.PGRaceLostStore{Pool: pool}, redemption.Config{})
+			r.Route("/marketing", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "marketing"))
+				r.Post("/redeem", redemption.SubmitHandler(redeemArb))
 			})
 		})
 	})

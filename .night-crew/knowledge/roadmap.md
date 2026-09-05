@@ -253,7 +253,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > independently offline, this activity collapses to a thin live cache and its cards shrink.
 > **Trace:** Engineering objective.
 
-- **`rxdb-pull-replica`** · **PLANNED** · Two server-owned, **pull-only** replicas (§4) via
+- **`rxdb-pull-replica`** · **DRAFTING** (overnight-20260905, branch `wo-rxdb-pull-replica` —
+  `marketing/sync/` pull modules with the keyset `{updated_at, id}` checkpoint closing GAP-1,
+  vendor surface widened (`replicateRxCollection` + `Subject`), standalone substrate harness
+  green, modules deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  Two server-owned, **pull-only** replicas (§4) via
   `replicateRxCollection` with an `updated_at` checkpoint: (1) `codes` / redemption-state, filtered
   `expires_at > now() - interval '2 days'` (§5.3), so the scanner knows offline which codes are
   already spent or expired (§5); (2) **non-expired offers**, filtered `expires_at > now()` and
@@ -266,14 +270,26 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   renders offline; and an un-synced customer falls back to the embedded offer. Footprint: rxdb
   replica.
 
-- **`scan-attempts-push-conflict`** · **PLANNED** · The device-owned, **push-only**
+- **`scan-attempts-push-conflict`** · **DRAFTING** (overnight-20260905, branch
+  `wo-scan-attempts-push-conflict` — `marketing/sync/push-replication.js` device-owned push
+  module: offline queue + `enqueueAttempt` dedupe + redeem-then-land handler with GAP-1's two
+  belts (persisted burn outcome before landing; own-device `already_used` = accepted), loser's
+  flip rendered from the codes-side pull replica, standalone substrate harness; module
+  deliberately unwired pending Cards 5/6; awaiting morning triage) ·
+  The device-owned, **push-only**
   `scan_attempts` collection (§4 — opposite replication direction, the key structural decision).
   The push handler batches pending attempts through `redeem()` and writes the outcome back onto
   the local row; the `conflictHandler` flips a losing device's UI from "redeemed ✓" to "already
   used at 6:42pm" (§6). done_when: a lost-race attempt renders "already used" with the winning
   time/device. Footprint: rxdb replica.
 
-- **`clock-offset-on-sync`** · **PLANNED** · On every successful sync, store
+- **`clock-offset-on-sync`** · **DRAFTING** (overnight-20260905, branch
+  `wo-clock-offset-on-sync` — `marketing/sync/clock.js` sync clock capturing
+  `offset = serverNow − deviceNow` from the pull response's `Date` header on every successful
+  pull (spike-proven source), persisted-beside-the-checkpoint state via injected `persist`,
+  `clock.isExpired()` as the offline expiry API, window bounds following `clock.now`; both skew
+  signs exercised in the standalone substrate harness; module deliberately unwired pending
+  Cards 5/6; awaiting morning triage) · On every successful sync, store
   `serverNow − deviceNow` and apply that offset in the offline `expires_at` comparison (§5.1) —
   a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
   set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
@@ -288,7 +304,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > HQ's vanilla-JS context before the scanner cards are built. Adopting XState is a new client
 > dependency in a deliberately no-framework app; the spike settles it against the real screen.
 
-- **`marketing-tile-and-page`** · **PLANNED** · Add the **Marketing** tile to `index.html`'s grid
+- **`marketing-tile-and-page`** · **DRAFTING** (overnight-20260905, branch
+  `wo-marketing-tile-and-page` — tile + `TILE_SLUGS` entry, `marketing.html` shell (Scan live,
+  three labeled placeholders), `SeedHQApps` seeds `marketing` + the `marketing-offline-override`
+  entitlement surface with first-registration-only grants, precache 31→32; awaiting morning
+  triage) · Add the **Marketing** tile to `index.html`'s grid
   + `TILE_SLUGS`, create `marketing.html` (page shell with the four sub-sections: Scan / Campaigns
   / Subscribers / Redemption stats, §16), seed `('marketing','Marketing','📢')` in `SeedHQApps()`
   so the tile is permission-gated, and grant the `marketing` app to the relevant roles. Enforce
@@ -297,7 +317,12 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   deliberately) and commit it. done_when: a `team_member` sees Scan; a non-granted user sees no
   tile; `build-sw.js` exits 0. Footprint: scanner UI + redemption backend (seed) + `sw.js`.
 
-- **`camera-scanner-decode`** · **PLANNED** · Camera via `getUserMedia`, decode with
+- **`camera-scanner-decode`** · **DRAFTING** (overnight-20260905, branch
+  `wo-camera-scanner-decode` — scanner screen wired into `#scanner-host`: vendored
+  html5-qrcode (single classic script, `lib/`), on-device WebCrypto hash, replica-first
+  resolution with embedded-offer fallback + F3 offline/online branches, precache 32→39;
+  live-camera leg flagged ATTENDED for morning verification; awaiting morning triage) ·
+  Camera via `getUserMedia`, decode with
   `html5-qrcode` (or `@zxing/browser`), **hash the identity token on-device with WebCrypto before
   any lookup** (§12/§4 — a dumped replica never yields live codes), then resolve and **display**
   the customer's offers — the scanner never auto-picks one (**F5** — staff apply the right offer in
@@ -341,7 +366,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > orchestrator; R2 puts it in HQ Go. **Trace:** Engineering objective. The DB stays the arbiter
 > (§18 edge-case 1); the machine only reacts to its verdict.
 
-- **`gstate-arbitration-machine`** · **PLANNED** · `backend/internal/redemption` — the §18
+- **`gstate-arbitration-machine`** · **DRAFTING (overnight)** · `backend/internal/redemption` — the §18
   statechart (`validating → burning → route_outcome → {redeemed|already_used|expired|failed}`)
   wrapping the atomic `redeem()` via `Invoke` (ctx auto-cancel on state exit, so a hung call on a
   dropped hotspot doesn't wedge — §18 edge-case 4), plus the HQ endpoint the scanner's online

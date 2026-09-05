@@ -25,6 +25,15 @@ export { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 // The replication plugin W2's Node proof exercised, unchanged.
 export { replicateSupabase } from 'rxdb/plugins/replication-supabase';
 
+// The generic replication primitive + the observable Subject that feeds its
+// pull.stream$ — the Marketing pull replicas (card rxdb-pull-replica, run
+// 20260905; marketing/sync/) drive PostgREST through a CUSTOM pull handler
+// with a keyset {updated_at, id} checkpoint, which replicateSupabase cannot
+// express. Subject is re-exported from rxjs (already in the bundle as RxDB's
+// own dependency — this widens the export surface, not the payload).
+export { replicateRxCollection } from 'rxdb/plugins/replication';
+export { Subject } from 'rxjs';
+
 // Multi-tab leader election. `waitForLeadership` defaults to TRUE in a browser;
 // W2's Node harness had to force it false (sharp edge 10). This export is what
 // lets a page observe which tab won.

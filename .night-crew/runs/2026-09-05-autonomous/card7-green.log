@@ -1,0 +1,93 @@
+# Card 7 · gstate-arbitration-machine — GREEN captures
+# 2026-09-04T21:49:48Z · go version go1.26.2 darwin/amd64
+# Tree state: green commit — route_outcome ordered fallback present, observer flags
+# raceLost, arbitrator persists the F4 entry via PGRaceLostStore, analog test
+# inverted into the permanent detection control. Endpoint + RPC redeemer wired.
+
+── GREEN 1 · E-KR2 fallthrough ────────────────────────────────────────
+$ go test -count=1 -v -run '^TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired$' ./internal/redemption/
+=== RUN   TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired
+--- PASS: TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/redemption	0.836s
+EXIT=0
+
+── GREEN 2 · F4 RaceLostReconciled emission + notification (done_when) ─
+$ DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c7?sslmode=disable' go test -count=1 -v -run '^TestF4_' ./internal/redemption/
+2026/09/04 17:49:52 goose: no migrations to run. current version: 77
+2026/09/04 17:49:52 INFO database migrations applied successfully
+=== RUN   TestF4_RaceLostReconciledEmitsNotification
+2026/09/04 17:49:52 WARN RaceLostReconciled code_token_hash=f4-code-hash device_id=device-b staff=manager@yumyums.kitchen order_number=4021 scanned_at=2026-09-04T19:42:00.000Z value_known=true value=2.5 unverified_code=true
+--- PASS: TestF4_RaceLostReconciledEmitsNotification (0.02s)
+=== RUN   TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit
+--- PASS: TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit (0.02s)
+PASS
+ok  	github.com/yumyums/hq/internal/redemption	0.844s
+EXIT=0
+
+── GREEN 3 · no-TOCTOU single-winner + inverted analog control ────────
+$ go test -count=1 -v -run '^TestNoTOCTOU_' ./internal/redemption/
+=== RUN   TestNoTOCTOU_ConcurrentAttemptsSingleWinner
+--- PASS: TestNoTOCTOU_ConcurrentAttemptsSingleWinner (0.00s)
+=== RUN   TestNoTOCTOU_CheckThenActAnalogDoubleWins
+--- PASS: TestNoTOCTOU_CheckThenActAnalogDoubleWins (0.03s)
+PASS
+ok  	github.com/yumyums/hq/internal/redemption	0.746s
+EXIT=0
+
+── Whole redemption package (all tests, verbose counts) ───────────────
+$ DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c7?sslmode=disable' go test -count=1 -v ./internal/redemption/
+2026/09/04 17:50:02 goose: no migrations to run. current version: 77
+2026/09/04 17:50:02 INFO database migrations applied successfully
+=== RUN   TestF4_RaceLostReconciledEmitsNotification
+2026/09/04 17:50:02 WARN RaceLostReconciled code_token_hash=f4-code-hash device_id=device-b staff=manager@yumyums.kitchen order_number=4021 scanned_at=2026-09-04T19:42:00.000Z value_known=true value=2.5 unverified_code=true
+--- PASS: TestF4_RaceLostReconciledEmitsNotification (0.01s)
+=== RUN   TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit
+--- PASS: TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit (0.01s)
+=== RUN   TestSubmitHandlerContract
+--- PASS: TestSubmitHandlerContract (0.00s)
+=== RUN   TestSubmitHandlerNotFoundVerdictIs200
+--- PASS: TestSubmitHandlerNotFoundVerdictIs200 (0.00s)
+=== RUN   TestSubmitHandlerFailClosed503
+--- PASS: TestSubmitHandlerFailClosed503 (0.00s)
+=== RUN   TestSubmitHandlerValidation
+--- PASS: TestSubmitHandlerValidation (0.00s)
+=== RUN   TestSubmitHandlerNoSessionUser401
+--- PASS: TestSubmitHandlerNoSessionUser401 (0.00s)
+=== RUN   TestHappyPathRedeemed
+--- PASS: TestHappyPathRedeemed (0.00s)
+=== RUN   TestOutcomeRouting
+--- PASS: TestOutcomeRouting (0.00s)
+=== RUN   TestNotFoundIsFailedTerminalWithNotFoundWireResult
+--- PASS: TestNotFoundIsFailedTerminalWithNotFoundWireResult (0.00s)
+=== RUN   TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired
+--- PASS: TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired (0.00s)
+=== RUN   TestMissingTokenFailsWithoutInvoke
+--- PASS: TestMissingTokenFailsWithoutInvoke (0.00s)
+=== RUN   TestBoundedRetryRecoversTransientError
+--- PASS: TestBoundedRetryRecoversTransientError (0.10s)
+=== RUN   TestRetryExhaustionIsFailedError
+--- PASS: TestRetryExhaustionIsFailedError (0.10s)
+=== RUN   TestInvokeCtxCancelledWhenArbitrationAbandoned
+--- PASS: TestInvokeCtxCancelledWhenArbitrationAbandoned (0.30s)
+=== RUN   TestUnconfiguredRedeemerFailsClosed
+--- PASS: TestUnconfiguredRedeemerFailsClosed (0.00s)
+=== RUN   TestNoTOCTOU_ConcurrentAttemptsSingleWinner
+--- PASS: TestNoTOCTOU_ConcurrentAttemptsSingleWinner (0.00s)
+=== RUN   TestNoTOCTOU_CheckThenActAnalogDoubleWins
+--- PASS: TestNoTOCTOU_CheckThenActAnalogDoubleWins (0.03s)
+=== RUN   TestRPCRedeemerRedeems
+--- PASS: TestRPCRedeemerRedeems (0.00s)
+=== RUN   TestRPCRedeemerVerdictTaxonomy
+--- PASS: TestRPCRedeemerVerdictTaxonomy (0.00s)
+=== RUN   TestRPCRedeemerUnknownTokenIsNotFoundWithoutBurn
+--- PASS: TestRPCRedeemerUnknownTokenIsNotFoundWithoutBurn (0.00s)
+=== RUN   TestRPCRedeemerNullReasonFeedsEKR2Fallback
+--- PASS: TestRPCRedeemerNullReasonFeedsEKR2Fallback (0.00s)
+=== RUN   TestRPCRedeemerUpstreamErrorIsError
+--- PASS: TestRPCRedeemerUpstreamErrorIsError (0.00s)
+=== RUN   TestRedeemerConfigConfigured
+--- PASS: TestRedeemerConfigConfigured (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/redemption	1.107s
+EXIT=0

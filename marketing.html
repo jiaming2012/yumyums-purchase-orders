@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Yumyums">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<title>Yumyums Marketing</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;--ok-bg:#dcfce7;--ok-tx:#14532d;--bad-bg:#fee2e2;--bad-tx:#7f1d1d}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--ok-bg:#14532d;--ok-tx:#dcfce7;--bad-bg:#7f1d1d;--bad-tx:#fecaca}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:12px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:none;padding:10px 4px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+.hd h1{font-size:15px;font-weight:600;margin:0}
+.sub{font-size:12px;color:var(--mut);margin-top:4px}
+.bd{padding:16px;font-size:13px;color:var(--mut);line-height:1.5}
+.soon-card{position:relative;opacity:0.7}
+.badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:8px;background:var(--brd);color:var(--mut);letter-spacing:0.2px}
+#scanner-host{display:flex;flex-direction:column;gap:10px}
+.scan-status{font-size:12px;color:var(--mut)}
+#scan-camera-wrap{border:1.5px dashed var(--brd);border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#scan-camera-wrap.live{border-style:solid;min-height:220px}
+#scan-camera-view{width:100%}
+#scan-camera-view video{width:100%;border-radius:10px;display:block}
+.cam-error{background:var(--bad-bg);color:var(--bad-tx);border-radius:10px;padding:12px;font-size:13px;line-height:1.45}
+#scan-controls{display:flex;gap:8px;flex-wrap:wrap}
+#scan-controls button,#scan-controls .btn-file{flex:1;min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;background:var(--info-bg);color:var(--info-tx);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:10px 12px}
+#scan-controls .btn-file{background:var(--card);border:1px solid var(--brd);color:var(--txt);font-weight:500}
+.rc{border-radius:12px;padding:14px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+.rc-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.rc-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.rc-bad{background:var(--bad-bg);color:var(--bad-tx)}
+.rc-head{font-size:17px;font-weight:700}
+.badge-inline{font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px;background:rgba(0,0,0,0.12);vertical-align:middle;letter-spacing:0.3px}
+.offer-row{background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-top:6px}
+@media(prefers-color-scheme:dark){.offer-row{background:rgba(0,0,0,0.25)}}
+.offer-main{font-weight:600}
+.offer-sub{font-size:12px;opacity:0.85;margin-top:2px}
+.offer-sub.struck{text-decoration:line-through}
+.result-note{font-size:12px;opacity:0.9;line-height:1.45}
+.scan-again{min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;background:rgba(255,255,255,0.7);color:var(--txt);cursor:pointer}
+@media(prefers-color-scheme:dark){.scan-again{background:rgba(0,0,0,0.3);color:#f0f0f0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Marketing</a>
+
+  <div class="tabs">
+    <button id="t1" class="on" onclick="show(1)">Scan</button>
+    <button id="t2" onclick="show(2)">Campaigns</button>
+    <button id="t3" onclick="show(3)">Subscribers</button>
+    <button id="t4" onclick="show(4)">Stats</button>
+  </div>
+
+  <!-- ═══ SECTION 1: SCAN — the live sub-section ═══ -->
+  <div id="s1">
+    <div class="card">
+      <div class="hd"><h1>Scan to Redeem</h1><div class="sub">Point the camera at a customer's QR code</div></div>
+      <div class="bd">
+        <!-- #scanner-host is the contract with camera-scanner-decode /
+             redemption-submit-flow: the camera view, offer display and submit
+             flow mount HERE. Keep the id stable.
+             Card 5 (camera-scanner-decode) populated it; Card 6
+             (redemption-submit-flow) mounts the order-number + submit flow
+             into #scan-submit-slot inside #scan-result (see
+             marketing/scan-page.js and the card's merge-intent for the full
+             DOM + window.MarketingScan contract). -->
+        <div id="scanner-host">
+          <div id="scan-status" class="scan-status"></div>
+          <div id="scan-camera-wrap"><div id="scan-camera-view"></div></div>
+          <div id="scan-cam-error" class="cam-error" hidden></div>
+          <div id="scan-controls">
+            <button data-action="start-camera">&#x1f4f7; Start camera</button>
+            <label class="btn-file" for="scan-file">Scan from photo</label>
+            <input type="file" id="scan-file" accept="image/*" hidden>
+          </div>
+          <!-- file-scan work surface: offscreen, NOT display:none — html5-qrcode
+               owns this element during scanFile and a rendered box is the shape
+               the spike proved. -->
+          <div id="scan-file-surface" style="position:absolute;left:-9999px;width:320px;height:320px;overflow:hidden" aria-hidden="true"></div>
+          <div id="scan-result" hidden></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 2: CAMPAIGNS — labeled placeholder ═══ -->
+  <div id="s2" style="display:none">
+    <div class="card soon-card">
+      <div class="badge">Soon</div>
+      <div class="hd"><h1>Campaigns</h1><div class="sub">Create offers and generate codes</div></div>
+      <div class="bd">Campaign creation and code generation will live here. Manager-only.</div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 3: SUBSCRIBERS — labeled placeholder ═══ -->
+  <div id="s3" style="display:none">
+    <div class="card soon-card">
+      <div class="badge">Soon</div>
+      <div class="hd"><h1>Subscribers</h1><div class="sub">Web signups, SMS opt-ins and Toast imports</div></div>
+      <div class="bd">The mailing list, read-only, will live here.</div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 4: REDEMPTION STATS — labeled placeholder ═══ -->
+  <div id="s4" style="display:none">
+    <div class="card soon-card">
+      <div class="badge">Soon</div>
+      <div class="hd"><h1>Redemption stats</h1><div class="sub">Counts and orphan rate</div></div>
+      <div class="bd">Redemption counts and reconciliation health will live here. Manager-only.</div>
+    </div>
+  </div>
+</div>
+<script>
+// Marketing — page shell (card marketing-tile-and-page, run 20260905; design
+// docs/qr-offline-redemption-handoff.md §16). Scan is the only live sub-section
+// tonight: cards camera-scanner-decode and redemption-submit-flow mount the
+// camera + submit flow into #scanner-host. Campaigns / Subscribers / Stats are
+// labeled placeholders. Their eventual backend gates are §16's permissions
+// table (view/create campaigns & stats = manager tier), enforced INSIDE the
+// handlers once those endpoints exist — the tab is not the gate. Meanwhile the
+// slugs carry N/A-with-reason records in tests/grant-enforcement-parity.spec.js.
+function show(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('s'+i).style.display=i===n?'block':'none';
+    document.getElementById('t'+i).className=i===n?'on':'';
+  });
+}
+// Auth probe — same convention as the other tool pages: 401 → login. Offline
+// the shell stays usable (the launcher rule); data surfaces gate server-side.
+(async function(){
+  try{
+    const res=await fetch('/api/v1/me');
+    if(res.status===401){window.location.href='/login.html';}
+  }catch(e){}
+})();
+document.addEventListener('dblclick',e=>e.preventDefault());
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+<!-- The scanner (card camera-scanner-decode): html5-qrcode vendored as ONE
+     single-file classic script (the spike's proven no-build pattern, 375,364 B,
+     committed + precached in lib/ beside chart.umd.min.js), then the module
+     entry point that wires decode → on-device hash → replica-first resolution.
+     Order matters: defer + module scripts execute in insertion order, so
+     Html5Qrcode is global before scan-page.js runs. -->
+<script src="lib/html5-qrcode.min.js" defer></script>
+<script type="module" src="marketing/scan-page.js"></script>
+<script src="log.js"></script><script src="ptr.js"></script>
+</body>
+</html>

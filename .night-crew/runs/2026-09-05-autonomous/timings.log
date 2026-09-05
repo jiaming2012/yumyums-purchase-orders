@@ -1,0 +1,19 @@
+2026-09-04 12:43:37 EDT
+card1 marketing-tile-and-page: impl dispatched 12:45 EDT, final report 14:10 EDT (~1h25m incl. two full e2e suites 28.1m+26.6m and one B-140 fix round)
+card1 G6 dispatched 14:12 EDT (incl. base-tree leg for 4 unproven e2e reds)
+card1 merged 6d7a8f5 + docs 73c36bc at 14:40 EDT — Wave 0 complete
+card2 + card7 worktrees cut, implementers dispatched ~14:42 EDT (concurrent tracks open)
+RATE-LIMIT STALL: session limit hit ~mid-afternoon, both track implementers terminated mid-card; limit reset 17:40 EDT, both resumed from transcripts (concurrent shape retained; will degrade to serial if it recurs)
+card7 impl final report ~18:05 EDT (5 commits, go 1.26.2 bump, no network fetch needed); G6-c7 dispatched ~18:07 EDT incl. targeted PARITY-NA-FRESH cross-card probe
+card2 impl through harness/red-first/G4 by 17:50 EDT; full e2e suite in flight
+G6-c7 verdict ~18:25 EDT: FAIL (cross-card parity tripwire fires on marketing route; MaxRetries=0 in prod construction) — fix round dispatched to card7 implementer
+2026-09-04T21:51:53Z card7 gstate-arbitration-machine: toolchain bump go1.25.5->go1.26.2 required NO network fetch (go1.26.2 toolchain + gstate v0.3.1 + go-nanoid already in the local module cache from the spike run). -ldflags smoke build on 1.26.2 exit 0, GitSHA injection verified via strings. Docker build smoke SKIPPED (optional per slate; golang:1.26-alpine would need a pull) — Dockerfile bump verified by inspection.
+card7 fix round 98e189e + G6 re-verify PASS; merged ~18:25 EDT — Track D COMPLETE (timings.log collision with card7's committed copy resolved by concatenation)
+card2 impl report ~19:20 EDT (8 commits, harness green first try); G6-c2 PASS-WITH-NOTES ~19:35; merged — Track B advances to card 3 ~19:40 EDT
+card3 impl ~20:00 EDT first-attempt green; G6-c3 PASS-WITH-NOTES (belt-2 cross-session gap demonstrated → triage); merged ~20:15 EDT — Track B advances to card 4
+2026-09-04 19:19 EDT card4 clock-offset-on-sync: merge-intent+flip 537b0b6; red-first f709e5d (EXIT=1 both skew signs); clock module green c23b9ae (harness EXIT=0 first attempt, offset err 164/197ms); sibling harness regressions c2+c3 both EXIT=0 (clock-less byte-identical proven)
+card4 merged 9a77f90 ~20:45 EDT (one append-append timings conflict, union) — TRACK B COMPLETE; card5 dispatched ~20:50 EDT, Track C opens
+card5 impl ~21:40 EDT (suite 850/1/6, precache 32→39); G6-c5 PASS-WITH-NOTES (lib registry-verified) ~21:55; merged ~22:00 EDT — card 6 (final) dispatched
+card6 impl complete (~1h27m incl. two full suites + two in-run fix finds); G6-c6 dispatched with the unknown-policy-default ruling as the gating question; second usage-limit window crossed during card 6 without work loss
+card6 G6 PASS-WITH-NOTES + PARK-CLASS ruling on the unknown-policy default; decisions log verdict: park (top) — card 6 parked complete; F-2 intent amendment d0257e8 on the parked branch
+closeout written ~23:05 EDT (2026-09-05T03:05Z): HANDOFF, DECISIONS-NEEDED (D-1), scorecard (render exit 0, 4 roles), closeout record, conflict-log no-Merge-7 coda; workers check clear at 03:00:50Z
