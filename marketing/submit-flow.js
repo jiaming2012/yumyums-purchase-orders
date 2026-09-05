@@ -18,6 +18,7 @@
 // offline override through the serialized wrapper.
 
 import { createSubmitMachine } from './submit-machine.js';
+import { createCampaignPolicySource } from './sync/replicas.js';
 import { createTokenHasher, extractToken } from './scanner.js';
 import {
   validateOrderNumber, toastBusinessDate, createReachabilityProbe, getDeviceId,
@@ -106,14 +107,26 @@ async function boot() {
     },
   );
 
-  // ── campaign policy (§8): requires_online is not client-readable tonight
-  // (no campaigns replica; the codes replica does not carry the flag —
-  // recorded in the merge intent). The hook is the data seam: tests and a
-  // future provisioning card inject the real lookup. Unknown -> false: the
-  // override affordance stays entitlement-gated + confirmed + audit-flagged
-  // (§13's baseline); unknown -> true would silently delete F2's DECIDED
-  // affordance for every code.
+  // ── campaign policy (§8): the DEFAULT source is the campaigns replica
+  // (card requires-online-replication — the refusal arms on real data). The
+  // policy source mirrors the local campaigns collection into a sync-readable
+  // lookup; setCampaignPolicy stays the injection seam (tests / a later card
+  // may override). Unknown campaign -> null -> false: the ratified
+  // unknown→false default (decision 166) survives for GENUINELY unknown
+  // codes — this card removes "unknown" for replicated campaigns, it does not
+  // change what unknown means (unknown -> true would silently delete F2's
+  // DECIDED affordance for every code).
   let CAMPAIGN_POLICY = null;
+  try {
+    if (MS.collections && MS.collections.campaigns) {
+      CAMPAIGN_POLICY = createCampaignPolicySource(MS.collections.campaigns).policyFor;
+    }
+  } catch (e) {
+    // A stale-cached scan-page without the campaigns collection degrades to
+    // the honest unknown→false default — loudly, never a bricked scanner.
+    console.error('[marketing submit] campaign policy source failed to start', e);
+    CAMPAIGN_POLICY = null;
+  }
   function policyFor(campaignId, offers) {
     if (!CAMPAIGN_POLICY) return false;
     try {
@@ -593,6 +606,12 @@ async function boot() {
     probeNow: () => probe.probeNow(),
     stopProbe: () => probe.stop(),
     setCampaignPolicy: (fn) => { CAMPAIGN_POLICY = typeof fn === 'function' ? fn : null; },
+    // Debug/test read of the ACTIVE policy (replica-fed default, or whatever
+    // setCampaignPolicy injected): campaignId → {requiresOnline} | null.
+    campaignPolicyFor: (campaignId) => {
+      if (!CAMPAIGN_POLICY) return null;
+      try { return CAMPAIGN_POLICY(campaignId) || null; } catch (e) { return null; }
+    },
     reportChannelStatus,
     deviceId: DEVICE_ID,
     canOverride,

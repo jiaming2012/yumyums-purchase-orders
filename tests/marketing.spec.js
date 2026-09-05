@@ -327,6 +327,31 @@ function fixture4RedeemedRow(overrides = {}) {
   }, overrides);
 }
 
+// The HIGH fixture (card requires-online-replication): seed code …0005 belongs
+// to campaign …0002 — the $40 catering credit, requires_online=true. These are
+// the committed supabase/seed.sql literals, mirrored the way the campaigns
+// pull replica lands them (§10 minimal row: id + flag + updated_at).
+const FIXTURE_5_TOKEN_HASH = '60f4743622b18f559fb115e1c3329fad70e0168a3b05328361792477615db7cf'; // sha256("card1-test-code-fixture-5")
+const FIXTURE_5_PAYLOAD = 'https://hq.yumyums.kitchen/r/card1-test-code-fixture-5';
+function fixture5HighRow(overrides = {}) {
+  return Object.assign({
+    id: 'c0000000-0000-4000-8000-000000000005',
+    token_hash: FIXTURE_5_TOKEN_HASH,
+    campaign_id: 'a0000000-0000-4000-8000-000000000002',
+    expires_at: '2028-01-01T00:00:00.000Z',
+    redeemed_at: null,
+    redeemed_by: null,
+    updated_at: '2026-09-01T00:00:00.000Z',
+  }, overrides);
+}
+function campaignHighRow(overrides = {}) {
+  return Object.assign({
+    id: 'a0000000-0000-4000-8000-000000000002',
+    requires_online: true,
+    updated_at: '2026-09-01T00:00:00.000Z',
+  }, overrides);
+}
+
 async function openScanner(page) {
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto('/marketing.html');
@@ -338,6 +363,13 @@ async function seedLocal(page, docs) {
     const MS = window.MarketingScan;
     for (const row of (d.codes || [])) await MS.collections.codes.upsert(row);
     for (const row of (d.offers || [])) await MS.collections.offers.upsert(row);
+    // Tolerant on purpose (card requires-online-replication): on the
+    // pre-change tree the campaigns collection does not exist, and the
+    // red-first run must observe the actual policy behavior (the override
+    // being offered), not a seeding crash.
+    if (MS.collections.campaigns) {
+      for (const row of (d.campaigns || [])) await MS.collections.campaigns.upsert(row);
+    }
   }, docs);
 }
 
@@ -466,7 +498,15 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
   test('F3 online: the local redeemed flag does NOT reject — the server decides at submit', async ({ page }) => {
     await openScanner(page);
     await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
-    await page.evaluate(() => { window.MarketingScan.setOnlineProbe(() => true); });
+    // The ONLINE direction of the 9c6f04e race fix: this test's
+    // setOnlineProbe(() => true) can be overwritten mid-scan by Card 6's boot
+    // installing the machine-fed probe while the machine still reads its
+    // honest offline start. Same remedy as the offline sibling — wait for the
+    // submit flow, then force ONLINE through the REAL probe (the /health
+    // endpoint is live in this test). Assertions unchanged.
+    await page.waitForFunction(() => window.MarketingSubmit && window.MarketingSubmit.booted === true);
+    await page.evaluate(() => window.MarketingSubmit.probeNow());
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
     await scanText(page, FIXTURE_4_PAYLOAD);
     const result = page.locator('#scan-result');
     await expect(result).toHaveAttribute('data-kind', 'deferToServer');
@@ -772,12 +812,20 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
   test('offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)', async ({ page }) => {
     await openSubmitScanner(page); // admin — entitlement held, and still refused
     const calls = await mockRedeem(page);
-    await page.evaluate(() => {
-      window.MarketingSubmit.setCampaignPolicy(() => ({ requiresOnline: true }));
+    // REAL DATA (card requires-online-replication, run 20260906): NO
+    // setCampaignPolicy injection. The HIGH fixture — code …0005 → campaign
+    // …0002, requires_online=true, the committed seed literals — is seeded
+    // into the local replicas exactly as the campaigns pull replica lands it;
+    // the DEFAULT policy source reads that replica. On the pre-change tree
+    // this test reds with data-branch "override": the $40 code is overridable
+    // offline exactly like the $2 one (the spike's rows 3–4).
+    await seedLocal(page, {
+      offers: [fixture5HighRow()],
+      codes: [fixture5HighRow()],
+      campaigns: [campaignHighRow()],
     });
-    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
     await killProbe(page);
-    await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
+    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
     await page.click('[data-action="ms-submit"]');
 
     const gate = page.locator('#ms-gate');

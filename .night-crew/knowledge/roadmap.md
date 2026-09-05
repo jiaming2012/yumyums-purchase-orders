@@ -295,8 +295,18 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
   set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
 
-- **`requires-online-replication`** · **PLANNED** (named at morning triage 2026-09-05, ledger
-  T-53 — the follow-up card D-1's ratification requires) · Replicate each campaign's
+- **`requires-online-replication`** · **DONE** (overnight-20260906, branch
+  `wo-requires-online-replication` — campaigns pull replica on the shipped pull mechanism
+  (`buildPullUrl` expiry bound now optional, never removed; the codes-embed alternative CLOSED
+  by the spike), replica-fed §8 policy (`createCampaignPolicySource` becomes the
+  `setCampaignPolicy` default), migration 20260906000100 (supabase_realtime membership +
+  touch trigger — a post-flip campaign downgrade re-delivers on the next RESYNC,
+  harness-proven), F-2 guard BEFORE `redeem()` via the distinct landing path (migration
+  20260906000200: `code_id` nullable + `token_hash` + check constraint; lands
+  `accepted`+both flags — no new terminal status per the §9/§19 re-read), branch-3 e2e
+  flipped seam-injected → real data, GAP-1 validation run green (f2-run.sh re-executes
+  spike 03 against the shipped guard); awaiting morning triage. Named at morning triage
+  2026-09-05, ledger T-53 — the follow-up card D-1's ratification requires) · Replicate each campaign's
   `requires_online` flag to devices (a campaigns replica, or embed the flag in the codes pull)
   so the §8 refusal ARMS ON REAL DATA — today every campaign resolves policy-unknown and the
   shipped unknown→false default makes the refusal unreachable. Also owns **F-2** (G6-c6,

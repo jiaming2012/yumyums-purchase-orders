@@ -39,6 +39,17 @@
 // comes from the SAME local codes replica (`winner_device`/`winner_at` on the
 // local row), because the loser provably cannot read the winner's attempt row.
 //
+// F-2 GUARD (card requires-online-replication, run 20260906): an
+// `unverified_code=true` attempt (the §19 F2 unknown-code override — its
+// local code_id IS the 64-hex token_hash; no code row exists to name) is
+// diverted BEFORE the redeem call and lands directly on the distinct path
+// (migration 20260906000200: `code_id` nullable + `token_hash` + a check
+// constraint), carrying status 'accepted' + both audit flags. Without the
+// guard the redeem-first path drew a deterministic HTTP 400 that HEAD-OF-LINE
+// POISONED the queue (spike-measured: 12 redeem attempts, 0 landings, every
+// later redemption stranded). The guard touches ONLY unverified rows — the
+// two GAP-1 belts below are byte-identical for everything else.
+//
 // DEPENDENCY-INJECTED ON PURPOSE — this module imports nothing. The RxDB
 // primitive (`replicateRxCollection`), the fetch implementation and the
 // collections arrive as parameters, so the SAME file runs:
@@ -211,6 +222,50 @@ export function makePushHandler({
       if (state.status !== 'pending') continue; // idempotence: resolved rows re-push as no-ops
       const doc = await attemptsCollection.findOne(state.id).exec();
       if (!doc || doc.status !== 'pending') continue;
+
+      // ── 0. the F-2 guard, BEFORE the burn (card requires-online-replication,
+      // §19 F2 / §9; spike-measured): an unverified attempt names NO code —
+      // its local code_id IS the scanned token_hash (64 hex, submit-flow's
+      // recorded call), and feeding that to /rpc/redeem draws a deterministic
+      // HTTP 400 (22P02 on p_code uuid) that head-of-line poisons the whole
+      // queue (12 redeem attempts, 0 landings, every later redemption
+      // stranded). There is nothing to burn, so it skips redeem() entirely
+      // and lands directly on the distinct path: code_id NULL + token_hash +
+      // the audit flags, status 'accepted' (§9's taxonomy — offline overrides
+      // are the accepted attempts reconciled FIRST; no new terminal status).
+      // Skip-until-arbitration was run and REJECTED (it strands the audit
+      // row on-device). Server-side arbitration of the hash is §19 F2's
+      // "when sync arbitrates" clause — Activity D's surface, after landing.
+      if (doc.unverified_code) {
+        const landUrl = `${restUrl}/scan_attempts`;
+        if (requestLog) requestLog.push({ kind: 'land-unverified', attempt_id: doc.id, code_id: doc.code_id, url: landUrl });
+        const land = await fetchImpl(landUrl, {
+          method: 'POST',
+          headers: { ...authHeaders(), Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            id: doc.id,
+            code_id: null,                 // it names no code — that is the truth
+            token_hash: doc.code_id,       // what it actually has
+            device_id: deviceId,
+            scanned_at: doc.scanned_at,
+            status: 'accepted',
+            reason: null,
+            offline_override: doc.offline_override,
+            override_by: doc.override_by ?? null,
+            unverified_code: true,
+            pos_order_number: doc.pos_order_number ?? null,
+            pos_business_date: doc.pos_business_date,
+            redeemed_value: doc.redeemed_value ?? null,
+          }),
+        });
+        // 409 = duplicate key on our own uuid: a previous landing succeeded
+        // and its response was lost. Landed (same idempotency rule as below).
+        if (land.status !== 201 && land.status !== 409) {
+          throw new Error(`[marketing-sync] unverified scan_attempts insert answered HTTP ${land.status}`);
+        }
+        await doc.incrementalPatch({ status: 'accepted', reason: null, landed: true });
+        continue;
+      }
 
       // ── 1. burn — skipped when an outcome is already persisted (belt 1) ──
       let burnOk = doc.burn_ok;

@@ -13,7 +13,8 @@ import {
   createRxDatabase, getRxStorageDexie, replicateRxCollection, Subject,
 } from '../vendor/rxdb.bundle.js';
 import {
-  marketingCollectionSpec, startCodesReplica, startOffersReplica, resolveOffers,
+  marketingCollectionSpec, startCodesReplica, startOffersReplica,
+  startCampaignsReplica, resolveOffers,
 } from './sync/replicas.js';
 import { scanAttemptsCollectionSpec, enqueueAttempt } from './sync/push-replication.js';
 import { createSyncClock } from './sync/clock.js';
@@ -221,10 +222,15 @@ async function boot() {
     syncHandles = {
       codes: startCodesReplica(deps(cols.codes, 'marketing-codes-pull')),
       offers: startOffersReplica(deps(cols.offers, 'marketing-offers-pull')),
+      // Card requires-online-replication: the §8 policy flag rides its own
+      // replica (no expiry bound — campaigns has no expires_at); the submit
+      // flow's default policy source reads the local collection.
+      campaigns: startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull')),
     };
     Promise.all([
       syncHandles.codes.awaitInitialReplication(),
       syncHandles.offers.awaitInitialReplication(),
+      syncHandles.campaigns.awaitInitialReplication(),
     ]).then(() => { SCAN_STATE.synced = true; render(); }).catch(() => { /* stays honest: not synced */ });
     return syncHandles;
   }
@@ -232,6 +238,7 @@ async function boot() {
     if (!syncHandles) return;
     syncHandles.codes.reSync();
     syncHandles.offers.reSync();
+    syncHandles.campaigns.reSync();
   }
 
   // ── scanning ──
