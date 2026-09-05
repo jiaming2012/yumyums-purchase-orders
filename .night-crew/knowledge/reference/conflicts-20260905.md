@@ -185,3 +185,15 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   attended live-camera check stands (HANDOFF next-actions); (4) micro-note: token
   regex is first-match — a hypothetical double-`/r/` payload would pick a different
   token than the spike's end-anchored regex (not a contract shape).
+
+## No Merge 7 — `wo-redemption-submit-flow` (Card 6) PARKED, deliberately
+
+Card 6 completed every gate (conformance 18/18, strictness 9/9, fuzz 40k
+liveness-armed, full suite ×2 zero unexplained, G4 at 43, G6 PASS-WITH-NOTES) and did
+NOT merge: G6 ruled the `requires_online` unknown-policy default park-class under the
+slate's own hard park note, and `night-crew decisions log` printed **verdict: park**
+(top severity, no adopted delegation covers a §8 policy fork — journal
+`decisions/20260905.jsonl`). Branch (11 commits incl. the F-2 merge-intent amendment
+`d0257e8`) and worktree `wt-20260905-c6` preserved for triage. The full fork analysis
+and the one-command merge path live in the run's DECISIONS-NEEDED.md D-1. An empty
+conflict-log entry here would have read as "the night forgot card 6" — it didn't.
