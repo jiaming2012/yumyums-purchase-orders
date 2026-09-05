@@ -122,9 +122,14 @@ async function boot() {
     } catch (e) { return false; }
   }
 
-  // Own hasher instance for the scan gate (correctness never depends on a
-  // shared cache — a miss just digests).
-  const hashToken = createTokenHasher({ subtle: crypto.subtle });
+  // The PAGE's memoized hasher (exposed by scan-page.js): one digest per
+  // distinct token page-wide, and a same-code re-scan the gate suppresses
+  // still registers as a cache HIT — Card 5's hash-caching guarantee stays
+  // observable at hasherStats(). Fallback only if an older scan-page is
+  // cached without the export.
+  const hashToken = typeof MS.hashToken === 'function'
+    ? MS.hashToken
+    : createTokenHasher({ subtle: crypto.subtle });
 
   // ── #13 reachability ──────────────────────────────────────────────────────
   function afterReachable() {

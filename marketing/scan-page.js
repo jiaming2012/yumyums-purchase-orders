@@ -371,6 +371,10 @@ async function boot() {
     startSync,
     resync,
     scanAgain,
+    // Card 6's scan gate hashes the SAME way through the SAME memoized
+    // instance — one digest per distinct token page-wide (hasherStats stays
+    // the page's single truth about cache behavior).
+    hashToken,
     // Card 6's registration point (see the submitFlow block above).
     setSubmitFlow: (handlers) => { submitFlow = handlers && typeof handlers === 'object' ? handlers : null; },
   };
