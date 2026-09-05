@@ -5,3 +5,6 @@
 2026-09-05 06:04 EDT  card 1 requires-online-replication: implementer dispatched (session model, class new-mechanism)
 2026-09-05 06:49 EDT  card 1 implementer DONE (~44m incl. full suite 19.3m): 8 commits 81af49a..65ce45c; not parked (§9/§19 accepted+flags); gates green — harness legs 0, marketing 30 passed, full suite 858/2/6 (DBL-05 baseline, FLD-03/04 isolated-green load flake); precache 43
 2026-09-05 06:49 EDT  card 1 G6 adversarial review dispatched (session model, own detached checkout wt-20260906-g6)
+2026-09-05 07:15 EDT  card 1 G6 verdict: APPROVE (~37m incl. own full suite 19.0m; all legs independently re-run; park conditions checked, not met; reviewer worktree removed)
+2026-09-05 07:18 EDT  card 1 merged clean at 2eafa55 (no conflicts; merged tree content-identical to reviewed branch outside .night-crew/); post-merge marketing spec 30 passed; conflict log committed fc2ddd7
+2026-09-05 07:22 EDT  closeout: workers check clear (07:19); HANDOFF + DECISIONS-NEEDED + closeout record written. 1/1 landed, nothing parked. No network fetch was needed (substrate images local, as the slate expected)
