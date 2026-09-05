@@ -836,6 +836,52 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     expect(calls.length).toBe(0);
   });
 
+  // ── B-432: the refusal must hold BEFORE the campaigns replica has delivered ──
+  //
+  // RED-FIRST (card refusal-holds-before-sync, run 20260906-2): this is the
+  // shipped branch-3 test above with ONLY the `campaigns:` seed removed — the
+  // exact morning-triage reproduction, zero production code mutated. It models
+  // the window B-432 names: the codes/offers replicas have delivered the $40
+  // `requires_online=true` code, the campaigns replica has NOT (first sync, a
+  // campaigns pull that 5xx's while codes succeeds, or a new campaign whose
+  // codes arrive first). On the pre-change tree the policy source's Map is
+  // empty, `policyFor` answers null, submit-flow coerces null → false, and the
+  // gate renders data-branch="override": the high-value code is offline-
+  // overridable by an entitlement holder. Evidence:
+  // .night-crew/runs/2026-09-06-2-autonomous/c1-red-branch3-nocampaign.log
+  //
+  // 🛑 The refusal here is NOT unconditional — it holds because the CODE is
+  // known (`campaign_id` is non-null) and its campaign is unresolved. A
+  // genuinely-unknown code (no campaign named at all) keeps its override and
+  // its unverified warning — decision 166, pinned by the F2 test below.
+  test('B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)', async ({ page }) => {
+    await openSubmitScanner(page); // admin — entitlement held, and still refused
+    const calls = await mockRedeem(page);
+    await seedLocal(page, {
+      offers: [fixture5HighRow()],
+      codes: [fixture5HighRow()],
+      // NO campaigns row — the campaigns replica has not delivered.
+    });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
+    await page.click('[data-action="ms-submit"]');
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate).toBeVisible();
+    // The unresolved case gets its OWN branch + copy (build-fact 6, decided
+    // against UI-R3/R6): "online verification is required" asserts a fact this
+    // device does not have — the policy is unresolved, not known-true.
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(gate).toContainText(/can.t verify/i);
+    await expect(gate).toContainText('try again');
+    await expect(gate).toContainText(/sync/i);
+    await expect(
+      page.locator('[data-action="ms-override"]'),
+      'no override for a KNOWN code whose campaign has not replicated',
+    ).toHaveCount(0);
+    expect(calls.length).toBe(0);
+  });
+
   // ── P-KR4: the submit control transitions ON ITS OWN when the probe recovers ──
 
   test('P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction', async ({ page }) => {
