@@ -156,3 +156,32 @@ never reads as "no conflicts" when it means "the logging never ran" (§15ad.66).
   rests on the slate's explicit gate assignment (precedent stated, not drifted);
   (d) pre-capture isExpired degrades to naive until first successful pull — residual
   named here since the merge-intent names only the window-bound half.
+
+## Merge 6 — `wo-camera-scanner-decode` (Card 5, Track C)
+
+- **Cards involved:** Card 5 (merge-base `9a77f90`) onto the run branch.
+- **Files/hunks:** clean merge — `marketing.html` (scanner UI in `#scanner-host`; Card 1's
+  four-tab shell survives, its 6 tests green in G6's re-run), NEW `marketing/scanner.js` +
+  `marketing/scan-page.js`, NEW `lib/html5-qrcode.min.js` (375,364 B, sha256
+  660b12437b1d747e3e68b8be0685c08cb728140110ad213f167b14b66f8b1d8e — G6
+  registry-verified byte-identical to npm html5-qrcode@2.3.8, matching the spike
+  lockfile's sha512; content-scanned clean), `build-sw.js` narrow globs,
+  `backend/Dockerfile` COPY pairing (decision 59; Card 7's builder bump intact),
+  `tests/marketing.spec.js` +14, 3 QR fixtures, `sw.js` + CLAUDE.md **32→39** (same
+  commit), roadmap flip, merge-intent + card5-red/e2e/g4 logs (+ G6's `card5-g6.log`,
+  copied out, committed here).
+- **Intents read:** Card 5's (Card 6 contract: `#scan-submit-slot` in
+  `#scan-result[data-kind|data-token-hash|data-source]`, `window.MarketingScan` API,
+  serialized-enqueue MUST). Cards 1/2/3/4 intents consulted; `marketing/sync/`
+  zero-diff.
+- **Resolution:** none needed.
+- **Gate result after merge:** tree identical to reviewed branch. Full suite 850/1/6
+  (lone red = pre-existing DBL-05; B1-XT trio flapped green); G6 targeted re-run
+  20/20; G4 exit 0 ×2 at count 39, byte-identical second pass; RF 14/14
+  behavior-absent reds proven pre-fix (an invalidated first red attempt disclosed and
+  redone clean). G6 **PASS-WITH-NOTES**. Notes to triage: (1) record the vendored
+  lib's sha256 in the spike/extraction record; (2) **F6 is partial after Card 5**
+  (re-show only) — Card 6 owns full session semantics, told in its prompt; (3) the
+  attended live-camera check stands (HANDOFF next-actions); (4) micro-note: token
+  regex is first-match — a hypothetical double-`/r/` payload would pick a different
+  token than the spike's end-anchored regex (not a contract shape).
