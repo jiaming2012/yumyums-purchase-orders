@@ -411,6 +411,11 @@ async function build() {
       // Dockerfile pairing (the decision-59 trap): the marketing/ COPY + cp
       // lines landed in the same change set; lib/ was already copied wholesale.
       'lib/html5-qrcode.min.js',
+      // xstate v5 UMD (card redemption-submit-flow) — same narrow single-file
+      // form: the submit flow's statechart engine, referenced by
+      // marketing.html as a classic script. NOT 'lib/**' (chart.umd.min.js
+      // stays un-swept).
+      'lib/xstate.umd.min.js',
       'marketing/*.js',
       'marketing/sync/*.js',
     ],

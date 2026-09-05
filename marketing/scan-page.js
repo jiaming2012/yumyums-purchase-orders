@@ -52,6 +52,21 @@ const SCAN_STATE = {
 let onlineProbe = () => false;
 const isOnline = () => { try { return !!onlineProbe(); } catch (e) { return false; } };
 
+// Card 6 (redemption-submit-flow): the ONE registration surface the submit
+// flow plugs into — {gate, onResult, onRender, onScanAgain, onInput, onChange,
+// actions} — consulted at the existing choke points below. Every consult is
+// FAIL-OPEN on purpose: if the submit flow's JS breaks, Card 5's scanner keeps
+// resolving and rendering (loudly console.error'd), it just loses the submit
+// affordance — never a bricked Scan section.
+let submitFlow = null;
+const sfCall = (name, ...args) => {
+  if (!submitFlow || typeof submitFlow[name] !== 'function') return undefined;
+  try { return submitFlow[name](...args); } catch (e) {
+    console.error(`[marketing scan] submit-flow ${name} failed`, e);
+    return undefined;
+  }
+};
+
 // ── render ──────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
@@ -146,6 +161,7 @@ function render() {
     box.removeAttribute('data-token-hash');
     box.removeAttribute('data-source');
     box.innerHTML = '';
+    sfCall('onRender'); // Card 6: the cleared view repaints too
     return;
   }
   box.hidden = false;
@@ -155,6 +171,10 @@ function render() {
   if (r.source) box.setAttribute('data-source', r.source);
   else box.removeAttribute('data-source');
   box.innerHTML = resultCard(r);
+  // Card 6 repaint: the submit flow repaints its slot content after EVERY
+  // card render (this function rebuilds #scan-result's DOM, the
+  // #scan-submit-slot mount point included).
+  sfCall('onRender');
 }
 
 // ── boot ────────────────────────────────────────────────────────────────────
@@ -221,9 +241,26 @@ async function boot() {
   let decodeBusy = false;
 
   async function doScan(payload) {
+    // Card 6's scan gate (F6 session semantics): same-code re-scans re-show,
+    // a different code mid-session prompts finish-current, mid-submit scans
+    // are ignored — all decided by the machine BEFORE resolution runs. A gate
+    // error fails open (Card 5's scanner must survive a Card 6 defect).
+    if (submitFlow) {
+      let proceed = true;
+      try { proceed = await submitFlow.gate(payload); } catch (e) {
+        console.error('[marketing scan] submit-flow gate failed', e);
+        proceed = true;
+      }
+      if (proceed === false) { render(); return null; }
+    }
     const result = await resolver.resolve(payload, { online: isOnline() });
     SCAN_STATE.result = result;
     render();
+    if (submitFlow) {
+      try { await submitFlow.onResult(result); } catch (e) {
+        console.error('[marketing scan] submit-flow onResult failed', e);
+      }
+    }
     return result;
   }
 
@@ -284,6 +321,9 @@ async function boot() {
   }
 
   function scanAgain() {
+    // Card 6: clearing the view also closes the machine session (F6 — a
+    // stale session must not prompt on the next customer's code).
+    sfCall('onScanAgain');
     SCAN_STATE.result = null;
     render();
     if (cameraPaused && cameraQr) {
@@ -291,7 +331,9 @@ async function boot() {
     }
   }
 
-  // ── event delegation: ONE click + ONE change listener on the host ──
+  // ── event delegation: ONE click + ONE change + ONE input listener on the
+  // host (workflows.html convention). Card 6 routes its data-actions through
+  // the SAME click listener via its registered actions map — no new listeners.
   const host = $('scanner-host');
   host.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
@@ -299,10 +341,17 @@ async function boot() {
     const action = el.getAttribute('data-action');
     if (action === 'start-camera') startCamera();
     else if (action === 'scan-again') scanAgain();
+    else if (submitFlow && submitFlow.actions && typeof submitFlow.actions[action] === 'function') {
+      try { submitFlow.actions[action](el, e); } catch (err) {
+        console.error(`[marketing scan] submit-flow action ${action} failed`, err);
+      }
+    }
   });
   host.addEventListener('change', (e) => {
     if (e.target && e.target.id === 'scan-file') onFilePicked(e.target);
+    else sfCall('onChange', e);
   });
+  host.addEventListener('input', (e) => { sfCall('onInput', e); });
 
   render();
 
@@ -321,6 +370,9 @@ async function boot() {
     setOnlineProbe: (fn) => { onlineProbe = typeof fn === 'function' ? fn : (() => false); },
     startSync,
     resync,
+    scanAgain,
+    // Card 6's registration point (see the submitFlow block above).
+    setSubmitFlow: (handlers) => { submitFlow = handlers && typeof handlers === 'object' ? handlers : null; },
   };
 }
 

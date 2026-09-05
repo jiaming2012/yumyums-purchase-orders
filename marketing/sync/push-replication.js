@@ -121,6 +121,11 @@ export async function enqueueAttempt(attemptsCollection, {
   code_id, device_id,
   offline_override = false, override_by = null,
   unverified_code = false, pos_order_number = null, redeemed_value = null,
+  // Card 6 (redemption-submit-flow), ADDITIVE-OPTIONAL: the §13 business date
+  // computed from the Toast-cutoff constant (submit-support.js). Absent, the
+  // original UTC-date-of-scanned_at behavior is byte-identical — existing
+  // callers and harnesses unchanged.
+  pos_business_date = null,
 }, { now = Date.now, generateId = () => globalThis.crypto.randomUUID() } = {}) {
   const existing = await attemptsCollection.find({ selector: { code_id } }).exec();
   const live = existing.find((d) => d.status !== 'rejected');
@@ -137,7 +142,7 @@ export async function enqueueAttempt(attemptsCollection, {
     override_by,
     unverified_code,
     pos_order_number,
-    pos_business_date: scannedIso.slice(0, 10),
+    pos_business_date: pos_business_date || scannedIso.slice(0, 10),
     redeemed_value,
     burn_ok: null,
     burn_reason: null,
