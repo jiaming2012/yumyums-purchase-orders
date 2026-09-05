@@ -169,11 +169,57 @@ and committed before any production change:
    token_hash). The red-unflagged harness mode demonstrates the poison recurs for
    a row that loses the flag — the discriminator is load-bearing and tested.
 
-## Gate evidence (amended as it lands)
+## Gate evidence (run in this worktree; logs committed beside this file)
 
-- RF — `card1-red.log`: see Red-first above.
-- Harness — `card1-campaigns-harness.log`, `card1-f2-harness.log` (+ red modes),
-  regression `card1-regression-c2.log` (run.sh), `card1-regression-c3.log`
-  (push-run.sh).
-- E2E — `card1-e2e.log` (full suite, :5434).
-- SW — `card1-g4.log` (precache count 43, reachability clean).
+- **RF** — `card1-red.log` (committed `e83a0f6`, BEFORE any production file):
+  (a) the flipped branch-3 e2e reds `Expected: "requires-online" /
+  Received: "override"` — the $40 code overridable offline exactly like the
+  $2 one (branches 1–2 green beside it), **EXIT=1**; (b) f2-run.sh green mode
+  reds with the head-of-line poison enumerated — **10 redeem calls for the
+  64-hex row, 0 for the legit code behind it, both stuck `pending`, +0 server
+  rows, 6 named disagreements, EXIT=1**.
+- **THE CARD'S OWN GATES** (spike-supabase substrate, reconcile mode):
+  - `card1-f2-harness.log`: f2-run.sh **green EXIT=0** — THE owed GAP-1
+    validation run (spike 03 vs the shipped guard, wrapper-free): 0 redeem
+    calls for the unverified attempt, exactly 1 for the legitimate one, both
+    landed, +2 server rows, audit row
+    `(null)|<64-hex>|true|true|accepted`; **red-unflagged EXIT=1** —
+    the discriminator stripped, the poison recurs, all 6 assertions red
+    (the assertion catches the defect class).
+  - `card1-campaigns-harness.log`: campaigns-run.sh **EXIT=0** — campaigns
+    pull unbounded HTTP 200 / codes URL still `expires_at=gt.`-bounded; both
+    seeded flags landed; the four-run policy matrix on the PRODUCTION source
+    (mode 'throw'): replica+HIGH → `overrideAvailable=false` →
+    `blockedOffline`, replica+LOW → `overrideConfirm`, none+HIGH/LOW → both
+    overridable, **alive=true trips=0 in all four runs**; the DOWNGRADE flip
+    via plain UPDATE: `updated_at` trigger-stamped (moved=true), 2s no-nudge
+    → still stale (no polling), next RESYNC → re-delivered and the policy
+    source follows. Publication membership + trigger enumerated by name in
+    the shell half.
+- **Regression on landed gates**: `card1-regression-c2.log` run.sh **EXIT=0**
+  (bounded keyset replicas, GAP-1 boundary walked); `card1-regression-c3.log`
+  push-run.sh **EXIT=0** (exactly-one-winner, both GAP-1 windows, write-only
+  RLS); clock-run.sh **EXIT=0** (uncommitted spot-check); Activity A verify
+  01-structure.sh **EXIT=0** — all four migrations apply clean twice
+  (fresh + warm), every structural claim by name.
+- **Machine**: `node tests/machine/run-conformance.mjs` **EXIT=0** — ALL 18
+  SEQUENCES HELD, **460 declared pairs across 23 states** (the strictness
+  proof unchanged); `strictness.mjs` **EXIT=0** (9/9).
+- **Marketing spec**: `npx playwright test tests/marketing.spec.js
+  --retries=0` → **30 passed**, including the flipped branch-3 (5/5 on a
+  parallel-stack repeat). One test-only hardening: F3-online forces online
+  through the real probe (the ONLINE direction of the 9c6f04e race — 3/3
+  green in isolation pre-fix, red once under whole-file load; assertions
+  unchanged).
+- **E2E** — `card1-e2e.log` (FULL suite — `supabase/` is an undeclared seam,
+  deliberate de-confine, B-37 safe direction; :5434 via task test:db:up,
+  `--retries=0`): **858 passed / 2 failed / 6 skipped (19.3m), EXIT=1.**
+  Verdicts: `workflows DBL-05` — the armed baseline red (B-421,
+  base-proven, expected); `workflows FLD-03/FLD-04` (sub-step attribution
+  before divider) — **3/3 green in isolation on the same tree** (targeted
+  repeat) and nothing in this card's diff touches workflows → the known
+  load-shaped flake class in exactly the spec the seam notes call
+  load-sensitive. **Zero unexplained reds; zero diff-attributable reds.**
+- **SW** — `card1-g4.log`: `node build-sw.js` **EXIT=0, 43 files precached
+  (2797.3 KB)** — count unchanged (module edits only); reachability 30 files
+  parsed / 47 references resolved / 0 outside the precache.
