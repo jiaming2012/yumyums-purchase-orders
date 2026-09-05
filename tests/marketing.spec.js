@@ -448,8 +448,12 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
   test('F3 offline: a locally-redeemed code rejects immediately as spentLocally', async ({ page }) => {
     await openScanner(page);
     await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
-    // Default online probe is () => false (no reachability machine tonight —
-    // Card 6's #13). Offline is the default truth.
+    // Card 6 landed the REAL reachability probe (#13): the resolver's online
+    // answer is now the machine's, so OFFLINE is forced through the probe —
+    // not assumed from Card 5's () => false default (which Card 6's boot
+    // replaces, racing this test's scan).
+    await page.waitForFunction(() => window.MarketingSubmit && window.MarketingSubmit.booted === true);
+    await killProbe(page);
     await scanText(page, FIXTURE_4_PAYLOAD);
     const result = page.locator('#scan-result');
     await expect(result).toHaveAttribute('data-kind', 'spentLocally');
