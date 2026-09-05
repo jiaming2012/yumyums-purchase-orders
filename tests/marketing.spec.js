@@ -498,7 +498,15 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
   test('F3 online: the local redeemed flag does NOT reject — the server decides at submit', async ({ page }) => {
     await openScanner(page);
     await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
-    await page.evaluate(() => { window.MarketingScan.setOnlineProbe(() => true); });
+    // The ONLINE direction of the 9c6f04e race fix: this test's
+    // setOnlineProbe(() => true) can be overwritten mid-scan by Card 6's boot
+    // installing the machine-fed probe while the machine still reads its
+    // honest offline start. Same remedy as the offline sibling — wait for the
+    // submit flow, then force ONLINE through the REAL probe (the /health
+    // endpoint is live in this test). Assertions unchanged.
+    await page.waitForFunction(() => window.MarketingSubmit && window.MarketingSubmit.booted === true);
+    await page.evaluate(() => window.MarketingSubmit.probeNow());
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
     await scanText(page, FIXTURE_4_PAYLOAD);
     const result = page.locator('#scan-result');
     await expect(result).toHaveAttribute('data-kind', 'deferToServer');
