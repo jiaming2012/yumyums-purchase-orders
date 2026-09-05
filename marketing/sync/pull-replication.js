@@ -70,13 +70,22 @@ export function keysetPredicate(checkpoint) {
 
 /**
  * Build one bounded, checkpointed pull URL.
+ *
+ * The expiry bound is OPTIONAL, never removed (card
+ * requires-online-replication, run 20260906): `campaigns` has no `expires_at`
+ * column, so the unconditional bound drew HTTP 400 on that table
+ * (spike build-fact 1). A null/undefined `windowIso` omits the fragment;
+ * every bounded caller (codes/offers) is byte-identical. The GAP-1 keyset
+ * checkpoint is untouched either way.
+ *
  * @param {object} p
  * @param {string} p.restUrl      PostgREST origin (no trailing slash)
  * @param {string} p.table        e.g. 'codes'
  * @param {string} p.select       column list
  * @param {object|null} p.checkpoint  RxDB checkpoint (null on first pull)
- * @param {string} p.windowIso    the expiry-window floor, ISO 8601 —
- *                                rows must satisfy expires_at > windowIso
+ * @param {string} [p.windowIso]  the expiry-window floor, ISO 8601 —
+ *                                rows must satisfy expires_at > windowIso;
+ *                                null/undefined for a table with no expiry
  * @param {number} p.batchSize
  */
 export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, batchSize }) {
@@ -84,7 +93,7 @@ export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, ba
     `${restUrl}/${table}` +
     `?select=${encodeURIComponent(select)}` +
     `&${keysetPredicate(checkpoint)}` +
-    `&expires_at=gt.${encodeURIComponent(windowIso)}` +
+    (windowIso == null ? '' : `&expires_at=gt.${encodeURIComponent(windowIso)}`) +
     `&order=updated_at.asc,id.asc` +
     `&limit=${batchSize}`
   );
@@ -99,8 +108,9 @@ export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, ba
  * @param {object} cfg
  * @param {string} cfg.restUrl
  * @param {string} cfg.table
- * @param {function(): string} cfg.windowBound  re-evaluated per request so the
- *                                              window SLIDES (§5.3)
+ * @param {function(): string} [cfg.windowBound]  re-evaluated per request so
+ *   the window SLIDES (§5.3). OPTIONAL: omit for a table with no `expires_at`
+ *   (campaigns) — the pull is then checkpoint-only. Bounded callers unchanged.
  * @param {string|function(): string} cfg.bearer  device JWT (or getter)
  * @param {function} cfg.fetchImpl
  * @param {string} [cfg.select]
@@ -114,7 +124,7 @@ export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, ba
 export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl, select = REPLICA_SELECT, requestLog, clock }) {
   return async function pullHandler(checkpoint, batchSize) {
     const cp = normalizeCheckpoint(checkpoint);
-    const url = buildPullUrl({ restUrl, table, select, checkpoint: cp, windowIso: windowBound(), batchSize });
+    const url = buildPullUrl({ restUrl, table, select, checkpoint: cp, windowIso: windowBound ? windowBound() : null, batchSize });
     if (requestLog) requestLog.push({ checkpoint: cp, url });
     const token = typeof bearer === 'function' ? bearer() : bearer;
     const res = await fetchImpl(url, {
