@@ -351,6 +351,22 @@ function campaignHighRow(overrides = {}) {
     updated_at: '2026-09-01T00:00:00.000Z',
   }, overrides);
 }
+// The LOW campaign — …0001, requires_online=false, the $2 free-side offer that
+// fixture1Row/fixture4RedeemedRow belong to (committed seed.sql literals).
+//
+// 🛑 Seeding this is NOT decoration (card refusal-holds-before-sync). Since the
+// policy source became FAIL-CLOSED for a known code whose campaign is
+// unresolved, a test that seeds `codes`/`offers` but no `campaigns` row is
+// modelling the B-432 window, not an ordinary offline scan — and the gate it
+// gets is `requires-online-unresolved`, correctly. Every test below that means
+// "an ordinary, offline-eligible campaign" must say so by seeding it.
+function campaignLowRow(overrides = {}) {
+  return Object.assign({
+    id: 'a0000000-0000-4000-8000-000000000001',
+    requires_online: false,
+    updated_at: '2026-09-01T00:00:00.000Z',
+  }, overrides);
+}
 
 async function openScanner(page) {
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -755,7 +771,9 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     const user = await makeUser(page, 'c6-noperm', ['team_member']);
     await openSubmitScanner(page, user.email, USER_PASSWORD);
     const calls = await mockRedeem(page);
-    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()],
+    });
     await killProbe(page);
     await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
     await page.click('[data-action="ms-submit"]');
@@ -771,7 +789,9 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
   test('offline branch 2: the entitlement offers force-submit behind the §13 confirmation', async ({ page }) => {
     await openSubmitScanner(page); // admin holds marketing-offline-override (seeded, #12)
     const calls = await mockRedeem(page);
-    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()],
+    });
     await killProbe(page);
     await scanAndReady(page, FIXTURE_1_PAYLOAD, '8642');
     await page.click('[data-action="ms-submit"]');
@@ -836,12 +856,60 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     expect(calls.length).toBe(0);
   });
 
+  // ── B-432: the refusal must hold BEFORE the campaigns replica has delivered ──
+  //
+  // RED-FIRST (card refusal-holds-before-sync, run 20260906-2): this is the
+  // shipped branch-3 test above with ONLY the `campaigns:` seed removed — the
+  // exact morning-triage reproduction, zero production code mutated. It models
+  // the window B-432 names: the codes/offers replicas have delivered the $40
+  // `requires_online=true` code, the campaigns replica has NOT (first sync, a
+  // campaigns pull that 5xx's while codes succeeds, or a new campaign whose
+  // codes arrive first). On the pre-change tree the policy source's Map is
+  // empty, `policyFor` answers null, submit-flow coerces null → false, and the
+  // gate renders data-branch="override": the high-value code is offline-
+  // overridable by an entitlement holder. Evidence:
+  // .night-crew/runs/2026-09-06-2-autonomous/c1-red-branch3-nocampaign.log
+  //
+  // 🛑 The refusal here is NOT unconditional — it holds because the CODE is
+  // known (`campaign_id` is non-null) and its campaign is unresolved. A
+  // genuinely-unknown code (no campaign named at all) keeps its override and
+  // its unverified warning — decision 166, pinned by the F2 test below.
+  test('B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)', async ({ page }) => {
+    await openSubmitScanner(page); // admin — entitlement held, and still refused
+    const calls = await mockRedeem(page);
+    await seedLocal(page, {
+      offers: [fixture5HighRow()],
+      codes: [fixture5HighRow()],
+      // NO campaigns row — the campaigns replica has not delivered.
+    });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
+    await page.click('[data-action="ms-submit"]');
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate).toBeVisible();
+    // The unresolved case gets its OWN branch + copy (build-fact 6, decided
+    // against UI-R3/R6): "online verification is required" asserts a fact this
+    // device does not have — the policy is unresolved, not known-true.
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(gate).toContainText(/can.t verify/i);
+    await expect(gate).toContainText('try again');
+    await expect(gate).toContainText(/sync/i);
+    await expect(
+      page.locator('[data-action="ms-override"]'),
+      'no override for a KNOWN code whose campaign has not replicated',
+    ).toHaveCount(0);
+    expect(calls.length).toBe(0);
+  });
+
   // ── P-KR4: the submit control transitions ON ITS OWN when the probe recovers ──
 
   test('P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction', async ({ page }) => {
     await openSubmitScanner(page);
     await mockRedeem(page);
-    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()],
+    });
     await killProbe(page);
     await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
     await page.click('[data-action="ms-submit"]');
@@ -889,13 +957,129 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     const readAttempts = () => page.evaluate(async (codeId) => {
       const docs = await window.MarketingScan.collections.scan_attempts
         .find({ selector: { code_id: codeId } }).exec();
-      return docs.map((d) => ({ offline_override: d.offline_override, unverified_code: d.unverified_code }));
+      return docs.map((d) => ({
+        offline_override: d.offline_override,
+        unverified_code: d.unverified_code,
+        policy_unresolved: d.policy_unresolved,
+      }));
     }, tokenHash);
     await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
     const attempt = await readAttempts();
     expect(attempt[0].offline_override).toBe(true);
     expect(attempt[0].unverified_code).toBe(true);
+    // done_when clause 2, the CONTROL half (card refusal-holds-before-sync):
+    // the campaigns policy source is healthy here, so this override is a
+    // genuinely-unknown-campaign one — t,f. The paired t,t case is the test
+    // below; the two together are what "distinguishable in the attempt record"
+    // means.
+    expect(attempt[0].policy_unresolved).toBe(false);
     expect(calls.length).toBe(0);
+  });
+
+  // ── done_when clause 2: the two overrides are DISTINGUISHABLE in the record ──
+  //
+  // "the campaigns-replica failure path is distinguishable from a genuinely-
+  // unknown campaign in the attempt record." Both land unverified_code=true
+  // offline overrides; `policy_unresolved` is what tells them apart, and
+  // neither gets a new terminal status (§9/§19 taxonomy unchanged — the card's
+  // PARK line).
+  //
+  // The failure is injected at the policy seam rather than by breaking a real
+  // replica: the page under test never starts one (sync provisioning is a
+  // later card), and the seam is the shipped surface the browser would read
+  // from a broken source anyway. The REAL replica-erroring path — error$
+  // latching an attributable HTTP status while awaitInitialReplication stays
+  // pending — is proved against the live substrate by
+  // marketing/sync/harness/refusal-run.sh.
+  test('done_when(2): a replica-FAILURE override lands policy_unresolved=true, distinguishable from the genuinely-unknown one', async ({ page }) => {
+    await openSubmitScanner(page);
+    const calls = await mockRedeem(page);
+    // The campaigns replica is unusable: every known campaign is unresolved,
+    // and the source says so about itself.
+    await page.evaluate(() => {
+      window.MarketingSubmit.setCampaignPolicy(
+        (campaignId) => (campaignId ? { requiresOnline: true, unresolved: true } : null),
+        () => true,
+      );
+    });
+    await killProbe(page);
+    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    const tokenHash = await result.getAttribute('data-token-hash');
+
+    // decision 166 still holds under a FAILING source: a code that names no
+    // campaign keeps its override and its unverified warning.
+    await page.fill('#ms-order', '77');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'override');
+    await page.click('[data-action="ms-override"]');
+    await expect(page.locator('#ms-confirm')).toContainText('prior use');
+    await page.click('[data-action="ms-confirm-override"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
+
+    const readAttempts = () => page.evaluate(async (codeId) => {
+      const docs = await window.MarketingScan.collections.scan_attempts
+        .find({ selector: { code_id: codeId } }).exec();
+      return docs.map((d) => ({
+        offline_override: d.offline_override,
+        unverified_code: d.unverified_code,
+        policy_unresolved: d.policy_unresolved,
+        status: d.status,
+      }));
+    }, tokenHash);
+    await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
+    const [attempt] = await readAttempts();
+    expect(attempt.offline_override).toBe(true);
+    expect(attempt.unverified_code).toBe(true);
+    expect(attempt.policy_unresolved, 'the replica-failure discriminator').toBe(true);
+    expect(attempt.status, 'no new terminal status — §9/§19 taxonomy unchanged').toBe('pending');
+    expect(calls.length).toBe(0);
+  });
+
+  // ── rider B-434(c): campaignPolicyFor had no test. The fail-closed predicate
+  // gives it one, and it is the predicate itself that is worth pinning — the
+  // three arms are what keep B-432 closed AND decision 166 alive.
+  test('B-434(c): the policy predicate — resolved flag / KNOWN-but-unresolved fails closed / no campaign stays null (decision 166)', async ({ page }) => {
+    await openSubmitScanner(page);
+    // Only the HIGH campaign is replicated. …0001 is deliberately absent.
+    await seedLocal(page, {
+      codes: [fixture5HighRow()], offers: [fixture5HighRow()], campaigns: [campaignHighRow()],
+    });
+    const HIGH_ID = 'a0000000-0000-4000-8000-000000000002';
+    const ABSENT_ID = 'a0000000-0000-4000-8000-000000000001';
+
+    const probe = () => page.evaluate(async ([high, absent]) => {
+      const S = window.MarketingSubmit;
+      // The reactive Map mirror settles a tick after the upsert.
+      for (let i = 0; i < 50 && !(S.campaignPolicyFor(high) || {}).requiresOnline; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return {
+        high: S.campaignPolicyFor(high),
+        absent: S.campaignPolicyFor(absent),
+        none: S.campaignPolicyFor(null),
+        unresolvedHigh: S.policyUnresolvedFor(high),
+        unresolvedAbsent: S.policyUnresolvedFor(absent),
+        unresolvedNone: S.policyUnresolvedFor(null),
+      };
+    }, [HIGH_ID, ABSENT_ID]);
+
+    const p = await probe();
+    // 1. Replicated campaign → its actual flag, and it is NOT unresolved.
+    expect(p.high).toEqual({ requiresOnline: true, unresolved: false });
+    expect(p.unresolvedHigh).toBe(false);
+    // 2. KNOWN campaign id that has not replicated → FAIL CLOSED. This is
+    //    B-432: pre-card this arm answered null, which the flow coerced to
+    //    false and handed the crew a Force-submit button.
+    expect(p.absent).toEqual({ requiresOnline: true, unresolved: true });
+    expect(p.unresolvedAbsent).toBe(true);
+    // 3. A code that names NO campaign still answers null — decision 166's
+    //    ratified unknown→false default, preserved by construction.
+    expect(p.none, 'decision 166: a genuinely-unknown code is not fail-closed').toBeNull();
+    // …and with a healthy source the discriminator for it is false, which is
+    // what makes the failure case above distinguishable.
+    expect(p.unresolvedNone).toBe(false);
   });
 
   // ── F6: full session semantics (Card 5 shipped re-show only; this card owns F6) ──

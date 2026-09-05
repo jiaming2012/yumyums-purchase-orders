@@ -116,10 +116,23 @@ async function boot() {
   // codes — this card removes "unknown" for replicated campaigns, it does not
   // change what unknown means (unknown -> true would silently delete F2's
   // DECIDED affordance for every code).
+  //
+  // Card refusal-holds-before-sync (B-432): the source is now FAIL-CLOSED for
+  // a KNOWN code whose campaign is unresolved, and it is created by
+  // scan-page.js (MS.campaignPolicy) rather than here — that file owns the
+  // replicas, so it is the only place the error latch can be attached before
+  // the campaigns replica emits (build-fact 1: error$ does not replay).
   let CAMPAIGN_POLICY = null;
+  let CAMPAIGN_POLICY_UNRESOLVED = () => false;   // SOURCE-level readiness
   try {
-    if (MS.collections && MS.collections.campaigns) {
-      CAMPAIGN_POLICY = createCampaignPolicySource(MS.collections.campaigns).policyFor;
+    if (MS.campaignPolicy && typeof MS.campaignPolicy.policyFor === 'function') {
+      CAMPAIGN_POLICY = MS.campaignPolicy.policyFor;
+      CAMPAIGN_POLICY_UNRESOLVED = () => MS.campaignPolicy.unresolved();
+    } else if (MS.collections && MS.collections.campaigns) {
+      // A scan-page cached from before this card still has the collection.
+      const src = createCampaignPolicySource(MS.collections.campaigns);
+      CAMPAIGN_POLICY = src.policyFor;
+      CAMPAIGN_POLICY_UNRESOLVED = () => src.unresolved();
     }
   } catch (e) {
     // A stale-cached scan-page without the campaigns collection degrades to
@@ -127,12 +140,46 @@ async function boot() {
     console.error('[marketing submit] campaign policy source failed to start', e);
     CAMPAIGN_POLICY = null;
   }
+
+  // requiresOnline — the boolean the machine's RESOLVED event carries.
+  // 🛑 The `!CAMPAIGN_POLICY → false` arm is UNCHANGED from run 20260906 and is
+  // knowingly fail-open (B-436): if the source failed to CONSTRUCT, a known
+  // code stays overridable. Not widened here on purpose — that path is
+  // measured by campaigns-run.sh leg 3's negative and is a different window
+  // from B-432's; it is recorded honestly in the attempt row instead (see
+  // policyUnresolvedFor, which answers TRUE for it).
   function policyFor(campaignId, offers) {
     if (!CAMPAIGN_POLICY) return false;
     try {
       const p = CAMPAIGN_POLICY(campaignId, offers);
       return !!(p && p.requiresOnline);
     } catch (e) { return false; }
+  }
+
+  // The B-432 discriminator, captured at SCAN time (never at push time — by
+  // the time the queue drains the replica may have recovered, and the record
+  // is about what this device knew when the crew member forced the submit).
+  //
+  //   known campaign, resolved   → false
+  //   known campaign, unresolved → true   (the fail-closed arm; refused, so
+  //                                        no attempt row exists — but the
+  //                                        answer is still honest)
+  //   no campaign named          → the SOURCE-level reading: has the campaigns
+  //                                replica delivered? This is the case that
+  //                                actually lands a row, and it is what
+  //                                separates a replica-FAILURE override (t)
+  //                                from a genuinely-unknown-campaign one (f).
+  //   no policy source at all    → true   (B-436 — nothing was resolved)
+  function policyUnresolvedFor(campaignId) {
+    if (!CAMPAIGN_POLICY) return true;
+    if (campaignId === null || campaignId === undefined || campaignId === '') {
+      try { return !!CAMPAIGN_POLICY_UNRESOLVED(); } catch (e) { return true; }
+    }
+    try {
+      const p = CAMPAIGN_POLICY(campaignId);
+      if (!p) return true;          // the pre-card null answer for a KNOWN id
+      return !!p.unresolved;
+    } catch (e) { return true; }
   }
 
   // The PAGE's memoized hasher (exposed by scan-page.js): one digest per
@@ -255,6 +302,14 @@ async function boot() {
         offline_override: true,
         override_by: ME ? ((ME.email || (ME.id != null ? String(ME.id) : '')) || null) : null,
         unverified_code: !!e.unverified_code, // F2: true for unknown codes
+        // The B-432 discriminator (done_when clause 2). Read off the SESSION
+        // stash, which captured it at RESOLVED time — not re-derived here,
+        // because by the time an override is confirmed the campaigns replica
+        // may have recovered and the record would then lie about what the crew
+        // member could see. Paired with unverified_code:
+        //   t,t = the campaigns replica had not delivered (this card's window)
+        //   t,f = a genuinely unknown campaign (decision 166's F2 case)
+        policy_unresolved: !!SUBMIT_CTX.policy_unresolved,
         pos_order_number: ORDER_STATE.value || null,
         // §13: the Toast-cutoff business date off the SYNC CLOCK's epoch.
         pos_business_date: toastBusinessDate(MS.clock.now()),
@@ -288,6 +343,10 @@ async function boot() {
     const stash = {
       token_hash: result.token_hash, code_id: null, value: null,
       displayKind: result.kind, winner: null,
+      // The B-432 discriminator for THIS session. Default: whatever the policy
+      // source says about itself, which is the right answer for every kind
+      // that names no campaign.
+      policy_unresolved: policyUnresolvedFor(null),
     };
     let kind = null;
     let requiresOnline = false;
@@ -296,6 +355,7 @@ async function boot() {
         const o = result.offers[0];
         stash.code_id = o.code_id;
         requiresOnline = policyFor(o.campaign_id || null, result.offers);
+        stash.policy_unresolved = policyUnresolvedFor(o.campaign_id || null);
         kind = 'offerReady';
         break;
       }
@@ -307,6 +367,7 @@ async function boot() {
           if (docs.length) {
             stash.code_id = docs[0].id;
             requiresOnline = policyFor(docs[0].campaign_id || null, []);
+            stash.policy_unresolved = policyUnresolvedFor(docs[0].campaign_id || null);
           }
         } catch (e) { /* replica unreadable — token_hash fallback below */ }
         // ONE authority: the machine's own conn guard reproduces F3 (online →
@@ -374,9 +435,29 @@ async function boot() {
     </div>`;
   }
 
+  // The four offline-gate branches. `requires-online-unresolved` is new (card
+  // refusal-holds-before-sync, build-fact 6 — the UI call this card owed).
+  //
+  // The decision, against docs/ui-design-rules.md: the shipped
+  // `requires-online` copy reads "High-value offer: online verification is
+  // required." Under the fail-closed predicate that same branch is now also
+  // reached when the device has NO IDEA what the campaign requires — and
+  // asserting "high-value" and "required" about a policy we could not read is
+  // a UI-R3/UI-R6 defect (a render that states a fact the app does not have,
+  // and a failure that names neither its cause nor its remedy). It also
+  // misdirects the crew: "required" reads as permanent, so a manager stops
+  // waiting; "hasn't synced yet" reads as transient, which it is.
+  //
+  // So the unresolved case gets its OWN branch and its own words. Both keep
+  // the roadmap done_when's "can't verify" / "try again" and both refuse the
+  // override — the difference is what they tell the person holding the phone.
   function gateBranch() {
     if (machine.flags().overrideAvailable) return 'override';
-    if (machine.ctx().requiresOnline) return 'requires-online';
+    if (machine.ctx().requiresOnline) {
+      return (SUBMIT_CTX && SUBMIT_CTX.policy_unresolved)
+        ? 'requires-online-unresolved'
+        : 'requires-online';
+    }
     return 'no-permission';
   }
 
@@ -399,12 +480,15 @@ async function boot() {
         const body = branch === 'requires-online'
           ? `<div class="ms-gate-head">Can&#39;t verify — try again in a moment.</div>
              <div class="ms-note">High-value offer: online verification is <b>required</b>. There is no offline override for this campaign (§8) — not even for a manager.</div>`
+          : branch === 'requires-online-unresolved'
+          ? `<div class="ms-gate-head">Can&#39;t verify this campaign yet — try again in a moment.</div>
+             <div class="ms-note">This code&#39;s campaign hasn&#39;t <b>synced</b> to this device, so we can&#39;t tell whether it needs online verification. Until it arrives there is no offline override (§8) — not even for a manager.</div>`
           : branch === 'override'
-            ? `<div class="ms-gate-head">Offline — can&#39;t verify this code right now.</div>
-               <div class="ms-note">You hold the offline-override permission. Forcing it risks a double-redemption and is flagged for review.</div>
-               <button class="ms-btn ms-btn-warn" data-action="ms-override">Force submit (offline)</button>`
-            : `<div class="ms-gate-head">Can&#39;t verify — connect to redeem.</div>
-               <div class="ms-note">Submit needs the server. Ask a manager if this can&#39;t wait.</div>`;
+          ? `<div class="ms-gate-head">Offline — can&#39;t verify this code right now.</div>
+             <div class="ms-note">You hold the offline-override permission. Forcing it risks a double-redemption and is flagged for review.</div>
+             <button class="ms-btn ms-btn-warn" data-action="ms-override">Force submit (offline)</button>`
+          : `<div class="ms-gate-head">Can&#39;t verify — connect to redeem.</div>
+             <div class="ms-note">Submit needs the server. Ask a manager if this can&#39;t wait.</div>`;
         return `${orderFieldHtml()}
           <div id="ms-gate" data-branch="${branch}">${body}
           <div class="ms-note ms-auto">Submit re-enables itself the moment the connection returns.</div></div>`;
@@ -605,13 +689,27 @@ async function boot() {
     machine,
     probeNow: () => probe.probeNow(),
     stopProbe: () => probe.stop(),
-    setCampaignPolicy: (fn) => { CAMPAIGN_POLICY = typeof fn === 'function' ? fn : null; },
+    // The injection seam. The optional SECOND argument overrides the
+    // source-level readiness probe — the one that answers "has the campaigns
+    // replica delivered?" for codes that name no campaign. Omitted, an
+    // injected policy reports itself resolved, which is the right default for
+    // a test that hands over a literal lookup table.
+    setCampaignPolicy: (fn, unresolvedFn) => {
+      CAMPAIGN_POLICY = typeof fn === 'function' ? fn : null;
+      CAMPAIGN_POLICY_UNRESOLVED = typeof unresolvedFn === 'function' ? unresolvedFn : () => false;
+    },
     // Debug/test read of the ACTIVE policy (replica-fed default, or whatever
-    // setCampaignPolicy injected): campaignId → {requiresOnline} | null.
+    // setCampaignPolicy injected): campaignId → {requiresOnline, unresolved}
+    // | null. Under the fail-closed source a KNOWN campaign id NEVER answers
+    // null; null is reserved for a code that names no campaign at all
+    // (decision 166) and for "no source is wired".
     campaignPolicyFor: (campaignId) => {
       if (!CAMPAIGN_POLICY) return null;
       try { return CAMPAIGN_POLICY(campaignId) || null; } catch (e) { return null; }
     },
+    // The B-432 discriminator as the flow would record it for a given code —
+    // the value that lands in scan_attempts.policy_unresolved.
+    policyUnresolvedFor: (campaignId) => policyUnresolvedFor(campaignId ?? null),
     reportChannelStatus,
     deviceId: DEVICE_ID,
     canOverride,

@@ -11,10 +11,11 @@
 
 import {
   createRxDatabase, getRxStorageDexie, replicateRxCollection, Subject,
+  addRxPlugin, RxDBMigrationSchemaPlugin,
 } from '../vendor/rxdb.bundle.js';
 import {
   marketingCollectionSpec, startCodesReplica, startOffersReplica,
-  startCampaignsReplica, resolveOffers,
+  startCampaignsReplica, createCampaignPolicySource, resolveOffers,
 } from './sync/replicas.js';
 import { scanAttemptsCollectionSpec, enqueueAttempt } from './sync/push-replication.js';
 import { createSyncClock } from './sync/clock.js';
@@ -185,11 +186,27 @@ async function boot() {
     persist: (s) => { try { localStorage.setItem(CLOCK_KEY, JSON.stringify(s)); } catch (e) { /* storage full/blocked — offset still live in-memory */ } },
   });
 
+  // 🛑 REQUIRED before addCollections (card refusal-holds-before-sync):
+  // SCAN_ATTEMPTS_SCHEMA is version 1 now, and rxdb runs
+  // `autoMigrate && version !== 0 && await migratePromise()` unconditionally.
+  // Without this plugin that call hits a prototype stub that THROWS, the
+  // collection creation rejects, and boot()'s catch below renders "Scanner
+  // failed to start" on every device. The plugin is idempotent to register.
+  addRxPlugin(RxDBMigrationSchemaPlugin);
+
   const db = await createRxDatabase({ name: 'hqmarketing', storage: getRxStorageDexie() });
   const cols = await db.addCollections({
     ...marketingCollectionSpec(),
     ...scanAttemptsCollectionSpec(),
   });
+
+  // The §8 policy source lives HERE, not in submit-flow.js, and the reason is
+  // build-fact 1: `error$` does not replay to late subscribers, so the source
+  // has to exist before the campaigns replica does and latch the first
+  // emission itself. This file owns both the collections and the replicas —
+  // it is the only place that ordering can be guaranteed. submit-flow.js
+  // consumes it through MS.campaignPolicy.
+  const campaignPolicy = createCampaignPolicySource(cols.campaigns);
 
   const hashToken = createTokenHasher({ subtle: crypto.subtle });
   const resolver = createScanResolver({
@@ -219,13 +236,23 @@ async function boot() {
       clock,
       replicationIdentifier,
     });
+    // Card requires-online-replication: the §8 policy flag rides its own
+    // replica (no expiry bound — campaigns has no expires_at); the submit
+    // flow's default policy source reads the local collection.
+    //
+    // 🛑 THE NEXT TWO STATEMENTS MUST STAY ADJACENT AND UNAWAITED (card
+    // refusal-holds-before-sync, build-fact 1). `error$` emits on the FIRST
+    // failed pull (spike 01 measured t+145ms) and does NOT replay — a
+    // subscriber attached even one `await` later sees zero emissions and the
+    // policy source can never report the replica as erroring. Start the
+    // campaigns replica, attach the latch, THEN do everything else.
+    const campaignsRep = startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull'));
+    campaignPolicy.attach(campaignsRep);
+
     syncHandles = {
       codes: startCodesReplica(deps(cols.codes, 'marketing-codes-pull')),
       offers: startOffersReplica(deps(cols.offers, 'marketing-offers-pull')),
-      // Card requires-online-replication: the §8 policy flag rides its own
-      // replica (no expiry bound — campaigns has no expires_at); the submit
-      // flow's default policy source reads the local collection.
-      campaigns: startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull')),
+      campaigns: campaignsRep,
     };
     Promise.all([
       syncHandles.codes.awaitInitialReplication(),
@@ -374,6 +401,11 @@ async function boot() {
     scanText: doScan,
     hasherStats: () => hashToken.stats(),
     enqueue,
+    // The §8 policy source (card refusal-holds-before-sync) — created at boot,
+    // latched to the campaigns replica the moment one starts. submit-flow.js
+    // reads it from here rather than constructing its own, so the error latch
+    // is in place before the replica can emit.
+    campaignPolicy,
     setOnlineProbe: (fn) => { onlineProbe = typeof fn === 'function' ? fn : (() => false); },
     startSync,
     resync,

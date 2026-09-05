@@ -1,0 +1,184 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /home/jcole/projects/hq-worktrees/c1-refusal-holds-before-sync/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/c1-refusal-holds-before-sync
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-09-05T22:33:19Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED       STATUS                 PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         4 weeks ago   Up 2 hours (healthy)   0.0.0.0:45557->5432/tcp, [::]:45557->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   4 weeks ago   Up 2 hours             0.0.0.0:46615->4000/tcp, [::]:46615->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       4 weeks ago   Up 2 hours             0.0.0.0:45455->3000/tcp, [::]:45455->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=45557 rest=45455 realtime=46615
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=45455 realtime=46615 db=45557  run=r1788647613456
+PASS  ports — db=45557 rest=45455 realtime=46615
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788647614699 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=45557  rest=45455  realtime=46615   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-05T22:33:34Z
+══════════════════════════════════════════════════════════
+#   db container    : 51a51ade6921be3867acd4c87c19bd22dba4d7221c236dec46376d3a85850f3d
+#   db host port    : 45557 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → migrations/20260906000100_campaigns_replication.sql
+psql:<stdin>:47: NOTICE:  trigger "campaigns_touch_updated_at" for relation "public.campaigns" does not exist, skipping
+  → migrations/20260906000200_scan_attempts_unverified_landing.sql
+psql:<stdin>:41: NOTICE:  constraint "scan_attempts_names_a_code" of relation "scan_attempts" does not exist, skipping
+  → migrations/20260906000300_scan_attempts_policy_unresolved.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── the shipped artifacts under test (identity pinned, not assumed) ──
+#   marketing/sync/replicas.js               sha256 50444a76b64380db…
+#   marketing/sync/push-replication.js       sha256 a96583afd344cfb5…
+#   marketing/submit-machine.js              sha256 03e7e77fcd07638d…
+#   lib/xstate.umd.min.js                    sha256 e7f04e1f780f5f67…
+
+── discriminator DDL enumerated (the committed 20260906000300 migration) ──
+#   policy_unresolved column: 1
+#   check constraint        : CHECK (((code_id IS NOT NULL) OR (unverified_code AND offline_override AND (token_hash IS NOT NULL))))
+
+── device JWT (throwaway secret from the compose file) ──
+
+── mode: red-preserved ──
+# mode: red-preserved
+# SCAN_ATTEMPTS_SCHEMA.version = 1 (policy_unresolved declared: true)
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+
+── replica state: codes+offers IN SYNC (4 code rows); campaigns erroring (503) ──
+
+── the window (campaigns replica erroring, nothing delivered) ──
+
+── the error latch ──
+  attached=true ready=false unresolved=true
+  lastError: 
+
+Error message: RxReplication pull handler threw an error - see .errors for more details
+Error code: RC_PULL
+Cause: The pull handler of the replication threw an error.
+Fix: Check the error details in the .errors observable.
+Docs: https://rxdb.info/replication.html?console=errors&code=RC_PULL
+Find out more about this error here: https://rxdb.info/errors.html?console=errors#RC_PULL 
+
+--------------------
+Parameters:
+checkpoint: null
+errors: {"name":"Error","message":"[marketing-sync] pull campaigns answered HTTP 503","stack":"Error: [marketing-sync] pull campaigns answered HTTP 503 \n     at Object.pullHandler [as handler] (file:///home/jcole/projects/hq-worktrees/c1-refusal-holds-before-sync/marketing/sync/pull-replication.js:134:13) \n     at async Object.masterChangesSince (file:///home/jcole/projects/hq-worktrees/c1-refusal-holds-before-sync/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js:177:24) \n     at async downstreamResyncOnce (file:///home/jcole/projects/hq-worktrees/c1-refusal-holds-before-sync/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/downstream.js:113:24)"}
+direction: "pull"
+
+
+── recovery: campaigns endpoint comes up; the source waits for ready+settle ──
+  ready; policy Map holds 2 campaigns; unresolved=false; lastError=null
+
+── leg 6: codes-arrive-first (replica READY, a new campaign's code lands alone) ──
+  new code landed; campaigns Map holds 2; the NEW campaign is in it: false
+
+── the runs ──
+  window + HIGH (under test) | requiresOnline=false | blocked=blockedOffline | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | unverifiedWarning=false | alive=true trips=0
+  window + unknown code     | requiresOnline=false | blocked=blockedOffline | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | unverifiedWarning=true  | alive=true trips=0
+  window + HIGH (PRE-CARD)  | requiresOnline=false | blocked=blockedOffline | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | unverifiedWarning=false | alive=true trips=0
+  ready + HIGH              | requiresOnline=true  | blocked=blockedOffline | overrideAvailable=false | afterOVERRIDE_REQUEST=blockedOffline | unverifiedWarning=false | alive=true trips=0
+  ready + LOW               | requiresOnline=false | blocked=blockedOffline | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | unverifiedWarning=false | alive=true trips=0
+  READY + codes-arrive-first | requiresOnline=false | blocked=blockedOffline | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | unverifiedWarning=false | alive=true trips=0
+
+── leg 7: the discriminator lands distinguishable (shipped enqueue + shipped push handler) ──
+  local rows (ajv-validated): policy_unresolved true / false
+  push requests: 2 — kinds: land-unverified
+  redeem calls on the unverified rows: 0 (the F-2 guard must divert BEFORE redeem)
+  server rows:
+    aaaaaaaa… | accepted | override=t | unverified=t | policy_unresolved=t
+    bbbbbbbb… | accepted | override=t | unverified=t | policy_unresolved=f
+  distinct statuses on the arbiter: accepted
+
+── conclusion ──
+  ✗ window+HIGH: the shipped source did not fail closed (requiresOnline=false)
+  ✗ window+HIGH: override OFFERED during the window — B-432 is NOT closed
+  ✗ window+HIGH: OVERRIDE_REQUEST moved the screen to overrideConfirm
+  ✗ codes-arrive-first: a READY replica + an unseen campaign did NOT fail closed — a bare readiness latch would leave exactly this open
+  ✗ codes-arrive-first: override OFFERED on a code whose campaign has never been seen
+
+RED: 5 disagreement(s)
+
+🔴 RED-FIRST DEMONSTRATED (red-preserved): the PRE-CARD policy shape fails these assertions (node exit 1). This non-zero exit IS the evidence that the green run measures something.

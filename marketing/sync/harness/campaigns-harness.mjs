@@ -168,7 +168,13 @@ const readFlag = async (id) => (await db[CAMPAIGNS_COLLECTION].findOne(id).exec(
 // ---------------------------------------------------------------------------
 console.log('\n── leg 3: the §8 refusal on the PRODUCTION policy source (4 runs, mode throw) ──');
 const policySource = createCampaignPolicySource(db[CAMPAIGNS_COLLECTION]);
-await until(() => policySource.policyFor(HIGH.campaign) !== null, 5000, 'policy source never saw the synced campaigns');
+// 🛑 This guard used to read `policyFor(HIGH.campaign) !== null`. Under the
+// fail-closed source (card refusal-holds-before-sync) that is VACUOUS — a
+// known campaign id never answers null any more, so it would pass instantly on
+// an EMPTY Map and leg 3's LOW run would red on a spurious over-refusal. Wait
+// on the Map itself, which is what "the source saw the synced campaigns"
+// always meant.
+await until(() => policySource.size() === 2, 5000, 'policy source never saw the synced campaigns');
 
 // submit-flow.js's policyFor, verbatim in behavior — the seam the card feeds.
 function policyFor(CAMPAIGN_POLICY, campaignId) {
