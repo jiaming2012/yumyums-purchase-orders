@@ -1,0 +1,8 @@
+# card6-fuzz.log — THE CARD'S GATE, fuzz half (lockstep vs the spike's proven hand-rolled reference, WITH the per-step liveness assertion). Card redemption-submit-flow, run 20260905.
+# HEAD: e620ec6 · node v22.5.0
+
+$ node tests/machine/lockstep-fuzz.mjs   (defaults: 20000 walks/seed x 20 steps, seeds 20260904+20260905 = 40000 walks)
+# lockstep fuzz: 40000 walks x 20 steps, seeds [20260904, 20260905], alphabet 25 entries
+# per-step liveness armed: deaths=0 (tripwire hits 0), divergences=0
+NO DIVERGENCE, NO DEATHS — the strict machine is observably the proven reference, alive at every step
+EXIT=0

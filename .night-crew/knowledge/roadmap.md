@@ -334,7 +334,8 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   shows its offer offline — synced (replica) and un-synced (embedded); and a locally-redeemed code
   rejects offline but defers to the server online (F3). Footprint: scanner UI.
 
-- **`redemption-submit-flow`** · **PLANNED** · The heart of the window workflow (§13). Large
+- **`redemption-submit-flow`** · **DRAFTING** (overnight-20260905, branch
+  `wo-redemption-submit-flow`) · The heart of the window workflow (§13). Large
   result cards then auto-reset (§16): ✅ Redeemed (offer + entitlement) → **required Toast
   order-number entry that *completes* the redemption** (no path to "redeemed" without it — §13
   double-entry problem), with **format validation** (#2) and business-date computed from the

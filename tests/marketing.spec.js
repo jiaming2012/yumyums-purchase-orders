@@ -448,8 +448,12 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
   test('F3 offline: a locally-redeemed code rejects immediately as spentLocally', async ({ page }) => {
     await openScanner(page);
     await seedLocal(page, { codes: [fixture4RedeemedRow()], offers: [fixture4RedeemedRow()] });
-    // Default online probe is () => false (no reachability machine tonight —
-    // Card 6's #13). Offline is the default truth.
+    // Card 6 landed the REAL reachability probe (#13): the resolver's online
+    // answer is now the machine's, so OFFLINE is forced through the probe —
+    // not assumed from Card 5's () => false default (which Card 6's boot
+    // replaces, racing this test's scan).
+    await page.waitForFunction(() => window.MarketingSubmit && window.MarketingSubmit.booted === true);
+    await killProbe(page);
     await scanText(page, FIXTURE_4_PAYLOAD);
     const result = page.locator('#scan-result');
     await expect(result).toHaveAttribute('data-kind', 'spentLocally');
@@ -564,5 +568,365 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
     await expect(err).toContainText('Camera unavailable');
     // Retry affordance: the same labeled action, still present and clickable.
     await expect(page.locator('[data-action="start-camera"]')).toBeVisible();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Redemption submit flow — card redemption-submit-flow (run 20260905,
+// Activity C, design §8/§13/§16/§19.4 F1/F2/F6, P-KR4; spike
+// .night-crew/knowledge/spikes/activity-c-scanner-screen/redemption-submit-flow.md)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST (greenfield): every test in this describe was written and RUN
+// against the pre-change tree (Cards 1–5 landed, no submit flow: no
+// lib/xstate.umd.min.js, no marketing/submit-*.js, no #scan-conn indicator,
+// no window.MarketingSubmit), where it reds as a set. Evidence:
+// .night-crew/runs/2026-09-05-autonomous/card6-red.log and the ## Red-first
+// section of merge-intents/redemption-submit-flow.md.
+//
+// What this describe pins (the roadmap's done_when, verbatim clauses):
+//   * confirm-then-burn (§13): NO path to "redeemed" without a
+//     validator-passing Toast order number — zero POSTs without it;
+//   * the three offline branches under a KILLED reachability probe:
+//     no-permission blocked / entitlement override offered / high-value
+//     (requires_online=true) refused even WITH the entitlement;
+//   * the persistent indicator flips and submit re-arms LIVE when the probe
+//     recovers — no page interaction (P-KR4);
+//   * an unknownCode offline override writes offline_override=true AND
+//     unverified_code=true (F2) through the serialized enqueue;
+//   * F6 session semantics: same-code re-scan is a no-op; a different code
+//     prompts finish-current-customer; dismiss returns to the interrupted
+//     state; the machine's modeled unexpectedEvent state is loud + retryable.
+//
+// The machine itself is gated in Node (tests/machine/: 18-sequence
+// conformance + lockstep fuzz with per-step liveness, both in throw mode);
+// this describe drives the PAGE — the production 'model' build.
+
+const SECOND_TOKEN_PAYLOAD = 'https://hq.yumyums.kitchen/r/second-customer-c6-token';
+const UNKNOWN_TOKEN_PAYLOAD = 'https://hq.yumyums.kitchen/r/never-seen-c6-override-token';
+
+async function openSubmitScanner(page, email = ADMIN_EMAIL, password = USER_PASSWORD) {
+  if (email === ADMIN_EMAIL) password = ADMIN_PASSWORD;
+  await loginAs(page, email, password);
+  await page.goto('/marketing.html');
+  await page.waitForFunction(() =>
+    window.MarketingScan && window.MarketingScan.booted === true
+    && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+}
+
+// Kill / restore the #13 reachability signal deterministically: the probe
+// targets GET /api/v1/health (the same origin the submit POST needs), and
+// probeNow() resolves after the probe result has been fed to the machine —
+// tests never wait on the 10s production cadence.
+async function killProbe(page) {
+  await page.route('**/api/v1/health**', (r) => r.abort());
+  await page.evaluate(() => window.MarketingSubmit.probeNow());
+  await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'offline');
+}
+async function restoreProbe(page) {
+  await page.unroute('**/api/v1/health**');
+  await page.evaluate(() => window.MarketingSubmit.probeNow());
+}
+
+// Intercept the online submit endpoint: capture request bodies, answer with a
+// scripted verdict (the dev/test arbiter is fail-closed 503 by design — Card
+// 7's contract — so verdicts are mocked at the network layer).
+async function mockRedeem(page, result = 'redeemed') {
+  const calls = [];
+  await page.route('**/api/v1/marketing/redeem', async (route) => {
+    calls.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ result, race_lost_reconciled: false }),
+    });
+  });
+  return calls;
+}
+
+async function scanAndReady(page, payload, orderNumber) {
+  await scanText(page, payload);
+  await expect(page.locator('#ms-order')).toBeVisible();
+  await page.fill('#ms-order', orderNumber);
+}
+
+test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
+
+  // ── the persistent indicator exists from boot (done_when: visible indicator) ──
+
+  test('a persistent online/offline indicator renders from boot and reads online on a live probe', async ({ page }) => {
+    await openSubmitScanner(page);
+    const conn = page.locator('#scan-conn');
+    await expect(conn).toBeVisible();
+    await expect(conn).toHaveAttribute('data-conn', 'online');
+    await expect(conn).toContainText('Online');
+    // …and it is still there mid-session (persistent, not a toast).
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(conn).toBeVisible();
+  });
+
+  // ── §13 confirm-then-burn: order number COMPLETES the redemption ───────────
+
+  test('confirm-then-burn: no path to redeemed without a validator-passing Toast order number', async ({ page }) => {
+    await openSubmitScanner(page);
+    const calls = await mockRedeem(page, 'redeemed');
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+
+    // The submit flow mounts in Card 5's slot with a required order field.
+    const flow = page.locator('#ms-flow');
+    await expect(flow).toHaveAttribute('data-mstate', 'offerReady');
+    const submit = page.locator('[data-action="ms-submit"]');
+    await expect(submit).toBeVisible();
+    await expect(submit, 'no order number -> submit disabled').toBeDisabled();
+
+    // Format validation (TOAST_ORDER_NUMBER_PLACEHOLDER_PATTERN): a
+    // non-matching entry is named invalid and does NOT arm the submit.
+    await page.fill('#ms-order', '12ab');
+    await expect(page.locator('#ms-order-err')).toBeVisible();
+    await expect(submit).toBeDisabled();
+    await expect(flow).toHaveAttribute('data-mstate', 'offerReady');
+
+    // A validator-passing number arms it (ORDER_OK -> readyToSubmit)…
+    await page.fill('#ms-order', '4321');
+    await expect(page.locator('#ms-order-err')).toBeHidden();
+    await expect(flow).toHaveAttribute('data-mstate', 'readyToSubmit');
+    await expect(submit).toBeEnabled();
+
+    // …and only then can the redemption complete.
+    expect(calls.length, 'zero POSTs before a valid order number').toBe(0);
+    await submit.click();
+    await expect(flow).toHaveAttribute('data-mstate', 'redeemed');
+    await expect(flow).toContainText('Redeemed');
+    expect(calls.length).toBe(1);
+    const body = calls[0];
+    expect(body.token_hash).toBe(FIXTURE_1_TOKEN_HASH);
+    expect(body.order_number).toBe('4321');
+    expect(body.device_id).toBeTruthy();
+    expect(body.offline_override).toBe(false);
+    expect(body.unverified_code).toBe(false);
+    expect(typeof body.scanned_at).toBe('string');
+  });
+
+  // ── the three offline branches, each under a KILLED probe ─────────────────
+
+  test('offline branch 1: no entitlement -> blocked, no override affordance', async ({ page }) => {
+    const user = await makeUser(page, 'c6-noperm', ['team_member']);
+    await openSubmitScanner(page, user.email, USER_PASSWORD);
+    const calls = await mockRedeem(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
+    await page.click('[data-action="ms-submit"]');
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate).toBeVisible();
+    await expect(gate).toHaveAttribute('data-branch', 'no-permission');
+    await expect(gate).toContainText('connect to redeem');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
+    expect(calls.length, 'nothing reached the server').toBe(0);
+  });
+
+  test('offline branch 2: the entitlement offers force-submit behind the §13 confirmation', async ({ page }) => {
+    await openSubmitScanner(page); // admin holds marketing-offline-override (seeded, #12)
+    const calls = await mockRedeem(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_1_PAYLOAD, '8642');
+    await page.click('[data-action="ms-submit"]');
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate).toHaveAttribute('data-branch', 'override');
+    await page.click('[data-action="ms-override"]');
+
+    // The §13 confirmation, verbatim risk wording.
+    const confirm = page.locator('#ms-confirm');
+    await expect(confirm).toBeVisible();
+    await expect(confirm).toContainText('double-redemption');
+    await page.click('[data-action="ms-confirm-override"]');
+
+    // Terminal-class "queued" card (spike design call), audit-flagged attempt.
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
+    await expect(page.locator('#ms-flow')).toContainText('Queued');
+    // The audit-flagged write is async behind the state flip — poll for it.
+    const readAttempts = () => page.evaluate(async (codeId) => {
+      const docs = await window.MarketingScan.collections.scan_attempts
+        .find({ selector: { code_id: codeId } }).exec();
+      return docs.map((d) => ({
+        offline_override: d.offline_override, unverified_code: d.unverified_code,
+        pos_order_number: d.pos_order_number, pos_business_date: d.pos_business_date,
+        status: d.status,
+      }));
+    }, 'c0000000-0000-4000-8000-000000000001');
+    await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
+    const attempt = await readAttempts();
+    expect(attempt[0].offline_override).toBe(true);
+    expect(attempt[0].unverified_code).toBe(false); // a KNOWN code — F2's flag is for unknown ones
+    expect(attempt[0].pos_order_number).toBe('8642');
+    expect(attempt[0].pos_business_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(attempt[0].status).toBe('pending'); // queued for sync arbitration
+    expect(calls.length, 'an offline override never posts directly').toBe(0);
+  });
+
+  test('offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)', async ({ page }) => {
+    await openSubmitScanner(page); // admin — entitlement held, and still refused
+    const calls = await mockRedeem(page);
+    await page.evaluate(() => {
+      window.MarketingSubmit.setCampaignPolicy(() => ({ requiresOnline: true }));
+    });
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
+    await page.click('[data-action="ms-submit"]');
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online');
+    await expect(gate).toContainText(/can.t verify/i);
+    await expect(gate).toContainText('try again');
+    await expect(page.locator('[data-action="ms-override"]'), 'no override even for a holder of the entitlement').toHaveCount(0);
+    expect(calls.length).toBe(0);
+  });
+
+  // ── P-KR4: the submit control transitions ON ITS OWN when the probe recovers ──
+
+  test('P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction', async ({ page }) => {
+    await openSubmitScanner(page);
+    await mockRedeem(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await killProbe(page);
+    await scanAndReady(page, FIXTURE_1_PAYLOAD, '4321');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toBeVisible();
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+
+    // Reachability returns; NOTHING else is touched.
+    await restoreProbe(page);
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+    await expect(page.locator('#ms-flow'), 'the gate resumed the pre-gate state on its own').toHaveAttribute('data-mstate', 'readyToSubmit');
+    const submit = page.locator('[data-action="ms-submit"]');
+    await expect(submit).toBeEnabled();
+    // …and the resumed control actually submits.
+    await submit.click();
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'redeemed');
+  });
+
+  // ── F2: the unknown-code override writes BOTH flags ───────────────────────
+
+  test('F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true', async ({ page }) => {
+    await openSubmitScanner(page);
+    const calls = await mockRedeem(page);
+    await killProbe(page);
+    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    const tokenHash = await result.getAttribute('data-token-hash');
+    expect(tokenHash).toMatch(/^[0-9a-f]{64}$/);
+
+    await page.fill('#ms-order', '99');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'override');
+    await page.click('[data-action="ms-override"]');
+
+    // F2's decided wording: NEITHER the offer NOR prior use can be verified.
+    const confirm = page.locator('#ms-confirm');
+    await expect(confirm).toContainText('offer');
+    await expect(confirm).toContainText('prior use');
+    await expect(confirm).toContainText('verified');
+    await page.click('[data-action="ms-confirm-override"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
+
+    // engineering call: an unknown code's local code_id IS its token_hash.
+    // The write is async behind the state flip — poll for it.
+    const readAttempts = () => page.evaluate(async (codeId) => {
+      const docs = await window.MarketingScan.collections.scan_attempts
+        .find({ selector: { code_id: codeId } }).exec();
+      return docs.map((d) => ({ offline_override: d.offline_override, unverified_code: d.unverified_code }));
+    }, tokenHash);
+    await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
+    const attempt = await readAttempts();
+    expect(attempt[0].offline_override).toBe(true);
+    expect(attempt[0].unverified_code).toBe(true);
+    expect(calls.length).toBe(0);
+  });
+
+  // ── F6: full session semantics (Card 5 shipped re-show only; this card owns F6) ──
+
+  test('F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state', async ({ page }) => {
+    await openSubmitScanner(page);
+    await mockRedeem(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+
+    // Same code again: no-op / re-show — state unchanged, no prompt.
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+    await expect(page.locator('#scan-prompt')).toHaveCount(0);
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'offerReady');
+
+    // Progress, then a DIFFERENT code: finish-current-customer prompt.
+    await page.fill('#ms-order', '55');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'readyToSubmit');
+    await scanText(page, SECOND_TOKEN_PAYLOAD);
+    const prompt = page.locator('#scan-prompt');
+    await expect(prompt).toBeVisible();
+    await expect(prompt).toContainText('Finish the current customer');
+
+    // Dismiss: back to the interrupted state — progress preserved (F1's principle).
+    await page.click('[data-action="ms-dismiss"]');
+    await expect(prompt).toHaveCount(0);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'readyToSubmit');
+    await expect(page.locator('#ms-order')).toHaveValue('55');
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'offerReady');
+
+    // Prompt again; this time move on — the session clears for the next customer.
+    await scanText(page, SECOND_TOKEN_PAYLOAD);
+    await expect(prompt).toBeVisible();
+    await page.click('[data-action="ms-prompt-next"]');
+    await expect(prompt).toHaveCount(0);
+    await expect(page.locator('#scan-result')).toBeHidden();
+    // The new customer scans fresh (no stale prompt from the dead session).
+    await scanText(page, SECOND_TOKEN_PAYLOAD);
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'unknownCode');
+  });
+
+  // ── the ⚠️ card: already used, when + which device (Card 3's flip source) ──
+
+  test('already_used verdict renders when + which device from the local codes replica', async ({ page }) => {
+    await openSubmitScanner(page);
+    await mockRedeem(page, 'already_used');
+    // The replica knows the winner (Card 3's flip data source: codes pull, never scan_attempts).
+    await seedLocal(page, {
+      codes: [fixture4RedeemedRow({ redeemed_by: 'device-zeta' })],
+      offers: [fixture4RedeemedRow({ redeemed_by: 'device-zeta' })],
+    });
+    await scanText(page, FIXTURE_4_PAYLOAD); // online -> deferToServer -> server decides
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'deferToServer');
+    await page.fill('#ms-order', '31');
+    await page.click('[data-action="ms-submit"]');
+    const flow = page.locator('#ms-flow');
+    await expect(flow).toHaveAttribute('data-mstate', 'alreadyUsed');
+    await expect(flow).toContainText('Already used');
+    await expect(flow).toContainText('device-zeta');
+  });
+
+  // ── the strict machine's production shape: modeled, loud, retryable ───────
+
+  test('an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor', async ({ page }) => {
+    await openSubmitScanner(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()] });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await page.evaluate(() => { window.MarketingSubmit.machine.send('BOGUS_EVENT'); });
+
+    const oops = page.locator('#ms-unexpected');
+    await expect(oops).toBeVisible();
+    await expect(oops).toContainText('BOGUS_EVENT'); // names the event (loud, UI-R6)
+    const alive = await page.evaluate(() => window.MarketingSubmit.machine.alive());
+    expect(alive, 'the production build never kills the actor').toBe(true);
+
+    // Retryable: back to the interrupted state, session intact.
+    await page.click('[data-action="ms-retry"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
   });
 });

@@ -54,6 +54,42 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .result-note{font-size:12px;opacity:0.9;line-height:1.45}
 .scan-again{min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;background:rgba(255,255,255,0.7);color:var(--txt);cursor:pointer}
 @media(prefers-color-scheme:dark){.scan-again{background:rgba(0,0,0,0.3);color:#f0f0f0}}
+/* ── redemption submit flow (card redemption-submit-flow) ── */
+#scan-conn{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;background:var(--card);border:1px solid var(--brd)}
+#scan-conn::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
+#scan-conn[data-conn=online]{color:var(--ok-tx);background:var(--ok-bg)}
+#scan-conn[data-conn=online]::before{background:currentColor}
+#scan-conn[data-conn=offline]{color:var(--bad-tx);background:var(--bad-bg)}
+#scan-conn[data-conn=offline]::before{background:currentColor}
+#scan-conn[data-conn=stale]{color:var(--warn-tx);background:var(--warn-bg)}
+#scan-conn[data-conn=stale]::before{background:currentColor}
+#ms-flow{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.ms-field{display:flex;flex-direction:column;gap:4px}
+.ms-field label{font-size:12px;font-weight:600}
+.ms-req{font-weight:400;opacity:0.75}
+#ms-order{min-height:44px;border:1px solid var(--brd);border-radius:10px;padding:8px 12px;font-size:17px;background:var(--card);color:var(--txt);width:100%}
+.ms-err{font-size:12px;color:var(--bad-tx);background:var(--bad-bg);border-radius:8px;padding:6px 10px}
+.ms-btn{min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;padding:10px 12px;width:100%}
+.ms-btn[disabled]{opacity:0.45;cursor:default}
+.ms-btn-go{background:var(--info-bg);color:var(--info-tx)}
+.ms-btn-warn{background:var(--warn-bg);color:var(--warn-tx);border:1px solid rgba(0,0,0,0.12)}
+.ms-btn-quiet{background:rgba(255,255,255,0.7);color:var(--txt)}
+@media(prefers-color-scheme:dark){.ms-btn-quiet{background:rgba(0,0,0,0.3);color:#f0f0f0}}
+.ms-note{font-size:12px;opacity:0.9;line-height:1.45}
+.ms-auto{opacity:0.7;font-style:italic}
+#ms-gate,#ms-confirm{display:flex;flex-direction:column;gap:8px;border-radius:10px;padding:12px;background:rgba(255,255,255,0.55)}
+@media(prefers-color-scheme:dark){#ms-gate,#ms-confirm{background:rgba(0,0,0,0.25)}}
+.ms-gate-head{font-size:15px;font-weight:700}
+.ms-warn-line{font-size:13px;color:var(--bad-tx);background:var(--bad-bg);border-radius:8px;padding:8px 10px}
+.ms-card{display:flex;flex-direction:column;gap:8px;border-radius:10px;padding:12px}
+.ms-card-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.ms-card-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.ms-card-bad{background:var(--bad-bg);color:var(--bad-tx)}
+.ms-head{font-size:17px;font-weight:700}
+/* finish-first prompt: a real modal — overlay controls stay clear of native
+   chrome (UI-R1), the way out is labeled and 44px (UI-R2) */
+#scan-prompt{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px 16px calc(env(safe-area-inset-bottom) + 40px);z-index:60}
+#scan-prompt .ms-sheet{background:var(--card);color:var(--txt);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;max-width:360px;width:100%}
 </style>
 </head>
 <body>
@@ -159,7 +195,14 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
      Order matters: defer + module scripts execute in insertion order, so
      Html5Qrcode is global before scan-page.js runs. -->
 <script src="lib/html5-qrcode.min.js" defer></script>
+<!-- The submit flow's statechart engine (card redemption-submit-flow): XState
+     v5.32.6 vendored as ONE single-file classic UMD script (47,268 B, the
+     SortableJS pattern; operator-resolved engine fork). Classic scripts with
+     defer run before the module scripts below, so window.XState exists when
+     marketing/submit-flow.js boots. -->
+<script src="lib/xstate.umd.min.js" defer></script>
 <script type="module" src="marketing/scan-page.js"></script>
+<script type="module" src="marketing/submit-flow.js"></script>
 <script src="log.js"></script><script src="ptr.js"></script>
 </body>
 </html>
