@@ -1,8 +1,11 @@
-// marketing/sync/replicas.js — the two Marketing pull replicas (card
-// rxdb-pull-replica, run 20260905; design docs/qr-offline-redemption-handoff.md
-// §5.3/§7.3/§10).
+// marketing/sync/replicas.js — the Marketing pull replicas (card
+// rxdb-pull-replica, run 20260905; campaigns replica + policy source added by
+// card requires-online-replication, run 20260906; design
+// docs/qr-offline-redemption-handoff.md §5.3/§7.3/§8/§10).
 //
-// Both replicas pull the SAME server table, `public.codes`. The roadmap left
+// The codes/offers replicas pull the SAME server table, `public.codes`; the
+// campaigns replica (below) pulls `public.campaigns` for the §8 policy flag.
+// The roadmap left
 // "one table or two" as Activity A's schema call, and Activity A built ONE
 // table (supabase/migrations/ carries no entitlements table), so:
 //
@@ -68,19 +71,45 @@ export const MARKETING_REPLICA_SCHEMA = {
   indexes: [['token_hash']],
 };
 
+/**
+ * The campaigns replica's on-device row (card requires-online-replication,
+ * run 20260906) — §10 minimal: the §8 policy flag and the checkpoint key,
+ * nothing else. No name, no face_value (PII-free by shape). The mechanism is
+ * the SAME shipped pull (replicateRxCollection + makePullHandler + the GAP-1
+ * keyset checkpoint); only the expiry bound is absent — campaigns has no
+ * expires_at (spike build-fact 1; the bound is optional in
+ * pull-replication.js, never removed from codes/offers).
+ */
+export const CAMPAIGNS_REPLICA_SCHEMA = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    requires_online: { type: 'boolean' },
+    updated_at: { type: 'string' },
+  },
+  required: ['id', 'requires_online', 'updated_at'],
+};
+
+/** The columns the campaigns replica pulls — mirrors the schema exactly. */
+export const CAMPAIGNS_SELECT = 'id,requires_online,updated_at';
+
 /** Collection names the browser database and the harness share. */
 export const CODES_COLLECTION = 'codes';
 export const OFFERS_COLLECTION = 'offers';
+export const CAMPAIGNS_COLLECTION = 'campaigns';
 
-/** addCollections() argument covering both replicas. */
+/** addCollections() argument covering all three replicas. */
 export function marketingCollectionSpec() {
   return {
     [CODES_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
     [OFFERS_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
+    [CAMPAIGNS_COLLECTION]: { schema: CAMPAIGNS_REPLICA_SCHEMA },
   };
 }
 
-function startReplica(deps, { table, windowBound, replicationIdentifier }) {
+function startReplica(deps, { table, windowBound, select, replicationIdentifier }) {
   const {
     replicateRxCollection, collection, restUrl, bearer, fetchImpl, stream$,
     batchSize = 50, clock, now = clock ? clock.now : Date.now,
@@ -89,11 +118,13 @@ function startReplica(deps, { table, windowBound, replicationIdentifier }) {
   const pullHandler = makePullHandler({
     restUrl,
     table,
-    windowBound: () => windowBound(now),
+    // A table with no expiry column runs checkpoint-only (windowBound omitted).
+    windowBound: windowBound ? () => windowBound(now) : undefined,
     bearer,
     fetchImpl,
     requestLog,
     clock,
+    ...(select ? { select } : {}),
   });
   return startPullReplica({
     replicateRxCollection,
@@ -134,6 +165,57 @@ export function startOffersReplica(deps) {
     windowBound: offersWindowBound,
     replicationIdentifier: deps.replicationIdentifier || 'marketing-offers-pull',
   });
+}
+
+/**
+ * The campaigns replica (card requires-online-replication) — carries the §8
+ * `requires_online` policy flag to the device, AND a change to it: the
+ * spike-decisive leg was the FLIP (a campaign downgraded while its codes sit
+ * still never re-delivers through a codes-embed — that alternative is CLOSED,
+ * with evidence). No expiry bound: campaigns has no expires_at column.
+ * Server side, migration 20260906000100 makes the table self-announcing
+ * (supabase_realtime membership + a touch trigger) so the same
+ * wireRealtimeResync mechanism codes use nudges this replica too.
+ */
+export function startCampaignsReplica(deps) {
+  return startReplica(deps, {
+    table: 'campaigns',
+    windowBound: null,
+    select: CAMPAIGNS_SELECT,
+    replicationIdentifier: deps.replicationIdentifier || 'marketing-campaigns-pull',
+  });
+}
+
+/**
+ * The §8 policy lookup, fed by the campaigns replica — the function
+ * submit-flow.js hands to its policy seam (the shape setCampaignPolicy
+ * expects: campaignId → {requiresOnline} | null).
+ *
+ * Synchronous by design: the machine's RESOLVED event needs the answer at
+ * resolve time, so this keeps a reactive-query-fed Map mirror of the local
+ * collection (RxDB queries exclude soft-deleted rows, so a deleted campaign
+ * honestly drops back to unknown). Unknown campaign → null, and the caller's
+ * policyFor coerces null to false — the ratified unknown→false default
+ * (decision 166) survives for the cases that are GENUINELY unknown; this card
+ * removes "unknown" for replicated campaigns, it does not change what unknown
+ * means.
+ *
+ * @param {object} campaignsCollection  the CAMPAIGNS_COLLECTION RxCollection
+ * @returns {{policyFor: function(string): ({requiresOnline: boolean}|null),
+ *            size: function(): number, stop: function(): void}}
+ */
+export function createCampaignPolicySource(campaignsCollection) {
+  const byId = new Map();
+  const sub = campaignsCollection.find().$.subscribe((docs) => {
+    byId.clear();
+    for (const d of docs) byId.set(d.id, !!d.requires_online);
+  });
+  return {
+    policyFor: (campaignId) =>
+      (byId.has(campaignId) ? { requiresOnline: byId.get(campaignId) } : null),
+    size: () => byId.size,
+    stop: () => sub.unsubscribe(),
+  };
 }
 
 /**
