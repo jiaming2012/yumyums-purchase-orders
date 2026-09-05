@@ -41,6 +41,7 @@ import { execFileSync } from 'node:child_process';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { REST_PORT } from '../../../.night-crew/qa/spike-supabase/rxdb/spike-env.js';
@@ -140,6 +141,15 @@ console.log('  → both refuse the raw shape; the guard must divert BEFORE the r
 // ---------------------------------------------------------------------------
 console.log(`\n── leg (b): poison-first queue through the SHIPPED handler (${MODE}) ──`);
 addRxPlugin(RxDBDevModePlugin);
+// 🛑 REQUIRED since SCAN_ATTEMPTS_SCHEMA went to version 1 (card
+// refusal-holds-before-sync, run 20260906-2): rxdb runs
+// `autoMigrate && version !== 0 && await migratePromise()` on every
+// collection creation, and without this plugin that call THROWS
+// ("You are using a function which must be overwritten by a plugin") —
+// addCollections rejects and the harness dies before its first leg. The
+// browser gets the same registration in marketing/scan-page.js.
+addRxPlugin(RxDBMigrationSchemaPlugin);
+
 const db = await createRxDatabase({
   name: `f2h_${Date.now()}`,
   storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
