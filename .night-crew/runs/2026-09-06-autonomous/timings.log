@@ -1,0 +1,5 @@
+# timings — run 20260906 (overnight-20260906)
+2026-09-05 06:04 EDT  launch: preflight ok (binary v3.4.0+1), launch-prompt resolved (.night-crew/knowledge/reference/launch-20260906.md), slate signed, run-evidence no-run-evidence, workflow preflight openspec-absent (matches prompt), routing check agree
+2026-09-05 06:04 EDT  guard: no unmerged overnight-* branch; worktrees check flagged workspace/hq-scheduling-app (31c) + main (3c) — operator answered "leave both, launch"; card-branch check clean; workers check clear (night-crew, night-crew-env)
+2026-09-05 06:04 EDT  branch: overnight-20260906 cut at 4facd5e; card worktree wt-20260906-c1 on wo-requires-online-replication
+2026-09-05 06:04 EDT  card 1 requires-online-replication: implementer dispatched (session model, class new-mechanism)
