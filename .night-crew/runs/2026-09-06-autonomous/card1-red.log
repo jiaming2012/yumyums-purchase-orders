@@ -1,0 +1,307 @@
+# RED-FIRST (b) — f2-run.sh green mode on the PRE-CHANGE tree (no guard in push-replication.js, no 20260906000200 migration)
+# cmd: marketing/sync/harness/f2-run.sh
+
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260906-c1/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260906-c1
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-05T10:17:49Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:59752->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:59770->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:59771->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=59752 rest=59771 realtime=59770
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=59771 realtime=59770 db=59752  run=r1788603475071
+PASS  ports — db=59752 rest=59771 realtime=59770
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788603476233 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=59752  rest=59771  realtime=59770   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-05T10:17:56Z
+══════════════════════════════════════════════════════════
+#   db container    : e9d97c9daf622a41367f4337525db0f4f0c414bb8a4a7c159ff12fcb109ce54e
+#   db host port    : 59752 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── landing-path DDL enumerated (the committed 20260906000200 migration) ──
+#   code_id nullable: false
+#   token_hash column: 0
+#   check constraint : (none)
+
+── device JWT (throwaway secret from the compose file) ──
+
+── mode: green ──
+# mode: green
+
+── leg (a): the raw endpoints, given a 64-hex code_id ──
+  POST /rpc/redeem      → HTTP 400  {"code":"22P02","details":null,"hint":null,"message":"invalid input syntax for type uuid: \"ffffffff0123456789abcdef0123
+  POST /scan_attempts   → HTTP 400  {"code":"22P02","details":null,"hint":null,"message":"invalid input syntax for type uuid: \"ffffffff0123456789abcdef0123
+  → both refuse the raw shape; the guard must divert BEFORE the redeem call
+
+── leg (b): poison-first queue through the SHIPPED handler (green) ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+  push requests: 10 — kinds: redeem
+  redeem calls  : unverified=10 legit=0
+  unverified row: status=pending landed=false
+  legit row     : status=pending landed=false
+  server scan_attempts rows: 0 → 0 (+0)
+  distinct replica errors: 1 — e.g. [marketing-sync] redeem answered HTTP 400
+ERROR:  column "token_hash" does not exist
+LINE 1: ...alesce(code_id::text,'(null)') || '|' || coalesce(token_hash...
+                                                             ^
+  audit row (server): (query failed — the landing-path migration is not applied: no token_hash column)
+ERROR:  column "token_hash" does not exist
+LINE 1: delete from public.scan_attempts where token_hash = 'fffffff...
+                                               ^
+
+── conclusion ──
+  ✗ the unverified attempt reached /rpc/redeem 10× — the guard must sit BEFORE the burn
+  ✗ the audit-flagged attempt did not land (status=pending, landed=false) — stranding it falsifies decision 166's reasoning
+  ✗ the legitimate attempt behind it did not land (status=pending, landed=false) — head-of-line poison
+  ✗ expected exactly 1 redeem for the legitimate code, got 0
+  ✗ expected +2 server rows, got +0
+  ✗ audit row shape wrong: (query failed — the landing-path migration is not applied: no token_hash column) — expected (null)|ffffffff0123456789abcdef0123456789abcdef0123456789abcdefabcdefff|true|true|accepted
+
+RED: 6 disagreement(s)
+
+🛑 VERDICT: RED — a leg failed (node exit 1); see the log above.
+EXIT=1
+
+# RED-FIRST (a) — the flipped branch-3 e2e (real-data seeding) on the PRE-CHANGE tree
+# cmd: npx playwright test tests/marketing.spec.js -g "offline branch" --retries=0
+
+[2m[WebServer] [22m── reset hq_test_e2e on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.6.2 ──
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.915828-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.916541-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.933383-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.965188-04:00","level":"INFO","msg":"OK   0001_users.sql (13.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.979925-04:00","level":"INFO","msg":"OK   0002_sessions.sql (14.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:04.99049-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (10.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.006058-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (15.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.024441-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (18.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.032918-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (8.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.04123-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (8.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.058417-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (17.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.069213-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (10.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.079758-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (10.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.090156-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (10.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.10899-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (18.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.121985-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (12.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.133491-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (11.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.147681-04:00","level":"INFO","msg":"OK   0015_ops.sql (14.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.159375-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (11.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.172446-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (12.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.189712-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (17.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.215174-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (25.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.228171-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (12.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.238601-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (10.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.25527-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (16.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.27732-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (21.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.333297-04:00","level":"INFO","msg":"OK   0024_inventory.sql (55.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.346672-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (13.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.353189-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (6.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.35819-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (4.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.366208-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (7.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.369681-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (3.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.379496-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (9.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.385276-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (5.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.391861-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (6.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.405458-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (13.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.427021-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (21.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.433393-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (6.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.438822-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (5.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.449841-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (10.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.461978-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (12.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.469637-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (7.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.503699-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (33.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.512092-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (8.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.528923-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (16.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.542777-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (13.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.562315-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (19.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.582429-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (20.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.587344-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (4.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.615184-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (27.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.623511-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (8.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.642866-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (19.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.651226-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.658034-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (6.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.66599-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (7.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.672727-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (6.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.679691-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (6.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.686514-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.699659-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (13.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.711036-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (11.32ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.718652-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (7.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.722619-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (3.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.741255-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (18.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.757383-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (16.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.770235-04:00","level":"INFO","msg":"OK   0062_recipes.sql (12.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.779451-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (9.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.786836-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (7.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.7926-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (5.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.803288-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (10.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.820659-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (17.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.82974-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (9.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.835233-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (5.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.842344-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (7.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.854715-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (12.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.865371-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (10.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.889383-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (23.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.897183-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (7.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.917779-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (20.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.931726-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (13.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.945589-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (13.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.945615-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 77","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:05.945631-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.020772-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.04761-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"9cc25dd3-60c7-4fe4-a5aa-b37e487e59b8"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.047645-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.078986-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"5d1a553c-50a2-4d03-9f2e-9028dfcb3f8e"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.086539-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.117459-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.167926-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352102-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352132-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352155-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352265-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352737-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352829-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352868-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352883-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352901-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.352946-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.353055-04:00","level":"INFO","msg":"server listening","port":"8199"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.35321-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.176:8199"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:06.353223-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 3 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:09.360598-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"query assigned templates for hire 02c996dd-643e-4874-b4a8-7b9d58f80ecb: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:09.597406-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Mkt T. (mkt-c6-noperm-1788603549031-5276@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✓  1 [chromium] › tests/marketing.spec.js:746:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance (1.4s)
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:10.221824-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 02c996dd-643e-4874-b4a8-7b9d58f80ecb: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:10.228071-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:10.2932-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✓  2 [chromium] › tests/marketing.spec.js:763:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation (867ms)
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:11.099196-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-05T06:19:11.173272-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘  3 [chromium] › tests/marketing.spec.js:804:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) (5.7s)
+
+
+  1) [chromium] › tests/marketing.spec.js:804:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('#ms-gate')
+    Expected: [32m"[7mrequires-onlin[27me"[39m
+    Received: [31m"[7moverrid[27me"[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-gate')[22m
+    [2m    9 × locator resolved to <div id="ms-gate" data-branch="override">…</div>[22m
+    [2m      - unexpected value "override"[22m
+
+
+      822 |
+      823 |     const gate = page.locator('#ms-gate');
+    > 824 |     await expect(gate).toHaveAttribute('data-branch', 'requires-online');
+          |                        ^
+      825 |     await expect(gate).toContainText(/can.t verify/i);
+      826 |     await expect(gate).toContainText('try again');
+      827 |     await expect(page.locator('[data-action="ms-override"]'), 'no override even for a holder of the entitlement').toHaveCount(0);
+        at /Users/jamal/projects/yumyums/wt-20260906-c1/tests/marketing.spec.js:824:24
+
+    Error Context: test-results/marketing-Redemption-submi-00ac1-en-WITH-the-entitlement-§8--chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/marketing.spec.js:804:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) 
+  2 passed (20.0s)
+EXIT=1

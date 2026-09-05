@@ -1,0 +1,150 @@
+# campaigns-run.sh — optional bound, production campaigns replica, refusal-on-real-data matrix, trigger-stamped downgrade flip
+
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260906-c1/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260906-c1
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-05T10:23:08Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:59752->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:59770->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:59771->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=59752 rest=59771 realtime=59770
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=59771 realtime=59770 db=59752  run=r1788603793445
+PASS  ports — db=59752 rest=59771 realtime=59770
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788603794432 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=59752  rest=59771  realtime=59770   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-05T10:23:14Z
+══════════════════════════════════════════════════════════
+#   db container    : e9d97c9daf622a41367f4337525db0f4f0c414bb8a4a7c159ff12fcb109ce54e
+#   db host port    : 59752 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → migrations/20260906000100_campaigns_replication.sql
+psql:<stdin>:47: NOTICE:  trigger "campaigns_touch_updated_at" for relation "public.campaigns" does not exist, skipping
+  → migrations/20260906000200_scan_attempts_unverified_landing.sql
+psql:<stdin>:41: NOTICE:  constraint "scan_attempts_names_a_code" of relation "scan_attempts" does not exist, skipping
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── enumerated: campaigns replication surface (the committed 20260906000100 migration) ──
+#   supabase_realtime member: campaigns, checklist_submissions, checklist_templates, codes, hq_sync_checklists, spike_notes, submission_rejections, submission_responses
+#   campaigns touch trigger : campaigns_touch_updated_at
+
+── device JWT (throwaway secret from the compose file) ──
+
+
+── leg 1: optional expiry bound — campaigns unbounded, codes STILL bounded ──
+  campaigns URL: http://127.0.0.1:59771/campaigns?select=id%2Crequires_online%2Cupdated_at&or=(updated_at.gt.%221970-01-01T00%3A00%3A00%2B00%3A00%22,and(updated_at.eq.%221970-01-01T00%3A00%3A00%2B00%3A00%22,id.gt.%2200000000-0000-0000-0000-000000000000%22))&order=updated_at.asc,id.asc&limit=10
+  campaigns pull → 2 row(s)
+  codes URL    : http://127.0.0.1:59771/codes?select=id%2Ctoken_hash%2Ccampaign_id%2Cexpires_at%2Credeemed_at%2Credeemed_by%2Cupdated_at%2C_deleted&or=(updated_at.gt.%221970-01-01T00%3A00%3A00%2B00%3A00%22,and(updated_at.eq.%221970-01-01T00%3A00%3A00%2B00%3A00%22,id.gt.%2200000000-0000-0000-0000-000000000000%22))&expires_at=gt.2026-09-03T10%3A23%3A18.482Z&order=updated_at.asc,id.asc&limit=10
+  → optional means optional: campaigns unbounded, codes bounded, both HTTP 200
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+
+── leg 2: the campaigns replica (production startCampaignsReplica) ──
+  campaign 0001 requires_online=false
+  campaign 0002 requires_online=true
+  → both seeded flags landed via 1 enumerated pull(s)
+
+── leg 3: the §8 refusal on the PRODUCTION policy source (4 runs, mode throw) ──
+  replica + HIGH | requiresOnline=true  | overrideAvailable=false | afterOVERRIDE_REQUEST=blockedOffline | alive=true trips=0
+  replica + LOW  | requiresOnline=false | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | alive=true trips=0
+  none    + HIGH | requiresOnline=false | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | alive=true trips=0
+  none    + LOW  | requiresOnline=false | overrideAvailable=true  | afterOVERRIDE_REQUEST=overrideConfirm | alive=true trips=0
+  → armed on real data, not over-refusing, provably dead without a source, zero new pairs
+
+── leg 4: post-sync campaign downgrade — plain UPDATE, trigger-stamped, RESYNC re-delivers ──
+  updated_at: 2026-09-05 10:23:16.633837+00 → 2026-09-05 10:23:19.199655+00 (moved=true)
+  (2s with NO nudge — a pull replica must not poll)
+  no nudge → replica still reads true (no polling), pulls so far: 1
+  RESYNC → replica reads false (re-delivered), pulls so far: 2
+  → the operator's downgrade reaches the device policy on the next RESYNC — the refusal disarms
+
+all legs held
+
+✅ VERDICT: GREEN — the campaigns replica carries the flag AND a downgrade flip; the §8 refusal arms on real data; codes keep their bound.
+EXIT=0

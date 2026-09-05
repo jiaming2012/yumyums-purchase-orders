@@ -283,6 +283,25 @@ a check constraint) lands both, storing the audit row as
   is stranded until the queue is cleared by hand. Fix lands with this card's
   guard; that card owes ONE validation run re-executing spike 03 against the
   shipped guard (found 2026-09-05, /nc-spike-open).
+  - validated: GAP-1 — run 20260906, card `requires-online-replication` (branch
+    `wo-requires-online-replication`). The guard shipped INSIDE
+    `marketing/sync/push-replication.js`'s `makePushHandler` (before the
+    redeem call, `unverified_code` the discriminator) with the landing-path
+    DDL as committed migration `20260906000200` (`code_id` nullable +
+    `token_hash` + check `scan_attempts_names_a_code`), and the owed
+    validation re-executed spike 03 against it wrapper-free
+    (`marketing/sync/harness/f2-run.sh`). Red first, on the PRE-change tree:
+    the shipped handler redeem-firsted the 64-hex `code_id` 10× (HTTP 400
+    `22P02`), 0 landing requests, both attempts stuck `pending` — the
+    head-of-line poison reproduced (`card1-red.log`, EXIT=1). Then green
+    against the shipped guard: **0 redeem calls for the unverified attempt,
+    exactly 1 for the legitimate one behind it, both landed, +2 server rows,
+    audit row stored `code_id=(null) | token_hash=<64-hex> | override=t |
+    unverified=t | status=accepted`** — the §9/§19 taxonomy unchanged
+    (`card1-f2-harness.log`, EXIT=0; red-unflagged mode EXIT=1 proves the
+    assertions catch the defect class). Build-fact 5 honored: the harness
+    mints a fresh live code per leg; belt-2's block-on-unknown-winner
+    untouched (push-run.sh green, `card1-regression-c3.log`).
 - gap: GAP-2 — a campaign policy write that does not advance
   `campaigns.updated_at` is **invisible to every checkpointed replica**, and
   `campaigns` carries no touch trigger (enumerated). Nothing is broken today
