@@ -745,7 +745,8 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     // Terminal-class "queued" card (spike design call), audit-flagged attempt.
     await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
     await expect(page.locator('#ms-flow')).toContainText('Queued');
-    const attempt = await page.evaluate(async (codeId) => {
+    // The audit-flagged write is async behind the state flip — poll for it.
+    const readAttempts = () => page.evaluate(async (codeId) => {
       const docs = await window.MarketingScan.collections.scan_attempts
         .find({ selector: { code_id: codeId } }).exec();
       return docs.map((d) => ({
@@ -754,7 +755,8 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
         status: d.status,
       }));
     }, 'c0000000-0000-4000-8000-000000000001');
-    expect(attempt.length).toBe(1);
+    await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
+    const attempt = await readAttempts();
     expect(attempt[0].offline_override).toBe(true);
     expect(attempt[0].unverified_code).toBe(false); // a KNOWN code — F2's flag is for unknown ones
     expect(attempt[0].pos_order_number).toBe('8642');
@@ -830,12 +832,15 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     await page.click('[data-action="ms-confirm-override"]');
     await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
 
-    const attempt = await page.evaluate(async (codeId) => {
+    // engineering call: an unknown code's local code_id IS its token_hash.
+    // The write is async behind the state flip — poll for it.
+    const readAttempts = () => page.evaluate(async (codeId) => {
       const docs = await window.MarketingScan.collections.scan_attempts
         .find({ selector: { code_id: codeId } }).exec();
       return docs.map((d) => ({ offline_override: d.offline_override, unverified_code: d.unverified_code }));
-    }, tokenHash); // engineering call: an unknown code's local code_id IS its token_hash
-    expect(attempt.length).toBe(1);
+    }, tokenHash);
+    await expect.poll(async () => (await readAttempts()).length, { timeout: 5000 }).toBe(1);
+    const attempt = await readAttempts();
     expect(attempt[0].offline_override).toBe(true);
     expect(attempt[0].unverified_code).toBe(true);
     expect(calls.length).toBe(0);
