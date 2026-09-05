@@ -1,0 +1,42 @@
+# card6-conformance.log — THE CARD'S GATE, sequence half + strictness. Card redemption-submit-flow, run 20260905.
+# HEAD: e620ec6 · node v22.5.0 · vendored lib/xstate.umd.min.js 47268 bytes
+# sha256: e7f04e1f780f5f67b0d4286b85e6d01e16473ab42b5a466cd56282556838fa28
+
+$ node tests/machine/run-conformance.mjs
+# conformance run — candidate: strict-overlay-xstate (production marketing/submit-machine.js on vendored xstate.umd.min.js) (18 sequences)
+  PASS  F1-parallel — connectivity change never resets scan progress
+  PASS  F1-gate — offline SUBMIT routes to the gate, never the server
+  PASS  F1-stale — stale routes SUBMIT exactly like offline
+  PASS  F2-no-perm — offline unknownCode without permission is blocked, no override
+  PASS  F2-with-perm — override on unknownCode warns unverifiable + writes both flags
+  PASS  F3-offline — locally-spent rejects immediately, no submit path
+  PASS  F3-online — the server wins: local flag does not reject, SRV_ALREADY_USED does
+  PASS  F6-same-code — in-session re-scan is a no-op; after terminal it re-shows
+  PASS  F6-different-code — a second customer mid-session prompts to finish first
+  PASS  §8-high-value — requires_online campaign refuses override even with permission
+  PASS  Reset — every parked or terminal state clears fully for the next customer
+  PASS  P-KR4 — the gate resumes submit on its own when reachability returns
+  PASS  P-KR4 — an unknown-code gate resumes too, and the server then decides
+  PASS  F6 — the finish-first prompt can be dismissed (progress kept) or cleared
+  PASS  §13 double-entry — no path to submit without the order number
+  PASS  Hardening — a dead probe while stale reads offline; a cancelled override returns to the gate
+  PASS  Mid-submit protection — a scan cannot yank an in-flight verdict
+  PASS  Failures are retryable — error offers RETRY back to submit
+# strict-overlay-xstate (production marketing/submit-machine.js on vendored xstate.umd.min.js): ALL 18 SEQUENCES HELD
+# declared pairs: 460 across 23 states (alphabet 20)
+EXIT=0
+
+$ node tests/machine/strictness.mjs
+# strictness assertions — the no-silent-no-ops contract
+  PASS  TEST BUILD: an undeclared (state,event) pair THROWS and the trip names the pair
+  PASS  PROD BUILD: the same undeclared pair raises the modeled unexpectedEvent state — alive, visible
+  PASS  PROD BUILD: unexpectedEvent is RETRYABLE back to the interrupted state (UI-R6)
+  PASS  PROD BUILD: unexpectedEvent resets cleanly for the next customer
+  PASS  PROD BUILD: a trip closes the finish-first prompt so the error card is visible
+  PASS  DECLARED reachable-benign #1: PROBE_TIMEOUT while already offline is a no-op, not a brick
+  PASS  DECLARED reachable-benign #2: a spurious RESUBSCRIBED while online is a no-op
+  PASS  DECLARED reachable-benign #3: a late RESOLVED after NEXT_CUSTOMER is a no-op
+        declared alphabet pairs: 460 across 23 states (alphabet 20)
+  PASS  The declared-pair accounting is real: every alphabet event is a declared decision in every state
+# strictness: ALL ASSERTIONS HELD
+EXIT=0

@@ -159,3 +159,20 @@ subset = 'npx playwright test "{tags}"'
 # adding a NEW sync-rxdb-exercising spec whose name contains none of these four
 # tokens must extend this value; tests/repo-hygiene.spec.js guards the count.
 "sync-rxdb"                   = ["sync-rxdb", "sync-schema", "sync-one-row", "sync-fill-view"]
+# ─────────────────────────────────────────────────────────────────────────────
+# THE MARKETING SEAM — added by card `redemption-submit-flow` (run 20260905),
+# the slate-homed call, now that tests/marketing.spec.js carries the app's
+# coverage (tile/seed, scanner decode/resolution, submit flow/machine). The
+# `marketing` token as a Playwright path regex selects exactly
+# tests/marketing.spec.js (verified at landing: no other spec filename and no
+# feature file contains the token). The key `marketing` is a path PREFIX, so
+# it covers marketing.html AND marketing/ (scan-page, scanner, submit-*,
+# sync/*) — the whole app footprint. Honest confinement: `marketing/sync/`'s
+# substrate mechanisms are gated by their own standalone harnesses
+# (marketing/sync/harness/*, B-345 — graded on their exit codes, not
+# Playwright), and ANY card that moves the precache touches sw.js/build-sw.js
+# (undeclared seams) and still de-confines to the full suite — the B-37
+# posture. A future spec whose name contains `marketing` joins this seam's
+# selection automatically; that is the intended growth, not drift.
+"marketing"                   = ["marketing"]
+"tests/marketing.spec.js"     = ["marketing"]
