@@ -1,0 +1,359 @@
+# card6-red.log — RED-FIRST capture, card redemption-submit-flow, run 20260905
+# Pre-change tree: HEAD 425cb21 (docs(nc): card 6 merge-intent + roadmap flip — redemption-…)
+# The test files exist; NO production file does (no lib/xstate.umd.min.js, no marketing/submit-*.js, no scan-page hooks).
+# git status of production paths at capture time:
+ls: lib/xstate.umd.min.js: No such file or directory
+ls: marketing/submit-flow.js: No such file or directory
+ls: marketing/submit-machine.js: No such file or directory
+ls: marketing/submit-support.js: No such file or directory
+
+── LEG 1: node tests/machine/run-conformance.mjs ──
+# RED — the production machine is absent from this tree: Cannot find module '../../lib/xstate.umd.min.js'
+Require stack:
+- /Users/jamal/projects/yumyums/wt-20260905-c6/tests/machine/run-conformance.mjs
+EXIT=1
+
+── LEG 2: node tests/machine/strictness.mjs ──
+# RED — the production machine is absent from this tree: Cannot find module '../../lib/xstate.umd.min.js'
+Require stack:
+- /Users/jamal/projects/yumyums/wt-20260905-c6/tests/machine/strictness.mjs
+EXIT=1
+
+── LEG 3: node tests/machine/lockstep-fuzz.mjs ──
+# RED — the production machine is absent from this tree: Cannot find module '../../lib/xstate.umd.min.js'
+Require stack:
+- /Users/jamal/projects/yumyums/wt-20260905-c6/tests/machine/lockstep-fuzz.mjs
+EXIT=1
+
+── LEG 4: Playwright, the new describe ONLY, on the pre-change tree ──
+# (npm ci hit npm's 'Exit handler never called' bug twice — reify completed, bin links missing; npm rebuild restored them. Recorded, cosmetic to the gate.)
+$ TEST_PORT=3106 TEST_DB_NAME=hq_test_e2e_c6 npx playwright test tests/marketing.spec.js -g 'Redemption submit flow' --retries=0
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_c6" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_c6 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.6.2 ──
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.676956-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.677677-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.697244-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.720993-04:00","level":"INFO","msg":"OK   0001_users.sql (11.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.738252-04:00","level":"INFO","msg":"OK   0002_sessions.sql (17.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.750742-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (12.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.762177-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (11.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.775825-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (13.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.790073-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (13.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.799357-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (9.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.809903-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (10.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.81981-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (9.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.829906-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (10.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.842861-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (12.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.854754-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (11.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.864217-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (9.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.873456-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (9.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.886638-04:00","level":"INFO","msg":"OK   0015_ops.sql (13.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.894748-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (8.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.904884-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (9.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.919669-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (14.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.936965-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (17.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.951568-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (14.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.961884-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (10.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.973268-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (11.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:13.995704-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (22.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.049688-04:00","level":"INFO","msg":"OK   0024_inventory.sql (53.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.061817-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (12.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.066503-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (4.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.070407-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (3.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.0795-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (9.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.084918-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (5.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.097733-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (12.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.103229-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (5.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.109922-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (6.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.118184-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (8.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.14217-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (23.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.149016-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (6.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.154286-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (5.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.16299-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (8.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.172235-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (9.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.181242-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (8.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.216325-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (34.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.222525-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (6.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.243777-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (21.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.256894-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (13.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.269548-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (12.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.284827-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (15.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.288976-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (4.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.303481-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (14.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.307448-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (3.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.318461-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (10.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.323056-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (4.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.326785-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (3.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.333789-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (6.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.339673-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (5.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.344254-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (4.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.348087-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (3.81ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.355731-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (7.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.36219-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (6.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.368695-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (6.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.37245-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (3.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.391825-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (19.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.401447-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (9.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.41352-04:00","level":"INFO","msg":"OK   0062_recipes.sql (12.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.422062-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (8.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.430095-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (7.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.43784-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (7.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.444402-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (6.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.458155-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (13.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.465918-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (7.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.471184-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (5.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.479394-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (8.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.488429-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (8.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.497955-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (9.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.513462-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (15.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.519394-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (5.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.532859-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (13.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.542979-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (10.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.554484-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (11.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.554498-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 77","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.55451-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.624844-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.649075-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"915cb01a-5546-4e02-b093-7de6162299db"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.649098-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.673258-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"31f89866-3507-4b9f-9721-1d915aa6dd56"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.680258-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.704668-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.747026-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.906528-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.90655-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.906571-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.906674-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.906954-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907005-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907024-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907031-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907047-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907086-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907149-04:00","level":"INFO","msg":"server listening","port":"3106"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907281-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.176:3106"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:14.907289-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 10 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:17.777408-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   1 [chromium] › tests/marketing.spec.js:653:3 › Redemption submit flow (card redemption-submit-flow) › a persistent online/offline indicator renders from boot and reads online on a live probe (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T20:58:48.56349-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   2 [chromium] › tests/marketing.spec.js:667:3 › Redemption submit flow (card redemption-submit-flow) › confirm-then-burn: no path to redeemed without a validator-passing Toast order number (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T20:59:20.108053-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 7b12f4a6-75f6-40d3-aa68-996de4cf1309: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:59:20.112524-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:59:20.344412-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Mkt T. (mkt-c6-noperm-1788569959807-7643@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   3 [chromium] › tests/marketing.spec.js:710:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T20:59:51.004212-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T20:59:51.064243-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   4 [chromium] › tests/marketing.spec.js:727:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:00:22.395415-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   5 [chromium] › tests/marketing.spec.js:766:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:00:53.414314-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 7b12f4a6-75f6-40d3-aa68-996de4cf1309: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T21:00:53.463304-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   6 [chromium] › tests/marketing.spec.js:787:3 › Redemption submit flow (card redemption-submit-flow) › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:01:24.763785-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   7 [chromium] › tests/marketing.spec.js:810:3 › Redemption submit flow (card redemption-submit-flow) › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:01:55.88601-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 7b12f4a6-75f6-40d3-aa68-996de4cf1309: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T21:01:55.945356-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   8 [chromium] › tests/marketing.spec.js:846:3 › Redemption submit flow (card redemption-submit-flow) › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:02:26.896505-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 7b12f4a6-75f6-40d3-aa68-996de4cf1309: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T21:02:26.958551-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘   9 [chromium] › tests/marketing.spec.js:887:3 › Redemption submit flow (card redemption-submit-flow) › already_used verdict renders when + which device from the local codes replica (30.0s)
+[2m[WebServer] [22m{"time":"2026-09-04T21:02:57.983185-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 7b12f4a6-75f6-40d3-aa68-996de4cf1309: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T21:02:58.050477-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safa"}
+  ✘  10 [chromium] › tests/marketing.spec.js:907:3 › Redemption submit flow (card redemption-submit-flow) › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor (30.0s)
+
+
+  1) [chromium] › tests/marketing.spec.js:653:3 › Redemption submit flow (card redemption-submit-flow) › a persistent online/offline indicator renders from boot and reads online on a live probe 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:654:5
+
+    Error Context: test-results/marketing-Redemption-submi-c74dd-eads-online-on-a-live-probe-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:667:3 › Redemption submit flow (card redemption-submit-flow) › confirm-then-burn: no path to redeemed without a validator-passing Toast order number 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:668:5
+
+    Error Context: test-results/marketing-Redemption-submi-c305c--passing-Toast-order-number-chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:710:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:712:5
+
+    Error Context: test-results/marketing-Redemption-submi-a415d-cked-no-override-affordance-chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:727:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:728:5
+
+    Error Context: test-results/marketing-Redemption-submi-62f34-behind-the-§13-confirmation-chromium/error-context.md
+
+  5) [chromium] › tests/marketing.spec.js:766:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:767:5
+
+    Error Context: test-results/marketing-Redemption-submi-00ac1-en-WITH-the-entitlement-§8--chromium/error-context.md
+
+  6) [chromium] › tests/marketing.spec.js:787:3 › Redemption submit flow (card redemption-submit-flow) › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:788:5
+
+    Error Context: test-results/marketing-Redemption-submi-bb992-rns-—-zero-page-interaction-chromium/error-context.md
+
+  7) [chromium] › tests/marketing.spec.js:810:3 › Redemption submit flow (card redemption-submit-flow) › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:811:5
+
+    Error Context: test-results/marketing-Redemption-submi-2dead-ue-AND-unverified-code-true-chromium/error-context.md
+
+  8) [chromium] › tests/marketing.spec.js:846:3 › Redemption submit flow (card redemption-submit-flow) › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:847:5
+
+    Error Context: test-results/marketing-Redemption-submi-1f661-ns-to-the-interrupted-state-chromium/error-context.md
+
+  9) [chromium] › tests/marketing.spec.js:887:3 › Redemption submit flow (card redemption-submit-flow) › already_used verdict renders when + which device from the local codes replica 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:888:5
+
+    Error Context: test-results/marketing-Redemption-submi-6ac97-rom-the-local-codes-replica-chromium/error-context.md
+
+  10) [chromium] › tests/marketing.spec.js:907:3 › Redemption submit flow (card redemption-submit-flow) › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      606 |   await loginAs(page, email, password);
+      607 |   await page.goto('/marketing.html');
+    > 608 |   await page.waitForFunction(() =>
+          |              ^
+      609 |     window.MarketingScan && window.MarketingScan.booted === true
+      610 |     && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+      611 | }
+        at openSubmitScanner (/Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:608:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c6/tests/marketing.spec.js:908:5
+
+    Error Context: test-results/marketing-Redemption-submi-c2bab-etryable-never-a-dead-actor-chromium/error-context.md
+
+  10 failed
+    [chromium] › tests/marketing.spec.js:653:3 › Redemption submit flow (card redemption-submit-flow) › a persistent online/offline indicator renders from boot and reads online on a live probe 
+    [chromium] › tests/marketing.spec.js:667:3 › Redemption submit flow (card redemption-submit-flow) › confirm-then-burn: no path to redeemed without a validator-passing Toast order number 
+    [chromium] › tests/marketing.spec.js:710:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance 
+    [chromium] › tests/marketing.spec.js:727:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation 
+    [chromium] › tests/marketing.spec.js:766:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8) 
+    [chromium] › tests/marketing.spec.js:787:3 › Redemption submit flow (card redemption-submit-flow) › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction 
+    [chromium] › tests/marketing.spec.js:810:3 › Redemption submit flow (card redemption-submit-flow) › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true 
+    [chromium] › tests/marketing.spec.js:846:3 › Redemption submit flow (card redemption-submit-flow) › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state 
+    [chromium] › tests/marketing.spec.js:887:3 › Redemption submit flow (card redemption-submit-flow) › already_used verdict renders when + which device from the local codes replica 
+    [chromium] › tests/marketing.spec.js:907:3 › Redemption submit flow (card redemption-submit-flow) › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor 
+EXIT=1
