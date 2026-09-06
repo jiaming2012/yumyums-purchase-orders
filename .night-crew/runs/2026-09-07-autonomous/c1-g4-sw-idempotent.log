@@ -1,0 +1,4 @@
+task: [sw] node build-sw.js
+import reachability: 30 precached files parsed, 47 local references resolved, 0 outside the precache
+SW built: 43 files precached (2840.1 KB)
+Frontend version: 1.6.2

@@ -1,0 +1,141 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-09-06T11:55:54Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED       STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         4 weeks ago   Up 15 hours (healthy)   0.0.0.0:45557->5432/tcp, [::]:45557->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   4 weeks ago   Up 15 hours             0.0.0.0:46615->4000/tcp, [::]:46615->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       4 weeks ago   Up 15 hours             0.0.0.0:45455->3000/tcp, [::]:45455->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=45557 rest=45455 realtime=46615
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=45455 realtime=46615 db=45557  run=r1788695770485
+PASS  ports — db=45557 rest=45455 realtime=46615
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788695772966 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=45557  rest=45455  realtime=46615   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-06T11:56:13Z
+══════════════════════════════════════════════════════════
+#   db container    : 51a51ade6921be3867acd4c87c19bd22dba4d7221c236dec46376d3a85850f3d
+#   db host port    : 45557 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → migrations/20260906000100_campaigns_replication.sql
+psql:<stdin>:47: NOTICE:  trigger "campaigns_touch_updated_at" for relation "public.campaigns" does not exist, skipping
+  → migrations/20260906000200_scan_attempts_unverified_landing.sql
+psql:<stdin>:41: NOTICE:  constraint "scan_attempts_names_a_code" of relation "scan_attempts" does not exist, skipping
+  → migrations/20260906000300_scan_attempts_policy_unresolved.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── the shipped artifacts under test (identity pinned, not assumed) ──
+#   marketing/sync/replicas.js               sha256 1a135adb6a7fd35b…
+#   marketing/sync/pull-replication.js       sha256 7b4cffe2bef135c2…
+#   marketing/sync/clock.js                  sha256 3e634043080fc489…
+
+── device JWT (throwaway secret from the compose file) ──
+
+── the post-ready error → recovery clear, on the SHIPPED surface ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+── phase A: healthy initial replication → ready ──
+  [A: ready] captures=1 unresolved()=false lastError=null
+
+── phase B: post-ready 503 — the latch must still latch ──
+  t+   622ms  error$ emitted
+  [B: erroring] captures=1 unresolved()=true lastError="\n\nError message: RxReplication pull handler threw an error - see .errors for more details\nError code: RC_PULL\nCause: The pull handler of the replication threw an error.\nFix: Check the error details in the .errors observable.\nDocs: https://rxdb.info/replication.html?console=errors&code=RC_PULL\nFind out more about this error here: https://rxdb.info/errors.html?console=errors#RC_PULL \n\n--------------------\nParameters:\ncheckpoint: {\n  \"updated_at\": \"2026-09-06T11:56:18.157473+00:00\",\n  \"id\": \"a0000000-0000-4000-8000-000000000002\"\n}\nerrors: {\"name\":\"Error\",\"message\":\"[marketing-sync] pull campaigns answered HTTP 503\",\"stack\":\"Error: [marketing-sync] pull campaigns answered HTTP 503 \\n     at Object.pullHandler [as handler] (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/marketing/sync/pull-replication.js:142:13) \\n     at async Object.masterChangesSince (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js:177:24) \\n     at async downstreamResyncOnce (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/downstream.js:113:24)\"}\ndirection: \"pull\"\n"
+
+── phase C1: recovery WITH docs — the shipped clear ──
+  [C1: recovered+docs] captures=3 unresolved()=false lastError=null
+
+── phase D: second 503 — the latch re-latches ──
+  t+  5643ms  error$ emitted
+  [D: erroring] captures=3 unresolved()=true lastError="\n\nError message: RxReplication pull handler threw an error - see .errors for more details\nError code: RC_PULL\nCause: The pull handler of the replication threw an error.\nFix: Check the error details in the .errors observable.\nDocs: https://rxdb.info/replication.html?console=errors&code=RC_PULL\nFind out more about this error here: https://rxdb.info/errors.html?console=errors#RC_PULL \n\n--------------------\nParameters:\ncheckpoint: {\n  \"updated_at\": \"2026-09-06T11:56:21.517736+00:00\",\n  \"id\": \"a0000000-0000-4000-8000-000000000001\"\n}\nerrors: {\"name\":\"Error\",\"message\":\"[marketing-sync] pull campaigns answered HTTP 503\",\"stack\":\"Error: [marketing-sync] pull campaigns answered HTTP 503 \\n     at Object.pullHandler [as handler] (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/marketing/sync/pull-replication.js:142:13) \\n     at async Object.masterChangesSince (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js:177:24) \\n     at async downstreamResyncOnce (file:///home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/.night-crew/qa/spike-supabase/rxdb/node_modules/rxdb/dist/esm/replication-protocol/downstream.js:113:24)\"}\ndirection: \"pull\"\n"
+
+── phase C2: recovery EMPTY (zero new rows) ──
+  [C2: recovered+empty] captures=5 unresolved()=false lastError=null
+
+both recovery shapes clear, both error phases latch — the B-439 clear is the successful-pull edge and nothing else.
+
+✅ VERDICT: GREEN — B-439 is closed on the SHIPPED source: the latch clears on the successful-pull edge in BOTH recovery shapes and still latches during every error phase.

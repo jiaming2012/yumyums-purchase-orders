@@ -365,4 +365,29 @@ Three agent-reached corrections, all harness repairs — no premise moved:
   measured it stuck `true`), and its own clause-3 e2e per build-fact 4. The
   `refusal-run.sh` precedent: wrapper-free re-execution of the spike against
   the shipped code.
+  - validated: spike-04 re-run — run `20260907`, card
+    `sync-coordinates-provisioning` (branch
+    `card/sync-coordinates-provisioning`). The clear shipped on the
+    pull-handler seam `replicas.js` itself constructs: `makePullHandler`
+    fires an `onSuccess` on every HTTP-200 pull (the `clock.captures` edge —
+    fact 5's verdict), `startReplica` exposes it as `onPullSuccess(fn)` on
+    the handle, and `createCampaignPolicySource.attach` clears `lastError`
+    on it — so the spike's own construction (`startCampaignsReplica` +
+    `attach`) inherits the clear with zero wiring. The owed re-execution is
+    `marketing/sync/harness/recovery-clear-run.sh` (spike 04's phases, live
+    substrate, committed migrations + seed): **GREEN, EXIT=0** — the latch
+    goes `unresolved()=false` in BOTH shapes (C1 with-docs; C2
+    recovery-EMPTY, zero rows delivered, captures still advancing) and STILL
+    latches during both error phases (the clear is an edge, not a disarm).
+    Pre-fix the same script exited 1 at C1, stuck `true` — the spike
+    measurement reproduced
+    (`.night-crew/runs/2026-09-07-autonomous/c1-red-recovery-clear.log`).
+    The UNMODIFIED spike script, re-run post-fix, exits 1 at ITS OWN C1
+    ghost-check — "unresolved() self-cleared after recovery — then B-439 is
+    already fixed and this spike is measuring a ghost"
+    (`c1-spike04-rerun-postfix.log`; that script's outer wrapper prints the
+    seam-moves prose for ANY node exit 1 — the RED line above it names the
+    real cause). The clause-3 e2e per build-fact 4 landed as the
+    network-layer-killed campaigns leg in `tests/marketing.spec.js`
+    (describe "Sync provisioning"), no `setCampaignPolicy` anywhere in it.
 

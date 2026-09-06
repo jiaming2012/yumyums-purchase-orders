@@ -120,8 +120,16 @@ export function buildPullUrl({ restUrl, table, select, checkpoint, windowIso, ba
  *   response's Date header — §5.1's serverNow source (card clock-offset-on-sync;
  *   spike-proven, no extra endpoint). Optional and additive: clock-less
  *   callers get byte-identical behavior.
+ * @param {function} [cfg.onSuccess]  called on EVERY HTTP-200 pull, right
+ *   beside the clock capture — the successful-pull edge the B-439 fix keys on
+ *   (card sync-coordinates-provisioning). Spike 04 measured this as the ONLY
+ *   edge that fires in BOTH recovery shapes (with-docs AND recovery-EMPTY,
+ *   where zero new rows arrive) and NEVER on a failed cycle (the throw above
+ *   precedes it) — `error$`/`active$`/`remoteEvents$` all fire on 503 cycles
+ *   too and are disqualified by measurement. Optional and additive; a thrown
+ *   observer never fails a pull that delivered rows.
  */
-export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl, select = REPLICA_SELECT, requestLog, clock }) {
+export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl, select = REPLICA_SELECT, requestLog, clock, onSuccess }) {
   return async function pullHandler(checkpoint, batchSize) {
     const cp = normalizeCheckpoint(checkpoint);
     const url = buildPullUrl({ restUrl, table, select, checkpoint: cp, windowIso: windowBound ? windowBound() : null, batchSize });
@@ -138,6 +146,10 @@ export function makePullHandler({ restUrl, table, windowBound, bearer, fetchImpl
     // keeps the previous offset — observable via clock.captures, never fatal
     // to a pull that delivered rows.
     if (clock) clock.captureFromResponse(res);
+    // The successful-pull edge (B-439): fired only after the status check —
+    // never on a failed cycle — and independent of the body, so it fires on
+    // the recovery-EMPTY shape too.
+    if (onSuccess) { try { onSuccess(); } catch (e) { /* an observer must not fail a pull that delivered */ } }
     const rows = await res.json();
     const last = rows[rows.length - 1];
     return {
