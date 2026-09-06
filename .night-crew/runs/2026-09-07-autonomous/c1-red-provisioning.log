@@ -1,0 +1,258 @@
+[2m[WebServer] [22mNOTICE:  database "hq_test_c1impl0907" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_c1impl0907 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.6.2 ──
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.74758924-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.747880409-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.767388783-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.843312385-04:00","level":"INFO","msg":"OK   0001_users.sql (46.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.899484436-04:00","level":"INFO","msg":"OK   0002_sessions.sql (55.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.941752456-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (41.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:30.98248991-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (40.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.037534543-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (54.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.073545668-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (35.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.10754288-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (33.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.151773922-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (44.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.186917985-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (34.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.222239947-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (35.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.272653911-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (50.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.33463569-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (56.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.377010107-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (42.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.411061107-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (33.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.466439746-04:00","level":"INFO","msg":"OK   0015_ops.sql (55.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.48821584-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (21.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.508334787-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (19.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.571843374-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (63.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.65522902-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (83.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.707702419-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (52.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.752787856-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (44.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.799251295-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (46.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:31.870500961-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (71.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.098888461-04:00","level":"INFO","msg":"OK   0024_inventory.sql (228.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.156881601-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (57.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.166941075-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.174405051-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.189164442-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (14.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.19747272-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (8.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.2260422-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (28.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.236410879-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.251879725-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (15.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.285563222-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (33.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.37273867-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (87.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.386550907-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (13.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.399459577-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.434512273-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (34.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.455515139-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (20.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.47929355-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (23.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.606780115-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (127.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.617345268-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (10.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.69026593-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (72.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.743325746-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (52.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.810915625-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (67.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.860566562-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (49.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.86807724-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.923383087-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (55.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.931660444-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (8.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.977406914-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (45.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.986779051-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:32.994626527-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.011284309-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.019128564-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.027796937-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (8.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.035628201-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.052532703-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.067770182-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (15.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.082777689-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (14.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.09081305-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.157622402-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (66.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.193977088-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (36.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.236430308-04:00","level":"INFO","msg":"OK   0062_recipes.sql (42.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.269257157-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (32.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.284774638-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (15.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.299058305-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (14.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.313086448-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.372535751-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (59.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.396818661-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.409813758-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.424288423-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (14.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.44747956-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (23.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.463866895-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (16.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.491004691-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (26.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.502810637-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (11.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.56003667-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (57.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.589911898-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (29.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.640300202-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (50.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.640383301-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 77","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.640401338-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.725164987-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.759939183-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"7414c716-69b2-4e01-bb91-3f3413a8a9aa"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.76000242-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.791817266-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"405b95f8-3e4e-439a-bdc2-a9100cdf4db1"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.816204103-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:33.905394324-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.042846205-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560011436-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560099903-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560166897-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560248923-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560593665-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560636503-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560684494-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560698451-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560710905-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.560848115-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.584563504-04:00","level":"INFO","msg":"server listening","port":"4471"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.595010665-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4471"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.595058764-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4471"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.595070359-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4471"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:34.595090866-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 6 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:37.955436584-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: timeout: context already done: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:38.142562699-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  1 [chromium] › tests/marketing.spec.js:1259:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut (15.2s)
+[2m[WebServer] [22m{"time":"2026-09-06T07:48:52.784093441-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  2 [chromium] › tests/marketing.spec.js:1294:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed (14.9s)
+[2m[WebServer] [22m{"time":"2026-09-06T07:49:09.734921634-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  3 [chromium] › tests/marketing.spec.js:1311:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub (15.3s)
+[2m[WebServer] [22m{"time":"2026-09-06T07:49:23.908538907-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  4 [chromium] › tests/marketing.spec.js:1359:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false (14.9s)
+[2m[WebServer] [22m{"time":"2026-09-06T07:49:38.239906088-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  5 [chromium] › tests/marketing.spec.js:1386:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false (15.0s)
+[2m[WebServer] [22m{"time":"2026-09-06T07:49:54.926382971-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  6 [chromium] › tests/marketing.spec.js:1412:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch (15.1s)
+
+
+  1) [chromium] › tests/marketing.spec.js:1259:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mnull[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1264 |     // SYNC_KEY. This is the structural red on the pre-change tree: nothing
+      1265 |     // writes hq_marketing_sync_v1, so this poll times out.
+    > 1266 |     await expect.poll(
+           |     ^
+      1267 |       () => page.evaluate(() => localStorage.getItem('hq_marketing_sync_v1')),
+      1268 |       { timeout: 15000 },
+      1269 |     ).toBeTruthy();
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1266:5
+
+    Error Context: test-results/marketing-Sync-provisionin-70b30-NE-after-the-network-is-cut-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:1294:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1297 |     // Asserted against the REAL source scan-page created and startSync
+      1298 |     // attached — no setCampaignPolicy anywhere in this describe.
+    > 1299 |     await expect.poll(async () => {
+           |     ^
+      1300 |       const s = await policyProbe(page);
+      1301 |       return s.attached && s.ready && s.size > 0;
+      1302 |     }, { timeout: 15000 }).toBe(true);
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1299:5
+
+    Error Context: test-results/marketing-Sync-provisionin-457cd-e-non-zero-seam-NOT-stubbed-chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:1311:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    [1mMatcher error[22m: [31mreceived[39m value must not be null nor undefined
+
+    Received has value: [31mnull[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1315 |     // The campaigns replica fails FOR REAL: transport 503, error$ latched with
+      1316 |     // the attributable status. Never setCampaignPolicy (decision 174).
+    > 1317 |     await expect.poll(async () => (await policyProbe(page)).lastError, { timeout: 15000 })
+           |     ^
+      1318 |       .toContain('HTTP 503');
+      1319 |     expect((await policyProbe(page)).unresolved).toBe(true);
+      1320 |
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1317:5
+
+    Error Context: test-results/marketing-Sync-provisionin-c46ac-true-pushed-as-the-mint-sub-chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:1359:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1360 |     const state = await mockSyncTransports(page);
+      1361 |     await openSubmitScanner(page);
+    > 1362 |     await expect.poll(async () => {
+           |     ^
+      1363 |       const s = await policyProbe(page);
+      1364 |       return s.attached && s.ready && s.unresolved === false;
+      1365 |     }, { timeout: 15000 }).toBe(true);
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1362:5
+
+    Error Context: test-results/marketing-Sync-provisionin-af828-nds-policy-unresolved-false-chromium/error-context.md
+
+  5) [chromium] › tests/marketing.spec.js:1386:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1388 |     await openScanner(page);
+      1389 |     // Phase A: ready and resolved.
+    > 1390 |     await expect.poll(async () => {
+           |     ^
+      1391 |       const s = await policyProbe(page);
+      1392 |       return s.attached && s.ready && s.unresolved === false;
+      1393 |     }, { timeout: 15000 }).toBe(true);
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1390:5
+
+    Error Context: test-results/marketing-Sync-provisionin-6fbe7-unresolved-returns-to-false-chromium/error-context.md
+
+  6) [chromium] › tests/marketing.spec.js:1412:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      1413 |     const state = await mockSyncTransports(page);
+      1414 |     await openScanner(page);
+    > 1415 |     await expect.poll(async () => {
+           |     ^
+      1416 |       const s = await policyProbe(page);
+      1417 |       return s.attached && s.ready && s.unresolved === false;
+      1418 |     }, { timeout: 15000 }).toBe(true);
+        at /home/jcole/projects/hq-worktrees/c1-sync-coordinates-provisioning/tests/marketing.spec.js:1415:5
+
+    Error Context: test-results/marketing-Sync-provisionin-73a60--rows-ALSO-clears-the-latch-chromium/error-context.md
+
+  6 failed
+    [chromium] › tests/marketing.spec.js:1259:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut 
+    [chromium] › tests/marketing.spec.js:1294:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed 
+    [chromium] › tests/marketing.spec.js:1311:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub 
+    [chromium] › tests/marketing.spec.js:1359:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false 
+    [chromium] › tests/marketing.spec.js:1386:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false 
+    [chromium] › tests/marketing.spec.js:1412:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch 

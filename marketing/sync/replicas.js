@@ -115,6 +115,15 @@ function startReplica(deps, { table, windowBound, select, replicationIdentifier 
     batchSize = 50, clock, now = clock ? clock.now : Date.now,
     requestLog, waitForLeadership = false,
   } = deps;
+  // The successful-pull edge (B-439, card sync-coordinates-provisioning): a
+  // plain listener list, not an rx Subject — this module stays
+  // dependency-free. makePullHandler invokes it on every HTTP-200 pull (the
+  // same edge clock.captures witnesses; fires in BOTH recovery shapes, never
+  // on a failed cycle — spike-04 measured), and the handle exposes it as
+  // `onPullSuccess(fn)` so createCampaignPolicySource.attach() can key its
+  // lastError clear on it with ZERO caller wiring — the spike/harness
+  // construction (startCampaignsReplica + attach) gets the clear for free.
+  const successListeners = [];
   const pullHandler = makePullHandler({
     restUrl,
     table,
@@ -124,9 +133,10 @@ function startReplica(deps, { table, windowBound, select, replicationIdentifier 
     fetchImpl,
     requestLog,
     clock,
+    onSuccess: () => { for (const fn of successListeners) fn(); },
     ...(select ? { select } : {}),
   });
-  return startPullReplica({
+  const state = startPullReplica({
     replicateRxCollection,
     collection,
     replicationIdentifier,
@@ -135,6 +145,15 @@ function startReplica(deps, { table, windowBound, select, replicationIdentifier 
     batchSize,
     waitForLeadership,
   });
+  /** Subscribe to the successful-pull edge. Returns an unsubscribe. */
+  state.onPullSuccess = (fn) => {
+    successListeners.push(fn);
+    return () => {
+      const i = successListeners.indexOf(fn);
+      if (i >= 0) successListeners.splice(i, 1);
+    };
+  };
+  return state;
 }
 
 /**
@@ -269,6 +288,15 @@ export const POLICY_SETTLE_MS = 150;
  *     (`"[marketing-sync] pull campaigns answered HTTP 503"`), so the HTTP
  *     status is attributable for free — no wrapper needed.
  *
+ * The latch CLEARS on the recovery edge (B-439, card
+ * sync-coordinates-provisioning): every successful pull — the handle's
+ * onPullSuccess seam, fired on HTTP 200 only, in both recovery shapes
+ * including zero-new-rows — sets `lastError = null`. Before this, the clear
+ * happened exactly once at first-ready, so one post-ready blip mis-filed
+ * every later genuinely-unknown override as `policy_unresolved = true` for
+ * the life of the page. Gated by marketing/sync/harness/recovery-clear-run.sh
+ * (spike 04 re-executed against this clear).
+ *
  * `unresolved()` is the SOURCE-level reading — "the campaigns replica has not
  * delivered / is erroring" — and is a different question from a single
  * campaign's answer. It feeds the `policy_unresolved` discriminator for
@@ -295,6 +323,7 @@ export function createCampaignPolicySource(campaignsCollection, { settleMs = POL
   let ready = false;
   let lastError = null;   // LATCHED — error$ never replays (build-fact 1)
   let errSub = null;
+  let successUnsub = null;
   let settleTimer = null;
 
   function attach(replicationState) {
@@ -307,6 +336,22 @@ export function createCampaignPolicySource(campaignsCollection, { settleMs = POL
         lastError = String((err && err.message) || err);
       });
     } catch (e) { /* a handle without error$ is not a reason to brick the scan page */ }
+    // The B-439 fix (card sync-coordinates-provisioning): clear the latch on
+    // the RECOVERY edge — every successful campaigns pull, delivered by the
+    // pull-handler seam replicas.js itself constructs (the clock.captures
+    // edge: fires on every HTTP-200 pull INCLUDING the zero-new-rows
+    // recovery, and ONLY on success — spike-04 measured; error$/active$/
+    // remoteEvents$ all fire on 503 cycles too and are disqualified). The
+    // clear is an edge, not a disarm: a still-failing replica re-latches on
+    // its next error$ emission, so the fail-safe direction survives. Absent
+    // the seam (a handle without onPullSuccess — e.g. a bare
+    // replicateRxCollection state in an old test), the pre-card behavior is
+    // byte-identical: latched until first-ready, B-439's conservative shape.
+    try {
+      if (typeof replicationState.onPullSuccess === 'function') {
+        successUnsub = replicationState.onPullSuccess(() => { lastError = null; });
+      }
+    } catch (e) { /* same posture as error$ above */ }
     Promise.resolve()
       .then(() => replicationState.awaitInitialReplication())
       .then(() => new Promise((r) => { settleTimer = setTimeout(r, settleMs); }))
@@ -335,6 +380,7 @@ export function createCampaignPolicySource(campaignsCollection, { settleMs = POL
     stop: () => {
       sub.unsubscribe();
       if (errSub) errSub.unsubscribe();
+      if (successUnsub) successUnsub();
       if (settleTimer) clearTimeout(settleTimer);
     },
   };

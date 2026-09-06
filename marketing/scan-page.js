@@ -17,14 +17,23 @@ import {
   marketingCollectionSpec, startCodesReplica, startOffersReplica,
   startCampaignsReplica, createCampaignPolicySource, resolveOffers,
 } from './sync/replicas.js';
-import { scanAttemptsCollectionSpec, enqueueAttempt } from './sync/push-replication.js';
+import {
+  scanAttemptsCollectionSpec, enqueueAttempt, makePushHandler,
+  startScanAttemptsReplica,
+} from './sync/push-replication.js';
 import { createSyncClock } from './sync/clock.js';
 import {
   createTokenHasher, createScanResolver, makeSerializedEnqueue,
 } from './scanner.js';
 
 const CLOCK_KEY = 'hq_marketing_clock_v1';
-const SYNC_KEY = 'hq_marketing_sync_v1'; // {restUrl, bearer} — provisioning lands later; absent tonight
+// {restUrl, bearer, deviceId} — written ONLY by provisionSync() below (card
+// sync-coordinates-provisioning: the tree's one writer). `bearer` is inert at
+// the door — internal/sync/proxy.go substitutes a per-request mint for the
+// SESSION user (spike fact 1) — it exists to satisfy startSync's truthiness
+// check and keep the direct-substrate path open. `deviceId` is the mint
+// envelope's `sub` and is the push replica's identity coordinate.
+const SYNC_KEY = 'hq_marketing_sync_v1';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -224,7 +233,7 @@ async function boot() {
   // — resync() is the manual nudge until then.
   let syncHandles = null;
   async function startSync(cfg) {
-    const { restUrl, bearer } = cfg || {};
+    const { restUrl, bearer, deviceId } = cfg || {};
     if (!restUrl || !bearer || syncHandles) return syncHandles;
     const deps = (collection, replicationIdentifier) => ({
       replicateRxCollection,
@@ -254,6 +263,29 @@ async function boot() {
       offers: startOffersReplica(deps(cols.offers, 'marketing-offers-pull')),
       campaigns: campaignsRep,
     };
+    // Push wiring (card sync-coordinates-provisioning, spike fact 4's decided
+    // scope): the queue's FIRST caller. 🛑 `deviceId` comes ONLY from the mint
+    // envelope's `sub` — spike fact 3 measured the alternative both ways: any
+    // other value draws the RLS with-check 403 AFTER /rpc/redeem has burned
+    // the code (a stranded burn that can never record) plus the F-2
+    // throw-retry head-of-line poison. With no deviceId in the coordinates
+    // the push does NOT start — a pull-only page queues attempts locally
+    // (today's shape) rather than poisoning them, and the next provisioned
+    // load (which always writes deviceId) drains them.
+    if (deviceId) {
+      syncHandles.scanAttempts = startScanAttemptsReplica({
+        replicateRxCollection,
+        collection: cols.scan_attempts,
+        pushHandler: makePushHandler({
+          restUrl,
+          bearer,
+          deviceId,
+          fetchImpl: (...a) => fetch(...a),
+          attemptsCollection: cols.scan_attempts,
+          codesCollection: cols.codes,
+        }),
+      });
+    }
     Promise.all([
       syncHandles.codes.awaitInitialReplication(),
       syncHandles.offers.awaitInitialReplication(),
@@ -389,9 +421,42 @@ async function boot() {
 
   render();
 
-  // Provisioned coordinates (absent tonight — Card 6 / later provisioning).
+  // ── provisioning (card sync-coordinates-provisioning, build-fact 1) ──────
+  // The tree's ONLY SYNC_KEY writer. On page init with a session:
+  // POST /api/v1/sync/token → 200 → write {restUrl, bearer, deviceId} → arm.
+  // On 401 (no session) / 503 (secret-less deploy) / network failure: write
+  // NOTHING — the `if (sc)` guard below keeps today's no-sync behavior, the
+  // B-436-adjacent degenerate case that deliberately stays. Re-visits
+  // re-provision idempotently (startSync's syncHandles guard, measured).
+  // The credential is the hq_session cookie riding fetch's same-origin
+  // default; the bearer itself is inert at the door (spike fact 1), so there
+  // is no client-side refresh machinery to run.
+  async function provisionSync() {
+    let res;
+    try {
+      res = await fetch('/api/v1/sync/token', { method: 'POST' });
+    } catch (e) { return null; } // offline load — stored coordinates (if any) already armed below
+    if (res.status !== 200) return null; // fail closed: write nothing
+    let envelope;
+    try { envelope = await res.json(); } catch (e) { return null; }
+    if (!envelope || !envelope.token || !envelope.sub) return null;
+    const cfg = {
+      restUrl: '/sync/rest',          // same-origin door (decision 69)
+      bearer: envelope.token,
+      deviceId: String(envelope.sub), // the push identity — mint sub, nothing else
+    };
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); } catch (e) { /* storage blocked — still arm in-memory */ }
+    return startSync(cfg);
+  }
+
+  // Stored coordinates arm sync immediately — an OFFLINE reload of a
+  // provisioned device keeps its replicas (the mint above fails without a
+  // network and writes nothing; the shipped guard is exactly this line).
   const sc = readJson(SYNC_KEY);
   if (sc) startSync(sc).catch(() => {});
+  // Then (re-)provision from the session — unawaited so boot() never blocks
+  // on the mint; startSync's guard makes the second arm a no-op.
+  provisionSync().catch(() => {});
 
   return {
     db,
