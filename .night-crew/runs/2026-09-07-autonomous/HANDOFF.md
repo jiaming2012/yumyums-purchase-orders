@@ -116,3 +116,9 @@ is test-guarded). **Flags after this morning:** the live-camera ATTENDED check (
 20260905) stays ARMED — it re-arms until an attended sitting with a physical device runs
 it. Decision-175 strands stay in place (B-442). Leg-3 attestation is now UNBLOCKED and
 attended — the next sitting's act, not a flag.
+
+**Same-day update (T-58, afternoon):** leg 3 was ATTESTED and the live-camera check
+DISCHARGED in an attended remote sitting hours after this triage — ledger T-58 and the
+roadmap's attested blockquote carry the record. Findings B-446–B-449 filed. Remaining
+standing item from this run's list: only the decision-175 strands, which are a ruled
+disposition, not an armed flag.

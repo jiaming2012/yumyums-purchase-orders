@@ -61,6 +61,20 @@ identity code, §10) and a measurable repeat rate.
    tablet has finished syncing, which is precisely the condition leg 3 exists to test. Filed
    **B-432**; unblocked by the card below.
 
+   > ✅ **ATTESTED 2026-09-06 (ledger T-58) — leg 3 is CLOSED.** The operator personally ran
+   > both branches on a real phone (attended remote sitting: Claude drove the dev stack, the
+   > operator held the device), with server reachability genuinely killed at the process level
+   > while wifi stayed up. Branch 1: the `requires_online=true` $40 code **refused** — "online
+   > verification is required. There is no offline override for this campaign (§8) — not even
+   > for a manager." Branch 2: the `requires_online=false` $10 code offered the **§13
+   > confirmation** behind the operator's #12 entitlement ("Forcing it risks a double-redemption
+   > and is flagged for review"), the forced attempt queued offline and pushed on reconnect, and
+   > the landed row carried the full contract: `offline_override=t`,
+   > `override_by=jamal@yumyums.kitchen`, `policy_unresolved=f`, `device_id` = the mint `sub`.
+   > B-432's pre-sync window was also exercised for real: a fresh page load that had never
+   > synced this session offered **no submit path at all** (fails closed). Findings filed
+   > B-446–B-449.
+
 🛑 **The milestone may not close until the operator has personally seen all three.** No KR grade,
 card count or closeout substitutes — the standing "dev complete means the operator ran it" rule
 (decision 161's class).

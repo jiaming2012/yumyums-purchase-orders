@@ -4202,3 +4202,54 @@ launch prompt handed the run values the run then had to correct. Both fixes belo
 the values are minted — slate-planning's template — not in another instruction to
 implementers, who this run demonstrably handled both correctly at run time. Chosen over
 two separate entries because a future template edit fixes both in one place.
+
+### T-58 — Attended sitting: close-bar leg 3 ATTESTED (2026-09-06)
+
+Same day as T-57's triage, hours later, operator away from the desk. The sitting Decision 179
+priced — attest against the shipped provisioning path, not a hand-seeded device — ran as an
+attended remote pairing: Claude drove every server-side control (data plane via `sync:dev:up`
+with the operator's explicit B-164 `:5433` consent given in-chat, dev server kill/restore at
+the operator's word, substrate seeds, verification queries) and the operator held the phone.
+Nothing on the device was hand-configured: provisioning ran mint → `SYNC_KEY` → `startSync`
+through the shipped door on every page load, witnessed in the server log.
+
+**Decision 184 — close-bar leg 3 / Q-KR1 is ATTESTED.** The operator's word, given to the
+direct question, after personally observing on a real iPhone with server reachability killed
+at the process level (both listeners stopped; wifi up; `navigator.onLine` untouched):
+
+- **Refusal branch** (`requires_online=true`, $40): submit refused — *"High-value offer:
+  online verification is required. There is no offline override for this campaign (§8) — not
+  even for a manager."* No override affordance anywhere. The code stayed unburned through the
+  whole sitting's kill/restore cycles.
+- **Override branch** (`requires_online=false`, $10): the §13 confirmation rendered behind the
+  operator's #12 entitlement — *"You hold the offline-override permission. Forcing it risks a
+  double-redemption and is flagged for review"* — Force submit taken offline at 21:17:47Z, the
+  attempt queued on-device, survived Safari backgrounding, pushed on foreground after
+  reconnect, and landed: `offline_override=t, override_by=jamal@yumyums.kitchen,
+  unverified_code=f, policy_unresolved=f, device_id=<mint sub>, pos_order_number=22,
+  status=accepted` — the audit contract exactly, including the honest B-438 `t,f` shape for a
+  known code against a healthy replica.
+- **Recovery edge, live**: the offline banner flipped back to "Online — codes verify at
+  submit" on reconnect — B-439's clear observed outside a harness for the first time.
+- **Pre-sync window, live**: a fresh page load during an offline window ("Local verification
+  only — not yet synced this session") offered no submit path at all — B-432's fail-closed
+  posture observed on real data, not only in the mutation test.
+
+The **ARMED live-camera check (run 20260905 card 5) is DISCHARGED** — the html5-qrcode
+camera path scanned QRs off a second phone's screen repeatedly, in daylight, in a car.
+
+**Environment facts the sitting surfaced** (dev-loop, filed B-449): iOS exposes
+`crypto.subtle` only in secure contexts, so phone-vs-dev-server testing requires HTTPS — an
+ad-hoc self-signed proxy (`local-ssl-proxy`, IP-SAN cert, user accepts the warning) was the
+workaround; `backend/Taskfile.yml`'s `DEV_TS` default (`100.90.128.69`) is a stale machine —
+the box's real tailnet address is `100.70.200.55`; Windows interop was dead in the WSL session
+(vsock accept timeouts), which blocked `tailscale serve` as the clean path.
+
+**Product findings, operator-sourced, filed:** B-446 (refusal should render at scan time, not
+after a submit tap — the operator's own rider), B-447 (offer card names a campaign UUID, not
+the campaign name or code), B-448 (reconnect-order observation: the burn (`rpc/redeem`)
+precedes the audit row's push when the tab backgrounds — an eventual-consistency window
+between a redemption and its audit record, plus the boot-offline no-submit posture to confirm
+as intended). Test data (LEG3-ATTEST campaigns/codes, the attempt row) left in the spike
+substrate; the codes were reset once mid-sitting after an online redeem burned the $10 code
+before the offline branch completed — retried cleanly.
