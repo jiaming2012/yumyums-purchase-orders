@@ -4152,3 +4152,53 @@ milestone bar gets a destination in the same sitting, not a note.
 consecutive run" count, B-438's "can only ever record false", and now the leg-3 attestability
 claim. All three were overstatements in the *same direction*: a claim asserted one step past
 what had actually been checked. Worth naming as a pattern rather than three separate slips.
+
+### T-57 — Morning triage: run 20260907 merged, Activity B closed (2026-09-06)
+
+Run 20260907 (1 card, `sync-coordinates-provisioning`) triaged and merged to `dev` at
+`1d53cc2` (`--no-ff`). Zero forks — DECISIONS-NEEDED records nothing parked and nothing
+routed; the ratification queue and the ratchet both read empty (real answers, verified by
+running both). `decisions audit` reports no gray areas routed, which for this run is
+accurate rather than the B-242 empty-log illusion: the night genuinely decided nothing
+under delegation and escalated nothing, so triage routed zero questions through
+`decisions log` — stated so a step that had nothing to do and a step that never ran do
+not look alike. Fetch-and-compare against `origin` ran clean before any write (0 behind /
+13 ahead; the B-435 stale-clone failure mode absent this morning — B-435's step-0 remedy
+is still owed to the ritual itself). Go suite re-run green on the merged tree
+(`go test ./... -p 1`, DB_TEST_URL on `:5434`, EXIT=0, DB-coupled packages demonstrably
+executing). Post-merge worktree sweep: only the decision-175 strands remain, as ruled.
+
+**Decision 181 — the run merged on adversarial evidence, with the one reproduced finding
+filed (B-444) rather than blocking.** An adversarial subagent re-executed the gates in a
+fresh scratch clone (G1 build+vet EXIT=0 — closing the run's own 0-byte-log evidence
+hole; G4 idempotent, 43 precached, 1.6.2 parity across all three sources; marketing
+standalone 39/39 EXIT=0; footprint diff-stat exact, `backend/` untouched; the G4
+discipline greps confirmed N/A-VACUOUS per B-14) and mutation-probed the card's four
+stub-seam claims: three guards proved real (SYNC_KEY-write removal, deviceId→randomUUID,
+latch-clear removal each turned the right tests red), and one probe survived — the
+no-`sub` refusal is untested (B-444). Chosen over holding the merge because the shipped
+code is correct today (the guard was read and confirmed; only its *test coverage* is
+absent), the operator chose "merge now" with the gap riding as backlog, and Activity B's
+close plus leg-3 attestability were the sitting's purpose. Unverified-either-way items
+stated, not assumed: the full-suite figures (committed log only), the spike-04 harness
+re-run (needs the live substrate), and the red run's own execution (order and content
+verified, run not repeated).
+
+**Decision 182 — FILL-04 filed as B-443 in the B-32/B-45 flake pool, with the B-433
+baseline re-measure attached to the same entry rather than filed separately.** The red is
+characterized (once under full-suite load, 9/9 standalone on the identical tree, not
+diff-attributable) — per the standing rule it is recorded as a red outside baseline, not
+laundered into "not flaky". B1-XT-01 passing twice running means the armed four-red list
+no longer predicts a clean run, so the re-measure rides B-443's lead (detached clean
+`dev` after the next quiet merge) instead of spawning a second entry that would drift
+independently of the first. Chosen over folding FILL-04 into B-437 because they are
+different specs with different seeds — the pool membership is the shared fact, the
+mechanism per spec is not.
+
+**Decision 183 — the run's two process findings filed together as B-445, aimed at the
+launch-prompt template rather than at run-time discipline.** 0-byte gate logs (EXIT
+marker outside the redirect) and a guard-failing `TEST_DB_NAME` share one root: the
+launch prompt handed the run values the run then had to correct. Both fixes belong where
+the values are minted — slate-planning's template — not in another instruction to
+implementers, who this run demonstrably handled both correctly at run time. Chosen over
+two separate entries because a future template edit fixes both in one place.

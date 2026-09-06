@@ -105,3 +105,14 @@ engineering-level, decided and stated per the slate's explicit grant.
 5. Standing items unchanged: B-14's clone-side remedy; the ATTENDED live-camera check from
    run 20260905 card 5 stays ARMED; stranded branches per decision 175 (B-442) untouched
    tonight, as ruled.
+
+## Triage addendum (2026-09-06 — ledger T-57)
+
+Merged to `dev` at `1d53cc2` after adversarial re-verification (all gates independently
+green; one mutation-survivable coverage gap → B-444). Findings 1–2 filed as B-443,
+findings 3+5 as B-445; finding 4's `onSuccess`-before-`res.json()` ordering confirmed by
+the adversarial read and left as-recorded (fail-safe direction survives, latch-clear edge
+is test-guarded). **Flags after this morning:** the live-camera ATTENDED check (run
+20260905) stays ARMED — it re-arms until an attended sitting with a physical device runs
+it. Decision-175 strands stay in place (B-442). Leg-3 attestation is now UNBLOCKED and
+attended — the next sitting's act, not a flag.

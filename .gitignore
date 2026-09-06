@@ -45,3 +45,6 @@ routes.yaml.*.bak
 # session artifacts, never run artifacts. Untracked so committedOnlyTransform keeps
 # them out of the precache; committing one moved the count 31 -> 32 at triage 2026-08-02.
 backlog-round.html
+
+# Spike harness server logs (regenerated every spike run)
+.night-crew/spikes/**/.hq-server.log*

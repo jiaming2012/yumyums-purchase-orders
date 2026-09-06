@@ -1373,3 +1373,15 @@ read with the same caveat. The pattern is not card quality — each card did
 what it said mechanically — it is that **done_when clauses asserting a value is *recorded* are
 being verified with stubs**, and a stub satisfies the assertion without proving the path. Price
 the *next* such clause with an unstubbed end-to-end leg, or stop writing clauses of that shape.
+
+## Run 20260907 (slate-20260907, 1 card — Activity B closes)
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `sync-coordinates-provisioning` | 84m (11:30→12:54 UTC, incl. own full suite 29.2m) | + Land combined: 16m (12:54→13:10; APPROVE first pass, no fix round; merge `6f3ca30` + closeout inside the window) | — | **100m** — est. 60–110m risk-flagged (use 110); **in band, under the priced ceiling** |
+
+Clean-path night: no park, no repair cycle, single-card solo track. The new-mechanism
+class absorbs another spike-was-the-draft data point (sibling `requires-online-replication`
+74m; this card 100m with four UNSTUBBED done_when clauses and the first sync-substrate
+e2e stack — the two components the slate priced the +20m top for). Ranges hold; no
+adjustment.

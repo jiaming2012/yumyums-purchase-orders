@@ -1,5 +1,10 @@
 # DECISIONS-NEEDED — run 20260907
 
+> **RESOLVED 2026-09-06 — recorded as ledger.md T-57 (decisions 181–183).** No forks
+> existed; the two travel-as-findings items were decided at triage as role-level calls:
+> FILL-04 filed as B-443 (with B-433's baseline re-measure riding its lead), and the
+> process findings filed as B-445. The adversarial review's own finding filed as B-444.
+
 **Nothing is parked.** No card hit a PARK condition, no merge was unsettleable, no
 unplanned lifecycle row appeared, and no question was routed through
 `night-crew decisions log` — zero gray areas arose, so there are zero delegated
