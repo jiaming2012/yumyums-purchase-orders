@@ -130,6 +130,37 @@ log `.night-crew/runs/2026-09-07-autonomous/c1-red-provisioning.log`.
 measurement reproduced on the pre-fix shipped surface.
 Log `.night-crew/runs/2026-09-07-autonomous/c1-red-recovery-clear.log`.
 
+**Green, after the fix (commit `74f27f1`):**
+- The same six tests: **EXIT=0, 6 passed** (scratchpad green log; re-run
+  inside the standalone marketing leg below).
+- `marketing/sync/harness/recovery-clear-run.sh` → **GREEN, EXIT=0** — the
+  latch clears in BOTH recovery shapes (C1 with-docs, C2 recovery-EMPTY with
+  zero rows delivered) and still latches during both error phases. Log:
+  `c1-recovery-clear-green.log`.
+- The UNMODIFIED spike-04 script, post-fix → **EXIT=1 at its own C1
+  ghost-check**: "unresolved() self-cleared after recovery — then B-439 is
+  already fixed and this spike is measuring a ghost"
+  (`c1-spike04-rerun-postfix.log`). Note the script's outer wrapper prints
+  its exit-1 prose ("no shipped signal survives…") unconditionally; the RED
+  line above it names the real cause. The committed
+  `recovery-clear-run.sh` is the both-shapes verdict.
+
+## Gates (final tree)
+
+| Gate | Result |
+|---|---|
+| G1 | `go build ./...` EXIT=0, `go vet ./...` EXIT=0 (from `backend/`; zero .go changes) — `c1-g1-build.log`, `c1-g1-vet.log` |
+| G2 Go | **not owed** — `backend/` untouched (verified by diff-stat below) |
+| G2 Playwright (marketing standalone) | `npx playwright test tests/marketing.spec.js --retries=0` → **EXIT=0, 39 passed** (33 pre-existing + 6 new), exactly one summary block — `c1-g2-marketing.log` |
+| G2 Playwright (full) | `npx playwright test --retries=0` → **EXIT=1, 866 passed / 4 failed / 6 skipped (29.2m), exactly ONE summary block** — `c1-g2-full.log`. The 4 reds vs the four-red baseline: `sync.spec.js:2976 [SYNC-FC-01]`, `:3062 [SYNC-RF-01]`, `:3136 [SYNC-RF-02]` = baseline; **`B1-XT-01` PASSED this run**, and the fourth red is **OUTSIDE baseline**: `tests/sync-fill-view.spec.js:451 [FILL-04]` (poll for `window.HQSync.db` answered −1 for 60 s — db handle never constructed under full-suite load). Isolation evidence: the whole spec standalone on the same tree + coordinates → **EXIT=0, 9 passed** (`c1-fill04-isolation.log`). Same one-off shape as run 20260906-2 (B1-XT-01 passing + a single foreign spec red once → B-437 precedent). No seam from this card reaches it: the diff touches `marketing/*`, `tests/marketing.spec.js`, `sw.js` only. Reported, not hidden. |
+| G3 | N/A — `openspec: absent` (decision 140) |
+| G4 | `task sw` idempotent (second run: tree clean, sw.js unmodified), **43 precached** (count unchanged; no asset added/removed — new harness files sit under `marketing/sync/harness/`, which the single-level globs exclude by design), version parity `1.6.2` ≡ `1.6.2` ≡ `1.6.2` — `c1-g4-sw-idempotent.log` |
+| RF | this section |
+
+Environment stated: every leg ran with `HQ_SYNC_SUBSTRATE_OPTIONAL` and
+`HQ_SYNC_GATE_CHILD` **unset** (explicitly `env -u` on the full-suite leg);
+test DB on `:5434` (`yumyums-test-pg`, role `hqtest`) only.
+
 **Deviation, stated:** the launch prompt's isolation value
 `TEST_DB_NAME=hq_c1_impl_0907` fails `scripts/reset-e2e-db.js`'s name guard
 (`/^hq_test(?:_[a-z0-9]+)*$/` — the guard that keeps a mistyped name from
