@@ -402,7 +402,21 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   codes-arrive-first sub-case for real. Riders B-434 (a)(b)(c) all disposed; residual B-436
   (the policy source failing to CONSTRUCT) filed, stated, not closed.
 
-- **`sync-coordinates-provisioning`** · **PLANNED** · **GATES close-bar leg 3 / Q-KR1
+- **`sync-coordinates-provisioning`** · **LANDED** (run `20260907`, branch
+  `card/sync-coordinates-provisioning`) — scan-page.js gained the tree's only `SYNC_KEY`
+  writer: page init with a session mints `POST /api/v1/sync/token` and on 200 writes
+  `{restUrl: '/sync/rest', bearer, deviceId: sub}` then calls the exported `startSync`;
+  401/503/network failure writes nothing (the secret-less-deploy degradation stays, B-436
+  untouched). `startSync` also starts `startScanAttemptsReplica` — its first caller — with
+  `deviceId` from the mint `sub` only (spike fact 3's stranded-burn cliff), and the B-439
+  latch now clears on the successful-pull edge (`onPullSuccess` on the pull-handler seam,
+  the `clock.captures` witness) in BOTH recovery shapes while still latching on every error.
+  All four done_when clauses green in `tests/marketing.spec.js` ("Sync provisioning"
+  describe): clause 1 red-first structurally (SYNC_KEY never written pre-change), transports
+  served/killed at the NETWORK layer (build-fact 6's decided call — decision-174-consistent;
+  full-stack proof in `marketing/sync/harness/recovery-clear-run.sh` GREEN EXIT=0 + spikes
+  01–03), no `setCampaignPolicy` anywhere in the proving tests. B-438 and B-439 discharged
+  (BACKLOG dispositions in the same change set). · **GATES close-bar leg 3 / Q-KR1
   attestation** (authored at the attended sitting of 2026-09-06, operator decision "land
   provisioning first"; same "triage authors the card that discharges the finding it raised"
   precedent as decisions 167 and 170) · Wire the two coordinates that arm sync on a real
