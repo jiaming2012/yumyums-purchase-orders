@@ -74,7 +74,11 @@
  *                               codes pull replica
  */
 export const SCAN_ATTEMPTS_SCHEMA = {
-  version: 0,
+  // v1 (card refusal-holds-before-sync, run 20260906-2): + policy_unresolved.
+  // 🛑 THE FIRST RxDB SCHEMA MIGRATION IN THIS TREE. Three things move
+  // together or the Scan page bricks — see SCAN_ATTEMPTS_MIGRATION_STRATEGIES
+  // below and `rxdb/plugins/migration-schema` in vendor/src/rxdb-hq-entry.mjs.
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -87,6 +91,16 @@ export const SCAN_ATTEMPTS_SCHEMA = {
     offline_override: { type: 'boolean' },        // §13 permissioned override
     override_by: { type: ['string', 'null'] },
     unverified_code: { type: 'boolean' },         // §19 F2
+    // The B-432 discriminator (card refusal-holds-before-sync): true when the
+    // device could NOT resolve §8 campaign policy for this attempt — the
+    // campaigns replica was empty, still delivering, or erroring. Paired with
+    // unverified_code it separates a campaigns-replica FAILURE override (t,t)
+    // from a genuinely-unknown-campaign override (t,f); both stay
+    // status='accepted' (§9/§19 taxonomy unchanged, no new terminal status).
+    // Captured at SCAN time, never at push time — by the moment the queue
+    // drains the replica may well have recovered, and the record is about what
+    // the device knew when the crew member forced the submit.
+    policy_unresolved: { type: 'boolean' },
     pos_order_number: { type: ['string', 'null'] },
     pos_business_date: { type: 'string' },        // UTC date of scanned_at (§13's card owns Toast semantics)
     redeemed_value: { type: ['number', 'null'] },
@@ -104,9 +118,51 @@ export const SCAN_ATTEMPTS_SCHEMA = {
 /** Collection name the browser database and the harness share. */
 export const SCAN_ATTEMPTS_COLLECTION = 'scan_attempts';
 
+/**
+ * THE DEVICE MIGRATION STRATEGY (card refusal-holds-before-sync) — the first
+ * one in this tree, so it is written out as a named mechanism rather than an
+ * inline literal.
+ *
+ * What this protects: a crew phone that went offline mid-shift is holding
+ * `pending` attempts in v0 shape — unsent redemptions, each one a coupon a
+ * customer already walked away with. RxDB stores documents per schema version,
+ * so a v1 collection reaches v0 data ONLY through a migration. The three
+ * mechanisms that must ship together:
+ *
+ *   1. `version: 1` on the schema above;
+ *   2. this strategy map, passed to addCollections;
+ *   3. `RxDBMigrationSchemaPlugin`, bundled in vendor/rxdb.bundle.js and
+ *      registered with addRxPlugin by the page (scan-page.js).
+ *
+ * Miss (3) and rxdb 17.4.0's `autoMigrate && version !== 0 &&
+ * await migratePromise()` hits the un-plugged prototype stub, which THROWS —
+ * addCollections rejects and the Scan section renders "Scanner failed to
+ * start". Miss (2) and RxDB refuses the collection for a missing strategy.
+ *
+ * 🛑 `autoMigrate: false` is NOT the shortcut. It creates the v1 collection
+ * happily and leaves every v0 document stranded in the old storage instance,
+ * invisible to the push replica — silently dropped redemptions, which is the
+ * exact harm this activity exists to prevent.
+ *
+ * The strategy itself is total and lossless: `policy_unresolved` did not exist
+ * when these rows were written, so the honest value is `false` — those
+ * attempts were recorded under the pre-B-432 policy path, where the device
+ * always believed it had an answer. Returning `null` (RxDB's "drop this
+ * document") is never correct here for the same reason autoMigrate:false is
+ * not: a queued attempt is evidence, not cache.
+ */
+export const SCAN_ATTEMPTS_MIGRATION_STRATEGIES = {
+  1: (oldDoc) => ({ ...oldDoc, policy_unresolved: false }),
+};
+
 /** addCollections() argument — Card 2's marketingCollectionSpec() pattern. */
 export function scanAttemptsCollectionSpec() {
-  return { [SCAN_ATTEMPTS_COLLECTION]: { schema: SCAN_ATTEMPTS_SCHEMA } };
+  return {
+    [SCAN_ATTEMPTS_COLLECTION]: {
+      schema: SCAN_ATTEMPTS_SCHEMA,
+      migrationStrategies: SCAN_ATTEMPTS_MIGRATION_STRATEGIES,
+    },
+  };
 }
 
 /**
@@ -124,7 +180,8 @@ export function scanAttemptsCollectionSpec() {
  *
  * @param {object} attemptsCollection  the SCAN_ATTEMPTS_COLLECTION RxCollection
  * @param {object} fields  {code_id, device_id, offline_override?, override_by?,
- *                          unverified_code?, pos_order_number?, redeemed_value?}
+ *                          unverified_code?, policy_unresolved?,
+ *                          pos_order_number?, redeemed_value?}
  * @param {{now?: function, generateId?: function}} [opts]  clock/uuid injection
  * @returns {Promise<{doc: object, deduped: boolean}>}
  */
@@ -132,6 +189,12 @@ export async function enqueueAttempt(attemptsCollection, {
   code_id, device_id,
   offline_override = false, override_by = null,
   unverified_code = false, pos_order_number = null, redeemed_value = null,
+  // Card refusal-holds-before-sync, ADDITIVE-OPTIONAL (the pos_business_date
+  // precedent): the B-432 discriminator. 🛑 This destructure IS a whitelist —
+  // spike 03 measured the field being silently dropped here when it was not
+  // named. A caller passing it and a stored row lacking it is the failure mode
+  // this line exists to close.
+  policy_unresolved = false,
   // Card 6 (redemption-submit-flow), ADDITIVE-OPTIONAL: the §13 business date
   // computed from the Toast-cutoff constant (submit-support.js). Absent, the
   // original UTC-date-of-scanned_at behavior is byte-identical — existing
@@ -152,6 +215,7 @@ export async function enqueueAttempt(attemptsCollection, {
     offline_override,
     override_by,
     unverified_code,
+    policy_unresolved,
     pos_order_number,
     pos_business_date: pos_business_date || scannedIso.slice(0, 10),
     redeemed_value,
@@ -253,6 +317,15 @@ export function makePushHandler({
             offline_override: doc.offline_override,
             override_by: doc.override_by ?? null,
             unverified_code: true,
+            // The B-432 discriminator (card refusal-holds-before-sync). THIS
+            // is the row the done_when's second half is about: paired with
+            // unverified_code it separates a campaigns-replica FAILURE
+            // override (t,t) from a genuinely-unknown-campaign override (t,f),
+            // both landing status='accepted'. 🛑 Only send this once
+            // migration 20260906000300 is applied — pre-migration PostgREST
+            // answers HTTP 400 PGRST204 and this handler THROWS, which is the
+            // F-2 head-of-line poison class (spike 03).
+            policy_unresolved: !!doc.policy_unresolved,
             pos_order_number: doc.pos_order_number ?? null,
             pos_business_date: doc.pos_business_date,
             redeemed_value: doc.redeemed_value ?? null,
@@ -327,6 +400,14 @@ export function makePushHandler({
           offline_override: doc.offline_override,
           override_by: doc.override_by ?? null,
           unverified_code: doc.unverified_code,
+          // Carried here too, deliberately. Under the fail-closed predicate a
+          // KNOWN code's override implies its campaign resolved, so this is
+          // `false` on every path that exists today — except the one B-436
+          // names (the policy source failing to CONSTRUCT at all, where
+          // submit-flow still coerces to false and the override survives).
+          // Landing a constant costs nothing; landing a lie about an
+          // unresolved policy is how B-432 stayed invisible for a run.
+          policy_unresolved: !!doc.policy_unresolved,
           pos_order_number: doc.pos_order_number ?? null,
           pos_business_date: doc.pos_business_date,
           redeemed_value: doc.redeemed_value ?? null,

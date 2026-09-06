@@ -187,35 +187,158 @@ export function startCampaignsReplica(deps) {
 }
 
 /**
+ * The settle tick after `awaitInitialReplication()` resolves before the source
+ * calls itself ready (card refusal-holds-before-sync, build-fact 2). Spike 01
+ * measured NO race on memory storage — the Map already held both campaigns AT
+ * the resolve tick — but the browser runs Dexie, whose write pipeline is not
+ * the same shape. Cheap insurance on a path that runs once per session.
+ */
+export const POLICY_SETTLE_MS = 150;
+
+/**
  * The §8 policy lookup, fed by the campaigns replica — the function
  * submit-flow.js hands to its policy seam (the shape setCampaignPolicy
- * expects: campaignId → {requiresOnline} | null).
+ * expects: campaignId → {requiresOnline, unresolved} | null).
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * 🛑 FAIL-CLOSED FOR A KNOWN CODE WHOSE CAMPAIGN IS UNRESOLVED — B-432.
+ * ───────────────────────────────────────────────────────────────────────────
+ *
+ * This function used to answer `null` for any campaign not in its Map, and
+ * submit-flow.js coerces `null → false`. That is a fail-OPEN: a known,
+ * replicated, entitlement-bearing `requires_online = true` code whose CAMPAIGN
+ * had not yet arrived was offline-overridable. Demonstrated, not asserted —
+ * spike 02 row 3 drove the shipped machine through it with the real replicas
+ * (`overrideAvailable = true`, OVERRIDE_REQUEST → `overrideConfirm` on the $40
+ * catering credit), and the browser half reproduces in the branch-3 e2e with
+ * only the `campaigns:` seed removed.
+ *
+ * The predicate, and why it is this one (build-fact 3):
+ *
+ *   campaignId == null  → null      A genuinely-unknown CODE. It names no
+ *                                   campaign, so there is nothing to resolve
+ *                                   and nothing to fail closed about. The
+ *                                   caller coerces null → false and the
+ *                                   offline override stays available with the
+ *                                   F2 unverified warning. **Decision 166's
+ *                                   ratified affordance survives BY
+ *                                   CONSTRUCTION** — a known code always names
+ *                                   a campaign, so "genuinely unknown" can
+ *                                   never enter the arm below.
+ *
+ *   in the Map          → the flag  Unchanged (run 20260906).
+ *
+ *   KNOWN but absent    → {requiresOnline: true, unresolved: true}
+ *                                   Empty replica, still delivering, erroring,
+ *                                   OR a brand-new campaign whose codes
+ *                                   arrived first. Note this is NOT gated on
+ *                                   replica readiness: a readiness latch alone
+ *                                   leaves the codes-arrive-first window open
+ *                                   (build-fact 3), and this predicate
+ *                                   subsumes it.
+ *
+ * `unresolved` rides on the answer so the caller can tell "refused because the
+ * operator said so" from "refused because we could not tell" — the render and
+ * the attempt record both need that distinction, and neither may guess it.
  *
  * Synchronous by design: the machine's RESOLVED event needs the answer at
  * resolve time, so this keeps a reactive-query-fed Map mirror of the local
- * collection (RxDB queries exclude soft-deleted rows, so a deleted campaign
- * honestly drops back to unknown). Unknown campaign → null, and the caller's
- * policyFor coerces null to false — the ratified unknown→false default
- * (decision 166) survives for the cases that are GENUINELY unknown; this card
- * removes "unknown" for replicated campaigns, it does not change what unknown
- * means.
+ * collection.
+ *
+ * 🛑 A server-side campaign DELETE does not reach this Map (B-434(b), the
+ * comment this replaces got it wrong): `public.campaigns` has no `_deleted`
+ * column — unlike `codes` — and `CAMPAIGNS_SELECT` does not ask for one, so no
+ * soft-delete tombstone is ever pulled and the local row simply persists.
+ * There is therefore no "drops back to unknown" behavior to rely on. It is
+ * fail-SAFE in direction (a stale `requires_online = true` keeps refusing, and
+ * a stale `false` is the flag the operator last published), but it is a real
+ * gap in the delete path — carried as B-434(b)'s disposition, not claimed as
+ * working.
+ *
+ * ── the error latch (build-fact 1) ────────────────────────────────────────
+ * `attach(replicationState)` wires the campaigns replica in. Two facts make
+ * the shape non-obvious, both MEASURED by spike 01:
+ *
+ *   * `error$` does NOT replay to late subscribers (0 emissions to a
+ *     subscriber attached mid-error), so the source must subscribe BEFORE the
+ *     replica gets going and hold the last error itself. `attach` is called
+ *     synchronously on the line after `startCampaignsReplica()` returns, with
+ *     no `await` in between — put one there and the latch silently never
+ *     latches.
+ *   * the emission carries the pull handler's thrown message verbatim
+ *     (`"[marketing-sync] pull campaigns answered HTTP 503"`), so the HTTP
+ *     status is attributable for free — no wrapper needed.
+ *
+ * `unresolved()` is the SOURCE-level reading — "the campaigns replica has not
+ * delivered / is erroring" — and is a different question from a single
+ * campaign's answer. It feeds the `policy_unresolved` discriminator for
+ * genuinely-unknown codes, where there is no campaign id to ask about. With no
+ * replica attached at all it reads FALSE: nothing failed, because nothing was
+ * started (today's page, before provisioning lands).
  *
  * @param {object} campaignsCollection  the CAMPAIGNS_COLLECTION RxCollection
- * @returns {{policyFor: function(string): ({requiresOnline: boolean}|null),
+ * @param {{settleMs?: number}} [opts]
+ * @returns {{policyFor: function(string): ({requiresOnline: boolean, unresolved: boolean}|null),
+ *            attach: function(object): object, unresolved: function(): boolean,
+ *            ready: function(): boolean, attached: function(): boolean,
+ *            lastError: function(): (string|null),
  *            size: function(): number, stop: function(): void}}
  */
-export function createCampaignPolicySource(campaignsCollection) {
+export function createCampaignPolicySource(campaignsCollection, { settleMs = POLICY_SETTLE_MS } = {}) {
   const byId = new Map();
   const sub = campaignsCollection.find().$.subscribe((docs) => {
     byId.clear();
     for (const d of docs) byId.set(d.id, !!d.requires_online);
   });
-  return {
-    policyFor: (campaignId) =>
-      (byId.has(campaignId) ? { requiresOnline: byId.get(campaignId) } : null),
+
+  let attached = false;
+  let ready = false;
+  let lastError = null;   // LATCHED — error$ never replays (build-fact 1)
+  let errSub = null;
+  let settleTimer = null;
+
+  function attach(replicationState) {
+    if (!replicationState || attached) return api;
+    attached = true;
+    // FIRST, before anything awaits: the emission we must not miss is the one
+    // on the very first pull attempt (spike 01 saw it at t+145ms).
+    try {
+      errSub = replicationState.error$.subscribe((err) => {
+        lastError = String((err && err.message) || err);
+      });
+    } catch (e) { /* a handle without error$ is not a reason to brick the scan page */ }
+    Promise.resolve()
+      .then(() => replicationState.awaitInitialReplication())
+      .then(() => new Promise((r) => { settleTimer = setTimeout(r, settleMs); }))
+      .then(() => { ready = true; lastError = null; })
+      .catch(() => { /* stays unresolved; error$ carries the attributable reason */ });
+    return api;
+  }
+
+  const api = {
+    policyFor(campaignId) {
+      // Decision 166: a genuinely-unknown CODE names no campaign. Answering
+      // null here is what keeps its offline override alive.
+      if (campaignId === null || campaignId === undefined || campaignId === '') return null;
+      if (byId.has(campaignId)) return { requiresOnline: byId.get(campaignId), unresolved: false };
+      return { requiresOnline: true, unresolved: true };   // fail closed — B-432
+    },
+    attach,
+    // Source-level: has the campaigns replica delivered? Sticky on error until
+    // initial replication resolves (over-reporting "unresolved" refuses
+    // nothing — the fail-closed arm keys on the Map, never on this).
+    unresolved: () => (attached ? (!ready || lastError !== null) : false),
+    ready: () => ready,
+    attached: () => attached,
+    lastError: () => lastError,
     size: () => byId.size,
-    stop: () => sub.unsubscribe(),
+    stop: () => {
+      sub.unsubscribe();
+      if (errSub) errSub.unsubscribe();
+      if (settleTimer) clearTimeout(settleTimer);
+    },
   };
+  return api;
 }
 
 /**

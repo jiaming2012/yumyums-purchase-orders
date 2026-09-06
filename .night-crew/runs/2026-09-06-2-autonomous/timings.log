@@ -1,0 +1,3 @@
+run 20260906-2: launch 18:0x EDT 2026-09-05 -> closeout 19:16 EDT
+card 1 refusal-holds-before-sync: implement ~73m (incl 27.6m full suite), G6 ~6m, merge+closeout ~20m
+estimate was 60-100m + ~30m closeout; landed in band

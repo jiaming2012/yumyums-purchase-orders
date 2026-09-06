@@ -333,8 +333,8 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   an entitlement holder (the branch-3 e2e flips from seam-injected to real-data); an unknown-code
   override lands without poisoning the push queue. Footprint: rxdb replica + supabase arbiter.
 
-- **`refusal-holds-before-sync`** · **PLANNED** · 🛑 **REQUIRED before close-bar leg 3 / Q-KR1
-  can be attested** (authored at morning triage 2026-09-05, ledger T-54 decision 170 — the
+- **`refusal-holds-before-sync`** · **LANDED** (run `20260906-2`, branch
+  `card/c1-refusal-holds-before-sync`) · **UNBLOCKS close-bar leg 3 / Q-KR1** (authored at morning triage 2026-09-05, ledger T-54 decision 170 — the
   same "triage authors the unblocking card" precedent as decision 167). `requires-online-replication`
   armed the refusal on real data but left it **failing open during the window before the
   campaigns replica has delivered**: `createCampaignPolicySource` answers `null` for any
@@ -353,6 +353,20 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   card decides): gate override availability on campaigns-replica readiness, or fail closed for
   codes whose campaign is unresolved, or carry the flag on the code row as the CLOSED
   codes-embed alternative did not.
+  **Landed as the second shape, fail-closed at the policy seam** — and NOT gated on replica
+  readiness, because a readiness latch alone leaves the "new campaign whose codes arrive
+  first" window open; the shipped predicate subsumes it. 🛑 **Read the refusal as a
+  predicate, not as unconditional** (the overclaim that hid B-432 for a run): a KNOWN code
+  (`campaign_id` non-null) whose campaign is unresolved is refused; a genuinely-unknown code
+  keeps its override and its F2 unverified warning, by construction (decision 166). Both
+  done_when halves proven: the branch-3 e2e minus its `campaigns:` seed red
+  `data-branch="override"` (EXIT=1) → green (EXIT=0), and the attempt record now
+  distinguishes a replica-failure override (`unverified_code=t, policy_unresolved=t`) from a
+  genuinely-unknown-campaign one (`t, f`), both `status='accepted'` — no new terminal status.
+  The owed GAP-1 validation run re-executed spike 02 against the SHIPPED policy source
+  (`marketing/sync/harness/refusal-run.sh`, EXIT=0; red probe EXIT=1) and COVERED the
+  codes-arrive-first sub-case for real. Riders B-434 (a)(b)(c) all disposed; residual B-436
+  (the policy source failing to CONSTRUCT) filed, stated, not closed.
 
 > **Why here:** this is the operator-facing action and the close bar's leg 1. It reads from B
 > (offline) and burns through A (online, via D). **Trace:** Product objective. **Locks §14 #9
