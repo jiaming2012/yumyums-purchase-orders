@@ -353,6 +353,30 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   card decides): gate override availability on campaigns-replica readiness, or fail closed for
   codes whose campaign is unresolved, or carry the flag on the code row as the CLOSED
   codes-embed alternative did not.
+
+  **Triage disposition 2026-09-05 (ledger T-55, decisions 173–174): merged, and the card is
+  LANDED on its FIRST done_when clause only.** The chosen shape was fail-closed at the policy
+  seam (`replicas.js:320-325`) — a KNOWN code whose campaign is absent from the Map refuses,
+  readiness aside, which also closes the codes-arrive-first window a bare readiness latch would
+  leave open. Clause 1 is **MET and independently re-verified by mutation**, not by reading the
+  closeout: reverting only the fail-closed arm reds `tests/marketing.spec.js:877` and `:1043`
+  with the reported signature, and the RED commit touched zero production files. 🛑 **Clause 2
+  — "the campaigns-replica failure path is distinguishable from a genuinely-unknown campaign in
+  the attempt record" — is ruled NOT LANDED.** `scan_attempts.policy_unresolved` shipped, but
+  on the shipped tree it can only ever record `false`: `campaignPolicy.attach()` runs only
+  inside `startSync`, gated on a localStorage key nothing in the tree writes, so the campaigns
+  replica never attaches and every override files as "replica was healthy" on a device where no
+  replica has ever run. The e2e asserting the discriminating value stubs both functions with
+  literals. Carried as **B-438**; the clause re-opens when the policy source attaches outside
+  `startSync`, which is sync provisioning's card. Also carried from this card's own G6:
+  **B-439** (`lastError` latched, never re-cleared) and **B-440** (F-2 divert predicate
+  disagrees with the constraint rider (a) tightened) — both reproduced by execution at triage;
+  **B-441** (the schema-v1 Dexie migration path is executed by no test — UNVERIFIED, not
+  passed).
+
+  🛑 **close-bar leg 3 / Q-KR1 is UNBLOCKED but NOT attested.** B-432 is closed, so the leg
+  became attestable; the attestation itself is the operator's act (decision 161's class) and no
+  overnight can perform it. It remains open until they sign it.
   **Landed as the second shape, fail-closed at the policy seam** — and NOT gated on replica
   readiness, because a readiness latch alone leaves the "new campaign whose codes arrive
   first" window open; the shipped predicate subsumes it. 🛑 **Read the refusal as a

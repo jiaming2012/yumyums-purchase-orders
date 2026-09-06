@@ -1337,3 +1337,32 @@ pre-sync window (B-432), which blocks close-bar leg 3 and requires a follow-up c
 closes 4/4" is the part that did not survive review. A clean G6 at 26m is not evidence of a
 complete card — this is the second consecutive run (with `20260809`'s S2) where an APPROVE
 rested on a scope claim that an independent reproduction falsified.
+
+## Run `20260906-2` (1 card, Activity B) — launch 18:0x → closeout 19:16 EDT
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `refusal-holds-before-sync` | ~73m (incl. own full suite 27.6m) | ~6m (APPROVE-WITH-FINDINGS, 5 findings, no fix round) | ~20m (merge `afc9e97` + closeout) | **~99m** — est. 60–100m + ~30m closeout; **in band** |
+
+**Bug-fix-on-known-defect class, first actual: ~73m implement.** The card had an unusually
+strong draft — B-432's triage write-up named the file, the line, the mechanism and shipped a
+reproduction recipe (remove the `campaigns:` seed from the branch-3 e2e), so the red-first leg
+was nearly free. Read this as the *floor* for the class, not the median: a defect this
+well-specified is what a good adversarial triage produces, not what an ordinary bug report is.
+
+🛑 **Read this actual against its G6 yield, which is where the night's real value landed.**
+G6 spent ~6m and returned five findings on a card it approved — two of which (F1, F3) triage
+then reproduced by execution and filed as B-439/B-440. A 6m review returning two confirmed
+latent defects is the cheapest evidence in this ledger; the 27.6m full suite inside the
+implement leg returned one non-attributable flake (B-437) and consumed 38% of the card.
+
+🛑 **And read the 99m against what triage found the card did NOT land.** done_when clause 2
+was reported MET and is ruled un-landed (decision 174) — the discriminator column is degenerate
+on the shipped tree because the campaigns replica never attaches. So the honest figure is
+**~99m for one of two done_when clauses**, and the second clause's cost is still unpaid and
+now carried as B-438. This is the **third consecutive run** (`20260809` S2, `20260906`
+`requires-online-replication`, now this) where a clean or near-clean G6 rested on a scope claim
+that an independent reproduction falsified. The pattern is not card quality — each card did
+what it said mechanically — it is that **done_when clauses asserting a value is *recorded* are
+being verified with stubs**, and a stub satisfies the assertion without proving the path. Price
+the *next* such clause with an unstubbed end-to-end leg, or stop writing clauses of that shape.

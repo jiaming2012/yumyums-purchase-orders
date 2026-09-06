@@ -1,3 +1,10 @@
+> **RESOLVED 2026-09-05 — recorded as `.night-crew/knowledge/ledger.md` §T-55 (decisions
+> 173–177).** No fork was open, so nothing here needed a ruling; the two awareness items
+> below were both acted on at triage. B-26's dangling pointer is carried back to the clone
+> (unfixed hq-side, since the template that emits it is clone-side); `gate-ladder.md`'s two
+> stale lines were **fixed in the file** rather than carried — decision 176. Kept as the
+> analysis record.
+
 # Decisions needed — run `20260906-2`
 
 ## Nothing parked.

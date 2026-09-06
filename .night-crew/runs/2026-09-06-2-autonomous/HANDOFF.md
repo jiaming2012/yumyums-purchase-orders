@@ -233,3 +233,37 @@ G6's verdict was **APPROVE-WITH-FINDINGS**. Nothing blocked the merge. Five find
    by the per-goal spike gate — no spikes authored). **The overnight-able queue for
    Activity B is now empty.** It refills only through attended sittings.
 8. **Still armed:** the ATTENDED live-camera check from run 20260905 card 5.
+
+---
+
+## Triage disposition — 2026-09-05 (attended, ledger §T-55, decisions 173–177)
+
+**Merged to `dev`** at `--no-ff`; Go suite green on the merged tree (12 packages `ok`, EXIT=0).
+Gate evidence was re-executed independently by an adversarial subagent, not read off this file.
+
+**Flags CLEARED by this morning's evidence:**
+- *Gate honesty* — cleared. Every gate this file claims re-ran green independently, and the
+  fail-closed arm was proven load-bearing by mutation (reverting only it reds
+  `marketing.spec.js:877` and `:1043`). The RED-on-unmutated-production-code claim was verified
+  hunk-by-hunk, not accepted.
+- *B-437 non-attribution* — cleared **mechanically**, which is stronger than the isolation-plus-
+  diff argument this file offered: every spec that runs before whole-suite position 112 is
+  untouched by the diff, `tests/inventory.spec.js` and `inventory.html` are byte-identical
+  base↔HEAD, and the full `inventory.spec.js` file passes 154/154 on HEAD.
+- *Vendor bundle provenance* — cleared: `npm ci` + the script's verbatim esbuild invocation
+  reproduces `vendor/rxdb.bundle.js` byte-identically (`cmp` clean, 524558 bytes).
+
+**Flags STILL ARMED, and when each re-arms:**
+- **ATTENDED live-camera check** (run `20260905` card 5) — still armed, untouched by this run.
+- **The four-red baseline is not a fixed four** (B-433/B-437). Re-arms on every full-suite run
+  until a base full-suite run settles it. Neither the run nor triage performed one.
+- **The Dexie schema-migration path is unproven** (B-441). Re-arms on every schema version bump
+  until a v0-seeded IndexedDB fixture exists. Triage assessed the strategy lossless by
+  construction but could **not** execute the Dexie path — recorded as UNVERIFIED, not as passed.
+- **`policy_unresolved` may not be cited as evidence** (B-438, decision 174) until the campaigns
+  policy source attaches outside `startSync`. Today it is a constant. This *supersedes* this
+  file's "done_when (b) — MET".
+
+**Corrected in this file's favour:** nothing. **Corrected against it:** done_when clause 2 is
+ruled un-landed (decision 174), and the `BACKLOG.md` edits this run made broke a validator that
+was clean on `dev` — repaired at triage (decision 177).

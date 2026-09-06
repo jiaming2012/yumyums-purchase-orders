@@ -4009,3 +4009,102 @@ self-consistent picture of itself and nothing in the ritual reads `origin` until
 Nothing was pushed; the divergent line is preserved at branch `stale-dev-20260808` and `dev` was
 reset to `origin/dev` before this run's triage began. **Remedy: `git fetch origin` and compare
 `origin/dev...dev` BEFORE step 1 of any `/nc-*` ritual in this repo.** Filed as B-435.
+
+### T-55 — Morning triage: run `20260906-2` reviewed and merged to `dev` (2026-09-05, attended)
+
+Run `20260906-2` landed 1 of 1 cards (`refusal-holds-before-sync`, merge `afc9e97`), parked
+nothing, and hit no operator fork. `decisions ratify` and `preferences ratchet` both returned
+empty — the run routed no gray area, which for this run is a true statement rather than an
+unrun step. Merged `--no-ff`; the Go suite re-run on the merged tree is green (all 12 packages
+with test files `ok`, EXIT=0, on `:5434`/`hqtest`).
+
+**B-435's remedy was executed and is recorded as having run.** Yesterday's triage discovered
+that every `/nc-*` check is local-only and ran a full ritual against a diverged clone. This
+morning began with `git fetch origin` and `git rev-list --left-right --count origin/dev...dev`
+→ **0 behind / 2 ahead** (the spike and slate sign-off commits, both pre-run). The clone was
+current; the blindness B-435 names was not present. Stated explicitly because a check that
+passes silently is indistinguishable from one that never ran — which is the whole of B-435.
+
+**Decision 173 — merge, with three findings riding as backlog rather than blocking.** The gate
+evidence cited here is the adversarial subagent's own re-execution, never the closeout's gate
+lines: `go build`/`go vet` EXIT=0 with zero `.go` files in the diff (verified, not accepted);
+`go test ./... -p 1` all packages `ok` with per-package counts read (`workflow` 39 tests, not
+the silent zero that a missing `DB_TEST_URL` produces); `node build-sw.js` 43 files precached
+at **both** HEAD and base with a clean tree after regeneration, so the committed `sw.js`
+matches what HEAD regenerates; `tests/marketing.spec.js` 33 passed. G4's discipline greps are
+**N/A-VACUOUS** (B-14), recorded as that and not as "clean". Decisively, the fail-closed arm
+was proven load-bearing by mutation: reverting only `replicas.js:324` to its pre-card shape
+reds `tests/marketing.spec.js:877` and `:1043` with the exact reported signature, and the RED
+commit `82c4e3d` touched zero production files. Chosen: merge and carry B-438/B-439/B-440 as
+backlog, over holding the branch until the audit-record defect is fixed — none of the three
+weakens the refusal (verified independently, not assumed), and an unmerged run branch
+accumulates into next morning's finding while Activity B's queue stays blocked.
+
+**Decision 174 — `done_when` clause 2 is NOT landed, and `policy_unresolved` must not be cited
+as evidence until it is.** The run marked attempt-record distinguishability MET and disclosed
+the proof as "stitched from two runs, not one". The sharper and materially different truth,
+found by browser probe at triage: the `t,t` value is **unreachable on the shipped page**.
+`campaignPolicy.attach()` runs only inside `startSync`, which is gated on a localStorage key
+nothing in the tree ever writes, so `unresolved()` returns `false` against a permanently empty
+Map and every genuinely-unknown-code override is filed `policy_unresolved=false` — the value
+the migration's own DDL comment defines as "the campaigns replica was healthy", asserted on a
+device where no campaigns replica has ever run. The e2e that asserts `t,t` replaces both the
+policy function and the unresolved function with literals, and the harness passes literal
+booleans to `enqueueAttempt`; no shipped path produces the value. Chosen: rule the clause
+un-landed and file B-438, over accepting "stitched but continuous by code" — a column that is
+a constant today cannot discriminate anything, and the difference between *un-traversed in one
+execution* and *unreachable in shipped code* is exactly the gap an independent reproduction
+exists to find. 🛑 B-432 itself is genuinely closed and the refusal is unaffected: known codes
+key on Map membership and never consult `unresolved()`, which was verified rather than
+inferred.
+
+  🛑 **Routing note — this one did NOT auto-resolve, and the operator should know it.** Put
+  through `night-crew decisions log`, it came back **escalated / park**: PM voted **top**
+  severity, and *"top-severity questions are the operator's — no number of citations clears
+  them."* Both cited preferences were *for* the proposal (`gates/P-1` red-first-is-a-gate,
+  `process/P-4` a reproduction must sample the right condition) and citation compliance was
+  100%, so the park is not about weak evidence — it is that PM reads a column recording **why a
+  high-value offline override was allowed** as an accountability record, which is the
+  operator's to rule on rather than engineering's. The ruling above therefore stands as a
+  **role-level call over the resolver's park**, flagged as such rather than presented as
+  machine-endorsed. The operator can overrule it — mark clause 2 landed and close B-438 — and
+  nothing else in this triage moves. Same shape as decision 172's routing note in T-54.
+
+  **What the park does NOT touch:** close-bar leg 3's attestability. Leg 3 is *"offline is safe
+  by policy"* — a claim about the **refusal**, which is landed and mutation-proven. B-438 is
+  about the **attempt record**, a separate surface. Leg 3 stays attestable either way.
+
+**Decision 175 — two stranded card branches are recorded, not recovered and not deleted.**
+`card/a3-rls-fixture-own` (4 commits, B-35's "the RLS fixture database is NAMED or the run
+fails") and `card/s2-demo-sync-target` (the `demo:sync` exit-code guard, with its own G6 fix
+round and green gates) hold finished work that reached neither their run branch nor `dev`, and
+the post-merge sweep confirms they are still stranded. Operator ruled: leave both in place and
+file B-442. Chosen over deleting them (the guards would have to be rebuilt from scratch when
+the bugs they caught recur) and over merging them — 🛑 **patch-equivalence is not
+merge-safety**: the base's files have moved since these patches were applied, so a three-way
+merge can re-insert a block it reads as absent at its new location (B-133). Re-application as
+a fresh card off `dev`, taking the diff as guidance, is the only safe recovery path.
+
+**Decision 176 — `gate-ladder.md`'s environment section is corrected hq-side, at triage,
+rather than carried as a finding.** The file told a future run that "Postgres is on **:5433**,
+credentials `yumyums:yumyums`" — the cluster that serves **production**, and the precise
+instruction that destroyed the production database on 2026-08-06 before decision 155 moved
+tests to `:5434`/`hqtest`. It also stated precache count **31** against an actual **43**, which
+disarms B-37's silent-drop tripwire by making a genuine drop look like the documented number.
+Every leg of run `20260906-2` correctly overrode both, and the run reported them — but a
+correctly-overridden hazard that stays in the file is a hazard aimed at the next reader who
+does not know to override it. Chosen: fix the file now, over filing it as backlog behind the
+findings that need cards. It is a two-line edit against a live safety hazard; the run's
+override is evidence the line is wrong, not evidence that leaving it is survivable.
+
+**Decision 177 — a `BACKLOG.md` status field carries a status, and the narrative goes in the
+body.** `dev`'s pre-merge copy validated clean (230 entries, zero issues); the run's copy came
+back `4 issue(s) across 232 entries`, all of them its own edits to B-432 and B-434, which put
+multi-sentence closure prose into the trailing status field and so swallowed the plain-language
+lead the store requires. Repaired at triage by moving the narrative into the entry body and
+restoring `· _origin_ · done — <what shipped> · lead: <line>`; the file validates clean again
+at 237 entries after the five new ones. Chosen: repair and record the rule, over accepting the
+issues as house-style divergence — that reading was correct historically (B-60, when the floor
+was ~295 issues) but is **no longer true**: the floor has been cleaned to zero, so any non-zero
+count is now signal, and treating it as noise would discard the only mechanical check the
+backlog has.
