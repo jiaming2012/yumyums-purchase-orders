@@ -1360,9 +1360,16 @@ implement leg returned one non-attributable flake (B-437) and consumed 38% of th
 was reported MET and is ruled un-landed (decision 174) — the discriminator column is degenerate
 on the shipped tree because the campaigns replica never attaches. So the honest figure is
 **~99m for one of two done_when clauses**, and the second clause's cost is still unpaid and
-now carried as B-438. This is the **third consecutive run** (`20260809` S2, `20260906`
+now carried as B-438. This is the **second consecutive run** (`20260906`
 `requires-online-replication`, now this) where a clean or near-clean G6 rested on a scope claim
-that an independent reproduction falsified. The pattern is not card quality — each card did
+that an independent reproduction falsified. ⚠️ **Corrected in-place: this first read "third
+consecutive run (`20260809` S2, …)", inheriting the citation from the line at 1338 without
+re-deriving it — which is exactly what decision 172 forbids.** The `20260809` S2 instance does
+not survive checking: T-44 records that run as one where *"nothing was falsified, and no claim
+was left unverified"*; S2 `demo-sync-target` was **SKIPPED** by stretch-gate arithmetic (1210)
+and so never ran; and that `20260809` is the stale-tree duplicate B-435 describes, whose
+findings were ruled unfilable. **Two is the defensible count**, and the line at 1338 should be
+read with the same caveat. The pattern is not card quality — each card did
 what it said mechanically — it is that **done_when clauses asserting a value is *recorded* are
 being verified with stubs**, and a stub satisfies the assertion without proving the path. Price
 the *next* such clause with an unstubbed end-to-end leg, or stop writing clauses of that shape.
