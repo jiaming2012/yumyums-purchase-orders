@@ -110,11 +110,28 @@ code.
 
 ## Red-first
 
-(filled with evidence as produced; exit codes recorded)
+**Playwright (pre-change tree, commit `768a173` + tests only):**
+`npx playwright test tests/marketing.spec.js -g "sync-coordinates-provisioning" --retries=0`
+→ **EXIT=1, 6 failed / 6 run** —
+log `.night-crew/runs/2026-09-07-autonomous/c1-red-provisioning.log`.
+- Clause-1 structural red, exactly as the slate names it: the poll on
+  `localStorage.getItem('hq_marketing_sync_v1')` receives `null` after 15 s —
+  no code path writes `SYNC_KEY` (`c1-red-provisioning.log`, failure 1).
+- Clause-2 red: `attached() && ready && size() > 0` never true (failure 2).
+- B-438 reds: `lastError` never latches (attach never runs) in the unhealthy
+  leg; `attached` stays false in the healthy control (failures 3–4).
+- B-439 reds: both recovery-shape tests die at phase A (`attached` false —
+  the pre-change tree cannot even reach the latch) (failures 5–6).
 
-- [ ] Clause-1 structural red: the provisioning e2e on the pre-change tree —
-  no code path writes `SYNC_KEY`, every scan resolves `unknownCode`.
-- [ ] Clause-2 red: `attached()` never true on the pre-change tree.
-- [ ] B-438 red: no shipped path lands `policy_unresolved=true`.
-- [ ] B-439 red: the latch stays `unresolved()===true` through both recovery
-  shapes (Playwright, and the harness against the pre-fix tree).
+**Harness (pre-fix tree, same commit set):**
+`bash marketing/sync/harness/recovery-clear-run.sh` → **EXIT=1** at phase C1:
+`captures` advanced 1→3 (successful pulls happening) while
+`unresolved()` stuck `true` after a with-docs recovery — the spike-04
+measurement reproduced on the pre-fix shipped surface.
+Log `.night-crew/runs/2026-09-07-autonomous/c1-red-recovery-clear.log`.
+
+**Deviation, stated:** the launch prompt's isolation value
+`TEST_DB_NAME=hq_c1_impl_0907` fails `scripts/reset-e2e-db.js`'s name guard
+(`/^hq_test(?:_[a-z0-9]+)*$/` — the guard that keeps a mistyped name from
+DROPping a non-test database). Used `hq_test_c1impl0907` instead — unique to
+this card's legs, guard-conforming; the guard was not widened.

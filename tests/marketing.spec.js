@@ -1162,3 +1162,275 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sync provisioning — card sync-coordinates-provisioning (run 20260907,
+// Activity B close-bar leg 3; goal ledger .night-crew/knowledge/spikes/
+// activity-b-offline-first-replica/sync-coordinates-provisioning.md, six
+// binding build-facts; ledger T-56, decisions 178–180)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST: every test in this describe was written and RUN against the
+// pre-change tree, where it reds structurally — no code path writes
+// `hq_marketing_sync_v1` (SYNC_KEY has exactly one occurrence: its own
+// declaration at scan-page.js:27), so startSync never runs,
+// campaignPolicy.attach() never runs, every collection stays empty and every
+// scan resolves unknownCode. Evidence:
+// .night-crew/runs/2026-09-07-autonomous/c1-red-provisioning.log and the
+// ## Red-first section of merge-intents/sync-coordinates-provisioning.md.
+//
+// THE TEST-STACK CALL (build-fact 6, decided by the card): the Playwright
+// suite has no sync substrate, so these tests serve the two transports at the
+// NETWORK layer — `POST /api/v1/sync/token` answers a mint envelope (the
+// suite's webServer deliberately carries no HQ_SYNC_JWT_SECRET, so the REAL
+// endpoint answers 503 here: the shipped write-nothing degradation, which
+// every OTHER test in this file now exercises on every page load) and
+// `/sync/rest/*` answers PostgREST-shaped rows. Decision-174-consistent: the
+// transport is served/failed, never the seam — the shipped provisioning
+// writer, startSync, all four replicas, the pull URL composition and the
+// policy source run for real; no test below touches SYNC_KEY or calls
+// setCampaignPolicy. The full-stack half (real mint, real PostgREST, real
+// door) lives in the harnesses: spikes 01–03 and
+// marketing/sync/harness/recovery-clear-run.sh (spike 04 re-executed against
+// the shipped clear), graded on their exit codes.
+
+// The sub the mocked mint answers — what the push landing MUST carry as
+// device_id (build-fact 2: deviceId comes from the envelope's sub, never any
+// device-local identity; spike fact 3 measured the alternative as a stranded
+// burn + poisoned queue).
+const MINT_SUB = 'e2e-mint-sub-0907';
+
+// PostgREST rows as the real substrate serves them (REPLICA_SELECT includes
+// _deleted; campaigns' select does not).
+function serverFixture1Row(overrides = {}) {
+  return Object.assign(fixture1Row({}), { _deleted: false }, overrides);
+}
+
+// Serve the two sync transports. Returns a mutable state handle the test
+// flips mid-flight (campaigns 503 / recovery shapes) plus the captured push
+// landings — evidence is the request log, never an inference (B-216).
+async function mockSyncTransports(page, opts = {}) {
+  const state = Object.assign({
+    campaignsMode: 'ok',          // 'ok' | '503' | 'empty'
+    campaignRows: [campaignLowRow()],
+    codeRows: [],
+    landings: [],                 // captured POST /sync/rest/scan_attempts bodies
+    landingStatus: 201,
+    tokenCalls: 0,
+  }, opts);
+  await page.route('**/api/v1/sync/token', async (route) => {
+    state.tokenCalls += 1;
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        token: 'e2e-bridge-token', expires_at: Math.floor(Date.now() / 1000) + 900,
+        sub: MINT_SUB, role: 'authenticated', grants: ['marketing'],
+      }),
+    });
+  });
+  await page.route('**/sync/rest/**', async (route) => {
+    const req = route.request();
+    const p = new URL(req.url()).pathname;
+    if (req.method() === 'GET' && p.endsWith('/codes')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(state.codeRows) });
+    }
+    if (req.method() === 'GET' && p.endsWith('/campaigns')) {
+      if (state.campaignsMode === '503') return route.fulfill({ status: 503, body: 'campaigns upstream down (network-layer kill)' });
+      const rows = state.campaignsMode === 'empty' ? [] : state.campaignRows;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+    }
+    if (req.method() === 'POST' && p.endsWith('/scan_attempts')) {
+      state.landings.push(req.postDataJSON());
+      return route.fulfill({ status: state.landingStatus, contentType: 'application/json', body: '' });
+    }
+    return route.fulfill({ status: 503, body: 'unmocked sync transport' });
+  });
+  return state;
+}
+
+const policyProbe = (page) => page.evaluate(() => {
+  const p = window.MarketingScan.campaignPolicy;
+  return { attached: p.attached(), ready: p.ready(), size: p.size(), unresolved: p.unresolved(), lastError: p.lastError() };
+});
+
+test.describe('Sync provisioning (card sync-coordinates-provisioning)', () => {
+
+  // ── done_when (1): the scanner holds real codes offline ────────────────────
+  test('done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut', async ({ page }) => {
+    await mockSyncTransports(page, { codeRows: [serverFixture1Row()] });
+    await openSubmitScanner(page);
+
+    // The SHIPPED writer wrote the coordinates — the test never touches
+    // SYNC_KEY. This is the structural red on the pre-change tree: nothing
+    // writes hq_marketing_sync_v1, so this poll times out.
+    await expect.poll(
+      () => page.evaluate(() => localStorage.getItem('hq_marketing_sync_v1')),
+      { timeout: 15000 },
+    ).toBeTruthy();
+    const sc = JSON.parse(await page.evaluate(() => localStorage.getItem('hq_marketing_sync_v1')));
+    expect(sc.restUrl).toBe('/sync/rest');
+    expect(sc.bearer).toBe('e2e-bridge-token');
+    expect(sc.deviceId, 'the push coordinate comes from the mint sub').toBe(MINT_SUB);
+
+    // Initial replication completes — the page reports itself synced.
+    await page.waitForFunction(() =>
+      document.getElementById('scan-status').textContent.includes('Replica synced'));
+
+    // NOW cut the network: probe dead AND sync transport dead.
+    await page.route('**/sync/rest/**', (r) => r.abort());
+    await killProbe(page);
+
+    // A code that exists server-side resolves from the local replica — never
+    // unknownCode (the pre-provisioning behavior for every scan).
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'replica');
+    await expect(result.locator('.offer-row').first())
+      .toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-000000000001');
+  });
+
+  // ── done_when (2): the campaigns replica genuinely attaches ────────────────
+  test('done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed', async ({ page }) => {
+    await mockSyncTransports(page, { codeRows: [serverFixture1Row()] });
+    await openScanner(page);
+    // Asserted against the REAL source scan-page created and startSync
+    // attached — no setCampaignPolicy anywhere in this describe.
+    await expect.poll(async () => {
+      const s = await policyProbe(page);
+      return s.attached && s.ready && s.size > 0;
+    }, { timeout: 15000 }).toBe(true);
+    const snap = await policyProbe(page);
+    expect(snap.attached).toBe(true);
+    expect(snap.size).toBeGreaterThan(0);
+    expect(snap.unresolved).toBe(false);
+    expect(snap.lastError).toBeNull();
+  });
+
+  // ── done_when (3) / B-438: the discriminator records what its DDL says ─────
+  test('done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub', async ({ page }) => {
+    const state = await mockSyncTransports(page, { campaignsMode: '503' });
+    await openSubmitScanner(page);
+
+    // The campaigns replica fails FOR REAL: transport 503, error$ latched with
+    // the attributable status. Never setCampaignPolicy (decision 174).
+    await expect.poll(async () => (await policyProbe(page)).lastError, { timeout: 15000 })
+      .toContain('HTTP 503');
+    expect((await policyProbe(page)).unresolved).toBe(true);
+
+    await killProbe(page);
+    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    const tokenHash = await result.getAttribute('data-token-hash');
+
+    await page.fill('#ms-order', '61');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'override');
+    await page.click('[data-action="ms-override"]');
+    await page.click('[data-action="ms-confirm-override"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
+
+    // The push replica (FIRST caller wired by this card) lands the attempt
+    // through /sync/rest on the F-2 divert path. The landed body is the server
+    // row — the DDL comment's subject: t,t = campaigns-replica FAILURE.
+    await expect.poll(() => state.landings.length, { timeout: 15000 }).toBe(1);
+    const landed = state.landings[0];
+    expect(landed.device_id, 'RLS with-check: device_id MUST be the mint sub').toBe(MINT_SUB);
+    expect(landed.policy_unresolved, 'the DDL-comment bucket: replica failure').toBe(true);
+    expect(landed.unverified_code).toBe(true);
+    expect(landed.offline_override).toBe(true);
+    expect(landed.code_id, 'an unknown code names no code row').toBeNull();
+    expect(landed.token_hash).toBe(tokenHash);
+    expect(landed.status).toBe('accepted');
+
+    // And the local row resolved through the shipped patch path.
+    const readDoc = () => page.evaluate(async (codeId) => {
+      const docs = await window.MarketingScan.collections.scan_attempts
+        .find({ selector: { code_id: codeId } }).exec();
+      return docs.map((d) => ({ policy_unresolved: d.policy_unresolved, landed: d.landed, status: d.status }));
+    }, tokenHash);
+    await expect.poll(async () => (await readDoc())[0]?.landed, { timeout: 10000 }).toBe(true);
+    const [doc] = await readDoc();
+    expect(doc.policy_unresolved).toBe(true);
+    expect(doc.status).toBe('accepted');
+  });
+
+  test('done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false', async ({ page }) => {
+    const state = await mockSyncTransports(page);
+    await openSubmitScanner(page);
+    await expect.poll(async () => {
+      const s = await policyProbe(page);
+      return s.attached && s.ready && s.unresolved === false;
+    }, { timeout: 15000 }).toBe(true);
+
+    await killProbe(page);
+    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
+    const tokenHash = await page.locator('#scan-result').getAttribute('data-token-hash');
+    await page.fill('#ms-order', '62');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'override');
+    await page.click('[data-action="ms-override"]');
+    await page.click('[data-action="ms-confirm-override"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'overridePending');
+
+    await expect.poll(() => state.landings.length, { timeout: 15000 }).toBe(1);
+    const landed = state.landings[0];
+    expect(landed.policy_unresolved, 'healthy replica: the genuinely-unknown bucket, t,f').toBe(false);
+    expect(landed.unverified_code).toBe(true);
+    expect(landed.device_id).toBe(MINT_SUB);
+    expect(landed.token_hash).toBe(tokenHash);
+  });
+
+  // ── done_when (4) / B-439: the latch clears on the recovery edge ───────────
+  test('done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false', async ({ page }) => {
+    const state = await mockSyncTransports(page);
+    await openScanner(page);
+    // Phase A: ready and resolved.
+    await expect.poll(async () => {
+      const s = await policyProbe(page);
+      return s.attached && s.ready && s.unresolved === false;
+    }, { timeout: 15000 }).toBe(true);
+
+    // Phase B: post-ready 503 — the latch latches (B-439's premise, and the
+    // half that must SURVIVE the fix: an erroring replica reads unresolved).
+    state.campaignsMode = '503';
+    await page.evaluate(() => window.MarketingScan.resync());
+    await expect.poll(async () => (await policyProbe(page)).lastError, { timeout: 15000 })
+      .toContain('HTTP 503');
+    expect((await policyProbe(page)).unresolved).toBe(true);
+
+    // Phase C: full recovery WITH docs — a row changed while erroring.
+    state.campaignRows = [campaignLowRow(), campaignHighRow({ updated_at: '2026-09-07T00:00:00.000Z' })];
+    state.campaignsMode = 'ok';
+    await page.evaluate(() => window.MarketingScan.resync());
+    await expect.poll(async () => (await policyProbe(page)).unresolved, { timeout: 15000 })
+      .toBe(false);
+    expect((await policyProbe(page)).lastError).toBeNull();
+  });
+
+  test('done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch', async ({ page }) => {
+    const state = await mockSyncTransports(page);
+    await openScanner(page);
+    await expect.poll(async () => {
+      const s = await policyProbe(page);
+      return s.attached && s.ready && s.unresolved === false;
+    }, { timeout: 15000 }).toBe(true);
+
+    state.campaignsMode = '503';
+    await page.evaluate(() => window.MarketingScan.resync());
+    await expect.poll(async () => (await policyProbe(page)).lastError, { timeout: 15000 })
+      .toContain('HTTP 503');
+    expect((await policyProbe(page)).unresolved).toBe(true);
+
+    // Recovery EMPTY: HTTP 200 with ZERO new rows — the shape that defeats
+    // any docs-based signal (spike-04 measured; clock.captures is the only
+    // witness that fires here, and the shipped clear keys on exactly that
+    // successful-pull edge).
+    state.campaignsMode = 'empty';
+    await page.evaluate(() => window.MarketingScan.resync());
+    await expect.poll(async () => (await policyProbe(page)).unresolved, { timeout: 15000 })
+      .toBe(false);
+    expect((await policyProbe(page)).lastError).toBeNull();
+  });
+});
