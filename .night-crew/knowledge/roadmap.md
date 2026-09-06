@@ -374,9 +374,19 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   **B-441** (the schema-v1 Dexie migration path is executed by no test — UNVERIFIED, not
   passed).
 
-  🛑 **close-bar leg 3 / Q-KR1 is UNBLOCKED but NOT attested.** B-432 is closed, so the leg
-  became attestable; the attestation itself is the operator's act (decision 161's class) and no
-  overnight can perform it. It remains open until they sign it.
+  🛑 **close-bar leg 3 / Q-KR1: this card cleared ONE blocker, not the last one.** ⚠️
+  **Corrected 2026-09-06, same attended sitting** — this line first read "UNBLOCKED but NOT
+  attested", which overstated it. B-432 is genuinely closed, so the *policy* no longer fails
+  open. But Q-KR1 requires a real device holding a `requires_online=true` code **and** its
+  campaign, then the reachability probe killed — and the device cannot obtain either, because
+  `startSync` is gated on `readJson(SYNC_KEY)` and **nothing in the tree writes
+  `hq_marketing_sync_v1`** (`scan-page.js:392`, "Provisioned coordinates — absent tonight").
+  With no sync the local collections are empty and every scan resolves `unknownCode`, so the
+  high-value-refusal branch is unreachable on real data. The same fact is B-438's mechanism;
+  it was filed at triage without being connected to leg 3's attestability. **Operator decided
+  2026-09-06: land provisioning first rather than hand-seed the coordinates in devtools** — the
+  attestation should be against the shipped path, not a device configured by hand. Discharged
+  by `sync-coordinates-provisioning` below.
   **Landed as the second shape, fail-closed at the policy seam** — and NOT gated on replica
   readiness, because a readiness latch alone leaves the "new campaign whose codes arrive
   first" window open; the shipped predicate subsumes it. 🛑 **Read the refusal as a
@@ -391,6 +401,44 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   (`marketing/sync/harness/refusal-run.sh`, EXIT=0; red probe EXIT=1) and COVERED the
   codes-arrive-first sub-case for real. Riders B-434 (a)(b)(c) all disposed; residual B-436
   (the policy source failing to CONSTRUCT) filed, stated, not closed.
+
+- **`sync-coordinates-provisioning`** · **PLANNED** · **GATES close-bar leg 3 / Q-KR1
+  attestation** (authored at the attended sitting of 2026-09-06, operator decision "land
+  provisioning first"; same "triage authors the card that discharges the finding it raised"
+  precedent as decisions 167 and 170) · Wire the two coordinates that arm sync on a real
+  device, so the replicas actually start. 🛑 **This is WIRING, not new mechanism** — both ends
+  already exist and are landed: the bearer is minted by `POST /api/v1/sync/token`
+  (`backend/cmd/server/main.go:633`, `internal/sync/jwtbridge_handler_test.go`), the REST
+  surface is `internal/sync/proxy.go`, and `startSync` is already exported
+  (`scan-page.js:410`). What is missing is only the caller: `SYNC_KEY`
+  (`hq_marketing_sync_v1`) has exactly one occurrence in the tree — its own declaration at
+  `scan-page.js:27` — so `readJson(SYNC_KEY)` is always null, `startSync` never runs,
+  `campaignPolicy.attach()` never runs, and every local collection stays empty.
+  **done_when:**
+  (1) **The scanner holds real codes offline.** On a provisioned device with the network then
+  cut, scanning a code that exists server-side resolves to that code rather than
+  `unknownCode` — proven by an e2e that provisions through the shipped path (never by writing
+  `SYNC_KEY` from the test), kills the probe, and asserts `#scan-result` `data-kind`.
+  (2) **The campaigns replica genuinely attaches.** `campaignPolicy.attached()` is `true` and
+  `size()` is non-zero after initial replication — asserted against the real source, with the
+  seam NOT stubbed.
+  (3) **B-438 is discharged: `policy_unresolved` records what its DDL comment says.** With
+  the campaigns replica made to fail for real (not seam-injected), a genuinely-unknown-code
+  override lands `policy_unresolved = true`; with it healthy, the same override lands `false`.
+  🛑 **The proving test may not call `setCampaignPolicy`** — today's clause-2 test injects
+  `() => true` where the shipped function returns `() => false`, which is why the clause
+  passed while being unreachable (ledger T-55 decision 174). If the new test stubs the seam,
+  the clause is not met.
+  (4) **B-439 is discharged in the same pass** — after a pull failure and a full recovery,
+  `unresolved()` returns to `false`; asserted by a test that errors, recovers, then reads it.
+  **Footprint:** `marketing/scan-page.js` (the provisioning call site) + `marketing/sync/` +
+  whatever mints/refreshes the bearer client-side; backend is expected untouched, and a diff
+  that touches `backend/` should be treated as scope drift and stated.
+  **Spike gate:** needs its own spike file under
+  `.night-crew/knowledge/spikes/activity-b-offline-first-replica/` before it can be slated —
+  `/nc-spike` authors it. Likely thin, since the mechanism is threaded and both endpoints are
+  landed; the open questions are bearer lifetime/refresh and where provisioning is triggered
+  from (page init vs login).
 
 > **Why here:** this is the operator-facing action and the close bar's leg 1. It reads from B
 > (offline) and burns through A (online, via D). **Trace:** Product objective. **Locks §14 #9

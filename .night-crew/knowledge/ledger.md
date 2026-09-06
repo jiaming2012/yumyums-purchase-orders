@@ -4108,3 +4108,47 @@ issues as house-style divergence — that reading was correct historically (B-60
 was ~295 issues) but is **no longer true**: the floor has been cleaned to zero, so any non-zero
 count is now signal, and treating it as noise would discard the only mechanical check the
 backlog has.
+
+### T-56 — Attended sitting: provisioning sequenced ahead of the leg-3 attestation (2026-09-06)
+
+Same sitting as T-55, after the triage record was pushed. Prompted by the operator asking what
+"attest close-bar leg 3" means — a question that surfaced an error in T-55's own hand-off.
+
+**Decision 178 — close-bar leg 3 / Q-KR1 is NOT attestable today, and T-55's hand-off was
+wrong to say it was.** T-55 reported the leg "UNBLOCKED but NOT attested" and named the
+attestation as the highest-value attended act available. B-432's closure is real, so the
+*policy* no longer fails open — but Q-KR1 requires a real device holding a
+`requires_online=true` code **and** its campaign with the reachability probe killed, and the
+device can obtain neither: `startSync` is gated on `readJson(SYNC_KEY)` and nothing in the tree
+writes `hq_marketing_sync_v1` (`scan-page.js:392`, whose own comment says "Provisioned
+coordinates — absent tonight"). With no sync every collection is empty and every scan resolves
+`unknownCode`, so the high-value-refusal branch is unreachable on real data. 🛑 **This is the
+same fact as B-438's mechanism**, established during the same triage and filed against the
+audit column without being carried across to the attestation it also blocks. Recorded as a
+decision rather than a quiet correction because the failure was not the missing fact — the fact
+was in hand — it was failing to ask what else it implied.
+
+**Decision 179 — land provisioning rather than hand-seed the coordinates.** Two routes reach an
+attestation: write `hq_marketing_sync_v1` by hand in devtools and attest against that, or ship
+the provisioning call site and attest against the shipped path. Operator chose the latter.
+Chosen over hand-seeding because P-KR1 makes the operator's signature the milestone's only
+close evidence ("no card status, KR grade or closeout substitutes"), and a signature given
+against a device configured by hand attests the mechanism works when *someone already knew the
+answer* — which is the same defect class as decision 174's stubbed clause, one level up in the
+process rather than in a test. The slower route buys a signature that means what it says.
+
+**Decision 180 — `sync-coordinates-provisioning` authored under Activity B, and it carries
+B-438 and B-439 as done_when clauses rather than leaving them as loose backlog.** The card is
+wiring, not new mechanism: `POST /api/v1/sync/token` is landed (`main.go:633`), the REST
+surface is `internal/sync/proxy.go`, `startSync` is already exported (`scan-page.js:410`), and
+`SYNC_KEY` has exactly one occurrence in the tree — its own declaration. Only the caller is
+missing. Its done_when explicitly **forbids the proving test from calling `setCampaignPolicy`**,
+because that is the stub that let clause 2 pass while unreachable (decision 174); a clause about
+a value being recorded must exercise the shipped path that records it. Chosen over filing
+provisioning as a bare backlog line, on the decision 167/170 precedent: a finding that blocks a
+milestone bar gets a destination in the same sitting, not a note.
+
+**Correction discipline note.** Three corrections landed in this sitting — the "third
+consecutive run" count, B-438's "can only ever record false", and now the leg-3 attestability
+claim. All three were overstatements in the *same direction*: a claim asserted one step past
+what had actually been checked. Worth naming as a pattern rather than three separate slips.
