@@ -4635,3 +4635,63 @@ test.describe('Setup — dead item photo fallback', () => {
     await expect(form.locator('[data-action="change-item-photo"]')).toHaveText('Add photo');
   });
 });
+
+test.describe('Purchases — line item links to its catalog item in Setup', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  // A confirmed purchase's line shows the *receipt* text ("Ff Big-C Excalibur
+  // 6/4.5#"), which is usually not the catalog name. When it was linked to the
+  // wrong item, or the item itself is wrong, the crew needs to get from that
+  // line to the item's editor without hunting through Setup by hand.
+  async function stub(page) {
+    await page.route(/\/api\/v1\/inventory\/purchases\?page=/, async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'ev-1', vendor_id: 'v1', vendor_name: 'Restaurant Depot', bank_tx_id: 'tx-1', event_date: '2026-09-27',
+          tax: 0, total: 44.09, created_at: '2026-09-27T12:00:00Z', line_items: [
+            { id: 'li-linked', purchase_event_id: 'ev-1', purchase_item_id: 'it-flour', description: 'Ff Big-C Excalibur 6/4.5#', quantity: 1, price: 31.99, is_case: false },
+            { id: 'li-orphan', purchase_event_id: 'ev-1', description: 'Mystery Line', quantity: 1, price: 12.10, is_case: false },
+          ] },
+      ]) });
+    });
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/api/v1/inventory/items', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'it-flour', description: 'Flour Big-C Excalibur', group_id: 'g1', group_name: 'Dry Goods', store_location: 'Restaurant Depot', aliases: ['Ff Big-C Excalibur 6/4.5#'] },
+        { id: 'it-other', description: 'Shrimp 21/25', group_id: 'g1', group_name: 'Proteins', store_location: 'Restaurant Depot', aliases: [] },
+      ]) });
+    });
+  }
+
+  test('tapping a linked line opens that item in Setup even though the receipt text differs from the catalog name', async ({ page }) => {
+    await stub(page);
+    await page.goto('/inventory.html');
+    const card = page.locator('#history-list .event-card[data-id="ev-1"]');
+    await expect(card).toBeVisible();
+    await card.click();
+    const link = card.locator('[data-action="goto-setup-item"][data-item-id="it-flour"]');
+    await expect(link).toBeVisible();
+    await expect(link).toContainText('Ff Big-C Excalibur 6/4.5#');
+    await link.click();
+    await expect(page.locator('#t7')).toHaveClass(/on/);
+    await expect(page.locator('#st1')).toHaveClass(/on/);
+    await expect(page.locator('.item-edit-form[data-item-id="it-flour"]')).toBeVisible();
+    await expect(page.locator('.item-edit-form[data-item-id="it-other"]')).toHaveCount(0);
+  });
+
+  test('a line with no linked item is not a link and tapping it only toggles the card', async ({ page }) => {
+    await stub(page);
+    await page.goto('/inventory.html');
+    const card = page.locator('#history-list .event-card[data-id="ev-1"]');
+    await card.click();
+    await expect(card.locator('.line-item').filter({ hasText: 'Mystery Line' })).toBeVisible();
+    await expect(card.locator('[data-action="goto-setup-item"]')).toHaveCount(1);
+    await card.locator('.line-item').filter({ hasText: 'Mystery Line' }).click();
+    await expect(page.locator('#t1')).toHaveClass(/on/);
+    await expect(card.locator('.line-item')).toHaveCount(0);
+  });
+});
