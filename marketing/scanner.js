@@ -26,6 +26,8 @@
 // READER-side engineering call, not a payload-contract change: nothing tonight
 // GENERATES QR payloads, and Activity E locks the final descriptor encoding —
 // parseEmbeddedOffer below is the one function it replaces.
+import { sha256Bytes, bytesToHex } from './sync/sha256.js';
+
 export const TOKEN_PATTERN = /\/r\/([^/?#]+)(?=[?#]|$)/;
 
 export function extractToken(text) {
@@ -94,7 +96,13 @@ export function parseEmbeddedOffer(text) {
 export function createTokenHasher({ subtle, maxEntries = 512 } = {}) {
   const engine = subtle
     || (typeof crypto !== 'undefined' && crypto.subtle ? crypto.subtle : null);
-  if (!engine) throw new Error('createTokenHasher: no SubtleCrypto available');
+  // No SubtleCrypto means an insecure origin (plain http to the dev box's LAN
+  // IP) — browsers withhold WebCrypto there. Fall back to the pure-JS digest;
+  // its output is byte-identical, so the server-side hash comparison and the
+  // committed seed literals hold on every origin.
+  const digest = engine
+    ? (bytes) => engine.digest('SHA-256', bytes)
+    : (bytes) => Promise.resolve(sha256Bytes(bytes));
   const cache = new Map(); // token -> Promise<hex>
   let hits = 0;
   let misses = 0;
@@ -102,10 +110,7 @@ export function createTokenHasher({ subtle, maxEntries = 512 } = {}) {
     const cached = cache.get(token);
     if (cached) { hits += 1; return cached; }
     misses += 1;
-    const p = engine.digest('SHA-256', new TextEncoder().encode(token)).then(
-      (buf) => Array.from(new Uint8Array(buf))
-        .map((b) => b.toString(16).padStart(2, '0')).join(''),
-    );
+    const p = digest(new TextEncoder().encode(token)).then(bytesToHex);
     if (cache.size >= maxEntries) cache.clear();
     cache.set(token, p);
     // A failed digest must not poison the cache.

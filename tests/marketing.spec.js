@@ -1434,3 +1434,76 @@ test.describe('Sync provisioning (card sync-coordinates-provisioning)', () => {
     expect((await policyProbe(page)).lastError).toBeNull();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Boot on a plain-http origin (fix: marketing boot without SubtleCrypto)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST. Opened at http://192.168.8.176 (the dev box over the LAN — a
+// NON-secure origin), the Scan section rendered a raw RxDB exception dump:
+// "Submit flow failed to start — reload to retry. ( RxDB Error-Code: UT8 …
+// typeof_crypto_subtle: undefined … )". Two defects in one screenshot:
+//   (1) browsers withhold `crypto.subtle` on insecure origins, and BOTH the
+//       RxDB database (its default hashFunction) and createTokenHasher hard-
+//       required it — so the page could not boot at all over http;
+//   (2) the failure copy was an exception's toString handed to the crew.
+// The three tests below red on the pre-change tree: (a) times out waiting
+// for boot, (b) finds the raw "Error-Code" dump, (c) finds no https hint.
+
+test.describe('Boot without SubtleCrypto (plain-http LAN origin)', () => {
+
+  // Simulate what a browser does on an insecure origin: no crypto.subtle,
+  // isSecureContext false. Everything else (IndexedDB, TextEncoder) stays.
+  async function withoutSubtleCrypto(page) {
+    await page.addInitScript(() => {
+      Object.defineProperty(Crypto.prototype, 'subtle', { get: () => undefined, configurable: true });
+      Object.defineProperty(window, 'isSecureContext', { get: () => false, configurable: true });
+    });
+  }
+
+  test('both flows boot with NO crypto.subtle, and the token hash still equals the WebCrypto seed literal', async ({ page }) => {
+    await withoutSubtleCrypto(page);
+    await openSubmitScanner(page);
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    // The pure-JS fallback must be byte-identical to WebCrypto SHA-256: the
+    // server compares token hashes, and a divergent digest would silently
+    // resolve every code as unknown over http.
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-token-hash', FIXTURE_1_TOKEN_HASH);
+    await expect(page.locator('#scan-status')).not.toContainText("didn't start");
+  });
+
+  test('a boot failure reads as a plain sentence with the technical detail tucked away — not an exception dump', async ({ page }) => {
+    // Force a genuine boot failure that survives the SubtleCrypto fix: no
+    // IndexedDB at all (Dexie rejects at createRxDatabase).
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+    });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/marketing.html');
+    const status = page.locator('#scan-status');
+    await expect(status).toContainText("Scanner didn't start");
+    await expect(status).toContainText('Reload');
+    const text = await status.textContent();
+    expect(text).not.toMatch(/Error-Code|Parameters:|rxdb\.info|dev-mode|failed to start/);
+    // The submit flow fails BECAUSE the scanner did — it must not pile a
+    // second failure block onto the first.
+    await expect(status).not.toContainText('Submit flow');
+    // The raw cause is still reachable for whoever gets the phone handed to
+    // them — collapsed, behind one "Details".
+    const details = status.locator('details');
+    await expect(details).toHaveCount(1);
+    await expect(details.locator('summary')).toHaveText('Details');
+    expect((await details.textContent()).length).toBeGreaterThan('Details'.length);
+  });
+
+  test('camera failure on an insecure origin names the fix: open the https address, or scan from a photo', async ({ page }) => {
+    await withoutSubtleCrypto(page);
+    await openScanner(page);
+    await page.click('[data-action="start-camera"]');
+    const err = page.locator('#scanner-host .cam-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText('https://hq.yumyums.kitchen');
+    await expect(err).toContainText('photo');
+    await expect(page.locator('[data-action="start-camera"]')).toBeVisible();
+  });
+});

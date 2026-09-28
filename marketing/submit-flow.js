@@ -20,6 +20,7 @@
 import { createSubmitMachine } from './submit-machine.js';
 import { createCampaignPolicySource } from './sync/replicas.js';
 import { createTokenHasher, extractToken } from './scanner.js';
+import { reportBootFailure } from './boot-failure.js';
 import {
   validateOrderNumber, toastBusinessDate, createReachabilityProbe, getDeviceId,
   SUBMIT_TIMEOUT_MS,
@@ -40,14 +41,19 @@ const $ = (id) => document.getElementById(id);
 const ENTITLEMENT_KEY = 'hq_marketing_entitlement_v1';
 
 async function boot() {
-  const MS = await window.MarketingScan.ready;
-  const X = window.XState;
-  if (!X) {
-    // Loud, not blank (UI-R3/R6): the vendored engine failed to load.
-    const status = $('scan-status');
-    if (status) status.textContent = 'Submit flow failed to start — xstate did not load. Reload to retry.';
-    throw new Error('window.XState missing (lib/xstate.umd.min.js not loaded)');
+  let MS;
+  try {
+    MS = await window.MarketingScan.ready;
+  } catch (e) {
+    // The scanner already reported THIS failure in its own words; a second
+    // block saying "submit flow didn't start" would only bury it. Flag it so
+    // the catch below stays quiet.
+    throw Object.assign(new Error('scanner did not boot: ' + (e && e.message ? e.message : e)), { upstream: true });
   }
+  const X = window.XState;
+  // Loud, not blank (UI-R3/R6): the vendored engine failed to load. The
+  // catch below renders it.
+  if (!X) throw new Error('xstate did not load (lib/xstate.umd.min.js)');
 
   const DEVICE_ID = getDeviceId(localStorage);
 
@@ -189,7 +195,7 @@ async function boot() {
   // cached without the export.
   const hashToken = typeof MS.hashToken === 'function'
     ? MS.hashToken
-    : createTokenHasher({ subtle: crypto.subtle });
+    : createTokenHasher();
 
   // ── #13 reachability ──────────────────────────────────────────────────────
   function afterReachable() {
@@ -720,8 +726,7 @@ const ready = boot().then((api) => {
   Object.assign(window.MarketingSubmit, api, { booted: true });
   return window.MarketingSubmit;
 }).catch((e) => {
-  const status = document.getElementById('scan-status');
-  if (status) status.textContent = 'Submit flow failed to start — reload to retry. (' + (e && e.message ? e.message : e) + ')';
+  if (!(e && e.upstream)) reportBootFailure('submit', e);
   throw e;
 });
 
