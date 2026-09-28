@@ -25,6 +25,8 @@ import { createSyncClock } from './sync/clock.js';
 import {
   createTokenHasher, createScanResolver, makeSerializedEnqueue,
 } from './scanner.js';
+import { sha256Hex } from './sync/sha256.js';
+import { reportBootFailure, SECURE_ADDRESS } from './boot-failure.js';
 
 const CLOCK_KEY = 'hq_marketing_clock_v1';
 // {restUrl, bearer, deviceId} — written ONLY by provisionSync() below (card
@@ -203,7 +205,12 @@ async function boot() {
   // failed to start" on every device. The plugin is idempotent to register.
   addRxPlugin(RxDBMigrationSchemaPlugin);
 
-  const db = await createRxDatabase({ name: 'hqmarketing', storage: getRxStorageDexie() });
+  // hashFunction: RxDB's default is `crypto.subtle.digest`, which browsers
+  // withhold on insecure origins (plain http to the dev box's LAN IP) — boot
+  // died there with RxDB error UT8 before a single collection existed.
+  // sha256Hex is WebCrypto when present and a byte-identical JS digest when
+  // not, so the same IndexedDB hashes the same way on either origin.
+  const db = await createRxDatabase({ name: 'hqmarketing', storage: getRxStorageDexie(), hashFunction: sha256Hex });
   const cols = await db.addCollections({
     ...marketingCollectionSpec(),
     ...scanAttemptsCollectionSpec(),
@@ -217,7 +224,9 @@ async function boot() {
   // consumes it through MS.campaignPolicy.
   const campaignPolicy = createCampaignPolicySource(cols.campaigns);
 
-  const hashToken = createTokenHasher({ subtle: crypto.subtle });
+  // No `subtle` handed in: the hasher takes WebCrypto when the origin has it
+  // and the JS digest otherwise (same reason as hashFunction above).
+  const hashToken = createTokenHasher();
   const resolver = createScanResolver({
     codesCollection: cols.codes,
     offersCollection: cols.offers,
@@ -366,7 +375,11 @@ async function boot() {
     } catch (e) {
       // UI-R6: loud, named, retryable (the button stays; tapping it retries).
       SCAN_STATE.cameraOn = false;
-      SCAN_STATE.camError = 'Camera unavailable — ' + (e && e.message ? e.message : 'permission denied or no camera found') + '. Fix camera access and tap Start camera to retry, or scan from a photo.';
+      // On a plain-http origin the camera API itself is withheld — no amount
+      // of "fix camera access" helps. Name the way out instead.
+      SCAN_STATE.camError = window.isSecureContext === false
+        ? 'Camera unavailable — this page was opened over a plain http address, and phones only allow the camera on a secure one. Open ' + SECURE_ADDRESS + ' instead, or scan from a photo.'
+        : 'Camera unavailable — ' + (e && e.message ? e.message : 'permission denied or no camera found') + '. Fix camera access and tap Start camera to retry, or scan from a photo.';
       render();
     }
   }
@@ -488,9 +501,9 @@ const ready = boot().then((api) => {
   Object.assign(window.MarketingScan, api, { booted: true });
   return window.MarketingScan;
 }).catch((e) => {
-  // Loud, not blank (UI-R3/R6): the Scan section names its failure.
-  const status = document.getElementById('scan-status');
-  if (status) status.textContent = 'Scanner failed to start — reload to retry. (' + (e && e.message ? e.message : e) + ')';
+  // Loud, not blank (UI-R3/R6): the Scan section names its failure — in a
+  // sentence, with the cause behind "Details" (boot-failure.js).
+  reportBootFailure('scanner', e);
   throw e;
 });
 
