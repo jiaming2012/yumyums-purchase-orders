@@ -803,13 +803,14 @@ test.describe('Inventory', () => {
 
   test('review form line item name is readonly (dropdown-only)', async ({ page }) => {
     const txId = 'test-item-readonly-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Dropdown Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const nameInput = page.locator('.review-li-name').first();
@@ -820,13 +821,14 @@ test.describe('Inventory', () => {
 
   test('clicking line item name opens item picker modal', async ({ page }) => {
     const txId = 'test-item-modal-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'DD Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Something', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const nameInput = page.locator('.review-li-name').first();
@@ -841,13 +843,14 @@ test.describe('Inventory', () => {
 
   test('item modal shows create option when searching', async ({ page }) => {
     const txId = 'test-item-modal-search-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Search Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -863,13 +866,14 @@ test.describe('Inventory', () => {
 
   test('item modal create option shows title-cased name', async ({ page }) => {
     const txId = 'test-item-title-case-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'TC Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'test item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -885,13 +889,14 @@ test.describe('Inventory', () => {
 
   test('item modal pre-fills search with current line item text', async ({ page }) => {
     const txId = 'test-prefill-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Prefill Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'SPECIAL SAUCE', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -905,13 +910,14 @@ test.describe('Inventory', () => {
 
   test('create item form pre-fills name with title case', async ({ page }) => {
     const txId = 'test-create-prefill-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Prefill Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'some weird item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -930,13 +936,14 @@ test.describe('Inventory', () => {
 
   test('confirm receipt blocked when line items not linked to catalog items', async ({ page }) => {
     const txId = 'test-confirm-block-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Block Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Unlinked Item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       // Try to confirm without selecting items from catalog
@@ -949,13 +956,14 @@ test.describe('Inventory', () => {
 
   test('selecting item from modal fills name and sets item id', async ({ page }) => {
     const txId = 'test-item-select-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Select Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: '', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const nameInput = page.locator('.review-li-name').first();
@@ -979,13 +987,14 @@ test.describe('Inventory', () => {
 
   test('pending review form shows vendor search with + button', async ({ page }) => {
     const txId = 'test-vendor-search-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Test Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await expect(page.locator('.vendor-search-wrap')).toBeVisible();
@@ -995,13 +1004,14 @@ test.describe('Inventory', () => {
 
   test('vendor search filters known vendors as you type', async ({ page }) => {
     const txId = 'test-vendor-filter-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: '', bankTotal: -5.00,
       eventDate: '2026-04-15', reason: 'test', items: [],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const vendorInput = page.locator('.review-vendor');
@@ -1421,13 +1431,14 @@ test.describe('Inventory', () => {
     }, [created.id, aliasName]);
     expect(addStatus).toBe(201);
     // Seed a pending purchase whose line carries the ALIAS text, not the name
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: 'test-alias-match-' + ts, vendor: 'Alias Vendor ' + ts, bankTotal: -7.99,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: aliasName, quantity: 1, price: 7.99 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     expect(await pending.count(), 'seeded pending purchase must render').toBeGreaterThan(0);
     await pending.click();
     const wrap = page.locator('.review-li-name-wrap').first();
@@ -1526,13 +1537,15 @@ test.describe('Inventory', () => {
     const itemName = 'Visual Test Item ' + Date.now();
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     const txId = 'test-color-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Color Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'unlinked thing', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28),
+    // so .first() is whichever queue card has the newest date, not this one.
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       // Should start as unlinked (orange)
@@ -1629,13 +1642,14 @@ test.describe('Inventory', () => {
 
   test('create item modal shows error when no group selected', async ({ page }) => {
     const txId = 'test-no-group-modal-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'NoGroup Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'test item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -1655,13 +1669,14 @@ test.describe('Inventory', () => {
 
   test('create item modal error clears when group is selected and item created', async ({ page }) => {
     const txId = 'test-group-fix-modal-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'GroupFix Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'fixable item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
@@ -1722,13 +1737,14 @@ test.describe('Inventory', () => {
 
   test('unlinked line items show orange border', async ({ page }) => {
     const txId = 'test-orange-border-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Orange Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'unmatched thing', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id (list is in event-date order since 2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const wrap = page.locator('.review-li-name-wrap').first();
@@ -1743,13 +1759,14 @@ test.describe('Inventory', () => {
     const itemName = 'Auto Match Check ' + Date.now();
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     const txId = 'test-auto-match-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Auto Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: itemName, quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    // Target THE seeded card by id — the list is in event-date order (2026-09-28).
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
       await pending.click();
       const wrap = page.locator('.review-li-name-wrap').first();
