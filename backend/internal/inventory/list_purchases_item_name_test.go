@@ -20,6 +20,12 @@ func TestListPurchaseEvents_ReturnsLinkedItemName(t *testing.T) {
 	resetFixtures(t)
 
 	piID := insertPurchaseItem(t, "Flour Big-C Excalibur")
+	// The crew's nickname for it, typed in Setup. The Purchases card prefers a
+	// nickname over the catalog name, so the list must carry aliases too.
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO item_aliases (purchase_item_id, alias) VALUES ($1, 'Flour')`, piID); err != nil {
+		t.Fatalf("insert alias: %v", err)
+	}
 	vendor := insertVendor(t, "Restaurant Depot")
 	insertEventAndLine(t, vendor, "2026-09-27", 0, 44.09, 31.99, 1, piID)
 	insertEventAndLine(t, vendor, "2026-09-27", 0, 12.10, 12.10, 1, "")
@@ -52,7 +58,13 @@ func TestListPurchaseEvents_ReturnsLinkedItemName(t *testing.T) {
 	if linked.ItemName != "Flour Big-C Excalibur" {
 		t.Errorf("linked line item_name = %q, want the catalog name %q", linked.ItemName, "Flour Big-C Excalibur")
 	}
+	if len(linked.ItemAliases) != 1 || linked.ItemAliases[0] != "Flour" {
+		t.Errorf("linked line item_aliases = %v, want [Flour]", linked.ItemAliases)
+	}
 	if unlinked.ItemName != "" {
 		t.Errorf("unlinked line item_name = %q, want empty", unlinked.ItemName)
+	}
+	if len(unlinked.ItemAliases) != 0 {
+		t.Errorf("unlinked line item_aliases = %v, want none", unlinked.ItemAliases)
 	}
 }

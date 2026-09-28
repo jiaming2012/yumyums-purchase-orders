@@ -58,6 +58,10 @@ type LineItem struct {
 	// name the crew knows it by. Description below is the receipt's own text.
 	// Empty when the line is not linked.
 	ItemName        string  `json:"item_name,omitempty"`
+	// ItemAliases are the linked item's nicknames (item_aliases), oldest first.
+	// The crew types friendly names here for items the receipt worker named
+	// with raw receipt text, so the Purchases card prefers one as its label.
+	ItemAliases     []string `json:"item_aliases,omitempty"`
 	Description     string  `json:"description"`
 	Quantity        int     `json:"quantity"`
 	Price           float64 `json:"price"`

@@ -4651,6 +4651,12 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
           tax: 0, total: 44.09, created_at: '2026-09-27T12:00:00Z', line_items: [
             { id: 'li-linked', purchase_event_id: 'ev-1', purchase_item_id: 'it-flour', item_name: 'Flour Big-C Excalibur', description: 'Ff Big-C Excalibur 6/4.5#', quantity: 1, price: 31.99, is_case: false },
             { id: 'li-orphan', purchase_event_id: 'ev-1', description: 'Mystery Line', quantity: 1, price: 12.10, is_case: false },
+            // Auto-added by the receipt worker: the catalog item is named with the
+            // receipt text itself, and the crew typed "Shrimp" as its nickname.
+            { id: 'li-nick', purchase_event_id: 'ev-1', purchase_item_id: 'it-shr', item_name: 'Shr 21/25 Rpdt/Off 2 Lbs', item_aliases: ['Shrimp'], description: 'Shr 21/25 Rpdt/Off 2 Lbs', quantity: 5, price: 12.10, is_case: true },
+            // Renamed in Setup: the receipt text was auto-learned as the nickname,
+            // which must not win over the real name.
+            { id: 'li-renamed', purchase_event_id: 'ev-1', purchase_item_id: 'it-sam', item_name: 'Samosa Jumbo', item_aliases: ['Fz Jumbo Samosa 6/25'], description: 'Fz Jumbo Samosa 6/25', quantity: 1, price: 18.69, is_case: false },
           ] },
       ]) });
     });
@@ -4685,6 +4691,20 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
     await expect(page.locator('#st1')).toHaveClass(/on/);
     await expect(page.locator('.item-edit-form[data-item-id="it-flour"]')).toBeVisible();
     await expect(page.locator('.item-edit-form[data-item-id="it-other"]')).toHaveCount(0);
+  });
+
+  test('a nickname typed in Setup is the label; a nickname that is just the receipt text is not', async ({ page }) => {
+    await stub(page);
+    await page.goto('/inventory.html');
+    const card = page.locator('#history-list .event-card[data-id="ev-1"]');
+    await card.click();
+    const nick = card.locator('[data-action="goto-setup-item"][data-item-id="it-shr"]');
+    await expect(nick).toContainText('Shrimp');
+    await expect(nick).not.toContainText('Shr 21/25');
+    await expect(card.locator('.line-item').filter({ has: page.locator('[data-item-id="it-shr"]') }).locator('.line-item-receipt-text')).toHaveText('Shr 21/25 Rpdt/Off 2 Lbs');
+    const renamed = card.locator('[data-action="goto-setup-item"][data-item-id="it-sam"]');
+    await expect(renamed).toContainText('Samosa Jumbo');
+    await expect(card.locator('.line-item').filter({ has: page.locator('[data-item-id="it-sam"]') }).locator('.line-item-receipt-text')).toHaveText('Fz Jumbo Samosa 6/25');
   });
 
   test('a line with no linked item is not a link and tapping it only toggles the card', async ({ page }) => {

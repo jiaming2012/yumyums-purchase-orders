@@ -393,6 +393,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			liRows, err := pool.Query(r.Context(), `
 				SELECT li.id, li.purchase_event_id, li.purchase_item_id,
 				       COALESCE(pi.description, ''),
+				       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = li.purchase_item_id), '{}'),
 				       li.description, li.quantity, li.price, li.is_case
 				FROM purchase_line_items li
 				LEFT JOIN purchase_items pi ON pi.id = li.purchase_item_id
@@ -409,7 +410,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			for liRows.Next() {
 				var li LineItem
 				if err := liRows.Scan(&li.ID, &li.PurchaseEventID, &li.PurchaseItemID,
-					&li.ItemName, &li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
+					&li.ItemName, &li.ItemAliases, &li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
 					slog.Error("ListPurchaseEvents line_item scan failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return

@@ -903,12 +903,17 @@ function renderPurchaseEvent(evt){
     var receiptLink=_urlEvt?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlEvt)+'"'+_urlsAttrEvt+' style="margin-top:12px">View Original Receipt</button>':'';
     detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
       var desc=p.description||p.name||'';
-      // A linked line is labelled with the catalog name (what the crew calls
-      // it); the receipt's own text drops to a muted second line when it
-      // differs, so the line can still be matched against the paper receipt.
-      var label=p.item_name||desc;
+      // A linked line is labelled with what the crew calls the item. The
+      // receipt worker names auto-added items with the raw receipt text, and
+      // the crew then types a readable nickname in Setup — so a nickname wins,
+      // unless it is only the receipt text auto-learned on link (then the
+      // catalog name, which the crew renamed, is the readable one). The
+      // receipt's own text drops to a muted second line when it differs, so
+      // the line can still be matched against the paper receipt.
+      var nick=(p.item_aliases||[]).find(function(a){return a&&a.toLowerCase()!==desc.toLowerCase()&&(!p.item_name||a.toLowerCase()!==p.item_name.toLowerCase());});
+      var label=nick||p.item_name||desc;
       var nameHtml=escHtml(label)+(p.is_case?' <span class="case-badge">CASE</span>':'');
-      var receiptText=p.item_name&&desc&&desc!==p.item_name?'<div class="line-item-receipt-text">'+escHtml(desc)+'</div>':'';
+      var receiptText=desc&&desc.toLowerCase()!==label.toLowerCase()?'<div class="line-item-receipt-text">'+escHtml(desc)+'</div>':'';
       // A linked line jumps to its catalog item in Setup so a wrong link or a
       // wrong item can be fixed from the receipt. Unlinked lines have nothing
       // to jump to and stay plain text (the card toggle still owns the tap).
