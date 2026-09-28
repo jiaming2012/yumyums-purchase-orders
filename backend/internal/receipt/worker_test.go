@@ -421,6 +421,8 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 // must NOT call parseReceipt).
 type workerStubs struct {
 	txns            []MercuryTransaction
+	cards           map[string]MercuryCard // who-swiped seam; nil → empty map
+	cardsErr        error                  // non-nil → the lookup fails (must be non-fatal)
 	parseItems      []ReceiptItem
 	parseSummary    ReceiptSummary
 	parseErr        error
@@ -447,6 +449,18 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 		return s.txns, nil
 	}
 	t.Cleanup(func() { fetchTransactions = origFetch })
+
+	origCards := fetchCards
+	fetchCards = func(_ context.Context, _ string) (map[string]MercuryCard, error) {
+		if s.cardsErr != nil {
+			return nil, s.cardsErr
+		}
+		if s.cards == nil {
+			return map[string]MercuryCard{}, nil
+		}
+		return s.cards, nil
+	}
+	t.Cleanup(func() { fetchCards = origCards })
 
 	origParse := parseReceipt
 	parseReceipt = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {

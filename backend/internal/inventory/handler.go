@@ -336,7 +336,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 		if vendorID != "" {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at,
+				       pe.card_holder, pe.card_last4
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
@@ -348,7 +349,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 		} else {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at,
+				       pe.card_holder, pe.card_last4
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE (pe.mercury_category IS NULL OR pe.mercury_category = ANY($1))
@@ -369,7 +371,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			var pe PurchaseEvent
 			var receiptURLsJSON []byte
 			if err := rows.Scan(&pe.ID, &pe.VendorID, &pe.VendorName, &pe.BankTxID,
-				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt); err != nil {
+				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt,
+				&pe.CardHolder, &pe.CardLast4); err != nil {
 				slog.Error("ListPurchaseEvents scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -667,7 +670,8 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
 			       reason, parse_error, mercury_category, items,
-			       confirmed_at, confirmed_by, discarded_at, created_at
+			       confirmed_at, confirmed_by, discarded_at, created_at,
+			       card_holder, card_last4
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
 			  AND (mercury_category IS NULL OR mercury_category = ANY($1))
@@ -690,6 +694,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
 				&p.Reason, &p.ParseError, &p.MercuryCategory, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+				&p.CardHolder, &p.CardLast4,
 			); err != nil {
 				slog.Error("ListPendingPurchases scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
@@ -746,11 +751,11 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// 260605-pk1 flow). Parse-failed rows must be itemized or discarded.
 		var bankTxID string
 		var bankTotal float64
-		var pendingReason sql.NullString
+		var pendingReason, cardHolder, cardLast4 sql.NullString
 		err = tx.QueryRow(r.Context(),
-			`SELECT bank_tx_id, bank_total, reason FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			`SELECT bank_tx_id, bank_total, reason, card_holder, card_last4 FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 			input.ID,
-		).Scan(&bankTxID, &bankTotal, &pendingReason)
+		).Scan(&bankTxID, &bankTotal, &pendingReason, &cardHolder, &cardLast4)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
 			return
@@ -810,10 +815,10 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Create the real purchase event
 		var eventID string
 		err = tx.QueryRow(r.Context(), `
-			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, card_holder, card_last4)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id`,
-			vendorID, bankTxID, input.EventDate, eventTax, eventTotal,
+			vendorID, bankTxID, input.EventDate, eventTax, eventTotal, cardHolder, cardLast4,
 		).Scan(&eventID)
 		if err != nil {
 			slog.Error("ConfirmPendingPurchase insert event failed", "error", err)
@@ -1054,7 +1059,8 @@ func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string
 		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 		       tax, total, total_units, total_cases, receipt_url, receipt_urls,
 		       reason, parse_error, items,
-		       confirmed_at, confirmed_by, discarded_at, created_at
+		       confirmed_at, confirmed_by, discarded_at, created_at,
+		       card_holder, card_last4
 		FROM pending_purchases
 		WHERE id = $1`, id,
 	).Scan(
@@ -1062,6 +1068,7 @@ func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string
 		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
 		&p.Reason, &p.ParseError, &p.Items,
 		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+		&p.CardHolder, &p.CardLast4,
 	)
 	if err == nil && len(receiptURLsJSON) > 0 {
 		_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
@@ -1080,6 +1087,8 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Reason     string          `json:"reason"`
 			Items      json.RawMessage `json:"items"`
 			ReceiptURL *string         `json:"receipt_url,omitempty"`
+			CardHolder *string         `json:"card_holder,omitempty"`
+			CardLast4  *string         `json:"card_last4,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -1090,10 +1099,10 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		var id string
 		err := pool.QueryRow(r.Context(), `
-			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, event_date, reason, items, receipt_url)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, event_date, reason, items, receipt_url, card_holder, card_last4)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id`,
-			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL,
+			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL, input.CardHolder, input.CardLast4,
 		).Scan(&id)
 		if err != nil {
 			slog.Error("SeedPendingPurchase insert failed", "error", err)

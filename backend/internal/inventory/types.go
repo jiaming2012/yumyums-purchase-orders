@@ -71,6 +71,8 @@ type PurchaseEvent struct {
 	Total       float64    `json:"total"`
 	ReceiptURL  *string    `json:"receipt_url,omitempty"`
 	ReceiptURLs []string   `json:"receipt_urls,omitempty"`
+	CardHolder  *string    `json:"card_holder,omitempty"` // name on the Mercury card that was swiped; NULL = unknown / not a swipe
+	CardLast4   *string    `json:"card_last4,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LineItems   []LineItem `json:"line_items,omitempty"`
 }
@@ -91,6 +93,8 @@ type PendingPurchase struct {
 	Reason          *string      `json:"reason,omitempty"`
 	ParseError      *string      `json:"parse_error,omitempty"`
 	MercuryCategory *string      `json:"mercury_category,omitempty"` // Mercury's own category; NULL = uncategorised
+	CardHolder      *string      `json:"card_holder,omitempty"`      // name on the Mercury card that was swiped; NULL = unknown / not a swipe
+	CardLast4       *string      `json:"card_last4,omitempty"`
 	Items       json.RawMessage  `json:"items"`
 	ConfirmedAt *time.Time       `json:"confirmed_at,omitempty"`
 	ConfirmedBy *string          `json:"confirmed_by,omitempty"`

@@ -52,8 +52,8 @@ async function seedPurchaseEvent(page, { vendorId, bankTxId, eventDate, total, l
 // REAL APPROACH: we seed pending purchases by POSTing to a backend test seed
 // endpoint or by using the receipt worker's insert path.
 // Since neither exist in test form, we directly insert via the API call trick.
-async function seedPendingPurchase(page, { bankTxId, vendor, bankTotal, eventDate, reason, items }) {
-  return page.evaluate(async ([bankTxId, vendor, bankTotal, eventDate, reason, items]) => {
+async function seedPendingPurchase(page, { bankTxId, vendor, bankTotal, eventDate, reason, items, cardHolder, cardLast4 }) {
+  return page.evaluate(async ([bankTxId, vendor, bankTotal, eventDate, reason, items, cardHolder, cardLast4]) => {
     // Use the /api/v1/inventory/test-seed/pending endpoint if it exists,
     // otherwise fall back to direct SQL via a hypothetical endpoint.
     // Since the backend has no test-only endpoint, we use page.evaluate
@@ -66,11 +66,14 @@ async function seedPendingPurchase(page, { bankTxId, vendor, bankTotal, eventDat
     const res = await fetch('/api/v1/inventory/purchases/pending-seed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bank_tx_id: bankTxId, vendor, bank_total: bankTotal, event_date: eventDate, reason, items }),
+      body: JSON.stringify({
+        bank_tx_id: bankTxId, vendor, bank_total: bankTotal, event_date: eventDate, reason, items,
+        card_holder: cardHolder || null, card_last4: cardLast4 || null,
+      }),
     });
     if (!res.ok) return null; // test seed endpoint may not exist
     return res.json();
-  }, [bankTxId, vendor, bankTotal, eventDate, reason, items]);
+  }, [bankTxId, vendor, bankTotal, eventDate, reason, items, cardHolder, cardLast4]);
 }
 
 // waitForHistoryContent waits until the history list shows something other than a skeleton
@@ -4370,5 +4373,81 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
     } finally {
       await ctx.close();
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Who swiped which card — "Mercury: COGS · Jamal · 8478" on the Purchases tab
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST. The pending card showed "Mercury: COGS" and nothing about the
+// person; with two active cards in use the operator could not tell whose
+// swipe a charge was (operator, 2026-09-28: "I'd like to see the user and
+// card number in or near the red box (e.g. Jamal . 8478)"). The worker now
+// resolves Mercury's cardId to the holder + last-4 at ingest; these tests
+// drive the API + page with seeded values.
+
+test.describe('Purchases — card holder label', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('a pending card names who swiped and the last four, next to the Mercury category', async ({ page }) => {
+    const txId = 'test-cardlabel-' + Date.now();
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Restaurant Depot', bankTotal: -113.97,
+      eventDate: '2026-09-27', reason: 'no_attachment_on_bank_tx', items: [],
+      cardHolder: 'Jamal Cole', cardLast4: '8478',
+    });
+    expect(seeded && seeded.id, 'seed endpoint accepted card fields').toBeTruthy();
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    const card = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
+    await expect(card).toBeVisible();
+    // The label rides the "Mercury: …" line — first name + last four, the
+    // way the operator asked for it.
+    const meta = card.locator('.event-meta', { hasText: 'Mercury:' });
+    await expect(meta).toContainText('Jamal · 8478');
+    await expect(meta).not.toContainText('Jamal Cole');
+  });
+
+  test('a pending card with no resolved card shows the Mercury line unchanged — no dangling separator', async ({ page }) => {
+    const txId = 'test-nocard-' + Date.now();
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Restaurant Depot', bankTotal: -5.00,
+      eventDate: '2026-09-27', reason: 'no_attachment_on_bank_tx', items: [],
+    });
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    const meta = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"] .event-meta`, { hasText: 'Mercury:' });
+    await expect(meta).toBeVisible();
+    const text = (await meta.textContent()).trim();
+    expect(text).not.toMatch(/·\s*$/);
+    expect(text).not.toContain('null');
+    expect(text).not.toContain('undefined');
+  });
+
+  test('confirming a pending purchase carries the card label onto the history card', async ({ page }) => {
+    const txId = 'test-cardconfirm-' + Date.now();
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Card Confirm Vendor', bankTotal: -10.00,
+      eventDate: '2026-09-26', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+      cardHolder: 'Latanya Mcgriff', cardLast4: '0994',
+    });
+    const confirmed = await invApiCall(page, 'POST', 'purchases/confirm', {
+      id: seeded.id, vendor_name: 'Card Confirm Vendor', event_date: '2026-09-26', tax: 0, total: 10.00,
+      line_items: [{ description: 'Widget', quantity: 1, price: 10.00, is_case: false }],
+    });
+    expect(confirmed && !confirmed.error, 'confirm succeeded: ' + JSON.stringify(confirmed)).toBeTruthy();
+    // The API carries it …
+    const events = await invApiCall(page, 'GET', 'purchases?page=1');
+    const mine = (Array.isArray(events) ? events : []).find(e => e.bank_tx_id === txId);
+    expect(mine, 'confirmed event is listed').toBeTruthy();
+    expect(mine.card_holder).toBe('Latanya Mcgriff');
+    expect(mine.card_last4).toBe('0994');
+    // … and the history card shows it.
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    const historyCard = page.locator('[data-action="toggle-event"]', { hasText: 'Card Confirm Vendor' }).first();
+    await expect(historyCard).toBeVisible();
+    await expect(historyCard.locator('.event-meta').first()).toContainText('Latanya · 0994');
   });
 });

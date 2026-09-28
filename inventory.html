@@ -897,7 +897,8 @@ function renderPurchaseEvent(evt){
       return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
     }).join('')+receiptLink+'</div>';
   }
-  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+titleCase(evt.vendor_name)+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+  var evtWho=cardLabel(evt);
+  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+titleCase(evt.vendor_name)+'</div><div class="event-meta">'+formatDate(evt.event_date)+(evtWho?' · '+escHtml(evtWho):'')+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
 }
 
 function renderPendingCard(p){
@@ -958,7 +959,11 @@ function renderPendingCard(p){
   // filtered out server-side; 'uncategorised' (NULL) falls through and stays
   // visible by design.
   var mcat=p.mercury_category;
-  var catHtml='<div class="event-meta" style="margin-top:2px;font-size:11px">Mercury: '+(mcat?escHtml(mcat):'<span style="opacity:.65;font-style:italic">uncategorised</span>')+'</div>';
+  // Who swiped which card ("Jamal · 8478") rides the same line — the worker
+  // resolved it from Mercury's cardId at ingest; absent (NULL) means not a
+  // swipe or not yet resolved, and the line stays exactly as before.
+  var who=cardLabel(p);
+  var catHtml='<div class="event-meta" style="margin-top:2px;font-size:11px">Mercury: '+(mcat?escHtml(mcat):'<span style="opacity:.65;font-style:italic">uncategorised</span>')+(who?' · '+escHtml(who):'')+'</div>';
   return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
@@ -1035,6 +1040,16 @@ function renderReviewForm(p){
 }
 
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// cardLabel: "Jamal · 8478" from a row's card_holder / card_last4 (Mercury's
+// nameOnCard + lastFourDigits, resolved by the receipt worker). First name
+// only — the crew is small and the card number is the disambiguator. '' when
+// the row carries neither, so callers can omit the separator entirely.
+function cardLabel(o){
+  var holder=String((o&&o.card_holder)||'').trim();
+  var last4=String((o&&o.card_last4)||'').trim();
+  var first=holder?holder.split(/\s+/)[0]:'';
+  return [first,last4].filter(Boolean).join(' · ');
+}
 function titleCase(s){return String(s||'').toLowerCase().replace(/\b\w/g,function(c){return c.toUpperCase();});}
 
 function captureReviewFormInputs(pendingId){

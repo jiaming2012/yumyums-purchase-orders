@@ -31,6 +31,7 @@ import (
 // Mercury / Anthropic / the receipt CDN.
 var (
 	fetchTransactions        = FetchTransactions
+	fetchCards               = FetchCards
 	parseReceipt             = ParseReceipt
 	parseReceiptWithSonnet   = ParseReceiptWithSonnet
 	parseReceiptWithFeedback = ParseReceiptWithFeedback
@@ -191,7 +192,17 @@ func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endD
 
 	var autoCreated, pendingReview, skippedCached int
 
+	// One cards walk per cycle (≈20 account requests); every tx below resolves
+	// its holder/last4 from this map. Non-fatal on failure (empty map).
+	cards := loadCards(ctx, cfg.MercuryAPIKey)
+
 	for _, tx := range txns {
+		// Who swiped: resolve BEFORE the refresh + insert paths so both the
+		// new-row writes and the backfill of rows that pre-date the column
+		// see the same values. tx is this iteration's copy.
+		resolveCard(&tx, cards)
+		refreshCardOnRows(ctx, cfg.Pool, tx)
+
 		// Refresh mercury_category on existing events so values set by the
 		// sales-processor classify pipeline (async, weekly or nightly) propagate
 		// into HQ without a separate scheduler. Idempotent via IS DISTINCT FROM.
@@ -753,10 +764,11 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 	// Insert purchase_event
 	var eventID string
 	err = dbTx.QueryRow(ctx,
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, receipt_urls, mercury_category)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, receipt_urls, mercury_category, card_holder, card_last4)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 RETURNING id`,
 		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), receiptURLsJSON(receiptURLs), nullableString(mercuryCategory),
+		nullableString(tx.CardHolder), nullableString(tx.CardLast4),
 	).Scan(&eventID)
 	if err != nil {
 		// Duplicate bank_tx_id: a purchase_event for this tx was already created
@@ -882,8 +894,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 
 	_, err := pool.Exec(ctx,
 		`INSERT INTO pending_purchases
-		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, receipt_urls, mercury_category, parse_error)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, receipt_urls, mercury_category, parse_error, card_holder, card_last4)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
 		tx.ID,
 		tx.Amount,
@@ -897,6 +909,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
+		nullableString(tx.CardHolder),
+		nullableString(tx.CardLast4),
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
@@ -954,7 +968,9 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		        receipt_url      = $9,
 		        receipt_urls     = $10,
 		        mercury_category = $11,
-		        parse_error      = $12
+		        parse_error      = $12,
+		        card_holder      = $13,
+		        card_last4       = $14
 		  WHERE bank_tx_id = $1`,
 		tx.ID,
 		tx.Amount,
@@ -968,11 +984,36 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
+		nullableString(tx.CardHolder),
+		nullableString(tx.CardLast4),
 	)
 	if err != nil {
 		return fmt.Errorf("updatePendingPurchase: %w", err)
 	}
 	return nil
+}
+
+// refreshCardOnRows backfills card_holder / card_last4 on the pending and
+// event rows for this tx — the rows that pre-date the column, and any row
+// written while a cards lookup was failing. Same IS DISTINCT FROM pattern as
+// the mercury_category refresh; runs before the `already` short-circuit so
+// cached transactions inside the lookback window heal on the next poll. A
+// tx with no resolved card is a no-op: NULL is never written over a value.
+func refreshCardOnRows(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction) {
+	if tx.CardHolder == "" && tx.CardLast4 == "" {
+		return
+	}
+	for _, table := range []string{"purchase_events", "pending_purchases"} {
+		_, err := pool.Exec(ctx,
+			`UPDATE `+table+`
+			    SET card_holder = $1, card_last4 = $2
+			  WHERE bank_tx_id = $3
+			    AND (card_holder IS DISTINCT FROM $1 OR card_last4 IS DISTINCT FROM $2)`,
+			nullableString(tx.CardHolder), nullableString(tx.CardLast4), tx.ID)
+		if err != nil {
+			slog.Warn("receipt worker: refresh card holder failed", "table", table, "tx_id", tx.ID, "error", err)
+		}
+	}
 }
 
 // backfillPendingVendor sets pending_purchases.vendor to Mercury's

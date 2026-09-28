@@ -18,6 +18,24 @@ type MercuryTransaction struct {
 	Note            string               `json:"note"`
 	CreatedAt       string               `json:"createdAt"`
 	CategoryData    *MercuryCategoryData `json:"categoryData"` // nullable
+	// CardID is Mercury's flat card identifier on any card payment or refund
+	// (it supersedes details.debitCardInfo.id / creditCardInfo.id). Empty for
+	// ACH, wires and anything else that is not a swipe.
+	CardID string `json:"cardId"`
+
+	// CardHolder / CardLast4 are NOT part of Mercury's transaction JSON. The
+	// worker resolves them from CardID via the cards endpoint (FetchCards +
+	// resolveCard) before persisting, so the Purchases tab can say who swiped
+	// which card ("Jamal · 8478") without the API ever calling Mercury.
+	CardHolder string `json:"-"`
+	CardLast4  string `json:"-"`
+}
+
+// MercuryCard mirrors the fields HQ keeps from GET /account/{id}/cards.
+type MercuryCard struct {
+	CardID         string `json:"cardId"`
+	NameOnCard     string `json:"nameOnCard"`
+	LastFourDigits string `json:"lastFourDigits"`
 }
 
 // MercuryCategoryData mirrors Mercury's per-transaction categoryData
