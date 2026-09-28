@@ -4649,7 +4649,7 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
         { id: 'ev-1', vendor_id: 'v1', vendor_name: 'Restaurant Depot', bank_tx_id: 'tx-1', event_date: '2026-09-27',
           tax: 0, total: 44.09, created_at: '2026-09-27T12:00:00Z', line_items: [
-            { id: 'li-linked', purchase_event_id: 'ev-1', purchase_item_id: 'it-flour', description: 'Ff Big-C Excalibur 6/4.5#', quantity: 1, price: 31.99, is_case: false },
+            { id: 'li-linked', purchase_event_id: 'ev-1', purchase_item_id: 'it-flour', item_name: 'Flour Big-C Excalibur', description: 'Ff Big-C Excalibur 6/4.5#', quantity: 1, price: 31.99, is_case: false },
             { id: 'li-orphan', purchase_event_id: 'ev-1', description: 'Mystery Line', quantity: 1, price: 12.10, is_case: false },
           ] },
       ]) });
@@ -4675,7 +4675,11 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
     await card.click();
     const link = card.locator('[data-action="goto-setup-item"][data-item-id="it-flour"]');
     await expect(link).toBeVisible();
-    await expect(link).toContainText('Ff Big-C Excalibur 6/4.5#');
+    // The catalog name is the label; the receipt's own text stays visible
+    // underneath so the line can still be matched against the paper receipt.
+    await expect(link).toContainText('Flour Big-C Excalibur');
+    await expect(link).not.toContainText('Ff Big-C Excalibur 6/4.5#');
+    await expect(card.locator('.line-item').filter({ hasText: 'Flour Big-C Excalibur' }).locator('.line-item-receipt-text')).toHaveText('Ff Big-C Excalibur 6/4.5#');
     await link.click();
     await expect(page.locator('#t7')).toHaveClass(/on/);
     await expect(page.locator('#st1')).toHaveClass(/on/);

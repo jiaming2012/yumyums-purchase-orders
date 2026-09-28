@@ -54,6 +54,10 @@ type LineItem struct {
 	ID              string  `json:"id"`
 	PurchaseEventID string  `json:"purchase_event_id"`
 	PurchaseItemID  *string `json:"purchase_item_id,omitempty"`
+	// ItemName is the linked catalog item's description (purchase_items), the
+	// name the crew knows it by. Description below is the receipt's own text.
+	// Empty when the line is not linked.
+	ItemName        string  `json:"item_name,omitempty"`
 	Description     string  `json:"description"`
 	Quantity        int     `json:"quantity"`
 	Price           float64 `json:"price"`

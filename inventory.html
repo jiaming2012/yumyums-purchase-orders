@@ -37,6 +37,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .line-item-price{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap}
 .line-item-link{font-size:13px;font-weight:500;color:var(--info-tx);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .line-item-link-icon{font-size:12px;opacity:.7}
+.line-item-receipt-text{font-size:11px;color:var(--mut);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .case-badge{font-size:10px;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
 .filter-select{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:12px;font-family:inherit;appearance:none;-webkit-appearance:none}
 .sync-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
@@ -902,14 +903,19 @@ function renderPurchaseEvent(evt){
     var receiptLink=_urlEvt?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlEvt)+'"'+_urlsAttrEvt+' style="margin-top:12px">View Original Receipt</button>':'';
     detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
       var desc=p.description||p.name||'';
-      var nameHtml=escHtml(desc)+(p.is_case?' <span class="case-badge">CASE</span>':'');
+      // A linked line is labelled with the catalog name (what the crew calls
+      // it); the receipt's own text drops to a muted second line when it
+      // differs, so the line can still be matched against the paper receipt.
+      var label=p.item_name||desc;
+      var nameHtml=escHtml(label)+(p.is_case?' <span class="case-badge">CASE</span>':'');
+      var receiptText=p.item_name&&desc&&desc!==p.item_name?'<div class="line-item-receipt-text">'+escHtml(desc)+'</div>':'';
       // A linked line jumps to its catalog item in Setup so a wrong link or a
       // wrong item can be fixed from the receipt. Unlinked lines have nothing
       // to jump to and stay plain text (the card toggle still owns the tap).
       var nameBlock=p.purchase_item_id
-        ?'<div class="line-item-link" data-action="goto-setup-item" data-item-id="'+escHtml(p.purchase_item_id)+'" data-item-desc="'+escHtml(desc)+'" title="View in Setup">'+nameHtml+'<span class="line-item-link-icon" aria-hidden="true">\u270E</span></div>'
+        ?'<div class="line-item-link" data-action="goto-setup-item" data-item-id="'+escHtml(p.purchase_item_id)+'" data-item-desc="'+escHtml(label)+'" title="View in Setup">'+nameHtml+'<span class="line-item-link-icon" aria-hidden="true">\u270E</span></div>'
         :'<div style="font-size:13px;font-weight:500">'+nameHtml+'</div>';
-      return '<div class="line-item"><div style="flex:1;min-width:0">'+nameBlock+'<div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
+      return '<div class="line-item"><div style="flex:1;min-width:0">'+nameBlock+receiptText+'<div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
     }).join('')+receiptLink+'</div>';
   }
   var evtWho=cardLabel(evt);
