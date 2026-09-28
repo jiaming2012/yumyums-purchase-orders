@@ -446,7 +446,15 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBlobs)
 		if parseErr != nil {
 			combined := fmt.Sprintf("sonnet: %v; sonnet-retry: %v", primaryErr, parseErr)
-			slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
+			// A billing wall / rate limit / outage is not a parse failure:
+			// store the transient marker so the row is re-parsed on the next
+			// poll (classifyExistingTx) and the card says why in words.
+			if marker := transientParseMarker(primaryErr, parseErr); marker != "" {
+				slog.Warn("receipt worker: transient Anthropic failure — parking for automatic retry", "tx_id", tx.ID, "reason", marker, "error", parseErr)
+				combined = marker
+			} else {
+				slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
+			}
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
 				slog.Info(fmt.Sprintf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr))
 			}
@@ -687,7 +695,9 @@ func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string
 			 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
 			UNION ALL
 			SELECT 3, 'pending', COALESCE(reason,''),
-			       (parse_error IS NOT NULL),
+			       -- a 'transient: ...' marker (billing wall, rate limit, outage)
+			       -- is NOT a parse failure: the row stays retryable.
+			       (parse_error IS NOT NULL AND parse_error NOT LIKE 'transient: %'),
 			       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0)
 			  FROM pending_purchases
 			 WHERE bank_tx_id = $1

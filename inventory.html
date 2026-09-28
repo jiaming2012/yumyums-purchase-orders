@@ -948,8 +948,16 @@ function renderPendingCard(p){
   }
   var parseErrHtml='';
   if(hasParseError){
-    var truncated=String(p.parse_error).slice(0,140);
-    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+    var perr=String(p.parse_error);
+    if(perr.indexOf('transient: ')===0){
+      // The worker could not reach Anthropic (out of credits, rate limit,
+      // outage) — the receipt itself is untested. Say so in words; the next
+      // sync retries it automatically, and Retry parse still works now.
+      parseErrHtml='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Not parsed yet: '+escHtml(perr.slice(11))+'. The next sync will retry automatically.</div>';
+    } else {
+      var truncated=perr.slice(0,140);
+      parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+    }
   }
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';

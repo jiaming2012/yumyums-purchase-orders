@@ -3205,6 +3205,37 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
     await expect(card).toContainText('Parser error:');
     await expect(card).toContainText("invalid character '<'");
   });
+
+  // 2026-09-28: six receipts parked behind "400 Bad Request (Request-ID: …" —
+  // the truncated tail of an out-of-credits billing error. The worker now
+  // stores such failures as `transient: <reason>`; the card must say the
+  // reason in words, promise the automatic retry, and hide the request noise.
+  test('a transient (out-of-credits) failure reads as a sentence, not a truncated request', async ({ page }) => {
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'pe-transient', bank_tx_id: 'tx-transient', bank_total: -113.97,
+          vendor: 'RESTAURANT DEPOT', event_date: '2026-09-27',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: 'transient: Anthropic account out of credits',
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const card = page.locator('[data-action="review-pending"][data-id="pe-transient"]');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Anthropic account out of credits');
+    await expect(card).toContainText('retry');
+    await expect(card).not.toContainText('Parser error:');
+    await expect(card).not.toContainText('transient:');
+    await expect(card).not.toContainText('Request-ID');
+    // Still manually retryable once credits are back.
+    await expect(card.locator('[data-action="retry-parse"]')).toBeVisible();
+  });
 });
 
 // ─── Phase 260607-koi: Retry parse button on pending card ───────────────────
