@@ -1,0 +1,15 @@
+════ card1-g4.log — G4: build-sw.js idempotency + precache count + version parity — final HEAD 9bcee92 ════
+$ node build-sw.js   (idempotency re-run after the committed regen at 9bcee92)
+import reachability: 19 precached files parsed, 33 local references resolved, 0 outside the precache
+SW built: 32 files precached (2250.7 KB)
+Frontend version: 1.6.2
+EXIT=0
+$ git status --porcelain -- sw.js version.json workbox-*.js CLAUDE.md package.json backend/internal/version/version.go   (must be EMPTY — artifact tree clean on a second run)
+artifact_dirty_lines=0
+$ precache count:
+32
+$ marketing.html present:
+"marketing.html"
+$ version parity:
+package.json: 1.6.2 | version.go Frontend: 1.6.2 | version.json: 1.6.2
+EXIT=0

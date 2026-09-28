@@ -33,7 +33,7 @@
 | **G2 (Go)** | `go test -p 1 -count=1 ./...` | exit 0, **and counts checked, not `ok`**. 🛑 `DB_TEST_URL` must be set or the suite exits 0 while skipping every DB-coupled test — `internal/workflow` runs **zero** tests and still prints `ok`. Expect 9 packages and ~439 tests; `internal/workflow` should run **35**. For `internal/sync` the package `ok` line is **not** evidence — **the 59-subtest count is asserted by the suite itself, not eyeballed from a `-v` log** (card A1, run `20260806`, merged **`9b63958`**; see below). No manual fallback is needed: the assertion is in the tree, and a card that skips it gets a red, not a quiet pass. The human evidence line must still state that **`HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both unset** (B-36, the package that prints `ok` on zero tests; decision 108 made proving-the-suite-ran a standing evidence rule, and decision 116 kept it with amendments) |
 | **G2 (Playwright)** | `npx bddgen` · `npx playwright test --retries=0` | **Exactly one summary block.** Two blocks under one header = an invalidated run; discard and re-run. Judged against the armed-reds baseline, never against green |
 | **G3** | — | **N/A.** Preflight verdict `openspec: absent`; ledger §T-34 decision 140 keeps it that way. Create no OpenSpec scaffolding |
-| **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **31**; if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
+| **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **43** (re-measured at morning triage 2026-09-05 on both the merged tree and the base — this line read **31** for two cycles, which disarms the tripwire by making a genuine drop look like the documented number); if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
 | **RF (Red-first)** | the `## Red-first` section of the card's merge-intent | The card shows its defect **red before the fix** — a failing test, probe, or captured failing command with its exit code — and G6 re-verifies that evidence. **A card that changes code and has shown no red cannot merge.** Cards whose deliverable is not code state `n/a` with the reason, as C1 and A4 did on run `20260806`. Named gate ruled at triage 2026-08-05 (ledger §T-38 decision 153) |
 | **G6** | fresh-context adversarial subagent | Inputs are the card's slate entry, the diff and the evidence — **never** the implementer's reasoning. On run 20260804 all four cards' G6 found something the card had not; the slot earns itself |
 
@@ -192,8 +192,18 @@ a confined gate actually paid for a full suite.
 - `export PATH="/usr/local/go/bin:$PATH"` before **any** Go or Playwright leg. The non-interactive
   shell does not carry Go; Playwright's `webServer` dies with `go: not found` / exit 127, which
   **looks like a test failure and is not**.
-- Postgres is on **:5433**, not 5432. Credentials on this box are **`yumyums:yumyums`**, not
-  `postgres:postgres` — the wrong one costs a 15-minute run (it fails loud, correctly).
+- 🛑 **Tests run on `:5434`, NOT `:5433`.** `:5433` (`yumyums-dev-pg`) is the **dev *and*
+  production** cluster — it serves `hq.yumyums.kitchen` via the `production` search_path.
+  Pointing a suite, a probe or a `psql` at it is how the production database was destroyed on
+  2026-08-06 (B-141/B-143, decision 155). The test cluster is **`yumyums-test-pg`**, host port
+  **`:5434`**, role **`hqtest`** (not `yumyums`), volume `yumyums-test-pgdata`, defined in
+  `docker-compose.test.yml`. Bring it up with `task test:db:up` (every `test:*` target already
+  depends on it); print every resolved coordinate, read-only, with `task test:targets`.
+  `:5432` is `infra-postgres-1` (slack-trading) and is nobody's here.
+  *(Corrected at morning triage 2026-09-05, decision 176. This line previously read "Postgres
+  is on :5433, credentials yumyums:yumyums" — the production coordinates, two cycles after
+  decision 155 moved tests off them. Run `20260906-2` overrode it correctly at every leg and
+  reported it; the override is evidence the line was wrong, not that leaving it was safe.)*
 - `-p 1` is load-bearing (`Taskfile.yml:108` already does it): packages share one test DB and each
   `TestMain` truncates. Without it six packages red on cross-package interference — **not** a
   production defect.

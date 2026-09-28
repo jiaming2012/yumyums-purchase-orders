@@ -57,3 +57,14 @@
 - **Recorded:** 2026-08-28
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Race-proven body ships; disclosed envelope + stamps are in-remit
+
+- **Preference:** When a card's deployed function preserves the signed text's enforcement rule, atomicity, and result vocabulary, the night may ship it without parking even when it adds standard safe-pattern execution wiring (owner-privilege execution, pinned search path, explicit grants) and/or bookkeeping stamps on rows the function already updates — provided every addition is disclosed in the shipped artifact itself and named for ratification in HANDOFF.
+- **Why (operator):** Operator, morning triage 2026-09-04, on Card 2's redeem() delta (updated_at stamp + SECURITY DEFINER wiring): chose 'Stands as shipped — the version that was actually race-proven is the version that ships.' Bound sentence adopted by the operator from the offered wording, envelope-plus-stamps scope.
+- **Weight:** moderate
+- **Bound:** Only the execution envelope and bookkeeping stamps on rows the function already updates; the enforcement rule, the result vocabulary, and which rows get touched must match what I signed.
+- **Operator:** jamal@Jamals-MacBook-Pro.local
+- **Recorded:** 2026-09-04
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

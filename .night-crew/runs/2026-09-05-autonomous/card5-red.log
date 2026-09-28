@@ -1,0 +1,398 @@
+=== card5 RED-FIRST — run 2026-09-04T23:45:56Z ===
+tree: HEAD=0118218f687ba16a4e2ed76add7900c4d8399d72 — pre-change (production files stashed: no scanner in marketing.html, no marketing/scanner.js / scan-page.js / lib/html5-qrcode.min.js; spec + fixtures present)
+note: a FIRST red attempt at 23:39Z was invalidated — the implementer wrote production files into the working tree while that run's webServer (STATIC_DIR=../) was live, so its last 6 tests raced green against mid-run files. This run is the clean capture: tree untouched for its whole duration.
+cmd: npx bddgen && TEST_PORT=3105 TEST_DB_NAME=hq_test_e2e_c5 npx playwright test tests/marketing.spec.js -g "Camera scanner decode" --retries=0
+[2m[WebServer] [22m── reset hq_test_e2e_c5 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.6.2 ──
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.508922-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.510173-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.567138-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.690226-04:00","level":"INFO","msg":"OK   0001_users.sql (65.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.752412-04:00","level":"INFO","msg":"OK   0002_sessions.sql (62.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.809994-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (57.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.86036-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (47.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.931757-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (71.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:12.970652-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (38.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.011533-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (40.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.067219-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (55.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.124101-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (56.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.162792-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (38.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.210457-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (47.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.275025-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (64.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.322441-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (47.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.365004-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (42.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.441111-04:00","level":"INFO","msg":"OK   0015_ops.sql (75.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.472785-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (31.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.513362-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (40.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.57699-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (63.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.658413-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (81.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.716984-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (58.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.76912-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (52.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.819357-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (50.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:13.898345-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (78.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.106312-04:00","level":"INFO","msg":"OK   0024_inventory.sql (207.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.152341-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (45.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.172134-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (19.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.189691-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (17.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.229025-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (39.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.246058-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (16.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.287846-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (41.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.312218-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (24.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.342795-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (30.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.395856-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (52.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.478047-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (81.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.512221-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.540786-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (28.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.581319-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (40.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.624261-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (42.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.658515-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (34.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.797756-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (138.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.819452-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (21.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.891753-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (72.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.93594-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (44.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:14.98001-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (43.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.045387-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (65.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.061332-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (15.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.132902-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (71.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.168721-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (35.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.215364-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (46.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.235359-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (19.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.253367-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (17.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.275937-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (22.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.289943-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (13.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.307449-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (17.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.324808-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (17.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.356433-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (31.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.382353-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (25.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.416993-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (34.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.433316-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (16.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.504525-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (71.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.554684-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (50.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.611252-04:00","level":"INFO","msg":"OK   0062_recipes.sql (56.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.65083-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (39.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.676745-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (25.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.700027-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (23.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.727211-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (27.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.790532-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (63.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.833305-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (42.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.858708-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (25.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.888005-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (29.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.915687-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (27.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:15.95482-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (38.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.035649-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (80.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.062971-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (27.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.122237-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (59.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.163893-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (41.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.210715-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (46.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.210754-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 77","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.210781-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.395093-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.514316-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"4d187704-633d-49d1-8d8b-5e8e7d70abe0"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.514393-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.644332-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"3af16f35-b628-468c-b358-736e23387cc3"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.674988-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.778106-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:16.948797-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.521052-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.521151-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.521214-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.521491-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.522752-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.522977-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.523096-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.523137-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.523184-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.523293-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.52366-04:00","level":"INFO","msg":"server listening","port":"3105"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.524242-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.176:3105"}
+[2m[WebServer] [22m{"time":"2026-09-04T19:46:17.524285-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 14 tests using 1 worker
+
+  ✘   1 [chromium] › tests/marketing.spec.js:357:3 › Camera scanner decode (card camera-scanner-decode) › a printed QR decodes from an image and its on-device hash equals the committed seed literal (30.0s)
+  ✘   2 [chromium] › tests/marketing.spec.js:375:3 › Camera scanner decode (card camera-scanner-decode) › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode) (30.0s)
+  ✘   3 [chromium] › tests/marketing.spec.js:397:3 › Camera scanner decode (card camera-scanner-decode) › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode) (30.0s)
+  ✘   4 [chromium] › tests/marketing.spec.js:416:3 › Camera scanner decode (card camera-scanner-decode) › resolution order: the local replica beats the QR-embedded offer when both exist (30.0s)
+  ✘   5 [chromium] › tests/marketing.spec.js:430:3 › Camera scanner decode (card camera-scanner-decode) › a token in neither replica with no descriptor resolves unknownCode (F2 display) (30.0s)
+  ✘   6 [chromium] › tests/marketing.spec.js:438:3 › Camera scanner decode (card camera-scanner-decode) › a payload that is not a Yumyums code resolves invalidPayload, loudly (30.2s)
+[2m[WebServer] [22m{"time":"2026-09-04T19:49:32.09719-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+  ✘   7 [chromium] › tests/marketing.spec.js:448:3 › Camera scanner decode (card camera-scanner-decode) › F3 offline: a locally-redeemed code rejects immediately as spentLocally (30.1s)
+[2m[WebServer] [22m{"time":"2026-09-04T19:50:06.158885-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+  ✘   8 [chromium] › tests/marketing.spec.js:462:3 › Camera scanner decode (card camera-scanner-decode) › F3 online: the local redeemed flag does NOT reject — the server decides at submit (30.1s)
+[2m[WebServer] [22m{"time":"2026-09-04T19:50:38.417221-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✘   9 [chromium] › tests/marketing.spec.js:477:3 › Camera scanner decode (card camera-scanner-decode) › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live (30.0s)
+  ✘  10 [chromium] › tests/marketing.spec.js:497:3 › Camera scanner decode (card camera-scanner-decode) › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset (30.0s)
+  ✘  11 [chromium] › tests/marketing.spec.js:521:3 › Camera scanner decode (card camera-scanner-decode) › hash caching: repeated scans of one token digest once (30.0s)
+  ✘  12 [chromium] › tests/marketing.spec.js:530:3 › Camera scanner decode (card camera-scanner-decode) › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt (30.1s)
+  ✘  13 [chromium] › tests/marketing.spec.js:547:3 › Camera scanner decode (card camera-scanner-decode) › F6: re-scanning the same code re-shows the result instead of erroring or duplicating (30.1s)
+  ✘  14 [chromium] › tests/marketing.spec.js:559:3 › Camera scanner decode (card camera-scanner-decode) › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check) (30.1s)
+
+
+  1) [chromium] › tests/marketing.spec.js:357:3 › Camera scanner decode (card camera-scanner-decode) › a printed QR decodes from an image and its on-device hash equals the committed seed literal 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:358:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-54b28--the-committed-seed-literal-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:375:3 › Camera scanner decode (card camera-scanner-decode) › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:376:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-a305d-local-replica-image-decode--chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:397:3 › Camera scanner decode (card camera-scanner-decode) › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:398:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-2a5d4-ed-unverified-image-decode--chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:416:3 › Camera scanner decode (card camera-scanner-decode) › resolution order: the local replica beats the QR-embedded offer when both exist 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:417:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-37824-edded-offer-when-both-exist-chromium/error-context.md
+
+  5) [chromium] › tests/marketing.spec.js:430:3 › Camera scanner decode (card camera-scanner-decode) › a token in neither replica with no descriptor resolves unknownCode (F2 display) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:431:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-68834-ves-unknownCode-F2-display--chromium/error-context.md
+
+  6) [chromium] › tests/marketing.spec.js:438:3 › Camera scanner decode (card camera-scanner-decode) › a payload that is not a Yumyums code resolves invalidPayload, loudly 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:439:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-f0a97-olves-invalidPayload-loudly-chromium/error-context.md
+
+  7) [chromium] › tests/marketing.spec.js:448:3 › Camera scanner decode (card camera-scanner-decode) › F3 offline: a locally-redeemed code rejects immediately as spentLocally 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:449:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-3ecab-immediately-as-spentLocally-chromium/error-context.md
+
+  8) [chromium] › tests/marketing.spec.js:462:3 › Camera scanner decode (card camera-scanner-decode) › F3 online: the local redeemed flag does NOT reject — the server decides at submit 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:463:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-4b206-he-server-decides-at-submit-chromium/error-context.md
+
+  9) [chromium] › tests/marketing.spec.js:477:3 › Camera scanner decode (card camera-scanner-decode) › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:478:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-09c81-ode-raw-Date-now-calls-live-chromium/error-context.md
+
+  10) [chromium] › tests/marketing.spec.js:497:3 › Camera scanner decode (card camera-scanner-decode) › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:498:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-cb0b3-ine-device-keeps-its-offset-chromium/error-context.md
+
+  11) [chromium] › tests/marketing.spec.js:521:3 › Camera scanner decode (card camera-scanner-decode) › hash caching: repeated scans of one token digest once 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:522:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-71b6a-ns-of-one-token-digest-once-chromium/error-context.md
+
+  12) [chromium] › tests/marketing.spec.js:530:3 › Camera scanner decode (card camera-scanner-decode) › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:531:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-01185-rt-exactly-one-live-attempt-chromium/error-context.md
+
+  13) [chromium] › tests/marketing.spec.js:547:3 › Camera scanner decode (card camera-scanner-decode) › F6: re-scanning the same code re-shows the result instead of erroring or duplicating 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:548:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-1b2e4--of-erroring-or-duplicating-chromium/error-context.md
+
+  14) [chromium] › tests/marketing.spec.js:559:3 › Camera scanner decode (card camera-scanner-decode) › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check) 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      331 |   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      332 |   await page.goto('/marketing.html');
+    > 333 |   await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
+          |              ^
+      334 | }
+      335 |
+      336 | async function seedLocal(page, docs) {
+        at openScanner (/Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:333:14)
+        at /Users/jamal/projects/yumyums/wt-20260905-c5/tests/marketing.spec.js:560:5
+
+    Error Context: test-results/marketing-Camera-scanner-d-0b3f2-the-attended-morning-check--chromium/error-context.md
+
+  14 failed
+    [chromium] › tests/marketing.spec.js:357:3 › Camera scanner decode (card camera-scanner-decode) › a printed QR decodes from an image and its on-device hash equals the committed seed literal 
+    [chromium] › tests/marketing.spec.js:375:3 › Camera scanner decode (card camera-scanner-decode) › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode) 
+    [chromium] › tests/marketing.spec.js:397:3 › Camera scanner decode (card camera-scanner-decode) › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode) 
+    [chromium] › tests/marketing.spec.js:416:3 › Camera scanner decode (card camera-scanner-decode) › resolution order: the local replica beats the QR-embedded offer when both exist 
+    [chromium] › tests/marketing.spec.js:430:3 › Camera scanner decode (card camera-scanner-decode) › a token in neither replica with no descriptor resolves unknownCode (F2 display) 
+    [chromium] › tests/marketing.spec.js:438:3 › Camera scanner decode (card camera-scanner-decode) › a payload that is not a Yumyums code resolves invalidPayload, loudly 
+    [chromium] › tests/marketing.spec.js:448:3 › Camera scanner decode (card camera-scanner-decode) › F3 offline: a locally-redeemed code rejects immediately as spentLocally 
+    [chromium] › tests/marketing.spec.js:462:3 › Camera scanner decode (card camera-scanner-decode) › F3 online: the local redeemed flag does NOT reject — the server decides at submit 
+    [chromium] › tests/marketing.spec.js:477:3 › Camera scanner decode (card camera-scanner-decode) › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live 
+    [chromium] › tests/marketing.spec.js:497:3 › Camera scanner decode (card camera-scanner-decode) › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset 
+    [chromium] › tests/marketing.spec.js:521:3 › Camera scanner decode (card camera-scanner-decode) › hash caching: repeated scans of one token digest once 
+    [chromium] › tests/marketing.spec.js:530:3 › Camera scanner decode (card camera-scanner-decode) › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt 
+    [chromium] › tests/marketing.spec.js:547:3 › Camera scanner decode (card camera-scanner-decode) › F6: re-scanning the same code re-shows the result instead of erroring or duplicating 
+    [chromium] › tests/marketing.spec.js:559:3 › Camera scanner decode (card camera-scanner-decode) › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check) 
+EXIT=1

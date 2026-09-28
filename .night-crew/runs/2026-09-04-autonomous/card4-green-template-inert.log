@@ -1,0 +1,11 @@
+# card4-green-template-inert — TEMPLATE.md present in the scorecard dir is INERT to the union read (no bogus run row)
+# command: night-crew scorecard --repo .
+# date: 2026-09-04T06:53:41Z
+# scorecard dir enumerated:
+#   TEMPLATE.md
+#   milestones.jsonl
+
+# Team scorecard
+
+No runs to show.
+EXIT=0

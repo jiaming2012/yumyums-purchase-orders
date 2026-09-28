@@ -387,6 +387,37 @@ async function build() {
       'vendor/**/*.bundle.js',
       'sync-rxdb/*.js',
       'sync-schema/collections.js',
+
+      // ═══ THE MARKETING SCANNER — card camera-scanner-decode, run 20260905 ═
+      //
+      // marketing.html (already precached) carries
+      //     <script src="lib/html5-qrcode.min.js" defer>
+      //     <script type="module" src="marketing/scan-page.js">
+      // and scan-page.js statically imports marketing/scanner.js plus the four
+      // marketing/sync/ modules (replicas → pull-replication, push-replication,
+      // clock) and ../vendor/rxdb.bundle.js (already precached above). All
+      // seven NEW entries are therefore reachability-required (B-37): drop any
+      // one and this build exits non-zero.
+      //
+      // NARROW ON PURPOSE, decision 58/59 discipline:
+      //   * 'lib/html5-qrcode.min.js' names the ONE vendored single-file lib —
+      //     NOT 'lib/**', which would sweep chart.umd.min.js (208 KB, referenced
+      //     by no page) onto every crew phone. lib/ (not vendor/) because
+      //     vendor/ is the build-vendor.sh bundle pipeline and its precache set
+      //     is pinned to exactly the rxdb bundle by tests/sw-manifest.spec.js.
+      //   * 'marketing/*.js' + 'marketing/sync/*.js' are single-level — they
+      //     must never match marketing/sync/harness/** (the Node gate harness)
+      //     or marketing/package.json.
+      // Dockerfile pairing (the decision-59 trap): the marketing/ COPY + cp
+      // lines landed in the same change set; lib/ was already copied wholesale.
+      'lib/html5-qrcode.min.js',
+      // xstate v5 UMD (card redemption-submit-flow) — same narrow single-file
+      // form: the submit flow's statechart engine, referenced by
+      // marketing.html as a classic script. NOT 'lib/**' (chart.umd.min.js
+      // stays un-swept).
+      'lib/xstate.umd.min.js',
+      'marketing/*.js',
+      'marketing/sync/*.js',
     ],
     globIgnores: [
       'node_modules/**',

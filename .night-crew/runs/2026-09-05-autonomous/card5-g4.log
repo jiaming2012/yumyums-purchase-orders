@@ -1,0 +1,20 @@
+=== card5 G4 — 2026-09-04T23:55:34Z — HEAD=3272a18fe319e1a2cfefede408f91fe9824e2040 ===
+--- pass 1: node build-sw.js on committed HEAD (lockfile-true npm ci env: workbox-build 7.4.1) ---
+import reachability: 26 precached files parsed, 41 local references resolved, 0 outside the precache
+SW built: 39 files precached (2682.0 KB)
+Frontend version: 1.6.2
+PASS1_EXIT=0
+--- pass 2 (idempotency): node build-sw.js again, then git status ---
+import reachability: 26 precached files parsed, 41 local references resolved, 0 outside the precache
+SW built: 39 files precached (2682.0 KB)
+Frontend version: 1.6.2
+PASS2_EXIT=0
+--- git status --porcelain (must be empty = tree clean, committed sw.js reproduced byte-identical) ---
+?? .night-crew/runs/2026-09-05-autonomous/card5-g4.log
+--- version parity ---
+version.go Frontend = Frontend = "1.6.2"
+package.json version = 1.6.2
+version.json         = {"frontend":"1.6.2"}
+--- precache count ---
+count=39
+EXIT=0

@@ -3693,3 +3693,563 @@ through the tunnel: **12 MET · 0 PARTIAL · 2 NOT MET** across 14 KRs (Product 
   `milestone-close hq 20260903`), verified by handle (`verify-transfers` 1/1 backed). Marker
   `hq-20260903` written — carrying no boundary, as every marker here does while nothing writes run
   records. This target has no reflections store; recorded as an absence.
+
+### T-51 roadmap round — next milestone "Close the loop" authored, 2026-09-03 (attended `/nc-roadmap-round`)
+
+Milestone-boundary planning round. Preconditions confirmed clean: "Prod current and honest" CLOSED
+(T-50, marker `hq-20260903`), scorecard shows no `Advisory:` (no untriaged run), no open operator
+fork. Two documented absences: **no `/nc-retro`** preceded this round (proceeded on the T-50 close
+record + backlog + OKR grades), and **no `openspec/`** in this target (cards are plain-markdown
+items; no OpenSpec deferral markers apply). Previous pair archived to
+`reference/roadmap-2026-09-03-prod-current-and-honest.md` + `reference/okrs-2026-09-03-prod-current-and-honest.md`.
+
+- **Scope (operator call):** the **whole** QR offline-redemption handoff becomes one milestone —
+  **"Close the loop"** (a code issued to a customer becomes a money-tied, campaign-attributable
+  redemption at the window, offline-safe). 8 activities (0, A–G), 17 cards, build-order-gated.
+  Design of record: `docs/qr-offline-redemption-handoff.md`, **synced this round to the §19-addendum
+  version** from `~/projects/yumyums/marketing/qr-redemption/`.
+- **Engineering calls decided at this round** (revisitable in Activity 0's spike if field-obs #6
+  changes device topology): **R1** — the RxDB "reuse" is greenfield (the sync-rxdb cutover never
+  happened in prod); **R2** — the scanner's online submit is orchestrated by the §18 gstate machine
+  in HQ Go while Supabase's atomic `redeem()` stays the **sole** single-use arbiter; **R3** —
+  replicate **all non-expired offers** to every tablet (not bloat: ~1 KB/doc all-in →
+  1,000 customers × 2 offers ≈ ~2 MB, bounded by `expires_at > now()` and decoupled from lifetime
+  customer count) as the **primary** offline path, with the QR's **embedded offer** (D-KR3) as the
+  not-yet-synced fallback. The earlier "bloat" framing was retracted on the operator's arithmetic
+  challenge.
+- **Design refinements folded in from the §19 addendum:** **F5** auto-apply/"best offer" is CUT
+  (app displays offers; staff apply in Toast) — fixed a live contradiction in P-KR2's wording;
+  **F2** unverifiable-code offline override with a new `unverified_code` column on `scan_attempts`;
+  **F4** `RaceLostReconciled` domain event → Shift-Manager notification; **F1** connectivity as an
+  orthogonal region (+ `stale` state); **F3** stale already-used (reject offline / server-wins
+  online); **F6** in-session re-scan dedupe. The client scanner's state-machine approach
+  (**XState vs a hand-rolled parallel-region machine**) is deferred to a **spike near Activity C**,
+  not decided in the abstract — operator's call.
+- **OKRs authored beside the roadmap** (§15j.42), `night-crew okr validate` clean and
+  `okr dry-run` 15/15 rehearsed, 0 refused: **15 KRs** (Product 4 · Delivery 3 · Engineering 4 ·
+  QA 4), modes **4 attested · 3 derived · 8 disclosed-deferred** (greenfield surfaces honestly
+  disclosed-deferred; the two carried QA-infra KRs + the delivery compliance-mechanism KR are
+  derived). Close bar = three operator-verifiable legs (a real end-to-end redemption + "already
+  used" re-scan; the join lands `matched` T+1; offline-safe-by-policy both branches).
+- **Backlog dispositions:** QR handoff promoted whole → Activities 0–F; the two NOT-MET QA KR
+  producers (`backlog-machine-migration` Q-KR2, `team-records-from-hand-runs` Q-KR3) re-promoted →
+  Activity G; `media-recovery` (B-173) left open (unrelated, carried); the **46 CLI-visible `new`
+  items were not individually walked** this round (scoped to the handoff) and stay `new` — a
+  dedicated backlog walk is worth scheduling after `backlog-machine-migration` makes the legacy
+  entries machine-visible. `BACKLOG.md` unedited (dispositions recorded in the roadmap).
+- **Next (correct flow, target repo):** `/nc-spike-open` on Activity 0 (prove #6, the race, RxDB
+  feasibility) → the `/nc-pm-session` → `/nc-pm-grill-back` evening → `/nc-slate-plan` (gated on
+  the spike extraction records) → overnight run. `/nc-slate-plan` is last, not next.
+
+### T-52 — Morning triage: run `20260904` reviewed and merged to `dev` (2026-09-04, attended)
+
+- **Run merged.** `overnight-20260904` (19 commits: 15 patches + 4 clean merges, 50 files,
+  +5,336/−699) merged `--no-ff` → `dev` at `b9beddd`. **4 of 4 cards landed, 0 parked, 0 open
+  forks** — serial dispatch 1→2→3→4 as chosen at the slate sitting. Wall ≈1h35m vs the serial
+  mid-estimate ≈3h40m; first-pass rate 1.00. Cards: `supabase-schema-and-rls` (a1a3401),
+  `redeem-rpc-race-proof` (4617b8a), `backlog-machine-migration` (846e572),
+  `team-records-from-hand-runs` (5062d3e). All four roadmap cards flipped DONE. The merged
+  `dev` tree is byte-identical to the reviewed run-branch tip, so the adversarial gate
+  evidence transfers to `dev` unmodified.
+- **Gate evidence from an independent adversarial re-run** (fresh subagent, own scratch dir,
+  never the closeout's own gate lines): backlog check exit 0 "valid — 209 entries" with
+  mutation probes red (duplicate handle, mangled head); supabase verify 01/02/03/04 all exit 0
+  on the final tree — the race gate's 20/20 rounds `winners=1` counted by line, and the naive
+  red-analog reproduced the double-win (winners=2) under the reviewer's own execution;
+  scorecard renders 20260904 with 4/4 record-backed roles and the `.md`-inert template claim
+  was mechanically confirmed; `replay`/`testdata` diff empty; G4 greps N/A-VACUOUS exactly as
+  B-14 states. Card 3's preservation claim independently re-proved: lost=0 under three
+  case-sensitive tokenizations plus per-entry containment (B-76/B-92/B-145/B-77 + 5 random).
+  Substrate discipline held: docker-exec into the spike stack only; :5432/:5433/:5434 never
+  touched; repo left byte-identical. Unverified (reported, not assumed): the closeout's
+  Temporal `workers check` line (no artifact; container in a restart loop at triage) and the
+  historical process claims (timings, dispatch order).
+- **Decision 163 — Card 2's delta from the signed text stands as shipped.** The adversarial
+  diff showed the HANDOFF's "only `updated_at`" phrasing was too narrow: the deployed body is
+  logically identical (enforcement predicate, atomicity, result taxonomy) but adds the
+  `updated_at = now()` stamp AND envelope wiring — SECURITY DEFINER, `search_path = ''`,
+  explicit revoke/grant, pgrst reload — disclosed in the migration header. Put to the operator
+  with the full list; chosen **stands as shipped** over *strip the timestamp* and *re-sign the
+  full text*: the race-proven body is the body that ships, the stamp feeds the replication
+  checkpoint Card 1 indexes, and the wiring is the required hardening for an RLS-fronted RPC.
+  Routed as `dec-92b5e3d46632` (escalated, correctly — a signed artifact's content sits past
+  delegation/P-1's bound).
+- **Decision 164 — capture-on-answer: candidate `delegation/C-2` proposed.** The ruling's
+  class — behavior-identical body + disclosed envelope wiring + bookkeeping stamps on rows the
+  function already updates may ship overnight and be reviewed as a named line at triage — was
+  offered back and the operator said yes, choosing the **envelope + stamps** Bound over the
+  stricter wiring-only scope, and adopting the offered Bound sentence as their own words after
+  a jargon walk-through (teller's keys / binder lock / door policy / margin notes). Pending,
+  not adopted: `night-crew preferences adopt delegation/C-2` is the operator's own act. Once
+  adopted it covers the exact gray area today's `decisions audit` names as uncovered (coverage
+  50% — 1 of 2; the covered one leaned on delegation/P-1).
+- **Decision 165 — stranded work: record and leave.** The worktree sweep found
+  `workspace/hq-scheduling-app` (31 commits never on `dev`) and the pinned `main` worktree's 3
+  deploy-fix commits (the same three B-348 already records — re-confirmed, not re-filed).
+  Chosen **record-and-leave** over *summarize-first* and *rule-now*: B-415 filed for the
+  workspace; no branch merged or deleted (patch-equivalent branches can still
+  content-duplicate on merge, B-133 class). Routed as `dec-d0b83278fed6` (escalated).
+- **Conflict-log audit clean.** 4 entries for 4 merges, clean merges logged, every entry names
+  intents that exist; all four merge-intents carry the three durable fields with explicit
+  "nothing here" markers. Notes read against diffs on every shared surface (COMMANDS.md dual
+  stanzas byte-intact, roadmap flips, GAP-1 `validated:` ledger append) — all truthful. Two
+  cosmetic dishonesties recorded, no action owed: Card 1's merge-intent prose says
+  "PLANNED → DONE" where the diff (correctly) flips DRAFTING; HANDOFF's "B-412 residuals
+  verified verbatim" reads as if the handle pre-existed when Card 3 newly assigned it.
+- **Filed / reconciled.** New: **B-415** (stranded hq-scheduling-app workspace), **B-416**
+  (`reset_bare` stale functions — G6's note widened by the adversarial run to three spike-era
+  functions), **B-417** (`01-structure.sh` non-deterministic ~7-min hang, retry clean),
+  **B-418** (scorecard rounding + stem-rule nit), **B-419** (`seed.sql` hosted-apply guard,
+  rides `external-accounts-provision`), **B-420** (backlog check validates structure, not
+  census — silent deletion passes). Reconciled: B-76/B-92 heads `new` → `done` (their ✅
+  RESOLVED continuations date to 2026-08-04); the line-147 comment claiming the check rejects
+  the document corrected (it passes since the migration). `backlog check` green after all
+  edits: **valid — 215 entries** (the armed §4.5 gate's first real firing). Card actuals
+  appended for all four cards (re-export class again far under band; followup-batch at doc
+  scale ~40m vs the 110m risk price).
+- **Standing flags unchanged:** Playwright armed reds B-174 ×3 + B-176 ×1 and the B-178
+  sync-RLS environmental red were untouched by tonight (no card owed them). The attended
+  follow-ups the slate scoped remain: hosted `supabase/` apply once Activity 0 provisions
+  (~15m attended), `external-accounts-provision` scheduling (A2P/10DLC 1–3 week lead gates
+  Activity E), and the now-possible backlog walk over the 46 `[new]` CLI-visible items.
+
+### T-53 — Morning triage: run `20260905` reviewed and merged to `dev` (2026-09-05, attended)
+
+**The night:** slate-20260905, 7 cards, Activities B+C+D, concurrent 2-track. **6 landed
+overnight, card 6 complete-but-parked on fork D-1** (the run's only gray area; decisions
+journal holds exactly one record, disposition escalated). 52 commits, 96 files,
++28,560/−44 on the run branch; card 6 added 25 files / +9,296 at triage.
+
+**Adversarial re-verification (fresh scratch clone, mutation clone, dev-base clone):**
+every executable closeout claim reproduced — build+vet clean on go 1.26.2; Go suite
+337/1/2 with the sole red `TestJWTBridgeRLS` re-proven red on the dev BASE; full e2e
+848/1/6 with the lone hard red = base-proven DBL-05 and zero unexplained; `sw.js`
+byte-identical + idempotent at precache 39 (history 31→32→32→39 matches every per-card
+claim); both vendored libs byte-identical to their registry tarballs — html5-qrcode 2.3.8
+sha256 `660b12437b1d747e3e68b8be0685c08cb728140110ad213f167b14b66f8b1d8e`, xstate 5.32.6
+sha256 `e7f04e1f780f5f67b0d4286b85e6d01e16473ab42b5a466cd56282556838fa28` (the sha-recording
+item HANDOFF §4 owed — recorded here); migration 0077 + `POST /api/v1/marketing/redeem` +
+gstate v0.3.1 present; discipline greps verified vacuous (B-14), not skipped. Mutation
+probes: **5 of 6 guards real** (clock offset both signs, naive-expiry fallback, GAP-1
+burn-persist belt, GAP-1 keyset tiebreak, card 7 sink-failure loudness all red when
+weakened); the survivor is the gate hole filed as B-429. Unverified and said so: card 6's
+own in-run numbers (conformance + strictness since re-proven at triage, below), per-card
+e2e ×2 legs, red-first replays, the run-integrity narrative, the live-camera path.
+
+**Conflict-log audit clean:** 6 entries for 6 merges + an explicit no-Merge-7 park coda;
+all six merge-intents carry the three durable fields; the night's one conflict
+(timings.log append-append, union) correct; zero-diff claims verified against real diffs;
+one DISCLOSED integrity nick (card 2's independent G6 harness log lost at worktree
+removal — implementer's own log committed, loss disclosed in Merge 3).
+
+- **Decision 166 — D-1 ratified: unknown→false stands as shipped.** The §8 question —
+  which behavior applies when a campaign's `requires_online` flag is not client-readable
+  (today: always, no campaigns replica) — put to the operator as three concrete scenarios.
+  Chosen: **ratify as shipped** (force-submit behind the `marketing-offline-override`
+  entitlement + §13 confirmation, every attempt audit-flagged, revertible by one constant)
+  over *keep-parked* (redemption held out of the app, question returns) and over
+  *refuse-when-unknown* (offline redemption dead surface until the flag replicates). Card 6
+  merged `f2f832a`. Rider carried from the proposal: **follow-up card
+  `requires-online-replication` REQUIRED before any real campaign is provisioned**;
+  close-bar leg 3 / Q-KR1 unattestable until it lands. Answer captured as candidate
+  **design/C-2** (pending — adoption is the operator's own act). Routed as a
+  morning-triage decision record (escalated — correctly the operator's).
+- **Decision 167 — follow-up card named and scoped (role-level call, stated).**
+  `requires-online-replication` authored on the roadmap (Activity B): replicate the flag
+  (campaigns replica or embedded in the codes pull), arm the §8 refusal on real data, and
+  own **F-2** (unknown-code `code_id = token_hash` vs `uuid not null` — distinct landing
+  path or skip-until-arbitration guard so card 3's push handler can't retry-poison the
+  queue). Chosen over folding F-2 into a separate card: the two failure surfaces arm at
+  the same moment (provisioning), so they ship together. F-4 filed separately (B-431) —
+  hardening, not arming.
+- **Decision 168 — merge order under the frozen-run-branch rule.** Card 6 merged onto
+  `dev` AFTER the run-branch merge (`ba5efba` → `f2f832a`), not onto the run branch —
+  "do not edit a run branch once HANDOFF.md is written" outranks D-1's one-command
+  phrasing; the resulting tree is identical (dry-run proved the clean merge either way).
+  Merged-tree gates re-run at triage: full Go suite `-p 1` green vs the armed baseline
+  (sole red = base-proven TestJWTBridgeRLS); card 6 conformance **18/18** and strictness
+  (**460 declared pairs across 23 states**) re-executed green on the byte-identical tree.
+- **Decision 169 — stranded work: record-and-leave re-confirmed (Decision 165 stands).**
+  The sweep found the same two: `workspace/hq-scheduling-app` (31 commits, B-415) and
+  `main`'s 3 deploy-fix patches (B-348). Nothing merged or deleted (B-133 class). Tonight's
+  card worktree cleared the post-merge sweep — all run work reached dev.
+
+**Filed:** B-421–B-431 (backlog check green at 226). **Ratification queue:** empty (nothing
+decided under delegation — P-1's bound held). **Ratchet:** empty. **Coverage:** 0% of 1 —
+the gap is exactly what design/C-2 covers once adopted. **Toolchain:** `npm ci` broken on
+fresh clones here (B-430); `npm ci && npm rebuild` applied to the main checkout, stale
+workbox 7.3.0 trap cleared. **Still armed:** the ATTENDED live-camera check (card 5);
+no-real-campaign-before-`requires-online-replication` (Decision 166 rider).
+
+### T-54 — Morning triage: run `20260906` reviewed and merged to `dev` (2026-09-05, attended)
+
+Run `20260906` landed 1 of 1 cards (`requires-online-replication`, merge `2eafa55`) and parked
+nothing. `decisions ratify` and `preferences ratchet` both returned empty — no delegated
+decision awaited review, which for this run is a true statement rather than an unrun step.
+Merged `--no-ff`; the Go suite re-run on the merged tree is green (`internal/sync` 162 PASS /
+0 FAIL / 2 opt-in skips with the substrate up, all 11 other packages `ok`).
+
+The night's own record was accurate about everything it measured. The decisions below turn on
+something it did **not** measure, surfaced by an adversarial review briefed to falsify it.
+
+**Decision 170 — merge the card, and BLOCK close-bar leg 3 until the pre-sync window is
+closed.** The card is a strict improvement on a state where the refusal was entirely
+unreachable, and every guard it ships was mutation-proven load-bearing at triage: forcing the
+policy source to `requiresOnline:false` reds the branch-3 e2e, replacing the F-2 guard
+condition with `false` reds the f2 harness on all six assertions, and deleting the touch
+trigger reds the campaigns harness at leg 4. But the refusal **fails open while the campaigns
+replica lags** (B-432) — reproduced with **zero production code mutated**, by removing one line
+of test seeding. Close-bar leg 3 is *"offline is safe by policy"*, and a promise that holds
+only after the tablet finishes syncing is not that. Chosen: merge and block leg 3, over filing
+it as ordinary backlog and attesting leg 3 as-is (the operator would sign a promise with an
+undocumented exception, at the window, on high-value codes) and over promoting the fix ahead of
+Activity 0 (whose external lead times are the milestone's real critical path — reordering it
+to close a first-sync window trades a longer delay for a shorter one). The unblocking card
+`refusal-holds-before-sync` is authored on the roadmap under the same precedent as decision 167:
+triage authors the card that discharges the finding it raised, rather than leaving the block
+without a destination.
+
+**Decision 171 — decision 166's ratified `unknown → false` default does NOT cover an
+unreplicated campaign.** The merge-intent scopes the ratified default to "genuinely-unknown
+**codes**", and the run leaned on that framing when it measured the adjacent `none + HIGH` case
+and called the refusal "provably dead without a source". B-432 is a different object: a
+**known, replicated, entitlement-bearing** code whose *campaign* has not arrived. The operator
+ratified a policy about codes nobody has heard of; they did not ratify one about a $40 code the
+device is holding. Chosen: rule the case outside decision 166 and treat it as an open defect,
+over reading the ratification broadly enough to absorb it — which would convert an operator's
+narrow yes into standing cover for a failure mode they were never shown. Recorded as a decision
+because the broad reading is the tempting one and it is available in writing to the next reader.
+
+**Decision 172 — a named baseline red must be re-derived before it is cited again.** Run
+`20260906` characterised its full-suite reds as one base-proven flake (DBL-05, B-421) plus load
+noise. Triage ran the suite on a detached clean `dev` with no card diff: **856 / 4 / 6**, and
+**DBL-05 passed** — at whole-suite position, in single-test isolation, and in file order. The
+four actual base reds are a set the run never names, three of them in `sync.spec.js`. Nothing
+is diff-attributable, so the card's safety conclusion stands; the label does not. Chosen: file
+it (B-433) and require re-derivation before B-421 is cited, over accepting the characterisation
+because the conclusion happened to be right. An armed list exists to tell a regression from the
+baseline; a list that names the wrong test cannot do that, and it fails silently in the
+direction of "everything is known".
+
+  🛑 **Routing note — this one did NOT auto-resolve, and the disagreement is worth keeping.**
+  Put through `night-crew decisions log`, it came back **escalated / park**: the citation
+  deliberately included `process/P-3` ("unreproducible means resolved, until it recurs")
+  **against** the proposal, and the resolver correctly refused to decide on weight alone with
+  two preferences opposed at equal strength. P-3 is the preference a future reader is most
+  likely to reach for here, and reaching for it would **invert** it — retiring the *test* on
+  evidence that falsifies the *label*. A non-reproduction of a claimed baseline is a finding
+  about the claim, not a retirement of the failure. The ruling above is therefore stated as a
+  role-level call over the resolver's park, and is flagged to the operator as such rather than
+  presented as machine-endorsed; they can overrule it and nothing else in this triage moves.
+
+Evidence corrections of record (documentation-level; no gate implicated):
+
+- **"Activity B closes 4/4" and the merge-intent's "no override, for anyone" are both
+  overstated** — true once the campaigns replica has delivered, false during the window before
+  it has. HANDOFF §"What landed, functionally" carries the same unconditional phrasing. Filed
+  as B-432; the roadmap's DONE row and close-bar leg 3 corrected in this commit.
+- **HANDOFF's G6 duration is inflated by ~11 minutes** — prose says "G6 ~37m"; `timings.log`
+  puts the review at **26m** (dispatched 06:49, verdict 07:15), and launch-to-merge at 74m,
+  which "44m + 37m" would overrun. Card-actuals appended from the stamps (the T-40 precedent).
+- **HANDOFF says "pre-change 12 redeem retries"; the card's own red evidence says 10**
+  (`card1-red.log:128`, independently reproduced at triage). The 12 is the *spike's*
+  measurement, correctly attributed as spike-measured everywhere else — only HANDOFF.md:37
+  reassigns it to this card's pre-change tree. The HANDOFF outcomes table itself says 10.
+- **The conflict log's merge-integrity command is not re-runnable in this clone** — it cites
+  `git diff wo-requires-online-replication overnight-20260906 …` and that ref does not exist
+  here. The substance is true, verified via the merge's second parent (`2eafa55^2` = `65ce45c`,
+  empty diff outside `.night-crew`). The run executed on a macOS host (`card1-*.log` stack
+  traces carry `/Users/jamal/...`), which also makes HANDOFF §5's worktree claim uncheckable
+  here rather than false. See also the **triage-side** finding below.
+- **`replicas.js:198-200` describes soft-delete behavior that cannot occur** — `public.campaigns`
+  has no `_deleted` column and `CAMPAIGNS_SELECT` omits it, so a deleted campaign does not drop
+  back to unknown; the local policy row persists. Fail-safe in direction. Filed in B-434.
+
+Findings that survived attack, recorded because a refutation attempt is evidence:
+
+- **All three shipped guards are load-bearing**, each killed by its own mutation probe (above).
+- **`buildPullUrl`'s new optional expiry bound does not disturb existing callers** — proven by
+  execution, not inspection: **36 character-identical URLs** across a checkpoint × batch-size
+  matrix including legacy checkpoints and punctuation-stressed ids. `push-replication.js` is
+  55 additions / **0 deletions**, so GAP-1's two belts are literally byte-identical.
+- **The raw scan token is never persisted** — every write path traced; only a SHA-256 hex
+  reaches `token_hash`, and the attempt schema has no raw-token property. A security-relevant
+  claim, attacked and clean.
+- **Migrations are idempotent and the constraint is real** — clean bare apply plus two warm
+  re-applies; the check rejects `(no code, no flag)`, `(flagged, no hash)` and `(hash,
+  unflagged)`, and accepts `(flagged + hash)`. Activity A's migrations byte-untouched.
+- **Red-first chronology is sound to the second** — the red commit precedes all three fix
+  commits, its diff touches zero production files, and `card1-red.log` records `no token_hash
+  column`, proving the migration was absent when the red was taken.
+- **The campaign flip holds in the UPGRADE direction too** — the run only tested downgrade; the
+  reviewer built the `false → true` (safety-direction) variant and it held end-to-end.
+- **GAP-2 is under-claimed, not over-claimed** — the shipped touch trigger mechanically does fix
+  it, and the note disclaims the credit. No finding.
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **`card/a3-rls-fixture-own` remains expected, not a finding** — preserved by decision 155
+  pending the attended `gate-rls-fixture-ownership` re-gate; named in `--expect` so the guard's
+  report is not read as new.
+- **The ATTENDED live-camera check (card 5, run `20260905`) stays ARMED** — untouched by this
+  run; nothing this triage saw bears on it.
+- **The full e2e suite was NOT re-run on the run branch at triage** and is recorded
+  **unverified**; the budget went to the clean-`dev` base run instead, which is what produced
+  decision 172. Stated rather than left to look like a pass.
+
+🛑 **Triage-side finding, recorded against this ritual rather than the run.** This triage was
+first run against a **month-stale clone** of this repo: local `dev` had diverged from
+`origin/dev` at `a236440` (2026-08-08) and the WSL box had been running unpushed nights while
+upstream continued on another machine. A complete `/nc-morning-triage` was performed on the
+stale tree — it merged an already-triaged run (`20260809`), wrote a duplicate `T-44`, and filed
+backlog handles upstream had used a month earlier — before the `git push` caught it. **Every
+check the ritual performs is local-only** (`skills preflight`, `worktrees check`,
+`run-evidence check`, the `--no-merged` branch lookup), so a stale clone reports a perfectly
+self-consistent picture of itself and nothing in the ritual reads `origin` until the final push.
+Nothing was pushed; the divergent line is preserved at branch `stale-dev-20260808` and `dev` was
+reset to `origin/dev` before this run's triage began. **Remedy: `git fetch origin` and compare
+`origin/dev...dev` BEFORE step 1 of any `/nc-*` ritual in this repo.** Filed as B-435.
+
+### T-55 — Morning triage: run `20260906-2` reviewed and merged to `dev` (2026-09-05, attended)
+
+Run `20260906-2` landed 1 of 1 cards (`refusal-holds-before-sync`, merge `afc9e97`), parked
+nothing, and hit no operator fork. `decisions ratify` and `preferences ratchet` both returned
+empty — the run routed no gray area, which for this run is a true statement rather than an
+unrun step. Merged `--no-ff`; the Go suite re-run on the merged tree is green (all 12 packages
+with test files `ok`, EXIT=0, on `:5434`/`hqtest`).
+
+**B-435's remedy was executed and is recorded as having run.** Yesterday's triage discovered
+that every `/nc-*` check is local-only and ran a full ritual against a diverged clone. This
+morning began with `git fetch origin` and `git rev-list --left-right --count origin/dev...dev`
+→ **0 behind / 2 ahead** (the spike and slate sign-off commits, both pre-run). The clone was
+current; the blindness B-435 names was not present. Stated explicitly because a check that
+passes silently is indistinguishable from one that never ran — which is the whole of B-435.
+
+**Decision 173 — merge, with three findings riding as backlog rather than blocking.** The gate
+evidence cited here is the adversarial subagent's own re-execution, never the closeout's gate
+lines: `go build`/`go vet` EXIT=0 with zero `.go` files in the diff (verified, not accepted);
+`go test ./... -p 1` all packages `ok` with per-package counts read (`workflow` 39 tests, not
+the silent zero that a missing `DB_TEST_URL` produces); `node build-sw.js` 43 files precached
+at **both** HEAD and base with a clean tree after regeneration, so the committed `sw.js`
+matches what HEAD regenerates; `tests/marketing.spec.js` 33 passed. G4's discipline greps are
+**N/A-VACUOUS** (B-14), recorded as that and not as "clean". Decisively, the fail-closed arm
+was proven load-bearing by mutation: reverting only `replicas.js:324` to its pre-card shape
+reds `tests/marketing.spec.js:877` and `:1043` with the exact reported signature, and the RED
+commit `82c4e3d` touched zero production files. Chosen: merge and carry B-438/B-439/B-440 as
+backlog, over holding the branch until the audit-record defect is fixed — none of the three
+weakens the refusal (verified independently, not assumed), and an unmerged run branch
+accumulates into next morning's finding while Activity B's queue stays blocked.
+
+**Decision 174 — `done_when` clause 2 is NOT landed, and `policy_unresolved` must not be cited
+as evidence until it is.** The run marked attempt-record distinguishability MET and disclosed
+the proof as "stitched from two runs, not one". The sharper and materially different truth,
+found by browser probe at triage: the `t,t` value is **unreachable on the shipped page**.
+`campaignPolicy.attach()` runs only inside `startSync`, which is gated on a localStorage key
+nothing in the tree ever writes, so `unresolved()` returns `false` against a permanently empty
+Map and every genuinely-unknown-code override is filed `policy_unresolved=false` — the value
+the migration's own DDL comment defines as "the campaigns replica was healthy", asserted on a
+device where no campaigns replica has ever run. The e2e that asserts `t,t` replaces both the
+policy function and the unresolved function with literals, and the harness passes literal
+booleans to `enqueueAttempt`; no shipped path produces the value. Chosen: rule the clause
+un-landed and file B-438, over accepting "stitched but continuous by code" — a column that is
+a constant today cannot discriminate anything, and the difference between *un-traversed in one
+execution* and *unreachable in shipped code* is exactly the gap an independent reproduction
+exists to find. 🛑 B-432 itself is genuinely closed and the refusal is unaffected: known codes
+key on Map membership and never consult `unresolved()`, which was verified rather than
+inferred.
+
+  🛑 **Routing note — this one did NOT auto-resolve, and the operator should know it.** Put
+  through `night-crew decisions log`, it came back **escalated / park**: PM voted **top**
+  severity, and *"top-severity questions are the operator's — no number of citations clears
+  them."* Both cited preferences were *for* the proposal (`gates/P-1` red-first-is-a-gate,
+  `process/P-4` a reproduction must sample the right condition) and citation compliance was
+  100%, so the park is not about weak evidence — it is that PM reads a column recording **why a
+  high-value offline override was allowed** as an accountability record, which is the
+  operator's to rule on rather than engineering's. The ruling above therefore stands as a
+  **role-level call over the resolver's park**, flagged as such rather than presented as
+  machine-endorsed. The operator can overrule it — mark clause 2 landed and close B-438 — and
+  nothing else in this triage moves. Same shape as decision 172's routing note in T-54.
+
+  **What the park does NOT touch:** close-bar leg 3's attestability. Leg 3 is *"offline is safe
+  by policy"* — a claim about the **refusal**, which is landed and mutation-proven. B-438 is
+  about the **attempt record**, a separate surface. Leg 3 stays attestable either way.
+
+**Decision 175 — two stranded card branches are recorded, not recovered and not deleted.**
+`card/a3-rls-fixture-own` (4 commits, B-35's "the RLS fixture database is NAMED or the run
+fails") and `card/s2-demo-sync-target` (the `demo:sync` exit-code guard, with its own G6 fix
+round and green gates) hold finished work that reached neither their run branch nor `dev`, and
+the post-merge sweep confirms they are still stranded. Operator ruled: leave both in place and
+file B-442. Chosen over deleting them (the guards would have to be rebuilt from scratch when
+the bugs they caught recur) and over merging them — 🛑 **patch-equivalence is not
+merge-safety**: the base's files have moved since these patches were applied, so a three-way
+merge can re-insert a block it reads as absent at its new location (B-133). Re-application as
+a fresh card off `dev`, taking the diff as guidance, is the only safe recovery path.
+
+**Decision 176 — `gate-ladder.md`'s environment section is corrected hq-side, at triage,
+rather than carried as a finding.** The file told a future run that "Postgres is on **:5433**,
+credentials `yumyums:yumyums`" — the cluster that serves **production**, and the precise
+instruction that destroyed the production database on 2026-08-06 before decision 155 moved
+tests to `:5434`/`hqtest`. It also stated precache count **31** against an actual **43**, which
+disarms B-37's silent-drop tripwire by making a genuine drop look like the documented number.
+Every leg of run `20260906-2` correctly overrode both, and the run reported them — but a
+correctly-overridden hazard that stays in the file is a hazard aimed at the next reader who
+does not know to override it. Chosen: fix the file now, over filing it as backlog behind the
+findings that need cards. It is a two-line edit against a live safety hazard; the run's
+override is evidence the line is wrong, not evidence that leaving it is survivable.
+
+**Decision 177 — a `BACKLOG.md` status field carries a status, and the narrative goes in the
+body.** `dev`'s pre-merge copy validated clean (230 entries, zero issues); the run's copy came
+back `4 issue(s) across 232 entries`, all of them its own edits to B-432 and B-434, which put
+multi-sentence closure prose into the trailing status field and so swallowed the plain-language
+lead the store requires. Repaired at triage by moving the narrative into the entry body and
+restoring `· _origin_ · done — <what shipped> · lead: <line>`; the file validates clean again
+at 237 entries after the five new ones. Chosen: repair and record the rule, over accepting the
+issues as house-style divergence — that reading was correct historically (B-60, when the floor
+was ~295 issues) but is **no longer true**: the floor has been cleaned to zero, so any non-zero
+count is now signal, and treating it as noise would discard the only mechanical check the
+backlog has.
+
+### T-56 — Attended sitting: provisioning sequenced ahead of the leg-3 attestation (2026-09-06)
+
+Same sitting as T-55, after the triage record was pushed. Prompted by the operator asking what
+"attest close-bar leg 3" means — a question that surfaced an error in T-55's own hand-off.
+
+**Decision 178 — close-bar leg 3 / Q-KR1 is NOT attestable today, and T-55's hand-off was
+wrong to say it was.** T-55 reported the leg "UNBLOCKED but NOT attested" and named the
+attestation as the highest-value attended act available. B-432's closure is real, so the
+*policy* no longer fails open — but Q-KR1 requires a real device holding a
+`requires_online=true` code **and** its campaign with the reachability probe killed, and the
+device can obtain neither: `startSync` is gated on `readJson(SYNC_KEY)` and nothing in the tree
+writes `hq_marketing_sync_v1` (`scan-page.js:392`, whose own comment says "Provisioned
+coordinates — absent tonight"). With no sync every collection is empty and every scan resolves
+`unknownCode`, so the high-value-refusal branch is unreachable on real data. 🛑 **This is the
+same fact as B-438's mechanism**, established during the same triage and filed against the
+audit column without being carried across to the attestation it also blocks. Recorded as a
+decision rather than a quiet correction because the failure was not the missing fact — the fact
+was in hand — it was failing to ask what else it implied.
+
+**Decision 179 — land provisioning rather than hand-seed the coordinates.** Two routes reach an
+attestation: write `hq_marketing_sync_v1` by hand in devtools and attest against that, or ship
+the provisioning call site and attest against the shipped path. Operator chose the latter.
+Chosen over hand-seeding because P-KR1 makes the operator's signature the milestone's only
+close evidence ("no card status, KR grade or closeout substitutes"), and a signature given
+against a device configured by hand attests the mechanism works when *someone already knew the
+answer* — which is the same defect class as decision 174's stubbed clause, one level up in the
+process rather than in a test. The slower route buys a signature that means what it says.
+
+**Decision 180 — `sync-coordinates-provisioning` authored under Activity B, and it carries
+B-438 and B-439 as done_when clauses rather than leaving them as loose backlog.** The card is
+wiring, not new mechanism: `POST /api/v1/sync/token` is landed (`main.go:633`), the REST
+surface is `internal/sync/proxy.go`, `startSync` is already exported (`scan-page.js:410`), and
+`SYNC_KEY` has exactly one occurrence in the tree — its own declaration. Only the caller is
+missing. Its done_when explicitly **forbids the proving test from calling `setCampaignPolicy`**,
+because that is the stub that let clause 2 pass while unreachable (decision 174); a clause about
+a value being recorded must exercise the shipped path that records it. Chosen over filing
+provisioning as a bare backlog line, on the decision 167/170 precedent: a finding that blocks a
+milestone bar gets a destination in the same sitting, not a note.
+
+**Correction discipline note.** Three corrections landed in this sitting — the "third
+consecutive run" count, B-438's "can only ever record false", and now the leg-3 attestability
+claim. All three were overstatements in the *same direction*: a claim asserted one step past
+what had actually been checked. Worth naming as a pattern rather than three separate slips.
+
+### T-57 — Morning triage: run 20260907 merged, Activity B closed (2026-09-06)
+
+Run 20260907 (1 card, `sync-coordinates-provisioning`) triaged and merged to `dev` at
+`1d53cc2` (`--no-ff`). Zero forks — DECISIONS-NEEDED records nothing parked and nothing
+routed; the ratification queue and the ratchet both read empty (real answers, verified by
+running both). `decisions audit` reports no gray areas routed, which for this run is
+accurate rather than the B-242 empty-log illusion: the night genuinely decided nothing
+under delegation and escalated nothing, so triage routed zero questions through
+`decisions log` — stated so a step that had nothing to do and a step that never ran do
+not look alike. Fetch-and-compare against `origin` ran clean before any write (0 behind /
+13 ahead; the B-435 stale-clone failure mode absent this morning — B-435's step-0 remedy
+is still owed to the ritual itself). Go suite re-run green on the merged tree
+(`go test ./... -p 1`, DB_TEST_URL on `:5434`, EXIT=0, DB-coupled packages demonstrably
+executing). Post-merge worktree sweep: only the decision-175 strands remain, as ruled.
+
+**Decision 181 — the run merged on adversarial evidence, with the one reproduced finding
+filed (B-444) rather than blocking.** An adversarial subagent re-executed the gates in a
+fresh scratch clone (G1 build+vet EXIT=0 — closing the run's own 0-byte-log evidence
+hole; G4 idempotent, 43 precached, 1.6.2 parity across all three sources; marketing
+standalone 39/39 EXIT=0; footprint diff-stat exact, `backend/` untouched; the G4
+discipline greps confirmed N/A-VACUOUS per B-14) and mutation-probed the card's four
+stub-seam claims: three guards proved real (SYNC_KEY-write removal, deviceId→randomUUID,
+latch-clear removal each turned the right tests red), and one probe survived — the
+no-`sub` refusal is untested (B-444). Chosen over holding the merge because the shipped
+code is correct today (the guard was read and confirmed; only its *test coverage* is
+absent), the operator chose "merge now" with the gap riding as backlog, and Activity B's
+close plus leg-3 attestability were the sitting's purpose. Unverified-either-way items
+stated, not assumed: the full-suite figures (committed log only), the spike-04 harness
+re-run (needs the live substrate), and the red run's own execution (order and content
+verified, run not repeated).
+
+**Decision 182 — FILL-04 filed as B-443 in the B-32/B-45 flake pool, with the B-433
+baseline re-measure attached to the same entry rather than filed separately.** The red is
+characterized (once under full-suite load, 9/9 standalone on the identical tree, not
+diff-attributable) — per the standing rule it is recorded as a red outside baseline, not
+laundered into "not flaky". B1-XT-01 passing twice running means the armed four-red list
+no longer predicts a clean run, so the re-measure rides B-443's lead (detached clean
+`dev` after the next quiet merge) instead of spawning a second entry that would drift
+independently of the first. Chosen over folding FILL-04 into B-437 because they are
+different specs with different seeds — the pool membership is the shared fact, the
+mechanism per spec is not.
+
+**Decision 183 — the run's two process findings filed together as B-445, aimed at the
+launch-prompt template rather than at run-time discipline.** 0-byte gate logs (EXIT
+marker outside the redirect) and a guard-failing `TEST_DB_NAME` share one root: the
+launch prompt handed the run values the run then had to correct. Both fixes belong where
+the values are minted — slate-planning's template — not in another instruction to
+implementers, who this run demonstrably handled both correctly at run time. Chosen over
+two separate entries because a future template edit fixes both in one place.
+
+### T-58 — Attended sitting: close-bar leg 3 ATTESTED (2026-09-06)
+
+Same day as T-57's triage, hours later, operator away from the desk. The sitting Decision 179
+priced — attest against the shipped provisioning path, not a hand-seeded device — ran as an
+attended remote pairing: Claude drove every server-side control (data plane via `sync:dev:up`
+with the operator's explicit B-164 `:5433` consent given in-chat, dev server kill/restore at
+the operator's word, substrate seeds, verification queries) and the operator held the phone.
+Nothing on the device was hand-configured: provisioning ran mint → `SYNC_KEY` → `startSync`
+through the shipped door on every page load, witnessed in the server log.
+
+**Decision 184 — close-bar leg 3 / Q-KR1 is ATTESTED.** The operator's word, given to the
+direct question, after personally observing on a real iPhone with server reachability killed
+at the process level (both listeners stopped; wifi up; `navigator.onLine` untouched):
+
+- **Refusal branch** (`requires_online=true`, $40): submit refused — *"High-value offer:
+  online verification is required. There is no offline override for this campaign (§8) — not
+  even for a manager."* No override affordance anywhere. The code stayed unburned through the
+  whole sitting's kill/restore cycles.
+- **Override branch** (`requires_online=false`, $10): the §13 confirmation rendered behind the
+  operator's #12 entitlement — *"You hold the offline-override permission. Forcing it risks a
+  double-redemption and is flagged for review"* — Force submit taken offline at 21:17:47Z, the
+  attempt queued on-device, survived Safari backgrounding, pushed on foreground after
+  reconnect, and landed: `offline_override=t, override_by=jamal@yumyums.kitchen,
+  unverified_code=f, policy_unresolved=f, device_id=<mint sub>, pos_order_number=22,
+  status=accepted` — the audit contract exactly, including the honest B-438 `t,f` shape for a
+  known code against a healthy replica.
+- **Recovery edge, live**: the offline banner flipped back to "Online — codes verify at
+  submit" on reconnect — B-439's clear observed outside a harness for the first time.
+- **Pre-sync window, live**: a fresh page load during an offline window ("Local verification
+  only — not yet synced this session") offered no submit path at all — B-432's fail-closed
+  posture observed on real data, not only in the mutation test.
+
+The **ARMED live-camera check (run 20260905 card 5) is DISCHARGED** — the html5-qrcode
+camera path scanned QRs off a second phone's screen repeatedly, in daylight, in a car.
+
+**Environment facts the sitting surfaced** (dev-loop, filed B-449): iOS exposes
+`crypto.subtle` only in secure contexts, so phone-vs-dev-server testing requires HTTPS — an
+ad-hoc self-signed proxy (`local-ssl-proxy`, IP-SAN cert, user accepts the warning) was the
+workaround; `backend/Taskfile.yml`'s `DEV_TS` default (`100.90.128.69`) is a stale machine —
+the box's real tailnet address is `100.70.200.55`; Windows interop was dead in the WSL session
+(vsock accept timeouts), which blocked `tailscale serve` as the clean path.
+
+**Product findings, operator-sourced, filed:** B-446 (refusal should render at scan time, not
+after a submit tap — the operator's own rider), B-447 (offer card names a campaign UUID, not
+the campaign name or code), B-448 (reconnect-order observation: the burn (`rpc/redeem`)
+precedes the audit row's push when the tab backgrounds — an eventual-consistency window
+between a redemption and its audit record, plus the boot-offline no-submit posture to confirm
+as intended). Test data (LEG3-ATTEST campaigns/codes, the attempt row) left in the spike
+substrate; the codes were reset once mid-sitting after an online redeem burned the $10 code
+before the offline branch completed — retried cleanly.

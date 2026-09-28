@@ -63,21 +63,60 @@ func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 	// EXISTING static tiles, so a tab slug renders no launcher tile. Do not add a
 	// static tile whose id matches an `<app>-<tab>` slug, or the tab will start
 	// appearing on the home grid as if it were an app.
+	//
+	// `marketing-offline-override` is a third kind of row: an ENTITLEMENT
+	// surface, not a tab (QR-redemption design §13/§16, fork #12 — resolved by
+	// the operator, slate-20260905). It rides the same convention so it reuses
+	// every station (access editor, /me/apps, RequirePermission) unchanged, BUT
+	// its eventual enforcement must be mounted NARROW —
+	// RequirePermission(pool, "marketing-offline-override") with NO umbrella
+	// slug — because holding the `marketing` app grant must never imply the
+	// offline override. The umbrella rider ("App grant = All tabs granted") is
+	// about tabs; this is not one. Pinned by
+	// internal/auth/marketing_seed_test.go.
+	//
+	// The grant CTE below seeds initial grants on FIRST REGISTRATION ONLY
+	// (rows the INSERT actually inserted): this function runs on every server
+	// startup, and an unconditional grant upsert would resurrect grants an
+	// operator revoked. Seeded grants (§16 permissions table): the `marketing`
+	// APP (tab access — scan/redeem, min role team_member) to all three roles;
+	// the offline_override entitlement to admin only ("seeded true for admin
+	// users" — managers and team members get it by explicit grant, never by
+	// role implication). Campaigns/stats view+create are manager-tier gates
+	// enforced INSIDE their handlers once those endpoints exist (§16:
+	// middleware grants tab access; the tab is not the create/stats gate) —
+	// carried as N/A-with-reason records in
+	// tests/grant-enforcement-parity.spec.js meanwhile.
 	_, err := pool.Exec(ctx, `
-		INSERT INTO hq_apps (slug, name, icon) VALUES
-		  ('purchasing', 'Purchase Orders', '🛒'),
-		  ('payroll', 'Payroll', '💰'),
-		  ('scheduling', 'Scheduling', '📅'),
-		  ('hiring', 'Hiring', '👥'),
-		  ('bi', 'BI', '📊'),
-		  ('users', 'Users', '🔐'),
-		  ('operations', 'Operations', '📋'),
-		  ('onboarding', 'Onboarding', '🎓'),
-		  ('inventory', 'Inventory', '📦'),
-		  -- gated tabs of the inventory app (see convention note above)
-		  ('inventory-trends', 'Inventory · Trends', '📈'),
-		  ('inventory-cost', 'Inventory · Cost', '💵')
-		ON CONFLICT (slug) DO NOTHING`)
+		WITH seeded AS (
+			INSERT INTO hq_apps (slug, name, icon) VALUES
+			  ('purchasing', 'Purchase Orders', '🛒'),
+			  ('payroll', 'Payroll', '💰'),
+			  ('scheduling', 'Scheduling', '📅'),
+			  ('hiring', 'Hiring', '👥'),
+			  ('bi', 'BI', '📊'),
+			  ('users', 'Users', '🔐'),
+			  ('operations', 'Operations', '📋'),
+			  ('onboarding', 'Onboarding', '🎓'),
+			  ('inventory', 'Inventory', '📦'),
+			  -- gated tabs of the inventory app (see convention note above)
+			  ('inventory-trends', 'Inventory · Trends', '📈'),
+			  ('inventory-cost', 'Inventory · Cost', '💵'),
+			  ('marketing', 'Marketing', '📢'),
+			  -- entitlement surface of the marketing app (see note above)
+			  ('marketing-offline-override', 'Marketing · Offline Override', '🔓')
+			ON CONFLICT (slug) DO NOTHING
+			RETURNING id, slug
+		)
+		INSERT INTO app_permissions (app_id, role)
+		SELECT s.id, g.role
+		FROM seeded s
+		JOIN (VALUES
+		  ('marketing', 'admin'),
+		  ('marketing', 'manager'),
+		  ('marketing', 'team_member'),
+		  ('marketing-offline-override', 'admin')
+		) AS g(slug, role) ON g.slug = s.slug`)
 	if err != nil {
 		return fmt.Errorf("seed hq_apps: %w", err)
 	}

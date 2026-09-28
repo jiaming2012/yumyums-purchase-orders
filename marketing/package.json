@@ -1,0 +1,6 @@
+{
+  "name": "hq-marketing",
+  "private": true,
+  "type": "module",
+  "description": "Scopes \"type\": \"module\" to this directory ONLY — same trick and same reason as sync-rxdb/package.json: the repo root package.json carries no \"type\" field, so Node parses every .js under it as CommonJS and a plain `import` of these files throws SyntaxError. Declares NO dependencies and NO scripts: the root has no `workspaces` key so `npm ci` never sees it, browsers ignore it entirely, and the RxDB/supabase-js engine reaches the browser through the committed vendor/rxdb.bundle.js — not through npm."
+}

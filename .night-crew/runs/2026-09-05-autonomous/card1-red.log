@@ -1,0 +1,370 @@
+════ card1-red.log — RED-FIRST evidence, card marketing-tile-and-page (run 20260905) ════
+Both legs run on the PRE-CHANGE tree (dev @ 0670798 + only the new test files).
+
+── RED (pre-change tree): Go seed/entitlement tests — card marketing-tile-and-page ──
+$ DB_TEST_URL='postgres://hqtest:hqtest@localhost:5434/hq_test_go_c1?sslmode=disable' go test -count=1 -run 'TestSeedHQApps_RegistersMarketingSurfaces|TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly|TestOfflineOverride_EntitlementNotImpliedByAppGrant' -v ./internal/auth/
+2026/09/04 12:56:16 OK   0001_users.sql (21.44ms)
+2026/09/04 12:56:16 OK   0002_sessions.sql (37.03ms)
+2026/09/04 12:56:16 OK   0003_invite_tokens.sql (23.52ms)
+2026/09/04 12:56:16 OK   0004_hq_apps.sql (21.62ms)
+2026/09/04 12:56:16 OK   0005_app_permissions.sql (31.61ms)
+2026/09/04 12:56:16 OK   0006_checklist_templates.sql (16.06ms)
+2026/09/04 12:56:17 OK   0007_checklist_schedules.sql (15.55ms)
+2026/09/04 12:56:17 OK   0008_template_assignments.sql (25.48ms)
+2026/09/04 12:56:17 OK   0009_checklist_sections.sql (21.82ms)
+2026/09/04 12:56:17 OK   0010_checklist_fields.sql (17.6ms)
+2026/09/04 12:56:17 OK   0011_checklist_submissions.sql (17.22ms)
+2026/09/04 12:56:17 OK   0012_submission_responses.sql (19.62ms)
+2026/09/04 12:56:17 OK   0013_submission_fail_notes.sql (14.3ms)
+2026/09/04 12:56:17 OK   0014_submission_rejections.sql (13.53ms)
+2026/09/04 12:56:17 OK   0015_ops.sql (25.73ms)
+2026/09/04 12:56:17 OK   0016_lamport_ts.sql (15.6ms)
+2026/09/04 12:56:17 OK   0017_users_naming.sql (17.26ms)
+2026/09/04 12:56:17 OK   0018_ob_templates.sql (26.36ms)
+2026/09/04 12:56:17 OK   0019_ob_items.sql (32.76ms)
+2026/09/04 12:56:17 OK   0020_ob_progress.sql (23.36ms)
+2026/09/04 12:56:17 OK   0021_ob_signoffs.sql (15.33ms)
+2026/09/04 12:56:17 OK   0022_ob_template_assignments.sql (17.62ms)
+2026/09/04 12:56:17 OK   0023_multi_role.sql (73.05ms)
+2026/09/04 12:56:17 OK   0024_inventory.sql (85.84ms)
+2026/09/04 12:56:17 OK   0025_pending_purchases.sql (19.6ms)
+2026/09/04 12:56:17 OK   0026_ob_progress_faq.sql (7.35ms)
+2026/09/04 12:56:17 OK   0027_ob_section_signoff_roles.sql (4.4ms)
+2026/09/04 12:56:17 OK   0028_ob_video_upgrade.sql (10.04ms)
+2026/09/04 12:56:17 OK   0029_ob_templates_archived_at.sql (6.4ms)
+2026/09/04 12:56:17 OK   0030_item_groups_unique_name.sql (26.18ms)
+2026/09/04 12:56:17 OK   0031_remove_placeholder_items.sql (7.95ms)
+2026/09/04 12:56:17 OK   0032_item_group_thresholds.sql (9.16ms)
+2026/09/04 12:56:17 OK   0033_stock_count_overrides.sql (17.17ms)
+2026/09/04 12:56:17 OK   0034_purchase_orders.sql (35.02ms)
+2026/09/04 12:56:17 OK   0035_purchase_items_photo_store.sql (14.55ms)
+2026/09/04 12:56:17 OK   0036_purchase_items_full_name.sql (10.97ms)
+2026/09/04 12:56:17 OK   0037_cutoff_config.sql (15.64ms)
+2026/09/04 12:56:17 OK   0038_po_status_extend.sql (16.64ms)
+2026/09/04 12:56:17 OK   0039_purchase_items_vendor.sql (13.34ms)
+2026/09/04 12:56:17 OK   0040_shopping_lists.sql (49.65ms)
+2026/09/04 12:56:17 OK   0041_notification_channel.sql (9.95ms)
+2026/09/04 12:56:17 OK   0042_repurchase_tracking.sql (31.89ms)
+2026/09/04 12:56:17 OK   0043_alert_log.sql (20.73ms)
+2026/09/04 12:56:17 OK   0044_low_stock_alert_log.sql (20.73ms)
+2026/09/04 12:56:17 OK   0045_notification_channel_array.sql (22.18ms)
+2026/09/04 12:56:17 OK   0046_user_timezone.sql (4.54ms)
+2026/09/04 12:56:17 OK   0047_employee_fields.sql (22.25ms)
+2026/09/04 12:56:17 OK   0048_notification_default_both.sql (7.44ms)
+2026/09/04 12:56:17 OK   0049_ob_sub_items.sql (17.11ms)
+2026/09/04 12:56:17 OK   0050_ob_progress_sub_item.sql (6.76ms)
+2026/09/04 12:56:17 OK   0051_rejection_field_fk.sql (5.05ms)
+2026/09/04 12:56:17 OK   0052_template_name_unique.sql (7.02ms)
+2026/09/04 12:56:17 OK   0053_response_field_fk.sql (5.42ms)
+2026/09/04 12:56:17 OK   0054_failnote_field_fk.sql (5.81ms)
+2026/09/04 12:56:17 OK   0055_item_location_in_store.sql (5.34ms)
+2026/09/04 12:56:17 OK   0056_ob_progress_photo.sql (10.96ms)
+2026/09/04 12:56:17 OK   0057_ob_items_photo_type.sql (8.4ms)
+2026/09/04 12:56:17 OK   0058_ob_sub_items_photos.sql (11.38ms)
+2026/09/04 12:56:17 OK   0059_cleanup_photo_items.sql (6.67ms)
+2026/09/04 12:56:17 OK   0060_menu_items.sql (22.52ms)
+2026/09/04 12:56:18 OK   0061_daily_menu_sales.sql (16.7ms)
+2026/09/04 12:56:18 OK   0062_recipes.sql (24.2ms)
+2026/09/04 12:56:18 OK   0063_drift_check_results.sql (20.77ms)
+2026/09/04 12:56:18 OK   0064_no_itemized_receipt_seed.sql (15.37ms)
+2026/09/04 12:56:18 OK   0065_mercury_category_on_purchase_events.sql (7.97ms)
+2026/09/04 12:56:18 OK   0066_mercury_category_on_pending_purchases.sql (8.49ms)
+2026/09/04 12:56:18 OK   0067_receipt_sync_runs.sql (22.93ms)
+2026/09/04 12:56:18 OK   0068_pending_purchases_bank_tx_uniq.sql (15.81ms)
+2026/09/04 12:56:18 OK   0069_pending_purchases_parse_error.sql (6.94ms)
+2026/09/04 12:56:18 OK   0070_receipt_urls.sql (11.36ms)
+2026/09/04 12:56:18 OK   0071_submission_fail_notes_unique.sql (10.33ms)
+2026/09/04 12:56:18 OK   0072_app_timezone_new_york.sql (10.15ms)
+2026/09/04 12:56:18 OK   0073_sync_fdw_views.sql (82.25ms)
+2026/09/04 12:56:18 OK   0074_sync_fdw_approver_view.sql (7.68ms)
+2026/09/04 12:56:18 OK   0075_item_aliases.sql (22.86ms)
+2026/09/04 12:56:18 OK   0076_checklist_template_app.sql (14.77ms)
+2026/09/04 12:56:18 goose: successfully migrated database to version: 76
+2026/09/04 12:56:18 INFO database migrations applied successfully
+=== RUN   TestSeedHQApps_RegistersMarketingSurfaces
+    marketing_seed_test.go:82: hq_apps slug "marketing": got 0 enabled rows, want 1 (SeedHQApps must register the marketing surfaces — §16)
+--- FAIL: TestSeedHQApps_RegistersMarketingSurfaces (0.01s)
+=== RUN   TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly
+    marketing_seed_test.go:100: marketing role grants after first registration: got [], want [admin manager team_member] (§16: scan/redeem min role team_member — the APP grant seeds to all three roles)
+    marketing_seed_test.go:104: offline_override role grants after first registration: got [], want [admin] (fork #12: seeded true for admin users ONLY — everyone else by explicit grant)
+--- FAIL: TestSeedHQApps_MarketingGrants_SeedOnFirstRegistrationOnly (0.01s)
+=== RUN   TestOfflineOverride_EntitlementNotImpliedByAppGrant
+    marketing_seed_test.go:143: hq_apps slug "marketing": got 0 enabled rows, want 1 (SeedHQApps must register the marketing surfaces — §16)
+--- FAIL: TestOfflineOverride_EntitlementNotImpliedByAppGrant (0.01s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/auth	2.440s
+FAIL
+EXIT=1
+
+
+── RED (pre-change tree): tests/marketing.spec.js — card marketing-tile-and-page ──
+env: TEST_PORT=3101 TEST_DB_NAME=hq_test_e2e_c1 (isolated per B-80); node_modules symlinked from main checkout (lockfiles identical, spike pattern)
+$ npx bddgen && npx playwright test tests/marketing.spec.js --retries=0
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_c1" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_c1 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.6.2 ──
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.122698-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.123845-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.174655-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.249863-04:00","level":"INFO","msg":"OK   0001_users.sql (22.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.285843-04:00","level":"INFO","msg":"OK   0002_sessions.sql (35.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.315562-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (29.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.343685-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (28.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.381971-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (38.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.400723-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (18.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.424991-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (24.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.452035-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (26.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.473431-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (21.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.493805-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (20.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.528257-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (34.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.576035-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (47.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.612841-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (36.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.638311-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (25.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.683905-04:00","level":"INFO","msg":"OK   0015_ops.sql (45.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.721184-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (37.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.755799-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (34.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.80269-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (46.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.850856-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (48.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.884997-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (34.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.912176-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (27.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.937241-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:00.984525-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (47.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.082555-04:00","level":"INFO","msg":"OK   0024_inventory.sql (97.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.104062-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (21.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.111764-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (7.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.119072-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.136955-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (17.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.142842-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (5.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.16582-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (22.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.178535-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (12.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.192115-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (13.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.206932-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (14.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.24318-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (36.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.25589-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.269454-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (13.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.287414-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (17.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.305547-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (18.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.321261-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (15.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.379928-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (58.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.391246-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (11.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.425141-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (33.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.449626-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (24.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.475336-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (25.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.510066-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (34.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.519205-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (9.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.549791-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (30.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.557506-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.581739-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (24.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.590148-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.595648-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (5.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.604285-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (8.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.610598-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (6.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.618989-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (8.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.624108-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (5.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.636571-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (12.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.647576-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (10.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.66199-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (14.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.669552-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.70218-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (32.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.72693-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (24.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.756249-04:00","level":"INFO","msg":"OK   0062_recipes.sql (29.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.773524-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (17.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.788204-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (14.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.801149-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.812295-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (11.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.840297-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (27.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.857777-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (17.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.870078-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.886813-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (16.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.899906-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (13.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.915333-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.946091-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (30.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.961531-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (15.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:01.999336-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (37.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.02081-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (21.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.020829-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 76","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.020843-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.119357-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.167428-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"3e19ec60-a15e-4f13-8320-a57b58a3f564"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.167464-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.22319-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"ad1a2202-bdef-40c4-aa33-c97d3571ced4"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.236329-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.269158-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.328192-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.586757-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.586807-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.586846-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587064-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.58764-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587679-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587697-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587718-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587794-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.587879-04:00","level":"INFO","msg":"server listening","port":"3101"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.588097-04:00","level":"INFO","msg":"reachable at","url":"http://10.0.22.223:3101"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.588113-04:00","level":"INFO","msg":"reachable at","url":"http://100.90.128.69:3101"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:02.588126-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 6 tests using 1 worker
+
+  ✘  1 [chromium] › tests/marketing.spec.js:105:3 › Marketing tile + permission seed (card marketing-tile-and-page) › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants (828ms)
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:14.163413-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate hire overviews: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:14.179493-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:14.453721-04:00","level":"ERROR","msg":"RequirePermission grant lookup failed","error":"context canceled","grant":"onboarding","user_id":"810aa1aa-bda0-46d4-a4ca-668e4be85b2d"}
+  ✘  2 [chromium] › tests/marketing.spec.js:129:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a team_member with the app grant sees the Marketing tile on the launcher (6.7s)
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:22.537877-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate hire overviews: context canceled"}
+  ✘  3 [chromium] › tests/marketing.spec.js:140:3 › Marketing tile + permission seed (card marketing-tile-and-page) › marketing.html shows Scan live and the other three sub-sections as labeled placeholders (6.5s)
+  ✘  4 [chromium] › tests/marketing.spec.js:181:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a user without the marketing grant sees NO Marketing tile (1.1s)
+[2m[WebServer] [22m{"time":"2026-09-04T12:57:33.076094-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire d87955f6-c99d-4d13-bfb1-bdf4b9bfa49c: context canceled"}
+  ✘  5 [chromium] › tests/marketing.spec.js:213:3 › Marketing tile + permission seed (card marketing-tile-and-page) › the offline_override entitlement renders as a grantable row in the Users access editor (5.8s)
+  ✘  6 [chromium] › tests/marketing.spec.js:237:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a per-user offline_override grant round-trips to that user's /me/apps (1.2s)
+
+
+  1) [chromium] › tests/marketing.spec.js:105:3 › Marketing tile + permission seed (card marketing-tile-and-page) › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants 
+
+    Error: hq_apps row `marketing` is seeded and enabled
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mnull[39m
+
+      107 |
+      108 |     const marketing = await getSlugPerms(page, 'marketing');
+    > 109 |     expect(marketing, 'hq_apps row `marketing` is seeded and enabled').toBeTruthy();
+          |                                                                        ^
+      110 |     expect(marketing.name).toBe('Marketing');
+      111 |     // §16 permissions table: scan/redeem min role is team_member, so the APP
+      112 |     // grant (tab access) seeds to all three roles.
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:109:72
+
+    Error Context: test-results/marketing-Marketing-tile-p-a5e57-r-first-registration-grants-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:129:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a team_member with the app grant sees the Marketing tile on the launcher 
+
+    Error: Marketing tile renders for a granted team_member
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('a.tile[href="marketing.html"]')
+    Expected: [32m1[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Marketing tile renders for a granted team_member with timeout 5000ms[22m
+    [2m  - waiting for locator('a.tile[href="marketing.html"]')[22m
+    [2m    14 × locator resolved to 0 elements[22m
+    [2m       - unexpected value "0"[22m
+
+
+      133 |     await waitForFilteredGrid(page);
+      134 |     const tile = page.locator('a.tile[href="marketing.html"]');
+    > 135 |     await expect(tile, 'Marketing tile renders for a granted team_member').toHaveCount(1);
+          |                                                                            ^
+      136 |     await expect(tile).toBeVisible();
+      137 |     await expect(tile.locator('.tile-title')).toHaveText('Marketing');
+      138 |   });
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:135:76
+
+    Error Context: test-results/marketing-Marketing-tile-p-dbf8c-keting-tile-on-the-launcher-chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:140:3 › Marketing tile + permission seed (card marketing-tile-and-page) › marketing.html shows Scan live and the other three sub-sections as labeled placeholders 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.tabs button')
+    Expected: [32m4[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.tabs button')[22m
+    [2m    14 × locator resolved to 0 elements[22m
+    [2m       - unexpected value "0"[22m
+
+
+      144 |
+      145 |     // Four sub-sections (§16): Scan / Campaigns / Subscribers / Redemption stats.
+    > 146 |     await expect(page.locator('.tabs button')).toHaveCount(4);
+          |                                                ^
+      147 |     await expect(page.locator('#t1')).toHaveText('Scan');
+      148 |     await expect(page.locator('#t2')).toHaveText('Campaigns');
+      149 |     await expect(page.locator('#t3')).toHaveText('Subscribers');
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:146:48
+
+    Error Context: test-results/marketing-Marketing-tile-p-e64bc-ons-as-labeled-placeholders-chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:181:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a user without the marketing grant sees NO Marketing tile 
+
+    Error: marketing app must exist to be strippable
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mnull[39m
+
+      185 |     // grants), so this team_member holds nothing on the app.
+      186 |     const before = await getSlugPerms(page, 'marketing');
+    > 187 |     expect(before, 'marketing app must exist to be strippable').toBeTruthy();
+          |                                                                 ^
+      188 |     await putSlugPerms(page, 'marketing', {
+      189 |       role_grants: [], user_grants: (before.user_grants || []).map(String),
+      190 |     });
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:187:65
+
+    Error Context: test-results/marketing-Marketing-tile-p-cb3ad-rant-sees-NO-Marketing-tile-chromium/error-context.md
+
+  5) [chromium] › tests/marketing.spec.js:213:3 › Marketing tile + permission seed (card marketing-tile-and-page) › the offline_override entitlement renders as a grantable row in the Users access editor 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('#access-marketing')
+    Expected: [32m1[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('#access-marketing')[22m
+    [2m    14 × locator resolved to 0 elements[22m
+    [2m       - unexpected value "0"[22m
+
+
+      225 |
+      226 |     // The entitlement card renders alongside (not instead of) the app card.
+    > 227 |     await expect(page.locator('#access-marketing')).toHaveCount(1);
+          |                                                     ^
+      228 |     const card = page.locator('#access-marketing-offline-override');
+      229 |     await expect(card, 'entitlement row renders in the access editor').toHaveCount(1);
+      230 |
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:227:53
+
+    Error Context: test-results/marketing-Marketing-tile-p-e69c1--in-the-Users-access-editor-chromium/error-context.md
+
+  6) [chromium] › tests/marketing.spec.js:237:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a per-user offline_override grant round-trips to that user's /me/apps 
+
+    Error: entitlement surface must exist
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mnull[39m
+
+      238 |     const user = await makeUser(page, 'override', ['team_member']);
+      239 |     const before = await getSlugPerms(page, 'marketing-offline-override');
+    > 240 |     expect(before, 'entitlement surface must exist').toBeTruthy();
+          |                                                      ^
+      241 |
+      242 |     try {
+      243 |       // Grant the entitlement to this specific user (role grants untouched).
+        at /Users/jamal/projects/yumyums/wt-20260905-c1/tests/marketing.spec.js:240:54
+
+    Error Context: test-results/marketing-Marketing-tile-p-ea693-rips-to-that-user-s-me-apps-chromium/error-context.md
+
+  6 failed
+    [chromium] › tests/marketing.spec.js:105:3 › Marketing tile + permission seed (card marketing-tile-and-page) › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants 
+    [chromium] › tests/marketing.spec.js:129:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a team_member with the app grant sees the Marketing tile on the launcher 
+    [chromium] › tests/marketing.spec.js:140:3 › Marketing tile + permission seed (card marketing-tile-and-page) › marketing.html shows Scan live and the other three sub-sections as labeled placeholders 
+    [chromium] › tests/marketing.spec.js:181:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a user without the marketing grant sees NO Marketing tile 
+    [chromium] › tests/marketing.spec.js:213:3 › Marketing tile + permission seed (card marketing-tile-and-page) › the offline_override entitlement renders as a grantable row in the Users access editor 
+    [chromium] › tests/marketing.spec.js:237:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a per-user offline_override grant round-trips to that user's /me/apps 
+EXIT=1

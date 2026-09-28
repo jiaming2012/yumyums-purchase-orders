@@ -1275,3 +1275,113 @@ visibility/notice/tooling).
 | 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | ~16:40 (~5m impl) | ~16:52 (PASS) | none | 16:53 `4c8f431` | **~18m** (docs; est 40–70m; far under — audit found docs already correct at HEAD) |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | ~17:05 (~8m impl) | ~17:12 (PASS) | none | ~17:04 `8dcf506` | **~15m** (est 50–85m; far under; build-tooling card, Playwright deferred) |
+
+## Run 20260904 (night of 2026-09-03, SERIAL 1→2→3→4, 4 cards)
+
+Serial dispatch as chosen at the slate sitting (Track A 1→2, then G1, then G2 in one
+lane). Times from `timings.log` (EDT). Wall clock 01:27→03:02 ≈ **1h35m** vs the slate's
+serial mid ≈ 3h40m. First-pass rate 1.00 — no fix rounds. All four G6s PASS-WITH-NOTES.
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `supabase-schema-and-rls` | A | new-mechanism | 40–70m | 01:39 (~12m impl) | 01:45 (PASS-W-NOTES, ~4.5m) | none | 01:45 `a1a3401` | **~18m** (est 40–70m; far under — re-export class held: spike fixture + assertions were the working draft) |
+| 2 | `redeem-rpc-race-proof` | A | new-mechanism | 35–60m | 02:01 (~15m impl) | 02:09 (PASS-W-NOTES, ~8m — G6 ran race red-analog + 3 mutation probes) | none | 02:09 `4617b8a` | **~24m** (est 35–60m; under; race rounds cheap as the spike predicted) |
+| 3 | `backlog-machine-migration` | G1 | followup-batch | 60–110m risk-flagged | 02:41 (~30m impl — 297-issue reshape + preservation proof) | 02:50 (PASS-W-NOTES, ~8m — reviewer re-proved preservation independently) | none | 02:50 `846e572` | **~40m** (est 60–110 use-110; well under the risk price — first doc-migration card now has an actual) |
+| 4 | `team-records-from-hand-runs` | G2 | small-additive | 20–40m | 02:55 (~4.5m impl) | 02:59 (PASS-W-NOTES, ~3m) | none | 02:59 `5062d3e` | **~9.5m** (est 20–40m; far under; QA/harness class again beats its band) |
+
+Sizing-class notes: the re-export class (~18–24m actuals here) continues to price well
+below new-mechanism bands — when a spike's harness IS the working draft, estimate against
+the harness, not the mechanism. followup-batch at doc scale (297 issues) came in at ~40m;
+the 110m risk price was insurance against the no-analog case and can narrow next time.
+Serial per-merge overhead ≈ 0 (all clean); closeout ≈ 2m (scorecard emit + verify).
+
+Run 20260905 (concurrent 2-track: W0 → B→C ∥ D; rate-limit stall ~15:00–17:40 EDT split both track implementers mid-card — working-time figures below exclude it, wall-clock noted):
+
+| # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `marketing-tile-and-page` | W0 | small-additive | 25–45m | 14:10 (~85m incl. TWO full e2e suites 28.1+26.6m + one B-140 fix) | 14:38 (~26m incl. base-reds leg) | in-run B-140 | 14:40 `6d7a8f5` | **~115m** (2.5× the band — the full-suite legs are ~55m of it; price full-Playwright legs separately from the class next time) |
+| 7 | `gstate-arbitration-machine` | D | new-mechanism | 60–100m risk-flagged | 18:05 (~50m working; wall 3h23m across the stall) | 18:25 **FAIL** (~20m) | fix `98e189e` + re-verify | ~18:25 `5fefd56` | **~70m working** (in band; toolchain-bump risk didn't bite — module cache had go1.26.2) |
+| 2 | `rxdb-pull-replica` | B | new-mechanism | 45–80m | 19:20 (~75m working; harness green by 17:50, e2e leg after) | 19:35 (~15m) | none | 19:40 `6bd7e13` | **~90m working** (top of band + e2e leg) |
+| 3 | `scan-attempts-push-conflict` | B | new-mechanism | 45–80m | 20:00 (~20m, first-attempt green) | ~20:12 (~12m) | none | 20:15 `9b9c669` | **~35m** (under band — the spike's push handler was the working draft, as priced) |
+| 4 | `clock-offset-on-sync` | B | small-additive | 20–40m | ~20:30 (~15m) | ~20:42 | none | 20:45 `9a77f90` | **~30m** (in band; sibling regression legs c2+c3 included) |
+| 5 | `camera-scanner-decode` | C | new-mechanism | 50–90m | 21:40 (~50m incl. full suite) | 21:55 (~15m) | none | 22:00 `e20972c` | **~70m** (in band; 375KB vendored-lib precache move uneventful) |
+| 6 | `redemption-submit-flow` | C | new-mechanism | 100–150m use 150 | ~23:00 (~87m incl. two full suites + two in-run fix finds) | park ruling ~23:00 | none | **PARKED** → merged at triage `f2f832a` | **~87m impl** (well under the 150m risk price; the park was policy, not rework — first actual for the XState-machine class) |
+
+Sizing-class notes: the spike-was-the-draft discount held again (cards 3, 7 under/at band).
+Card 1's overshoot is systematic, not noise — a small-additive card that owes TWO full
+Playwright suites is really small-additive + ~55m of gate; split the gate cost out of the
+class band. Card 6 gives the first XState/conformance-class actual: ~87m for machine +
+overlay + 18-seq conformance + fuzz. Park-for-policy costs ~0 rework (merge at triage was
+one clean command). Serial per-merge overhead ≈ 0 (5 clean + 1 union); closeout ~5m.
+
+## Run `20260906` (night of 2026-09-05, SERIAL, 1 card — the slate's whole content)
+
+Times from `timings.log` stamps, **not** HANDOFF prose. Note a discrepancy worth carrying:
+HANDOFF says "Implementer ~44m + G6 ~37m"; the stamps put G6 at **26m** (dispatched 06:49,
+verdict 07:15), and launch-to-merge at **74m** total, which 44+37 would overrun. The ~44m
+implementer figure matches (45m by stamps). Only the G6 number is inflated, by ~11m.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `requires-online-replication` | 45m (06:04→06:49, incl. own full suite 19.3m) | 26m (06:49→07:15, incl. own full suite 19.0m; APPROVE, no fix round) | 3m (merge `2eafa55` 07:18) | **74m** — est. 60–100 (risk-flagged, priced at 100); **in band, under the priced figure** |
+
+**new-mechanism class now: 35–90m band holds** (this card 74m, prior run `20260905` actuals
+35–90m). The slate's "spike-was-the-draft discount at full strength" call was correct — the
+spike had already run the campaigns replica on the shipped pull module, and the card came in
+26m under its risk-flagged price with zero fix rounds.
+
+🛑 **Read this actual with its quality caveat.** 74m and APPROVE understates the work still
+owed: triage's adversarial review found the card's headline capability fails open during the
+pre-sync window (B-432), which blocks close-bar leg 3 and requires a follow-up card
+(`refusal-holds-before-sync`). The cheap, fast, zero-fix-round night is real; "Activity B
+closes 4/4" is the part that did not survive review. A clean G6 at 26m is not evidence of a
+complete card — this is the second consecutive run (with `20260809`'s S2) where an APPROVE
+rested on a scope claim that an independent reproduction falsified.
+
+## Run `20260906-2` (1 card, Activity B) — launch 18:0x → closeout 19:16 EDT
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `refusal-holds-before-sync` | ~73m (incl. own full suite 27.6m) | ~6m (APPROVE-WITH-FINDINGS, 5 findings, no fix round) | ~20m (merge `afc9e97` + closeout) | **~99m** — est. 60–100m + ~30m closeout; **in band** |
+
+**Bug-fix-on-known-defect class, first actual: ~73m implement.** The card had an unusually
+strong draft — B-432's triage write-up named the file, the line, the mechanism and shipped a
+reproduction recipe (remove the `campaigns:` seed from the branch-3 e2e), so the red-first leg
+was nearly free. Read this as the *floor* for the class, not the median: a defect this
+well-specified is what a good adversarial triage produces, not what an ordinary bug report is.
+
+🛑 **Read this actual against its G6 yield, which is where the night's real value landed.**
+G6 spent ~6m and returned five findings on a card it approved — two of which (F1, F3) triage
+then reproduced by execution and filed as B-439/B-440. A 6m review returning two confirmed
+latent defects is the cheapest evidence in this ledger; the 27.6m full suite inside the
+implement leg returned one non-attributable flake (B-437) and consumed 38% of the card.
+
+🛑 **And read the 99m against what triage found the card did NOT land.** done_when clause 2
+was reported MET and is ruled un-landed (decision 174) — the discriminator column is degenerate
+on the shipped tree because the campaigns replica never attaches. So the honest figure is
+**~99m for one of two done_when clauses**, and the second clause's cost is still unpaid and
+now carried as B-438. This is the **second consecutive run** (`20260906`
+`requires-online-replication`, now this) where a clean or near-clean G6 rested on a scope claim
+that an independent reproduction falsified. ⚠️ **Corrected in-place: this first read "third
+consecutive run (`20260809` S2, …)", inheriting the citation from the line at 1338 without
+re-deriving it — which is exactly what decision 172 forbids.** The `20260809` S2 instance does
+not survive checking: T-44 records that run as one where *"nothing was falsified, and no claim
+was left unverified"*; S2 `demo-sync-target` was **SKIPPED** by stretch-gate arithmetic (1210)
+and so never ran; and that `20260809` is the stale-tree duplicate B-435 describes, whose
+findings were ruled unfilable. **Two is the defensible count**, and the line at 1338 should be
+read with the same caveat. The pattern is not card quality — each card did
+what it said mechanically — it is that **done_when clauses asserting a value is *recorded* are
+being verified with stubs**, and a stub satisfies the assertion without proving the path. Price
+the *next* such clause with an unstubbed end-to-end leg, or stop writing clauses of that shape.
+
+## Run 20260907 (slate-20260907, 1 card — Activity B closes)
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| 1 `sync-coordinates-provisioning` | 84m (11:30→12:54 UTC, incl. own full suite 29.2m) | + Land combined: 16m (12:54→13:10; APPROVE first pass, no fix round; merge `6f3ca30` + closeout inside the window) | — | **100m** — est. 60–110m risk-flagged (use 110); **in band, under the priced ceiling** |
+
+Clean-path night: no park, no repair cycle, single-card solo track. The new-mechanism
+class absorbs another spike-was-the-draft data point (sibling `requires-online-replication`
+74m; this card 100m with four UNSTUBBED done_when clauses and the first sync-substrate
+e2e stack — the two components the slate priced the +20m top for). Ranges hold; no
+adjustment.

@@ -32,3 +32,13 @@
 - **Recorded:** 2026-08-28
 - **Offered at:** an attended session, 2026-08-28
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Fail-open behind an entitlement when policy data hasn't arrived
+
+- **Preference:** When a safety refusal depends on data the client cannot yet read, ship the permissive default gated behind an explicit per-user entitlement plus a confirmation, audit-flag every use, and require a named follow-up card that arms the real refusal before the feature meets real data — never a refuse-all default that deadens the product surface, and never an ungated permissive default.
+- **Why (operator):** Operator ratified D-1 (run 20260905) at morning triage 2026-09-05: unknown→false stands as shipped — force-submit behind the marketing-offline-override entitlement + §13 confirmation, every attempt audit-flagged offline_override=true — with follow-up card requires-online-replication required before any real campaign is provisioned. No further reason stated.
+- **Weight:** moderate
+- **Operator:** jamal@Jamals-MacBook-Pro.local
+- **Recorded:** 2026-09-05
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

@@ -1,0 +1,264 @@
+# card2-red.log — red-first captures, card rxdb-pull-replica, run 20260905
+# cmd: bash marketing/sync/harness/run.sh red-gap1
+# started 2026-09-04T21:42:26Z
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260905-c2/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260905-c2
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T21:42:27Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+npm warn deprecated defekt@9.3.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated get-graphql-from-jsonschema@8.1.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm error Exit handler never called!
+npm error This is an error with npm itself. Please report this error at:
+npm error   <https://github.com/npm/cli/issues>
+npm error A complete log of this run can be found in: /Users/jamal/.npm/_logs/2026-09-04T21_42_32_035Z-debug-0.log
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788558157334
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788558159694 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T21:42:39Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  in-window(expired-1d)  = d230ac3b-85ef-48f2-b45a-d930c258cc58
+  out-of-window(exp-5d)  = 9c09e756-2941-4093-8aaa-f7158291d5f5
+  live burn target       = 051f821a-6301-4012-85f6-c2574fb682ea
+  synced customer offer  = 7a710a20-4d4f-49aa-9056-ba218a4d9aa2  (hash: c2-hash-customer-7a710a20-4d4f-49aa-9056-ba218a4d9aa2)
+  GAP-1 tie group (5)    = 81660e74-eb53-49d6-a743-12bb1c8e5d25 39a9a7af-6472-4203-944b-2cca39b72b83 22564a96-9e8e-422a-82db-636d2ddf76ae fa096f9e-702e-416a-8db9-001f200004e3 122527c3-09d6-487f-b733-c95413829109
+
+── device JWTs (throwaway secret from the compose file) ──
+
+── mode: red-gap1 ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# red-gap1 — naive gt-only cursor, batchSize 2, same-updated_at tie group of 5
+  pull#1 cursor=EPOCH → 2 row(s)
+  pull#2 cursor=2026-09-04T21:42:41.282663+00:00 → 2 row(s)
+  pull#3 cursor=2026-09-04T21:42:41.696014+00:00 → 2 row(s)
+  pull#4 cursor=2026-09-04T21:42:41.699666+00:00 → 0 row(s)
+  the tie group is 5 rows; the replica holds 2.
+RED: GAP-1 demonstrated — the naive gt cursor SILENTLY MISSED 3 same-updated_at row(s) at a batch boundary: 81660e74-eb53-49d6-a743-12bb1c8e5d25, 39a9a7af-6472-4203-944b-2cca39b72b83, fa096f9e-702e-416a-8db9-001f200004e3
+
+🔴 RED-FIRST DEMONSTRATED (red-gap1): the defective probe reds the assertion (node exit 1). This non-zero exit IS the evidence.
+EXIT=1
+
+# ────────────────────────────────────────────────────────
+# cmd: bash marketing/sync/harness/run.sh red-window
+# started 2026-09-04T21:42:58Z
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /Users/jamal/projects/yumyums/wt-20260905-c2/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/Users/jamal/projects/yumyums/wt-20260905-c2
+# compose anchor (--project-directory, path-stability fix) = /Users/jamal/projects/yumyums/hq
+# started 2026-09-04T21:42:58Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/local/bin/docker
+  curl   /usr/bin/curl
+  node   /Users/jamal/.nvm/versions/node/v22.5.0/bin/node
+  npm    /Users/jamal/.nvm/versions/node/v22.5.0/bin/npm
+  go     /usr/local/bin/go
+  compose 2.5.1
+  go      go version go1.25.5 darwin/amd64
+  node    v22.5.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+Container spike-supabase-db-1  Running
+Container spike-supabase-realtime-1  Running
+Container spike-supabase-rest-1  Running
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Waiting
+Container spike-supabase-db-1  Healthy
+Container spike-supabase-db-1  Healthy
+NAME                        COMMAND                  SERVICE             STATUS              PORTS
+spike-supabase-db-1         "docker-entrypoint.s…"   db                  running (healthy)   0.0.0.0:55342->5432/tcp
+spike-supabase-realtime-1   "/usr/bin/tini -s -g…"   realtime            running             0.0.0.0:55371->4000/tcp
+spike-supabase-rest-1       "/bin/postgrest"         rest                running             0.0.0.0:55368->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=55342 rest=55368 realtime=55371
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=55368 realtime=55371 db=55342  run=r1788558182612
+PASS  ports — db=55342 rest=55368 realtime=55371
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1788558183373 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=55342  rest=55368  realtime=55371   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-09-04T21:43:03Z
+══════════════════════════════════════════════════════════
+#   db container    : b4d825247a2df3a826f80efcf019a7d2fbd269e244926efd7d2ac599b50bfb8c
+#   db host port    : 55342 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  in-window(expired-1d)  = 697405ce-345a-4a19-a883-0e83531999b2
+  out-of-window(exp-5d)  = 9afc92d3-96c3-453d-8c58-f0d92566e404
+  live burn target       = 1a0a6527-6619-4f5a-afdf-a05a99b4ab44
+  synced customer offer  = 9531b673-b167-4275-9845-ed6f6cf7befe  (hash: c2-hash-customer-9531b673-b167-4275-9845-ed6f6cf7befe)
+  GAP-1 tie group (5)    = 85067722-d1a9-45c7-ad2b-42e1591187f9 e1265896-8b5a-4d62-93e3-031e2a6b3ce9 64555f03-e94c-4ef6-a205-0afcb983672f 940e13ab-9604-424f-b3d0-7f7edfb2149b 3c96f29a-4223-45a7-9976-ad58a6dd8350
+
+── device JWTs (throwaway secret from the compose file) ──
+
+── mode: red-window ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# red-window — pull with NO expires_at bound (batchSize 50)
+  pull#1 cursor=EPOCH → 14 row(s)
+RED: window defect demonstrated — out-of-window row(s) LANDED in the replica: 9afc92d3-96c3-453d-8c58-f0d92566e404, c0000000-0000-4000-8000-000000000003 (an unbounded pull passes the positive legs and ships dead rows to the truck)
+
+🔴 RED-FIRST DEMONSTRATED (red-window): the defective probe reds the assertion (node exit 1). This non-zero exit IS the evidence.
+EXIT=1

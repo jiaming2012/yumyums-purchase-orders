@@ -1,0 +1,5 @@
+{"schema":1,"kind":"run-scorecard","run_id":"20260906-2","ts":"2026-09-05T23:15:00Z","work_orders":1,"points_committed":4,"points_completed":4,"velocity":1.0,"first_pass_rate":1.0,"merges_standing":1,"regressions":0}
+{"schema":1,"kind":"team","run_id":"20260906-2","ts":"2026-09-05T23:15:00Z","team":"product","rating":88,"points_completed":1,"value_per_token":0.01}
+{"schema":1,"kind":"team","run_id":"20260906-2","ts":"2026-09-05T23:15:00Z","team":"delivery","rating":90,"points_completed":1,"value_per_token":0.01}
+{"schema":1,"kind":"team","run_id":"20260906-2","ts":"2026-09-05T23:15:00Z","team":"engineering","rating":85,"points_completed":1,"value_per_token":0.01}
+{"schema":1,"kind":"team","run_id":"20260906-2","ts":"2026-09-05T23:15:00Z","team":"qa","rating":90,"points_completed":1,"value_per_token":0.01}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>spike: xstate no-build load</title></head>
+<body>
+  <!-- classic script, not a module: HQ's convention (SortableJS, and how the
+       sibling spike loads html5-qrcode). Also the only shape that works from
+       file:// — Chromium CORS-blocks ES-module imports there (first run red). -->
+  <script src="xstate.js"></script>
+  <script>
+    // The no-build premise: the vendored single-file XState UMD build loads in
+    // a plain page and drives a parallel machine — sequence 1's core (a region
+    // transition that does not disturb its sibling).
+    try {
+      const ns = window.XState || window.xstate;
+      if (!ns) throw new Error('UMD global not found; globals: ' + Object.keys(window).filter((k) => /state/i.test(k)).join(','));
+      const { createMachine, createActor } = ns;
+      const m = createMachine({
+        id: 't', type: 'parallel',
+        states: {
+          a: { initial: 'x', states: { x: { on: { GO: 'y' } }, y: {} } },
+          b: { initial: 'p', states: { p: {} } },
+        },
+      });
+      const actor = createActor(m);
+      actor.start();
+      actor.send({ type: 'GO' });
+      const v = actor.getSnapshot().value;
+      document.body.dataset.result = JSON.stringify(v);
+      document.body.dataset.state = (v.a === 'y' && v.b === 'p') ? 'ok' : 'bad';
+    } catch (e) {
+      document.body.dataset.err = String(e);
+      document.body.dataset.state = 'error';
+    }
+  </script>
+
+</body>
+</html>
