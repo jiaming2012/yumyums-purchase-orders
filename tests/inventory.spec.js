@@ -4482,3 +4482,100 @@ test.describe('Purchases — card holder label', () => {
     await expect(historyCard.locator('.event-meta').first()).toContainText('Latanya · 0994');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Purchases — one list in date order, with filter chips
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST. The list rendered every pending card first and the confirmed
+// events after them, so a receipt the pipeline had just parsed dropped below
+// a 15-card queue and looked like it vanished ("1 auto-added" in the banner,
+// nothing to see). Operator's call (2026-09-28): the default is ONE list in
+// date order; "Needs review" and "Recently added" are filter chips.
+
+test.describe('Purchases — date-ordered list + filter chips', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  const DAY = 24 * 60 * 60 * 1000;
+  function stubLists(page) {
+    const now = Date.now();
+    const ev = (id, date, createdAt, vendor, total) => ({
+      id, vendor_id: 'v-' + id, vendor_name: vendor, bank_tx_id: 'tx-' + id, event_date: date,
+      tax: 0, total, created_at: new Date(createdAt).toISOString(), line_items: [],
+    });
+    const pend = (id, date) => ({
+      id, bank_tx_id: 'tx-' + id, bank_total: -5, vendor: 'Queue Vendor', event_date: date,
+      reason: 'no_attachment_on_bank_tx', items: [], created_at: new Date(now).toISOString(),
+    });
+    return Promise.all([
+      page.route(/\/api\/v1\/inventory\/purchases\?page=/, async route => {
+        if (route.request().method() !== 'GET') return route.continue();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+          ev('ev-new', '2026-09-26', now - 2 * 60 * 60 * 1000, 'Save A Lot 3025', 12.99),
+          ev('ev-old', '2026-09-20', now - 10 * DAY, 'Restaurant Depot', 88.10),
+        ]) });
+      }),
+      page.route('**/api/v1/inventory/purchases/pending', async route => {
+        if (route.request().method() !== 'GET') return route.continue();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+          pend('pend-27', '2026-09-27'), pend('pend-25', '2026-09-25'),
+        ]) });
+      }),
+    ]);
+  }
+  const cardIds = (page) => page.locator('#history-list .event-card').evaluateAll(els => els.map(e => e.getAttribute('data-id')));
+
+  test('default view is one list in event-date order — a fresh auto-added event sits between the queue cards at its date', async ({ page }) => {
+    await stubLists(page);
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    await expect.poll(() => cardIds(page)).toEqual(['pend-27', 'ev-new', 'pend-25', 'ev-old']);
+    // The just-added event is marked as such; the 10-day-old one is not.
+    await expect(page.locator('[data-id="ev-new"]')).toContainText('Added');
+    await expect(page.locator('[data-id="ev-old"]')).not.toContainText('Added');
+  });
+
+  test('chips filter the list: Needs review → queue only, Recently added → last-7-day events only, All → everything', async ({ page }) => {
+    await stubLists(page);
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    const chips = page.locator('#history-filters .chip');
+    await expect(chips).toHaveCount(3);
+    await expect(page.locator('#history-filters')).toContainText('Needs review (2)');
+    await expect(page.locator('#history-filters')).toContainText('Recently added (1)');
+
+    await page.locator('#history-filters .chip', { hasText: 'Needs review' }).click();
+    await expect.poll(() => cardIds(page)).toEqual(['pend-27', 'pend-25']);
+    await expect(page.locator('#history-filters .chip.on')).toContainText('Needs review');
+
+    await page.locator('#history-filters .chip', { hasText: 'Recently added' }).click();
+    await expect.poll(() => cardIds(page)).toEqual(['ev-new']);
+
+    await page.locator('#history-filters .chip', { hasText: 'All' }).click();
+    await expect.poll(() => cardIds(page)).toEqual(['pend-27', 'ev-new', 'pend-25', 'ev-old']);
+  });
+
+  test('against the real API: an event created today renders above an older queue card', async ({ page }) => {
+    const ts = Date.now();
+    const v = await invApiCall(page, 'POST', 'vendors', { name: 'Date Order Vendor ' + ts });
+    expect(v && v.id, 'vendor created').toBeTruthy();
+    const ev = await seedPurchaseEvent(page, {
+      vendorId: v.id, bankTxId: 'tx-order-ev-' + ts, eventDate: '2026-09-26', total: 10,
+      lineItems: [{ description: 'Widget', quantity: 1, price: 10, is_case: false }],
+    });
+    const pend = await seedPendingPurchase(page, {
+      bankTxId: 'tx-order-pend-' + ts, vendor: 'Date Order Queue', bankTotal: -4.99,
+      eventDate: '2026-09-24', reason: 'no_attachment_on_bank_tx', items: [],
+    });
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    // Poll: the list re-renders once both fetches (events + pending) land.
+    await expect.poll(async () => {
+      const ids = await cardIds(page);
+      return ids.includes(ev.id) && ids.includes(pend.id);
+    }, { message: 'both seeded cards are listed on the first page' }).toBe(true);
+    const ids = await cardIds(page);
+    expect(ids.indexOf(ev.id)).toBeLessThan(ids.indexOf(pend.id));
+    await expect(page.locator(`[data-id="${ev.id}"]`)).toContainText('Added');
+  });
+});

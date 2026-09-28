@@ -271,6 +271,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .chip-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:16px;border:0.5px solid var(--brd);background:var(--card);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
 .chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.added-pill{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;background:var(--ok-bg);color:var(--ok-tx);vertical-align:middle;letter-spacing:0.2px}
 .alias-chips{display:flex;flex-wrap:wrap;gap:6px}
 .alias-chip{display:inline-flex;align-items:center;gap:4px;cursor:default;color:var(--txt)}
 .alias-chip-x{border:none;background:transparent;color:var(--mut);font-size:15px;line-height:1;padding:0 2px;cursor:pointer}
@@ -388,6 +389,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
     </select>
+    <div id="history-filters" class="chip-bar" role="tablist" aria-label="Filter purchases"></div>
     <div id="history-list"></div>
   </div>
   <div id="s2" style="display:none">
@@ -898,7 +900,10 @@ function renderPurchaseEvent(evt){
     }).join('')+receiptLink+'</div>';
   }
   var evtWho=cardLabel(evt);
-  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+titleCase(evt.vendor_name)+'</div><div class="event-meta">'+formatDate(evt.event_date)+(evtWho?' · '+escHtml(evtWho):'')+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+  // "Added" pill for the week after an event lands (pipeline auto-parse or a
+  // confirm) — the reason a just-parsed receipt no longer looks like it vanished.
+  var addedPill=isRecentEvent(evt)?'<span class="added-pill">Added '+escHtml(timeAgo(String(evt.created_at).slice(0,10)))+'</span>':'';
+  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+titleCase(evt.vendor_name)+'</div><div class="event-meta">'+formatDate(evt.event_date)+(evtWho?' · '+escHtml(evtWho):'')+addedPill+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
 }
 
 function renderPendingCard(p){
@@ -1111,17 +1116,56 @@ async function loadHistory(append){
   } finally{HISTORY_LOADING=false;}
 }
 
+// ── Purchases list: ONE list in event-date order, filtered by chips ─────────
+// Until 2026-09-28 every pending card rendered first and the confirmed events
+// after them, so a receipt the pipeline had just parsed dropped below the
+// whole queue and looked like it vanished. Now pending rows and events share
+// one date-ordered list; "Needs review" / "Recently added" are filters.
+var HISTORY_FILTER='all'; // 'all' | 'review' | 'recent'
+var RECENT_DAYS=7;
+function isRecentEvent(evt){
+  if(evt.needs_review||!evt.created_at)return false;
+  var t=Date.parse(evt.created_at);
+  return !Number.isNaN(t)&&(Date.now()-t)<RECENT_DAYS*24*60*60*1000;
+}
+// Newest event_date first; a pending row with no date yet floats to the top;
+// on the same date the queue card comes before the event, then newest created.
+function historyOrder(a,b){
+  var da=a.event_date?String(a.event_date).slice(0,10):'9999-12-31';
+  var db=b.event_date?String(b.event_date).slice(0,10):'9999-12-31';
+  if(da!==db)return da<db?1:-1;
+  if(!!a.needs_review!==!!b.needs_review)return a.needs_review?-1:1;
+  return (Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0);
+}
+function renderHistoryFilters(pendingCount,recentCount){
+  var bar=document.getElementById('history-filters');
+  if(!bar)return;
+  var chips=[['all','All'],['review','Needs review ('+pendingCount+')'],['recent','Recently added ('+recentCount+')']];
+  bar.innerHTML=chips.map(function(c){
+    return '<button type="button" class="chip'+(HISTORY_FILTER===c[0]?' on':'')+'" role="tab" aria-selected="'+(HISTORY_FILTER===c[0])+'" data-filter="'+c[0]+'">'+c[1]+'</button>';
+  }).join('');
+}
 function renderHistoryList(){
   var list=document.getElementById('history-list');
   var pendingItems=PENDING_PURCHASES.map(p=>Object.assign({},p,{needs_review:true}));
-  var allItems=[...pendingItems,...PURCHASES];
-  if(!allItems.length){
+  var merged=[...pendingItems,...PURCHASES].sort(historyOrder);
+  var recentCount=PURCHASES.filter(isRecentEvent).length;
+  renderHistoryFilters(pendingItems.length,recentCount);
+  var allItems=HISTORY_FILTER==='review'?merged.filter(function(x){return x.needs_review;})
+    :HISTORY_FILTER==='recent'?merged.filter(isRecentEvent)
+    :merged;
+  if(!merged.length){
     list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No purchases yet</h3><p>Purchase events will appear here once the receipt pipeline syncs.</p></div>';
     updateHistoryTabLabel();
     return;
   }
+  if(HISTORY_FILTER==='recent'&&!allItems.length){
+    list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">Nothing added in the last '+RECENT_DAYS+' days</h3><p>Receipts the pipeline parses (or you confirm) show here for a week.</p></div>';
+    updateHistoryTabLabel();
+    return;
+  }
   var html='';
-  if(pendingItems.length===0){
+  if(pendingItems.length===0&&HISTORY_FILTER!=='recent'){
     html+='<div class="empty" style="padding:20px;margin-bottom:8px"><h3 style="font-size:15px;font-weight:500;margin:0 0 4px">All caught up</h3><p style="font-size:13px;margin:0;color:var(--mut)">No receipts are waiting for review.</p></div>';
   }
   html+=allItems.map(evt=>renderPurchaseEvent(evt)).join('');
@@ -2040,6 +2084,13 @@ document.addEventListener('click',function(e){
 document.getElementById('vendor-filter').addEventListener('change',function(e){
   VENDOR_FILTER=e.target.value;
   loadHistory();
+});
+
+document.getElementById('history-filters').addEventListener('click',function(e){
+  var chip=e.target.closest('[data-filter]');
+  if(!chip)return;
+  HISTORY_FILTER=chip.getAttribute('data-filter');
+  renderHistoryList();
 });
 
 document.getElementById('history-list').addEventListener('click',function(e){
