@@ -2677,6 +2677,23 @@ function renderItemsList(){
   }
 }
 
+// A catalog photo that fails to load (dead host, deleted object) falls back
+// to the same letter placeholder an item without a photo gets — never the
+// browser's broken-image icon. `error` does not bubble, so listen in the
+// capture phase on the list; nulling photo_url in state and re-rendering is
+// what makes the row, the editor thumb and the "Add photo" link all agree.
+document.getElementById('items-list').addEventListener('error',function(e){
+  var img=e.target;
+  if(!img||img.tagName!=='IMG')return;
+  var host=img.closest('[data-item-id],[data-id]');
+  var id=host?(host.getAttribute('data-item-id')||host.getAttribute('data-id')):null;
+  var it=id?ALL_ITEMS.find(function(x){return x.id===id;}):null;
+  if(!it||!it.photo_url)return;
+  console.warn('[inventory] item photo failed to load, showing placeholder',it.description,it.photo_url);
+  it.photo_url=null;
+  renderItemsList();
+},true);
+
 document.getElementById('items-list').addEventListener('input',function(e){
   if(e.target.id==='new-item-name')PREFILL_NEW_ITEM=null;
 });

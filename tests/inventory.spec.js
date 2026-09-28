@@ -4579,3 +4579,42 @@ test.describe('Purchases — date-ordered list + filter chips', () => {
     await expect(page.locator(`[data-id="${ev.id}"]`)).toContainText('Added');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Setup — a dead item photo falls back to the placeholder, never a broken icon
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST. 2026-09-28: every catalog photo pointed at the canceled
+// DigitalOcean bucket (B-172/B-173), and the Setup list drew 98 broken-image
+// "?" icons. The URLs are being re-pointed, but the page must not depend on
+// every stored URL staying alive: an <img> that fails to load gives way to
+// the same letter placeholder an item without a photo gets.
+
+test.describe('Setup — dead item photo fallback', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('a photo URL that 404s renders the letter placeholder in the row and in the editor', async ({ page }) => {
+    await page.route('**/api/v1/inventory/items', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'it-dead', description: 'Coke', group_id: 'g1', group_name: 'Beverages', store_location: 'Restaurant Depot',
+          photo_url: 'https://nyc3.digitaloceanspaces.com/hq.yumyums/items/coke.png', aliases: [] },
+      ]) });
+    });
+    // The dead host must never be reached from the test; answer 404 locally.
+    await page.route('https://nyc3.digitaloceanspaces.com/**', route => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/inventory.html#tab=7');
+    const row = page.locator('.item-row[data-id="it-dead"]');
+    await expect(row).toBeVisible();
+    // List row: the broken <img> is gone; the name still renders.
+    await expect(row.locator('img')).toHaveCount(0);
+    await expect(row).toContainText('Coke');
+    // Editor: letter placeholder, and the link offers to ADD a photo.
+    await row.click();
+    const form = page.locator('.item-edit-form[data-item-id="it-dead"]');
+    await expect(form).toBeVisible();
+    await expect(form.locator('img.item-photo-thumb')).toHaveCount(0);
+    await expect(form.locator('div.item-photo-thumb')).toHaveText('C');
+    await expect(form.locator('[data-action="change-item-photo"]')).toHaveText('Add photo');
+  });
+});
