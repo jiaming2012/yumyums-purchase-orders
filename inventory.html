@@ -100,6 +100,11 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .view-receipt-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:8px;text-align:center}
 .retry-parse-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:6px;text-align:center}
+/* While its re-read runs, the card's button is the same control as the one at
+   the top of the page — same words, same red — so the way out is where the
+   operator is looking, not a scroll away. */
+.retry-parse-btn.sync-btn-cancel{background:#fee2e2;color:#991b1b;border-color:transparent}
+@media(prefers-color-scheme:dark){.retry-parse-btn.sync-btn-cancel{background:#7f1d1d;color:#fca5a5}}
 .receipt-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
 .receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px;color-scheme:light}
@@ -661,6 +666,10 @@ function renderSyncUI(){
   }
   if(s.status==='done'){
     if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';return;}
+    // A one-row re-read (per-card Retry parse) reports on the card itself —
+    // the row refreshes on running→done — so a summary chip would be a
+    // second, vaguer telling of the same thing. Failed/cancelled still show.
+    if(s.triggered_by==='reprocess_one'||s.triggered_by==='redownload'){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
     var parts, headline;
     // 260701-a23: branch on trigger so the chip says what actually happened.
     // Manual runs read lookback_days off the row (added in
@@ -836,7 +845,9 @@ function openCancelSyncModal(){
   var ov=document.getElementById('cancel-sync-overlay');
   if(!ov)return;
   var hint=document.getElementById('cancel-sync-hint');
-  if(hint&&SYNC_STATE&&SYNC_STATE.triggered_by!=='reprocess_all'){
+  if(hint&&SYNC_STATE&&(SYNC_STATE.triggered_by==='reprocess_one'||SYNC_STATE.triggered_by==='redownload')){
+    hint.textContent='This receipt is abandoned and stays in the review queue. You can retry it straight away.';
+  } else if(hint&&SYNC_STATE&&SYNC_STATE.triggered_by!=='reprocess_all'){
     hint.textContent='Transactions already pulled keep their results. The rest are not attempted. You can start another sync straight away.';
   }
   ov.classList.add('on');
@@ -1171,15 +1182,17 @@ function renderPendingCard(p){
   // them bar the explicit no-attachment placeholder, where there is genuinely
   // nothing to parse. It used to require parse_error OR mismatched items — and
   // "Retry parse" itself wiped both, so the row that most needed a second
-  // attempt was exactly the one that could no longer ask for one. Whether a
-  // re-read can actually succeed depends on Mercury still holding the
-  // attachment (recent rows) or a stored receipt URL (Retry Parse, All Receipts),
-  // neither of which this card can see — so it does not pretend to, and the
-  // backend gate matches (see RetryParsePendingPurchaseHandler).
+  // attempt was exactly the one that could no longer ask for one.
+  // What the button DOES depends on whether a receipt is stored: with one, the
+  // click re-reads it from storage in place (POST /reprocess, no age limit);
+  // without one, only a Mercury sync can fetch it, and only while the charge
+  // is inside the lookback — the retry-parse flag + sync path (see the click
+  // handler). The card can see which case it is in, so it says so.
   var parseErrText=p.parse_error?String(p.parse_error):'';
   var isTransient=parseErrText.indexOf('transient: ')===0;
   var hasParseError=!!parseErrText&&!isTransient;
   var retryQueued=!!p.retry_requested_at;
+  var hasStoredReceipt=!!(p.receipt_url||(Array.isArray(p.receipt_urls)&&p.receipt_urls.length));
   var itemsArr=Array.isArray(p.items)?p.items:[];
   var hasItems=itemsArr.length>0;
   var pLineTotal=itemsArr.reduce(function(s,it){
@@ -1191,12 +1204,13 @@ function renderPendingCard(p){
   // do NOT introduce a new constant.
   var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
   // Phase 260702-l67: when a retry has just been queued and SYNC_STATE is
-  // running, the row shows a "Reparsing…" pill + disabled button. The
-  // p.retryQueued flag is set in the click handler and is naturally cleared
-  // on the next loadHistory() call (fresh server payload has no such flag).
-  // While reparsing, force the button to render (as disabled Reparsing…)
-  // even if we optimistically cleared parse_error in the click handler —
-  // the operator needs to see per-row state throughout the sync run.
+  // running, the row shows a "Reparsing…" pill, and its button becomes the
+  // same "Cancel Sync Receipts" control the page header shows — the run is
+  // the single-flight sync, so stopping it from here and from the top are
+  // the same act, and the operator should not have to scroll to find it.
+  // The p.retryQueued flag is set in the click handler and is naturally
+  // cleared on the next loadHistory() call (fresh server payload has no
+  // such flag).
   var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && (p.retryQueued||retryQueued));
   var showRetry=!isNoAttachment || reparsing;
   if(reparsing){
@@ -1216,15 +1230,31 @@ function renderPendingCard(p){
   } else if(p.reason==='Receipt could not be parsed automatically'){
     parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">No cause was recorded for this one.</div>';
   }
-  if(retryQueued&&!reparsing){
-    // NOT "runs on the next sync": the worker only fetches a rolling 14-day
-    // Mercury window, so a charge older than that is never revisited and the
-    // promise would never come true. Retry Parse (All Receipts) re-reads the stored
-    // receipt regardless of age, so it is the one always-true instruction.
-    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse. Tap “Retry Parse (All Receipts)” above to run it now.</div>';
+  if(retryQueued&&!reparsing&&!hasStoredReceipt){
+    // Only a no-storage row can be left "requested but not run": the flag is
+    // honoured by the Mercury sync, which walks a rolling 14-day window, so a
+    // charge older than that is never revisited and "runs on the next sync"
+    // would be a promise that never comes true. Say the condition. A row WITH
+    // a stored receipt never shows this — Retry parse re-reads it right now,
+    // so a stale flag from the old flag-and-sync path is not a nag.
+    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Re-parse requested — runs on the next sync if Mercury still has the receipt.</div>';
   }
   if(showRetry){
-    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
+    if(reparsing){
+      parseErrHtml+='<button class="retry-parse-btn sync-btn-cancel" data-action="cancel-reparse" data-id="'+p.id+'">Cancel Sync Receipts</button>';
+    } else {
+      parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
+    }
+  }
+  // Re-download from source: go back to Mercury for this charge's attachments
+  // as they are NOW. Retry parse re-reads what HQ already downloaded; when the
+  // operator replaced the file on Mercury (wrong receipt attached, or a
+  // purchase since paired with its refund) only Mercury has the right files.
+  // Offered on every open row — a "Missing Receipt" row is exactly the one a
+  // file has since been attached to — and hidden while a run is in flight,
+  // when the cancel control above is the only button that makes sense.
+  if(!reparsing){
+    parseErrHtml+='<button class="retry-parse-btn" data-action="redownload" data-id="'+p.id+'">Re-download from source</button>';
   }
   // Surface Mercury's own category so the operator can see why a charge is (or
   // isn't) auto-hidden: a non-food category outside the COGS allowlist would be
@@ -1235,8 +1265,15 @@ function renderPendingCard(p){
   // resolved it from Mercury's cardId at ingest; absent (NULL) means not a
   // swipe or not yet resolved, and the line stays exactly as before.
   var who=cardLabel(p);
+  // The amount is placed exactly as on a confirmed card: right edge on the
+  // card's 16px padding (a confirmed card's .event-header puts its total
+  // there), vertically centred on the card — so a column of cards reads as
+  // one column of amounts whether a row is pending or not. The badge keeps
+  // the top-right corner. It used to be a trailing line under the buttons,
+  // where it read as part of the actions. fmtMoney puts the sign before the
+  // currency (-$18.39, not $-18.39); the sign itself is the bank's convention.
   var catHtml='<div class="event-meta" style="margin-top:2px;font-size:11px">Mercury: '+(mcat?escHtml(mcat):'<span style="opacity:.65;font-style:italic">uncategorised</span>')+(who?' · '+escHtml(who):'')+'</div>';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-total" style="position:absolute;right:16px;top:50%;transform:translateY(-50%)">'+fmtMoney(p.bank_total||p.total||0)+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'</div>';
 }
 
 function renderReviewForm(p){
@@ -2516,19 +2553,49 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='discard-receipt'){
     captureReviewFormInputs(id);
     discardReceipt(id);
+  } else if(action==='redownload'){
+    // One run, same single-flight slot and same on-card visual as a re-read.
+    // There is no flag to queue behind a running sync (the request is
+    // "fetch from Mercury now"), so a busy slot is said, not queued.
+    var did=id;
+    var drow=PENDING_PURCHASES.find(function(pp){return pp.id===did;});
+    if(SYNC_STATE && SYNC_STATE.status==='running'){
+      showToastMessage('A sync is already running — stop it or let it finish, then try again');
+      return;
+    }
+    fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(did)+'/redownload',{
+      method:'POST',credentials:'include'
+    }).then(function(resp){
+      if(resp.ok){
+        return resp.json().then(function(body){
+          if(drow){drow.retryQueued=true;}
+          SYNC_STATE={id:body.sync_id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'redownload'};
+          renderSyncUI();
+          renderHistoryList();
+          startSyncPoll();
+        });
+      }
+      if(resp.status===409){
+        showToastMessage('A sync is already running — stop it or let it finish, then try again');
+        return refreshSyncStatus();
+      }
+      showToastMessage('Could not re-download: HTTP '+resp.status);
+    }).catch(function(err){
+      showToastMessage('Could not re-download: '+err.message);
+    });
+  } else if(action==='cancel-reparse'){
+    // The card's in-flight button is the header's Cancel Sync Receipts, so it
+    // opens the same Stop-sync question (whose hint, for a one-row run, names
+    // this receipt). Nothing is cancelled until the operator confirms there.
+    openCancelSyncModal();
   } else if(action==='retry-parse'){
-    // Phase 260607-koi: clear parse_error server-side so the next worker
-    // sync (260607-fxl parseFailedRetry branch) re-attempts the parse.
     // Phase 260607-s6r: items-mismatch path goes through confirm() first
-    // because we're throwing away parsed line items. parse_error-only
+    // because the re-read replaces the parsed line items. parse_error-only
     // path stays zero-friction (data-mismatch='0' skips the confirm).
-    // Phase 260702-l67: click now piggybacks on the existing SYNC_STATE
-    // machinery — after a successful /retry-parse POST we call triggerSync()
-    // directly so the operator doesn't have to click Sync Receipts as a
-    // second step. The per-row "Reparsing…" pill + disabled button (see
-    // renderPendingCard) carries the visual signal while the run is active;
-    // refreshSyncStatus() calls loadHistory() on running→done, which drops
-    // the transient retryQueued flag naturally.
+    // The per-row "Reparsing…" pill + disabled button (see renderPendingCard)
+    // carries the visual signal while the run is active; refreshSyncStatus()
+    // calls loadHistory() on running→done, which drops the transient
+    // retryQueued flag and shows whatever the re-read produced.
     if(el.disabled)return; // stale delegated event guard (mirrors L1138)
     var rid=id;
     var isMismatch=el.getAttribute('data-mismatch')==='1';
@@ -2536,39 +2603,79 @@ document.getElementById('history-list').addEventListener('click',function(e){
       return;
     }
     var row=PENDING_PURCHASES.find(function(pp){return pp.id===rid;});
-    // Branch A: sync already running — skip the POST (idempotent no-op on
-    // the backend anyway) and just mark this row so it flips to the
-    // Reparsing… pill for the duration of the current run.
+    // Branch A: sync already running — skip the POST and just mark this row
+    // so it flips to the Reparsing… pill for the duration of the current run.
     if(SYNC_STATE && SYNC_STATE.status==='running'){
       if(row){row.retryQueued=true;}
       showToastMessage('Reparse queued — sync already running');
       renderHistoryList();
       return;
     }
-    // Branch B: fire the /retry-parse POST, then auto-trigger a sync. 200
-    // and 409 (already re-queued) both count as success — 409 is
-    // idempotent per the koi handler contract. Anything else surfaces via
+    // Branch B — no stored receipt: only Mercury can fetch it. Set the
+    // retry-parse flag (260607-koi) and auto-trigger a sync (260702-l67) so
+    // the operator doesn't have to press Sync Receipts as a second step. 200
+    // and 409 (already re-queued) both count as success — 409 is idempotent
+    // per the koi handler contract. Anything else surfaces via
     // showToastMessage (no alert() — project convention, see L1591).
-    fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/retry-parse',{
+    var retryViaMercury=function(){
+      fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/retry-parse',{
+        method:'POST',credentials:'include'
+      }).then(function(resp){
+        if(resp.ok || resp.status===409){
+          // The server keeps parse_error and items when it re-arms the row
+          // (retry_requested_at replaced the old NULL-everything update), so
+          // do not blank them here either: the cause the operator asked about
+          // and the partial parse both stay on the card until the re-read
+          // replaces them. This used to clear both, which is why "Why:"
+          // vanished on tap.
+          if(row){row.retryQueued=true;}
+          renderHistoryList();
+          // Fire-and-forget — triggerSync handles its own errors + 409
+          // (someone else beat us to the sync); no toast on success, the
+          // Reparsing… state on the row is the signal.
+          triggerSync();
+        }else{
+          showToastMessage('Could not retry parse: HTTP '+resp.status);
+        }
+      }).catch(function(err){
+        showToastMessage('Could not retry parse: '+err.message);
+      });
+    };
+    var hasStoredReceipt=!!(row&&(row.receipt_url||(Array.isArray(row.receipt_urls)&&row.receipt_urls.length)));
+    if(!hasStoredReceipt){retryViaMercury();return;}
+    // Branch C — stored receipt: re-read THIS one from storage, in place. No
+    // flag, no full sync, no age limit. The run claims the same single-flight
+    // slot as every other kind, so the row rides the normal status poll and
+    // the Stop control. The partial parse stays on screen until the re-read
+    // replaces it — nothing is thrown away up front.
+    fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/reprocess',{
       method:'POST',credentials:'include'
     }).then(function(resp){
-      if(resp.ok || resp.status===409){
-        if(resp.ok && row){
-          row.parse_error='';
-          if(isMismatch){
-            row.items=[];
-            row.reason='Receipt could not be parsed automatically';
-          }
-        }
-        if(row){row.retryQueued=true;}
-        renderHistoryList();
-        // Fire-and-forget — triggerSync handles its own errors + 409
-        // (someone else beat us to the sync); no toast on success, the
-        // Reparsing… state on the row is the signal.
-        triggerSync();
-      }else{
-        showToastMessage('Could not retry parse: HTTP '+resp.status);
+      if(resp.ok){
+        return resp.json().then(function(body){
+          if(row){row.retryQueued=true;}
+          SYNC_STATE={id:body.sync_id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'reprocess_one'};
+          renderSyncUI();
+          renderHistoryList();
+          startSyncPoll();
+        });
       }
+      if(resp.status===409){
+        // Another tab's run took the slot after this page last polled. Ride
+        // it: pick the run up, mark the row, and let the poll carry it.
+        if(row){row.retryQueued=true;}
+        showToastMessage('Reparse queued — sync already running');
+        return refreshSyncStatus().then(function(){renderHistoryList();});
+      }
+      if(resp.status===422){
+        return resp.json().then(function(b){
+          // The server found nothing in storage after all — same answer as
+          // Branch B, so give the same path.
+          if(b&&b.error==='no_stored_receipt'){retryViaMercury();return;}
+          showToastMessage('Could not retry parse: '+((b&&b.error)||'HTTP 422'));
+        });
+      }
+      showToastMessage('Could not retry parse: HTTP '+resp.status);
     }).catch(function(err){
       showToastMessage('Could not retry parse: '+err.message);
     });
