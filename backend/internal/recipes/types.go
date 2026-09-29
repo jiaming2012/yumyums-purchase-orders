@@ -29,6 +29,9 @@ type RecipeWithMenu struct {
 type IngredientWithSpend struct {
 	PurchaseItemID string           `json:"purchase_item_id"`
 	Description    string           `json:"description"`
+	// DisplayName is the promoted alias if the crew set one, else Description.
+	// Render this; Description stays the catalog identity.
+	DisplayName    string           `json:"display_name"`
 	LastWeekSpend  float64          `json:"last_week_spend"`
 	SumPct         float64          `json:"sum_pct"`
 	Recipes        []RecipeWithMenu `json:"recipes"`

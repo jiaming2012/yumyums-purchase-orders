@@ -306,6 +306,10 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .alias-chips{display:flex;flex-wrap:wrap;gap:6px}
 .alias-chip{display:inline-flex;align-items:center;gap:4px;cursor:default;color:var(--txt)}
 .alias-chip-x{border:none;background:transparent;color:var(--mut);font-size:15px;line-height:1;padding:0 2px;cursor:pointer}
+.alias-chip-star{border:none;background:transparent;color:var(--mut);font-size:13px;line-height:1;padding:0 2px;cursor:pointer}
+.alias-chip.displayed{background:var(--info-bg);color:var(--info-tx);font-weight:500}
+.alias-chip.displayed .alias-chip-star{color:var(--info-tx)}
+.item-name-sub{display:block;font-size:11px;color:var(--mut);font-weight:400}
 .menu-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
 .menu-card-header{display:flex;align-items:center;justify-content:space-between}
 .menu-card-name{font-size:15px;font-weight:600;color:var(--txt)}
@@ -492,6 +496,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
   </div>
 </div>
 <script src="tab.js" data-tabs="7"></script>
+<script src="item-name.js"></script>
 <script>
 // APP_TIMEZONE — the app's ONE timezone. The operator ruled it is New York
 // (ledger T-26 decision 83); the backend states the same thing as
@@ -1129,15 +1134,14 @@ function renderPurchaseEvent(evt){
     var receiptLink=_urlEvt?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlEvt)+'"'+_urlsAttrEvt+' style="margin-top:12px">View Original Receipt</button>':'';
     detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
       var desc=p.description||p.name||'';
-      // A linked line is labelled with what the crew calls the item. The
-      // receipt worker names auto-added items with the raw receipt text, and
-      // the crew then types a readable nickname in Setup — so a nickname wins,
-      // unless it is only the receipt text auto-learned on link (then the
-      // catalog name, which the crew renamed, is the readable one). The
-      // receipt's own text drops to a muted second line when it differs, so
-      // the line can still be matched against the paper receipt.
-      var nick=(p.item_aliases||[]).find(function(a){return a&&a.toLowerCase()!==desc.toLowerCase()&&(!p.item_name||a.toLowerCase()!==p.item_name.toLowerCase());});
-      var label=nick||p.item_name||desc;
+      // A linked line is labelled with what the crew calls the item — the
+      // promoted alias, else the catalog name, else the receipt's own text,
+      // all resolved server-side (item_display_name). This used to guess:
+      // "first alias that is neither the receipt text nor the catalog name",
+      // which only ever worked on this screen because this screen holds the
+      // receipt text to exclude. The receipt's own text still drops to a muted
+      // second line when it differs, so the line can be matched against paper.
+      var label=itemName(p)||desc;
       var nameHtml=escHtml(label)+(p.is_case?' <span class="case-badge">CASE</span>':'');
       var receiptText=desc&&desc.toLowerCase()!==label.toLowerCase()?'<div class="line-item-receipt-text">'+escHtml(desc)+'</div>':'';
       // A linked line jumps to its catalog item in Setup so a wrong link or a
@@ -1558,12 +1562,15 @@ function renderStock(){
   // Reorder suggestions
   var reorderEl=document.getElementById('reorder-section');
   var needsReorder=stocks.filter(s=>s.needs_reorder);
-  needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.group_name||a.description).localeCompare(b.group_name||b.description));
+  needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.group_name||itemName(a)).localeCompare(b.group_name||itemName(b)));
   if(needsReorder.length){
     reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
-      var name=s.description;
+      // Two names, two jobs: data-stock-id must stay the catalog description
+      // (it is what scroll-to-stock-item looks the row up by, and what keys
+      // the stock-count override), while the crew reads the promoted one.
+      var name=itemIdentity(s);
       var lastDate=s.last_purchase_date?'Last bought: '+timeAgo(s.last_purchase_date)+' &middot; '+formatDate(s.last_purchase_date):'No purchase history';
-      return '<div class="reorder-item" data-action="scroll-to-stock-item" data-stock-id="'+escHtml(name)+'" style="cursor:pointer"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div><div style="text-align:right"><div>'+badgeHtml(s.level)+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Qty: '+(s.total_quantity||0)+'</div></div></div>';
+      return '<div class="reorder-item" data-action="scroll-to-stock-item" data-stock-id="'+escHtml(name)+'" style="cursor:pointer"><div><div class="reorder-item-name">'+escHtml(itemName(s))+'</div><div class="reorder-item-meta">'+lastDate+'</div></div><div style="text-align:right"><div>'+badgeHtml(s.level)+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Qty: '+(s.total_quantity||0)+'</div></div></div>';
     }).join('')+'</div>';
   } else {
     reorderEl.innerHTML='';
@@ -1582,7 +1589,7 @@ function renderStock(){
   var html='';
   Object.keys(groups).sort().forEach(groupName=>{
     var items=groups[groupName];
-    items.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.description||''). localeCompare(b.description||'')); 
+    items.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||itemName(a).localeCompare(itemName(b)));
     var collapsed=COLLAPSED_TAGS[groupName];
     html+='<div class="tag-section">';
     html+='<div class="tag-header" data-action="toggle-tag" data-tag-id="'+groupName+'"><span style="flex:1">'+groupName+'<span style="font-size:12px;color:var(--mut);font-weight:400;margin-left:4px">('+items.length+')</span></span><button class="item-edit-btn" data-action="expand-all-in-group" data-group-name="'+escHtml(groupName)+'" style="font-size:11px">Expand All</button><span class="arrow'+(collapsed?' collapsed':'')+'">▼</span></div>';
@@ -1593,7 +1600,7 @@ function renderStock(){
         var badgeAndIndicator='';
         if(s.repurchase_badge&&s.repurchase_badge.qty>0){badgeAndIndicator+='<span class="stock-badge stock-repurchased">Repurchased +'+s.repurchase_badge.qty+'</span>';}
         badgeAndIndicator+=badgeHtml(s.level);
-        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span><span class="stock-badges">'+badgeAndIndicator+'</span></div>';
+        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+escHtml(id)+'"><span class="stock-item-name">'+escHtml(itemName(s))+'</span><span class="stock-badges">'+badgeAndIndicator+'</span></div>';
         if(expanded){
           var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
           var qty=s.total_quantity!==undefined?s.total_quantity+' units':'No history';
@@ -2951,8 +2958,17 @@ async function loadItems(){
 }
 
 function renderAliasChipsHtml(it){
+  // The starred chip is the one every OTHER screen shows for this item
+  // (item_aliases.is_display). Tapping the star of the starred chip clears the
+  // promotion and the catalog Name takes over again — promotion is a radio,
+  // not a checkbox, which is why the click handler always sends the whole
+  // intent ("this alias" / "none") rather than a toggle per chip.
   var chips=(it.aliases||[]).map(function(a){
-    return '<span class="chip alias-chip">'+escHtml(a)+'<button class="alias-chip-x" data-action="remove-item-alias" data-id="'+it.id+'" data-alias="'+escHtml(a)+'" aria-label="Remove '+escHtml(a)+'">&times;</button></span>';
+    var on=it.display_alias&&a.toLowerCase()===String(it.display_alias).toLowerCase();
+    return '<span class="chip alias-chip'+(on?' displayed':'')+'">'+
+      '<button class="alias-chip-star" data-action="toggle-alias-display" data-id="'+it.id+'" data-alias="'+escHtml(a)+'" aria-pressed="'+(on?'true':'false')+'" aria-label="'+(on?'Stop showing':'Show')+' '+escHtml(a)+' everywhere" title="'+(on?'Shown everywhere — tap to use the catalog name instead':'Show this name everywhere')+'">'+(on?'\u2605':'\u2606')+'</button>'+
+      escHtml(a)+
+      '<button class="alias-chip-x" data-action="remove-item-alias" data-id="'+it.id+'" data-alias="'+escHtml(a)+'" aria-label="Remove '+escHtml(a)+'">&times;</button></span>';
   }).join('');
   return chips||'<span style="font-size:12px;color:var(--mut)">None yet</span>';
 }
@@ -2997,7 +3013,13 @@ function renderItemsList(){
   var list=document.getElementById('items-list');
   if(!list)return;
   var query=ITEM_SEARCH.toLowerCase();
-  var filtered=ALL_ITEMS.filter(function(it){return !query||it.description.toLowerCase().indexOf(query)!==-1;});
+  var filtered=ALL_ITEMS.filter(function(it){
+    if(!query)return true;
+    // Search the catalog name AND every alias: an item the crew only ever
+    // calls "Honey" is unfindable by its "100% Cl Hny 24Z Bram" catalog name.
+    return it.description.toLowerCase().indexOf(query)!==-1
+      ||(it.aliases||[]).some(function(a){return a.toLowerCase().indexOf(query)!==-1;});
+  });
 
   // Group items by (group_name, store_location) composite key
   var grouped={};
@@ -3027,7 +3049,13 @@ function renderItemsList(){
 
   function renderItemRow(it){
     if(ITEM_EDIT_ID===it.id){
-      var mergeItemOpts=filtered.filter(function(oi){return oi.id!==it.id;}).map(function(oi){return '<option value="'+oi.id+'">'+escHtml(oi.description)+'</option>';}).join('');
+      // Option VALUE is the id, so the text is free to be the readable name —
+      // with the catalog name appended when they differ, since picking the
+      // wrong merge target is destructive and worth being sure about.
+      var mergeItemOpts=filtered.filter(function(oi){return oi.id!==it.id;}).map(function(oi){
+        var osub=itemSubName(oi);
+        return '<option value="'+oi.id+'">'+escHtml(itemName(oi))+(osub?escHtml(' \u2014 '+osub):'')+'</option>';
+      }).join('');
       var photoArea='<div class="item-photo-area" style="display:flex;align-items:center;gap:12px;margin-bottom:12px">';
       if(it.photo_url){
         photoArea+='<img src="'+escHtml(it.photo_url)+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover" class="item-photo-thumb">';
@@ -3038,14 +3066,15 @@ function renderItemsList(){
       photoArea+='<a href="#" class="item-photo-change" data-action="change-item-photo" data-id="'+it.id+'" style="font-size:13px;color:var(--link,#007aff)">'+(it.photo_url?'Change photo':'Add photo')+'</a></div>';
       return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
         photoArea+
-        '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
+        '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'">'+
+          (it.display_alias?'<div style="font-size:12px;color:var(--mut);margin-top:4px">Shown everywhere as \u201C'+escHtml(itemName(it))+'\u201D \u2014 the starred nickname below.</div>':'')+'</div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
         '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+(it.store_location&&!VENDORS.some(function(v){return v.name===it.store_location;})?'<option value="'+escHtml(it.store_location)+'" selected>'+escHtml(it.store_location)+'</option>':'')+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
         '<div class="field-group"><div class="field-label">Location in Store</div><input type="text" class="field-input item-edit-in-store" value="'+escHtml(it.location_in_store||'')+'" placeholder="e.g. Center Aisle, Back of Store"></div>'+
         '<div class="field-group"><div class="field-label">Nicknames</div>'+
           '<div class="alias-chips" data-id="'+it.id+'">'+renderAliasChipsHtml(it)+'</div>'+
           '<div class="add-item-bar" style="margin-top:6px"><input type="text" class="field-input item-alias-input" data-id="'+it.id+'" placeholder="Add nickname or receipt name..." autocomplete="off"><button data-action="add-item-alias" data-id="'+it.id+'">Add</button></div>'+
-          '<div style="font-size:12px;color:var(--mut);margin-top:4px">Receipt names that should match this item. Learned automatically when you link a receipt line.</div></div>'+
+          '<div style="font-size:12px;color:var(--mut);margin-top:4px">Receipt names that should match this item. Learned automatically when you link a receipt line. Tap \u2606 to show one of these everywhere instead of the Name above.</div></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
@@ -3056,7 +3085,9 @@ function renderItemsList(){
         '</div>';
     }
     var thumb=it.photo_url?'<img src="'+escHtml(it.photo_url)+'" style="width:24px;height:24px;border-radius:4px;object-fit:cover;margin-right:8px;vertical-align:middle">':'';
-    return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'">'+thumb+'<span class="item-name">'+escHtml(it.description)+'</span>'+
+    var sub=itemSubName(it);
+    return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'">'+thumb+'<span class="item-name">'+escHtml(itemName(it))+
+      (sub?'<span class="item-name-sub">'+escHtml(sub)+'</span>':'')+'</span>'+
       '<span class="item-group-label">'+(it.store_location?escHtml(it.store_location):'—')+'</span></div>';
   }
 
@@ -3284,12 +3315,54 @@ document.getElementById('items-list').addEventListener('click',function(e){
       if(aliasInput)aliasInput.value='';
       refreshAliasChips(aliasItemId);
     }).catch(function(err){console.error('addItemAlias',err);});
+  } else if(action==='toggle-alias-display'){
+    // Promote this alias to the app-wide label, or clear the promotion when
+    // the already-starred chip is tapped. Sent as the whole intent (the alias,
+    // or '') because at most one alias per item may be promoted — the server
+    // demotes and promotes in one transaction so the two can never both hold.
+    var dispItemId=el.dataset.id;
+    var dispAlias=el.dataset.alias||'';
+    var dispItem=ALL_ITEMS.find(function(ci){return ci.id===dispItemId;});
+    if(!dispItem)return;
+    var already=dispItem.display_alias&&dispItem.display_alias.toLowerCase()===dispAlias.toLowerCase();
+    var wanted=already?'':dispAlias;
+    // Optimistic: the chip restyles on tap, and the rollback below puts the
+    // old promotion back if the write loses, rather than leaving the UI
+    // asserting a label the server never stored.
+    var prevAlias=dispItem.display_alias||'';
+    var prevName=dispItem.display_name;
+    dispItem.display_alias=wanted;
+    dispItem.display_name=wanted||dispItem.description;
+    refreshAliasChips(dispItemId);
+    api('/api/v1/inventory/items/aliases/display',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:dispItemId,alias:wanted})}).then(function(res){
+      if(res&&res.display_name)dispItem.display_name=res.display_name;
+      dispItem.display_alias=(res&&res.display_alias)||'';
+      renderItemsList();
+      // Every other tab is now labelling this item with a stale name.
+      if(STOCK_DATA&&STOCK_DATA.length)loadStock();
+      if(RECIPES_DATA&&RECIPES_DATA.length)loadRecipes();
+    }).catch(function(err){
+      dispItem.display_alias=prevAlias;
+      dispItem.display_name=prevName;
+      refreshAliasChips(dispItemId);
+      showToastMessage('Couldn\u2019t change the displayed name.');
+      console.error('toggleAliasDisplay',err);
+    });
   } else if(action==='remove-item-alias'){
     var rmItemId=el.dataset.id;
     var rmAlias=el.dataset.alias;
     api('/api/v1/inventory/items/aliases',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:rmItemId,alias:rmAlias})}).then(function(){
       var rmItem=ALL_ITEMS.find(function(ci){return ci.id===rmItemId;});
-      if(rmItem)rmItem.aliases=(rmItem.aliases||[]).filter(function(a){return a.toLowerCase()!==rmAlias.toLowerCase();});
+      if(rmItem){
+        rmItem.aliases=(rmItem.aliases||[]).filter(function(a){return a.toLowerCase()!==rmAlias.toLowerCase();});
+        if(rmItem.display_alias&&rmItem.display_alias.toLowerCase()===rmAlias.toLowerCase()){
+          rmItem.display_alias='';
+          rmItem.display_name=rmItem.description;
+          renderItemsList();
+          if(STOCK_DATA&&STOCK_DATA.length)loadStock();
+          if(RECIPES_DATA&&RECIPES_DATA.length)loadRecipes();
+        }
+      }
       refreshAliasChips(rmItemId);
     }).catch(function(err){console.error('removeItemAlias',err);});
   } else if(action==='change-item-photo'){
@@ -3572,14 +3645,24 @@ function renderItemModal(query){
   var list=document.getElementById('item-modal-list');
   if(!list)return;
   var q=query.toLowerCase().trim();
-  var matches=ALL_ITEMS.filter(function(it){return !q||it.description.toLowerCase().indexOf(q)!==-1||(it.aliases||[]).some(function(a){return a.toLowerCase().indexOf(q)!==-1;});}).slice(0,30);
+  var matches=ALL_ITEMS.filter(function(it){return !q||itemName(it).toLowerCase().indexOf(q)!==-1||it.description.toLowerCase().indexOf(q)!==-1||(it.aliases||[]).some(function(a){return a.toLowerCase().indexOf(q)!==-1;});}).slice(0,30);
   var html='';
 
   matches.forEach(function(it){
-    var aliasHit=q&&it.description.toLowerCase().indexOf(q)===-1?(it.aliases||[]).find(function(a){return a.toLowerCase().indexOf(q)!==-1;}):null;
+    // The picker is receipt-matching work, so it shows BOTH names: the label
+    // the crew reads on top, the catalog name under it whenever they differ.
+    // data-item-desc stays the catalog name — selectItemFromModal writes it
+    // into the review line, and that string is what gets stored on confirm.
+    var shown=itemName(it), canonical=itemSubName(it);
+    var aliasHit=q&&shown.toLowerCase().indexOf(q)===-1&&it.description.toLowerCase().indexOf(q)===-1
+      ?(it.aliases||[]).find(function(a){return a.toLowerCase().indexOf(q)!==-1;}):null;
+    var subBits=[];
+    if(canonical)subBits.push(escHtml(canonical));
+    if(aliasHit)subBits.push('aka '+escHtml(aliasHit));
+    if(!subBits.length&&it.group_name)subBits.push(escHtml(it.group_name));
     html+='<div class="item-modal-item" data-item-id="'+it.id+'" data-item-desc="'+escHtml(it.description)+'">'+
-      '<div class="item-modal-item-name">'+escHtml(it.description)+'</div>'+
-      (aliasHit?'<div class="item-modal-item-group">aka '+escHtml(aliasHit)+'</div>':(it.group_name?'<div class="item-modal-item-group">'+escHtml(it.group_name)+'</div>':''))+
+      '<div class="item-modal-item-name">'+escHtml(shown)+'</div>'+
+      (subBits.length?'<div class="item-modal-item-group">'+subBits.join(' &middot; ')+'</div>':'')+
       '</div>';
   });
 
@@ -3791,7 +3874,7 @@ function renderIngredientList(){
   // Sort by last_week_spend DESC; items with 0 spend go to bottom alphabetically.
   var sorted=RECIPES_DATA.slice().sort(function(a,b){
     var aSpend=+a.last_week_spend||0, bSpend=+b.last_week_spend||0;
-    if(aSpend===0&&bSpend===0)return (a.description||'').localeCompare(b.description||'');
+    if(aSpend===0&&bSpend===0)return itemName(a).localeCompare(itemName(b));
     if(aSpend===0)return 1;
     if(bSpend===0)return -1;
     return bSpend-aSpend;
@@ -3815,7 +3898,7 @@ function renderIngredientList(){
       : 'Last week: no purchases';
     var rowHtml='<div class="recipe-ingredient-row'+(open?' open':'')+'" data-action="toggle-recipe-row" data-purchase-item-id="'+escHtml(ing.purchase_item_id)+'" aria-expanded="'+(open?'true':'false')+'">';
     rowHtml+='<div class="recipe-row-head">';
-    rowHtml+='<div><span class="arrow">▶</span> <span class="recipe-row-name">'+escHtml(ing.description)+'</span><div class="recipe-row-spend">'+spend+'</div></div>';
+    rowHtml+='<div><span class="arrow">▶</span> <span class="recipe-row-name">'+escHtml(itemName(ing))+'</span><div class="recipe-row-spend">'+spend+'</div></div>';
     rowHtml+='<div>'+chip+'</div>';
     rowHtml+='</div>';
     if(open){rowHtml+='<div class="recipe-detail">'+renderIngredientDetail(ing)+'</div>';}
@@ -3872,7 +3955,7 @@ function renderRecipeSummary(){
         var pct=+r.usage_pct||0;
         var alloc=(+ing.last_week_spend||0)*(pct/100);
         total+=alloc;
-        rowsHTML+='<div class="ingredient-row"><span class="ingredient-name">'+escHtml(ing.description)+'</span><span class="ingredient-pct">'+pct.toFixed(0)+'%</span><span class="ingredient-cost">$'+alloc.toFixed(2)+'</span></div>';
+        rowsHTML+='<div class="ingredient-row"><span class="ingredient-name">'+escHtml(itemName(ing))+'</span><span class="ingredient-pct">'+pct.toFixed(0)+'%</span><span class="ingredient-cost">$'+alloc.toFixed(2)+'</span></div>';
       }
     });
   });

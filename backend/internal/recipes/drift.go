@@ -82,7 +82,7 @@ sum_pct AS (
   SELECT purchase_item_id, COALESCE(SUM(usage_pct), 0) AS sp
   FROM recipes GROUP BY purchase_item_id
 )
-SELECT pi.id::text, pi.description,
+SELECT pi.id::text, item_display_name(pi.id, pi.description),
        ROUND((ws.spend * (1 - COALESCE(s.sp, 0) / 100.0))::numeric, 2) AS unalloc
 FROM window_spend ws
 JOIN purchase_items pi ON pi.id = ws.purchase_item_id
@@ -125,7 +125,7 @@ ingredient_totals AS (
   FROM recipes r LEFT JOIN menu_revenue mr ON mr.menu_item_id = r.menu_item_id
   GROUP BY r.purchase_item_id
 )
-SELECT r.id::text, mi.name, pi.description,
+SELECT r.id::text, mi.name, item_display_name(pi.id, pi.description),
        r.usage_pct AS configured,
        CASE WHEN it.total_rev > 0
             THEN ROUND((COALESCE(mr.rev, 0) / it.total_rev * 100)::numeric, 2)

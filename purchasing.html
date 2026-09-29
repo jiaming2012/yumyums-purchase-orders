@@ -166,6 +166,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div id="s3" style="display:none"><!-- PO tab: rendered by JS --></div>
 <div id="s4" style="display:none"><div id="history-content"></div></div>
 <script src="tab.js" data-tabs="4"></script>
+<script src="item-name.js"></script>
 </div>
 
 <!-- Item picker modal -->
@@ -371,15 +372,15 @@ function renderPOTab() {
 
 function renderPOItemCard(item, editable) {
   var thumb = item.photo_url
-    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-    : '<div class="item-thumb">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
+    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + itemName(item) + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + itemName(item) + '"></div>'
+    : '<div class="item-thumb">' + (itemName(item) || '?').charAt(0).toUpperCase() + '</div>';
   var loc = item.store_location ? ' &middot; ' + item.store_location : '';
   var ini = initials(item.added_by_name || '');
   var dimClass = item.quantity === 0 ? ' dim' : '';
   var disabled = editable ? '' : ' disabled';
   return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
     + thumb
-    + '<div class="item-info" data-action="goto-setup" data-item-desc="' + item.item_name.replace(/"/g, '&quot;') + '"><div class="nm">' + item.item_name + '</div>'
+    + '<div class="item-info" data-action="goto-setup" data-item-desc="' + item.item_name.replace(/"/g, '&quot;') + '"><div class="nm">' + itemName(item) + '</div>'
     + '<div class="mt">' + (item.unit || '') + loc + '</div>'
     + (ini ? '<div class="attr">Added by: ' + ini + '</div>' : '')
     + '</div>'
@@ -486,7 +487,7 @@ function renderOrder() {
       var alreadyOnPO = (PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
       html += '<div class="suggest-row">';
       html += '<input type="checkbox" data-suggest-id="' + s.purchase_item_id + '"' + (alreadyOnPO ? ' disabled checked' : '') + '>';
-      html += '<span>' + s.item_name + '</span>';
+      html += '<span>' + itemName(s) + '</span>';
       var lvlClass = s.stock_level === 'low' ? 'sl-low' : 'sl-med';
       html += '<span class="' + lvlClass + '">' + s.stock_level + '</span>';
       html += '<span class="sq">Suggested: ' + s.suggested_qty + (s.unit ? ' ' + s.unit : '') + '</span>';
@@ -524,14 +525,14 @@ function renderOrder() {
 
 function renderItemCard(item) {
   var thumb = item.photo_url
-    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-    : '<div class="item-thumb">' + item.item_name.charAt(0).toUpperCase() + '</div>';
+    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + itemName(item) + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + itemName(item) + '"></div>'
+    : '<div class="item-thumb">' + (itemName(item) || '?').charAt(0).toUpperCase() + '</div>';
   var loc = item.store_location ? ' &middot; ' + item.store_location : '';
   var ini = initials(item.added_by_name || 'You');
   var dimClass = item.quantity === 0 ? ' dim' : '';
   return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
     + thumb
-    + '<div class="item-info" data-action="goto-setup" data-item-desc="' + item.item_name.replace(/"/g, '&quot;') + '"><div class="nm">' + item.item_name + '</div>'
+    + '<div class="item-info" data-action="goto-setup" data-item-desc="' + item.item_name.replace(/"/g, '&quot;') + '"><div class="nm">' + itemName(item) + '</div>'
     + '<div class="mt">' + (item.unit || '') + loc + '</div>'
     + '<div class="attr">Added by: ' + ini + '</div></div>'
     + '<div class="stp">'
@@ -582,11 +583,11 @@ function renderShoppingTab() {
       var checkIcon = item.checked ? '✓' : '';
       var checkClass = item.checked ? ' on' : '';
       var thumb = item.photo_url
-        ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-        : '<div class="item-thumb" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(item.item_name) + '" style="cursor:pointer">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
+        ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + itemName(item) + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + itemName(item) + '"></div>'
+        : '<div class="item-thumb" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(itemName(item)) + '" style="cursor:pointer">' + (itemName(item) || '?').charAt(0).toUpperCase() + '</div>';
       var loc = item.store_location ? item.store_location : '<span data-action="shop-edit-loc" data-item-id="' + item.id + '" style="color:var(--info-tx);cursor:pointer">Add location</span>';
       var warn = '';
-      if (item.checked && !item.photo_url) warn += '<span class="shop-warn" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(item.item_name) + '">No photo</span> ';
+      if (item.checked && !item.photo_url) warn += '<span class="shop-warn" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(itemName(item)) + '">No photo</span> ';
       if (item.checked && !item.store_location) warn += '<span class="shop-warn">No location</span>';
 
       html += '<div class="shop-item' + checkedClass + '">';
@@ -594,7 +595,7 @@ function renderShoppingTab() {
         html += '<button class="shop-check' + checkClass + '" data-action="shop-check" data-item-id="' + item.id + '" data-checked="' + (item.checked ? '1' : '0') + '" data-section-id="' + sec.id + '">' + checkIcon + '</button>';
       }
       html += thumb;
-      html += '<div class="shop-info"><div class="nm">' + item.item_name + '</div>';
+      html += '<div class="shop-info"><div class="nm">' + itemName(item) + '</div>';
       html += '<div class="mt">' + loc + '</div>';
       if (warn) html += '<div>' + warn + '</div>';
       html += '</div>';
@@ -702,7 +703,7 @@ async function handleShopCheck(itemId, currentlyChecked, sectionId) {
           items[j].checked = newChecked;
           // Show toast if checked and missing photo or location
           if (newChecked && (!items[j].photo_url || !items[j].store_location)) {
-            showShoppingToast(items[j].item_name);
+            showShoppingToast(itemName(items[j]));
           }
           break;
         }
@@ -936,6 +937,7 @@ function addItemToPO(itemId) {
   targetPO.line_items.push({
     purchase_item_id: itemId,
     item_name: catalogItem.description,
+    display_name: itemName(catalogItem),
     group_name: catalogItem.group_name || null,
     photo_url: catalogItem.photo_url || null,
     store_location: catalogItem.store_location || null,
@@ -966,6 +968,7 @@ function addSelectedSuggestions() {
     PO_STATE.line_items.push({
       purchase_item_id: suggestion.purchase_item_id,
       item_name: suggestion.item_name,
+      display_name: itemName(suggestion),
       group_name: suggestion.group_name || null,
       photo_url: suggestion.photo_url || null,
       store_location: suggestion.store_location || null,
@@ -1085,7 +1088,7 @@ function showDuplicatePopup(itemId) {
   var item = PO_STATE && (PO_STATE.line_items || []).find(function(li) { return li.purchase_item_id === itemId; });
   if (!item) return;
   DUP_ITEM_ID = itemId;
-  document.getElementById('dp-title').textContent = item.item_name + ' already on PO';
+  document.getElementById('dp-title').textContent = itemName(item) + ' already on PO';
   document.getElementById('dp-meta').textContent = 'Qty: ' + item.quantity + ' \u00b7 Added by: ' + initials(item.added_by_name || 'You');
   document.getElementById('dup-popup').style.display = 'block';
   document.getElementById('dup-backdrop').style.display = 'block';

@@ -314,6 +314,11 @@ async function build() {
       // on one. Added WITH its globPattern, unlike log.js and tab.js below —
       // that is the whole point of the reachability guard above.
       'health-banner.js',
+      // The shared "what do we call this item?" resolver (item-name.js),
+      // referenced by inventory.html and purchasing.html. Added WITH its glob
+      // for the same reason as health-banner.js above; `COPY *.html *.js` in
+      // backend/Dockerfile already carries it into the image.
+      'item-name.js',
 
       // ═══ FOUND BY THE REACHABILITY GUARD ABOVE, NOT BY A HUMAN. B-37. ═════
       //

@@ -30,14 +30,21 @@ type ItemGroup struct {
 
 // PurchaseItem is a canonical product that appears on purchase line items.
 type PurchaseItem struct {
-	ID            string  `json:"id"`
-	Description   string  `json:"description"`
-	GroupID       *string `json:"group_id,omitempty"`
-	GroupName     *string `json:"group_name,omitempty"`
-	StoreLocation   *string `json:"store_location,omitempty"`
-	LocationInStore *string `json:"location_in_store,omitempty"`
-	PhotoURL        *string `json:"photo_url,omitempty"`
+	ID              string   `json:"id"`
+	Description     string   `json:"description"`
+	GroupID         *string  `json:"group_id,omitempty"`
+	GroupName       *string  `json:"group_name,omitempty"`
+	StoreLocation   *string  `json:"store_location,omitempty"`
+	LocationInStore *string  `json:"location_in_store,omitempty"`
+	PhotoURL        *string  `json:"photo_url,omitempty"`
 	Aliases         []string `json:"aliases,omitempty"`
+	// DisplayName is what every screen calls this item: the promoted alias
+	// (item_aliases.is_display) if the crew set one, otherwise Description.
+	// Always populated — never branch on Description yourself, read this.
+	DisplayName string `json:"display_name"`
+	// DisplayAlias is WHICH alias is promoted, so the Setup chips can star it.
+	// Empty when no alias is promoted (DisplayName is then Description).
+	DisplayAlias string `json:"display_alias,omitempty"`
 }
 
 // ItemGroupWithItems is an item group with its items included.
@@ -57,15 +64,20 @@ type LineItem struct {
 	// ItemName is the linked catalog item's description (purchase_items), the
 	// name the crew knows it by. Description below is the receipt's own text.
 	// Empty when the line is not linked.
-	ItemName        string  `json:"item_name,omitempty"`
+	ItemName string `json:"item_name,omitempty"`
+	// ItemDisplayName is what to LABEL this line with: the linked item's
+	// promoted alias, else its description, else the receipt's own text. The
+	// server resolves it so no screen has to re-derive a label out of
+	// ItemAliases — a bag that also holds raw receipt strings.
+	ItemDisplayName string `json:"item_display_name,omitempty"`
 	// ItemAliases are the linked item's nicknames (item_aliases), oldest first.
 	// The crew types friendly names here for items the receipt worker named
 	// with raw receipt text, so the Purchases card prefers one as its label.
-	ItemAliases     []string `json:"item_aliases,omitempty"`
-	Description     string  `json:"description"`
-	Quantity        int     `json:"quantity"`
-	Price           float64 `json:"price"`
-	IsCase          bool    `json:"is_case"`
+	ItemAliases []string `json:"item_aliases,omitempty"`
+	Description string   `json:"description"`
+	Quantity    int      `json:"quantity"`
+	Price       float64  `json:"price"`
+	IsCase      bool     `json:"is_case"`
 }
 
 // PurchaseEvent is a single vendor purchase (one receipt).
@@ -87,32 +99,32 @@ type PurchaseEvent struct {
 
 // PendingPurchase is a receipt awaiting review before becoming a real purchase event.
 type PendingPurchase struct {
-	ID          string           `json:"id"`
-	BankTxID    string           `json:"bank_tx_id"`
-	BankTotal   float64          `json:"bank_total"`
-	Vendor      string           `json:"vendor"`
-	EventDate   *string          `json:"event_date,omitempty"`
-	Tax         *float64         `json:"tax,omitempty"`
-	Total       *float64         `json:"total,omitempty"`
-	TotalUnits  *int             `json:"total_units,omitempty"`
-	TotalCases  *int             `json:"total_cases,omitempty"`
-	ReceiptURL  *string          `json:"receipt_url,omitempty"`
-	ReceiptURLs []string         `json:"receipt_urls,omitempty"`
-	Reason          *string      `json:"reason,omitempty"`
-	ParseError      *string      `json:"parse_error,omitempty"`
+	ID          string   `json:"id"`
+	BankTxID    string   `json:"bank_tx_id"`
+	BankTotal   float64  `json:"bank_total"`
+	Vendor      string   `json:"vendor"`
+	EventDate   *string  `json:"event_date,omitempty"`
+	Tax         *float64 `json:"tax,omitempty"`
+	Total       *float64 `json:"total,omitempty"`
+	TotalUnits  *int     `json:"total_units,omitempty"`
+	TotalCases  *int     `json:"total_cases,omitempty"`
+	ReceiptURL  *string  `json:"receipt_url,omitempty"`
+	ReceiptURLs []string `json:"receipt_urls,omitempty"`
+	Reason      *string  `json:"reason,omitempty"`
+	ParseError  *string  `json:"parse_error,omitempty"`
 	// RetryRequestedAt is set when the operator asked for a re-parse and
 	// cleared when the worker has done it (migration 0079). The card reads it
 	// so "queued for re-parse" survives a reload instead of living only in a
 	// transient FE flag.
-	RetryRequestedAt *time.Time  `json:"retry_requested_at,omitempty"`
-	MercuryCategory *string      `json:"mercury_category,omitempty"` // Mercury's own category; NULL = uncategorised
-	CardHolder      *string      `json:"card_holder,omitempty"`      // name on the Mercury card that was swiped; NULL = unknown / not a swipe
-	CardLast4       *string      `json:"card_last4,omitempty"`
-	Items       json.RawMessage  `json:"items"`
-	ConfirmedAt *time.Time       `json:"confirmed_at,omitempty"`
-	ConfirmedBy *string          `json:"confirmed_by,omitempty"`
-	DiscardedAt *time.Time       `json:"discarded_at,omitempty"`
-	CreatedAt   time.Time        `json:"created_at"`
+	RetryRequestedAt *time.Time      `json:"retry_requested_at,omitempty"`
+	MercuryCategory  *string         `json:"mercury_category,omitempty"` // Mercury's own category; NULL = uncategorised
+	CardHolder       *string         `json:"card_holder,omitempty"`      // name on the Mercury card that was swiped; NULL = unknown / not a swipe
+	CardLast4        *string         `json:"card_last4,omitempty"`
+	Items            json.RawMessage `json:"items"`
+	ConfirmedAt      *time.Time      `json:"confirmed_at,omitempty"`
+	ConfirmedBy      *string         `json:"confirmed_by,omitempty"`
+	DiscardedAt      *time.Time      `json:"discarded_at,omitempty"`
+	CreatedAt        time.Time       `json:"created_at"`
 }
 
 // RepurchaseBadge holds repurchase tracking data for a stock item (REP-01).
@@ -124,7 +136,13 @@ type RepurchaseBadge struct {
 
 // StockItem is an aggregated stock level for one purchase item description.
 type StockItem struct {
-	Description      string           `json:"description"`
+	// Description is the IDENTITY of a stock row, not its label. It keys
+	// stock_count_overrides.item_description, the expanded-row map and the
+	// "View in Setup" jump, so it must keep arriving unchanged even when the
+	// crew renames what they call the item. Render DisplayName instead.
+	Description string `json:"description"`
+	// DisplayName is the promoted alias if one is set, else Description.
+	DisplayName      string           `json:"display_name"`
 	GroupName        *string          `json:"group_name,omitempty"`
 	TotalQuantity    int              `json:"total_quantity"`
 	TotalSpend       float64          `json:"total_spend"`
@@ -148,22 +166,22 @@ type CreateLineItemInput struct {
 
 // CreatePurchaseEventInput is the body for POST /api/v1/inventory/purchases.
 type CreatePurchaseEventInput struct {
-	VendorID   string               `json:"vendor_id"`
-	BankTxID   string               `json:"bank_tx_id"`
-	EventDate  string               `json:"event_date"` // YYYY-MM-DD
-	Tax        float64              `json:"tax"`
-	Total      float64              `json:"total"`
-	ReceiptURL *string              `json:"receipt_url,omitempty"`
+	VendorID   string                `json:"vendor_id"`
+	BankTxID   string                `json:"bank_tx_id"`
+	EventDate  string                `json:"event_date"` // YYYY-MM-DD
+	Tax        float64               `json:"tax"`
+	Total      float64               `json:"total"`
+	ReceiptURL *string               `json:"receipt_url,omitempty"`
 	LineItems  []CreateLineItemInput `json:"line_items"`
 }
 
 // ConfirmPendingInput is the body for POST /api/v1/inventory/purchases/confirm.
 type ConfirmPendingInput struct {
-	ID         string               `json:"id"`
-	VendorName string               `json:"vendor_name"`
-	EventDate  string               `json:"event_date"`
-	Tax        float64              `json:"tax"`
-	Total      float64              `json:"total"`
+	ID         string                `json:"id"`
+	VendorName string                `json:"vendor_name"`
+	EventDate  string                `json:"event_date"`
+	Tax        float64               `json:"tax"`
+	Total      float64               `json:"total"`
 	LineItems  []CreateLineItemInput `json:"line_items"`
 }
 
@@ -177,12 +195,12 @@ type DiscardPendingInput struct {
 // Completeness gate uses pending_purchases.created_at cast to the APP timezone's
 // calendar date (users.DefaultTimezone — see pendingPeriodDateExpr in handler.go).
 type PeriodSummary struct {
-	From               string            `json:"from"`                 // YYYY-MM-DD
-	To                 string            `json:"to"`                   // YYYY-MM-DD
-	COGSExclTax        float64           `json:"cogs_excl_tax"`
-	COGSInclTax        float64           `json:"cogs_incl_tax"`
-	PurchaseEventCount int               `json:"purchase_event_count"`
-	ByVendor           []VendorCOGS      `json:"by_vendor"`
+	From               string       `json:"from"` // YYYY-MM-DD
+	To                 string       `json:"to"`   // YYYY-MM-DD
+	COGSExclTax        float64      `json:"cogs_excl_tax"`
+	COGSInclTax        float64      `json:"cogs_incl_tax"`
+	PurchaseEventCount int          `json:"purchase_event_count"`
+	ByVendor           []VendorCOGS `json:"by_vendor"`
 	// TrackedBankTxIDs is every Mercury bank_tx_id HQ has touched for
 	// the period, across all states (confirmed in purchase_events,
 	// pending/confirmed/discarded in pending_purchases). Consumers diff
