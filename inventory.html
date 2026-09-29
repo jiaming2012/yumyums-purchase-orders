@@ -3356,14 +3356,37 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var aliasItem=ALL_ITEMS.find(function(ci){return ci.id===aliasItemId;});
     if(aliasItem&&aliasItem.description.toLowerCase()===alias.toLowerCase()){aliasInput.value='';return;}
     if(aliasItem&&(aliasItem.aliases||[]).some(function(a){return a.toLowerCase()===alias.toLowerCase();})){aliasInput.value='';return;}
-    api('/api/v1/inventory/items/aliases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:aliasItemId,alias:alias})}).then(function(){
+    // display_if_first: a nickname typed here for an item with no nicknames
+    // becomes the displayed name by default — it is the only candidate. Once
+    // any nickname exists (starred or not) a new one arrives unstarred and the
+    // operator chooses. Only this editor sends the flag; the receipt-link
+    // auto-learn (learnItemAlias) never does, so raw receipt text cannot
+    // promote itself.
+    var hadNone=!aliasItem||!(aliasItem.aliases||[]).length;
+    api('/api/v1/inventory/items/aliases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({purchase_item_id:aliasItemId,alias:alias,display_if_first:true})}).then(function(){
       // The alias may have been re-pointed from another item — refresh all
-      // aliases from the server so both items render truthfully.
+      // aliases (and any promotion that moved with it) from the server so
+      // both items render truthfully.
       return api('/api/v1/inventory/items');
     }).then(function(data){
-      ALL_ITEMS.forEach(function(ci){var f=(data||[]).find(function(x){return x.id===ci.id;});if(f)ci.aliases=f.aliases||[];});
+      var promotedHere=false;
+      ALL_ITEMS.forEach(function(ci){
+        var f=(data||[]).find(function(x){return x.id===ci.id;});
+        if(!f)return;
+        ci.aliases=f.aliases||[];
+        var was=ci.display_alias||'';
+        ci.display_alias=f.display_alias||'';
+        ci.display_name=f.display_name||ci.description;
+        if(ci.id===aliasItemId&&hadNone&&ci.display_alias&&ci.display_alias!==was)promotedHere=true;
+      });
       if(aliasInput)aliasInput.value='';
       refreshAliasChips(aliasItemId);
+      // A default promotion relabels this item on every other tab, exactly as
+      // a tapped star does — keep them in step.
+      if(promotedHere){
+        if(STOCK_DATA&&STOCK_DATA.length)loadStock();
+        if(RECIPES_DATA&&RECIPES_DATA.length)loadRecipes();
+      }
     }).catch(function(err){console.error('addItemAlias',err);});
   } else if(action==='toggle-alias-display'){
     // Promote this alias to the app-wide label, or clear the promotion when

@@ -5807,6 +5807,70 @@ test.describe('Item display name — promoted nicknames', () => {
   // The star in the Setup editor is the only way a human sets this, so drive it
   // through the UI rather than the endpoint: chip styling, the persisted flag,
   // and the round trip back to the catalog name on a second tap.
+  // Adding a nickname in Setup: the FIRST one becomes the displayed name by
+  // default (no other nickname exists to choose from); once any nickname
+  // exists — starred or not — a new one arrives unstarred.
+  async function openEditor(page, item, desc) {
+    await page.goto('/inventory.html#tab=7');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t7').click();
+    await page.fill('#item-search', desc);
+    await page.locator('.item-row[data-id="' + item.id + '"]').click();
+    const form = page.locator('.item-edit-form[data-item-id="' + item.id + '"]');
+    await expect(form).toBeVisible();
+    return form;
+  }
+  async function typeNickname(page, item, nickname) {
+    await page.fill('.item-alias-input[data-id="' + item.id + '"]', nickname);
+    await page.locator('[data-action="add-item-alias"][data-id="' + item.id + '"]').click();
+  }
+  const displayOf = (page, id) => async () => {
+    const items = await invApiCall(page, 'GET', 'items');
+    const it = (items || []).find(i => i.id === id);
+    return it ? it.display_name : null;
+  };
+
+  test('the first nickname typed in Setup is starred by default; the second is not', async ({ page }) => {
+    const stamp = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const desc = 'First Nick Catalog ' + stamp;
+    const item = await invApiCall(page, 'POST', 'items', { description: desc, group_id: gid });
+    expect(item && item.id).toBeTruthy();
+    await openEditor(page, item, desc);
+
+    const first = 'Honey ' + stamp;
+    await typeNickname(page, item, first);
+    const star1 = page.locator('.item-edit-form[data-item-id="' + item.id + '"] [data-action="toggle-alias-display"][data-alias="' + first + '"]');
+    await expect(star1).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(displayOf(page, item.id), { timeout: 5000 }).toBe(first);
+
+    const second = 'Bear Honey ' + stamp;
+    await typeNickname(page, item, second);
+    const star2 = page.locator('.item-edit-form[data-item-id="' + item.id + '"] [data-action="toggle-alias-display"][data-alias="' + second + '"]');
+    await expect(star2).toHaveAttribute('aria-pressed', 'false');
+    await expect(star1).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(displayOf(page, item.id), { timeout: 5000 }).toBe(first);
+  });
+
+  test('a nickname typed in Setup is not starred when another nickname already exists, even unstarred', async ({ page }) => {
+    const stamp = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const desc = 'Existing Nick Catalog ' + stamp;
+    const item = await invApiCall(page, 'POST', 'items', { description: desc, group_id: gid });
+    // A pre-existing, unstarred nickname — the shape a receipt link leaves behind.
+    await addAlias(page, item.id, 'HNY BEAR 24OZ ' + stamp);
+    await openEditor(page, item, desc);
+
+    const typed = 'Honey ' + stamp;
+    await typeNickname(page, item, typed);
+    const star = page.locator('.item-edit-form[data-item-id="' + item.id + '"] [data-action="toggle-alias-display"][data-alias="' + typed + '"]');
+    await expect(star).toBeVisible();
+    await expect(star).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(displayOf(page, item.id), { timeout: 5000 }).toBe(desc);
+  });
+
   test('the Setup star promotes an alias and a second tap clears it', async ({ page }) => {
     const stamp = Date.now();
     const groups = await invApiCall(page, 'GET', 'groups');
