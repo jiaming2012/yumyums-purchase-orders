@@ -143,6 +143,12 @@ subset = 'npx playwright test "{tags}"'
 "backend/internal/purchasing" = ["purchasing"]
 "purchasing.html"             = ["purchasing"]
 "tests/purchasing.spec.js"    = ["purchasing"]
+# The launcher shell. index.html writes the identity token the service worker
+# partitions api-cache by (sw-api-cache-partition) and paints tiles from
+# /api/v1/me/apps (grant-enforcement-parity) — both suites drive it directly.
+# Added on fix/sticky-launcher-header (2026-09-28): the row was missing.
+"index.html"                  = ["index", "storage-banner", "version-badge", "sw-api-cache-partition", "grant-enforcement-parity"]
+"tests/index.spec.js"         = ["index"]
 # ─────────────────────────────────────────────────────────────────────────────
 # THE SYNC CLIENT SEAM — B-154 rider (card `client-guard-coverage`, run 20260901,
 # the FIRST sync-touching card). Before this row, `sync-rxdb/**` was one of the
