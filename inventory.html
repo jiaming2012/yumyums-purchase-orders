@@ -44,17 +44,22 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-btn{width:100%;padding:11px 14px;background:#dcfce7;color:#14532d;border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
 @media(prefers-color-scheme:dark){.sync-btn{background:#14532d;color:#86efac}}
 .sync-btn:disabled{opacity:0.6;cursor:default}
-/* Sync Receipts is the primary action: light green. Reprocess All Pending is the admin batch action: blue, so the two never read as the same button. */
-#sync-receipts-btn{background:#4ade80;color:#052e16}
-@media(prefers-color-scheme:dark){#sync-receipts-btn{background:#22c55e;color:#052e16}}
+/* Sync Receipts takes the base .sync-btn green. Retry Parse (All Receipts) is
+   the admin batch action: blue, so the two never read as the same button. */
 #reprocess-all-btn{background:var(--info-bg);color:var(--info-tx)}
 .sync-row{display:flex;gap:8px}
 .sync-row .sync-btn{width:auto;white-space:nowrap}
 .sync-row #sync-receipts-btn{flex:3}
-.sync-row #deep-sync-btn{flex:1;padding-left:8px;padding-right:8px}
+.deep-sync-toggle{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 2px;font-size:13px;color:var(--mut);cursor:pointer}
+.deep-sync-toggle input{width:22px;height:22px;flex-shrink:0;accent-color:var(--info-tx);margin:0}
 .sync-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut)}
-.sync-chip.ok{color:var(--info-tx);background:var(--info-bg)}
-.sync-chip.err{color:var(--warn-tx);background:var(--warn-bg)}
+/* The finished-run chip is amber, not blue: it reports what is LEFT (still
+   pending, errored), which is a to-do list, and blue read as "all fine".
+   .err moves to red so a failed run stays distinguishable from a finished one
+   — the two shared the amber before this. */
+.sync-chip.ok{color:var(--warn-tx);background:var(--warn-bg)}
+.sync-chip.err{color:#991b1b;background:#fee2e2}
+@media(prefers-color-scheme:dark){.sync-chip.err{color:#fca5a5;background:#7f1d1d}}
 .sync-chip-dismiss{background:none;border:none;color:inherit;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;min-width:24px;min-height:24px}
 .approval-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
 .approval-badge.missing{background:#fee2e2;color:#991b1b}
@@ -384,9 +389,12 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div class="sync-bar">
       <div class="sync-row">
         <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
-        <button id="deep-sync-btn" class="sync-btn" type="button" style="display:none">Deep Sync…</button>
       </div>
-      <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Reprocess All Pending</button>
+      <label id="deep-sync-toggle-row" class="deep-sync-toggle" style="display:none">
+        <input type="checkbox" id="deep-sync-toggle">
+        <span>Deep sync (reach further back than 14 days)</span>
+      </label>
+      <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Retry Parse (All Receipts)</button>
       <div id="sync-receipts-chip" style="display:none"></div>
     </div>
     <div id="deep-sync-overlay" class="ds-overlay">
@@ -589,7 +597,8 @@ function renderSyncUI(){
   if(running){
     btn.innerHTML='Syncing…'+elapsedSpan();
   }else{
-    btn.textContent='Sync Receipts';
+    var deepChk=document.getElementById('deep-sync-toggle');
+    btn.textContent=(deepChk&&deepChk.checked)?'Deep Sync Receipts…':'Sync Receipts';
   }
   // Chip rules:
   //  - running: live chip carrying elapsed time (see SYNC_TICK_TIMER). This
@@ -731,15 +740,17 @@ async function triggerSync(){
   }
 }
 
-// showReprocessBtn shows the "Reprocess All Pending" button only for admins/superadmins.
+// showReprocessBtn shows the "Retry Parse (All Receipts)" button only for admins/superadmins.
 // Called after CURRENT_USER is loaded and after each renderHistoryList so the
 // button visibility stays in sync with the user's role.
 function showReprocessBtn(){
   var admin=isAdmin();
   var btn=document.getElementById('reprocess-all-btn');
   if(btn)btn.style.display=admin?'':'none';
-  var dbtn=document.getElementById('deep-sync-btn');
-  if(dbtn)dbtn.style.display=admin?'':'none';
+  var drow=document.getElementById('deep-sync-toggle-row');
+  if(drow)drow.style.display=admin?'':'none';
+  // A hidden checkbox must not keep steering the primary button.
+  if(!admin){var dchk=document.getElementById('deep-sync-toggle');if(dchk)dchk.checked=false;}
 }
 
 // Deep Sync — re-pull Mercury over an explicit date range so months-old charges
@@ -778,6 +789,10 @@ async function triggerDeepSync(){
     SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'deep'};
     SYNC_CHIP_DISMISSED_ID=null;
     closeDeepSyncModal();
+    // A deep sync is a one-off. Leaving the box ticked would silently turn the
+    // next press of the primary button into another deep run.
+    var deepChk=document.getElementById('deep-sync-toggle');
+    if(deepChk)deepChk.checked=false;
     showToastMessage('Deep sync '+from+' → '+to+' running…');
     renderSyncUI();
     startSyncPoll();
@@ -810,12 +825,19 @@ async function triggerReprocessAll(){
 
 // Event delegation for the sync button + chip dismiss × — keep with existing
 // document-level click wiring style used elsewhere in this file.
+document.addEventListener('change',function(e){
+  if(e.target&&e.target.id==='deep-sync-toggle')renderSyncUI();
+});
+
 document.addEventListener('click',function(e){
   var t=e.target;
   if(!t)return;
-  if(t.id==='sync-receipts-btn'){triggerSync();return;}
+  if(t.id==='sync-receipts-btn'){
+    var deep=document.getElementById('deep-sync-toggle');
+    if(deep&&deep.checked){openDeepSyncModal();}else{triggerSync();}
+    return;
+  }
   if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
-  if(t.id==='deep-sync-btn'){openDeepSyncModal();return;}
   if(t.id==='deep-sync-run'){triggerDeepSync();return;}
   if(t.id==='deep-sync-cancel'||t.id==='deep-sync-overlay'){closeDeepSyncModal();return;}
   if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
@@ -1042,7 +1064,7 @@ function renderPendingCard(p){
   // "Retry parse" itself wiped both, so the row that most needed a second
   // attempt was exactly the one that could no longer ask for one. Whether a
   // re-read can actually succeed depends on Mercury still holding the
-  // attachment (recent rows) or a stored receipt URL (Reprocess All Pending),
+  // attachment (recent rows) or a stored receipt URL (Retry Parse, All Receipts),
   // neither of which this card can see — so it does not pretend to, and the
   // backend gate matches (see RetryParsePendingPurchaseHandler).
   var parseErrText=p.parse_error?String(p.parse_error):'';
@@ -1088,9 +1110,9 @@ function renderPendingCard(p){
   if(retryQueued&&!reparsing){
     // NOT "runs on the next sync": the worker only fetches a rolling 14-day
     // Mercury window, so a charge older than that is never revisited and the
-    // promise would never come true. Reprocess All Pending re-reads the stored
+    // promise would never come true. Retry Parse (All Receipts) re-reads the stored
     // receipt regardless of age, so it is the one always-true instruction.
-    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse — tap Reprocess All Pending above.</div>';
+    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse. Tap “Retry Parse (All Receipts)” above to run it now.</div>';
   }
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';

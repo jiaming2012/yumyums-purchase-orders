@@ -844,7 +844,7 @@ test.describe('Inventory', () => {
 
   test('Deep Sync date inputs line up with the Cancel/Run buttons below them', async ({ page }) => {
     await page.evaluate(() => {
-      document.getElementById('deep-sync-btn').style.display = '';
+      document.getElementById('deep-sync-toggle-row').style.display = '';
       document.getElementById('deep-sync-overlay').classList.add('on');
     });
     const overlay = page.locator('#deep-sync-overlay');
@@ -906,10 +906,10 @@ test.describe('Inventory', () => {
 
   test('a queued re-parse says so, and survives a reload', async ({ page }) => {
     await stubPending(page, { retry_requested_at: '2026-09-29T06:00:00Z' });
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse — tap Reprocess All Pending');
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
     await page.reload();
     await waitForHistoryContent(page);
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse — tap Reprocess All Pending');
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
   });
 
   test('line items from a failed parse pre-fill the review form', async ({ page }) => {
@@ -1025,6 +1025,88 @@ test.describe('Inventory', () => {
     const items = await invApiCall(page, 'GET', 'items');
     const made = (items || []).find((i) => i.id === res.body.id);
     expect(made.aliases || []).toHaveLength(0);
+  });
+
+  test('the finished-sync chip is amber and a failed sync stays a distinct red', async ({ page }) => {
+    // The finished chip reports what is LEFT (still pending, errored) — a
+    // to-do list, not good news, and blue read as "all fine". .err used to
+    // share the same amber, so recolouring the finished chip without moving
+    // failure to red would make a failed and a finished run identical.
+    await page.goto('/inventory.html');
+    const read = async (state) => page.evaluate((s) => {
+      SYNC_STATE = s; SYNC_CHIP_DISMISSED_ID = null; renderSyncUI();
+      const el = document.getElementById('sync-receipts-chip');
+      const c = getComputedStyle(el);
+      return { cls: el.className, bg: c.backgroundColor };
+    }, state);
+    const done = await read({ id: 7, status: 'done', triggered_by: 'reprocess_all',
+      processed: 12, auto_created: 2, pending_review: 8, cached: 2 });
+    expect(done.cls).toContain('ok');
+    const failed = await read({ id: 8, status: 'failed', error: 'timed out', triggered_by: 'manual' });
+    expect(failed.cls).toContain('err');
+    expect(failed.bg).not.toBe(done.bg);
+  });
+
+  // ── Deep sync is a checkbox on the primary button (260929) ──────────────
+
+  async function showDeepToggle(page) {
+    await page.goto('/inventory.html');
+    await page.evaluate(() => {
+      document.getElementById('deep-sync-toggle-row').style.display = '';
+    });
+  }
+
+  test('Sync Receipts runs a normal sync when the deep box is unticked', async ({ page }) => {
+    await showDeepToggle(page);
+    let deepCalls = 0, syncCalls = 0;
+    await page.route(/\/api\/v1\/inventory\/purchases\/deep-sync/, async (r) => { deepCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => { syncCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Sync Receipts');
+    await page.locator('#sync-receipts-btn').click();
+    await page.waitForTimeout(400);
+    expect(syncCalls).toBe(1);
+    expect(deepCalls).toBe(0);
+    await expect(page.locator('#deep-sync-overlay')).not.toHaveClass(/on/);
+  });
+
+  test('ticking the deep box relabels the button and routes it to the range picker', async ({ page }) => {
+    await showDeepToggle(page);
+    let syncCalls = 0;
+    await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => { syncCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.locator('#deep-sync-toggle').check();
+    // The button must say which run it will start BEFORE it is pressed.
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Deep Sync Receipts…');
+    await page.locator('#sync-receipts-btn').click();
+    // The date modal still opens: it is the only place the range (200 days,
+    // widenable to 400) can be set, so running straight from the checkbox
+    // would make that range unreachable.
+    await expect(page.locator('#deep-sync-overlay')).toHaveClass(/on/);
+    await expect(page.locator('#deep-from')).not.toHaveValue('');
+    await expect(page.locator('#deep-to')).not.toHaveValue('');
+    expect(syncCalls, 'the normal sync must NOT have fired').toBe(0);
+  });
+
+  test('the deep box unticks itself once a deep run has started', async ({ page }) => {
+    await showDeepToggle(page);
+    await page.route(/\/api\/v1\/inventory\/purchases\/deep-sync/, async (r) => {
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 9, started_at: new Date().toISOString() }) });
+    });
+    await page.locator('#deep-sync-toggle').check();
+    await page.locator('#sync-receipts-btn').click();
+    await expect(page.locator('#deep-sync-overlay')).toHaveClass(/on/);
+    await page.locator('#deep-sync-run').click();
+    // Leaving it ticked would silently turn the next press into another deep run.
+    await expect(page.locator('#deep-sync-toggle')).not.toBeChecked();
+  });
+
+  test('a non-admin gets no deep-sync control at all', async ({ page }) => {
+    await page.goto('/inventory.html');
+    await page.evaluate(() => {
+      CURRENT_USER = { role: 'team_member' };
+      showReprocessBtn();
+    });
+    await expect(page.locator('#deep-sync-toggle-row')).toBeHidden();
+    await expect(page.locator('#deep-sync-toggle')).not.toBeChecked();
   });
 
   // ── Back link and PWA boilerplate ────────────────────────────────────────
