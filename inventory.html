@@ -22,6 +22,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
 .tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+/* Pending count rides in the tab's corner instead of inside the label —
+   "Purchases (10)" is what wrapped the seven-tab bar (B-455). */
+.tabs button{position:relative}
+.tab-badge{position:absolute;top:3px;right:3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-size:10px;font-weight:700;line-height:16px;text-align:center}
 .card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
 .event-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
 .event-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -48,14 +52,16 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
    reads as one rather than as a greyed-out copy of the start button. */
 .sync-btn.sync-btn-cancel{background:#fee2e2;color:#991b1b}
 @media(prefers-color-scheme:dark){.sync-btn.sync-btn-cancel{background:#7f1d1d;color:#fca5a5}}
-/* Sync Receipts takes the base .sync-btn green. Retry Parse (All Receipts) is
-   the admin batch action: blue, so the two never read as the same button. */
-#reprocess-all-btn{background:var(--info-bg);color:var(--info-tx)}
+/* Sync Receipts takes the base .sync-btn green. The admin tools (deep sync,
+   retry-parse-all) sit behind one neutral "More" button on the same row so
+   the queue starts on the first screen (B-455 / WO-1). */
+.sync-row #sync-more-btn{flex:1;background:var(--card);color:var(--info-tx)}
+.sync-menu-item{display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:10px;color:var(--txt);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;min-height:44px}
+.sync-menu-item span{display:block;font-size:12px;font-weight:400;color:var(--mut);margin-top:2px}
+.sync-menu-item:disabled{opacity:.6;cursor:default}
 .sync-row{display:flex;gap:8px}
 .sync-row .sync-btn{width:auto;white-space:nowrap}
 .sync-row #sync-receipts-btn{flex:3}
-.deep-sync-toggle{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 2px;font-size:13px;color:var(--mut);cursor:pointer}
-.deep-sync-toggle input{width:22px;height:22px;flex-shrink:0;accent-color:var(--info-tx);margin:0}
 .sync-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut)}
 /* The finished-run chip is amber, not blue: it reports what is LEFT (still
    pending, errored), which is a to-do list, and blue read as "all fine".
@@ -372,7 +378,9 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .recipe-drift-headline{font-size:15px;font-weight:600;margin-bottom:8px}
 .recipe-drift-section{font-size:13px;line-height:1.4;margin-bottom:4px}
 .recipe-drift-link{color:var(--warn-tx);text-decoration:underline;cursor:pointer}
-.recipe-summary-empty{text-align:center;color:var(--mut);padding:60px 16px;font-size:13px}
+.recipe-summary-empty{text-align:center;color:var(--mut);padding:28px 16px;font-size:13px}
+.recipes-dish-note{font-size:12px;color:var(--mut);margin:12px 0 4px}
+.menu-dish.selected{background:var(--info-bg);border-radius:10px}
 .recipe-inline-error{color:#c0392b;font-size:12px;margin-top:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 .warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
@@ -387,9 +395,12 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 <div class="app">
   <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Inventory</a>
   <div class="tabs">
-    <button id="t1" class="on" onclick="show(1)">Purchases</button>
+    <!-- Six tabs (B-455 / WO-1). Menu folded into Recipes as "By dish"; the
+         slot ids t4/t7 (and gated t5/t6) are unchanged so #tab= deep links,
+         purchasing.html's Setup jump and the state specs all keep working.
+         #tab=3 is remapped in show() to Recipes › By dish. -->
+    <button id="t1" class="on" onclick="show(1)">Receipts</button>
     <button id="t2" onclick="show(2)">Stock</button>
-    <button id="t3" onclick="show(3)">Menu</button>
     <button id="t4" onclick="show(4)">Recipes</button>
     <button id="t5" onclick="show(5)">Trends</button>
     <button id="t6" onclick="show(6)">Cost</button>
@@ -399,13 +410,20 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div class="sync-bar">
       <div class="sync-row">
         <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+        <button id="sync-more-btn" class="sync-btn" type="button" aria-haspopup="dialog" style="display:none">More</button>
       </div>
-      <label id="deep-sync-toggle-row" class="deep-sync-toggle" style="display:none">
-        <input type="checkbox" id="deep-sync-toggle">
-        <span>Deep sync (reach further back than 14 days)</span>
-      </label>
-      <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Retry Parse (All Receipts)</button>
       <div id="sync-receipts-chip" style="display:none"></div>
+    </div>
+    <div id="sync-more-overlay" class="ds-overlay" role="dialog" aria-labelledby="sync-more-title">
+      <div class="ds-card">
+        <h3 id="sync-more-title">More sync tools</h3>
+        <div class="ds-hint">Admin tools. The normal sync only reaches the last 14 days.</div>
+        <button id="deep-sync-open" class="sync-menu-item" type="button">Deep sync&hellip;<span>Re-pull Mercury over an older date range</span></button>
+        <button id="reprocess-all-btn" class="sync-menu-item" type="button">Retry parse, all pending receipts<span>Reset and re-read every receipt still in review</span></button>
+        <div class="ds-actions">
+          <button id="sync-more-close" class="sync-btn" type="button">Close</button>
+        </div>
+      </div>
     </div>
     <div id="deep-sync-overlay" class="ds-overlay">
       <div class="ds-card">
@@ -441,16 +459,22 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div id="reorder-section"></div>
     <div id="stock-list"></div>
   </div>
-  <div id="s3" style="display:none">
-    <div id="menu-list"></div>
-  </div>
   <div id="s4" style="display:none">
-    <div id="recipes-drift-banner"><!-- populated by renderRecipes from DRIFT_BANNER state --></div>
-    <div id="recipes-list"><!-- ingredient cards rendered here --></div>
-    <div id="recipes-summary-section" style="margin-top:24px;border-left:3px solid var(--info-tx);padding-left:12px">
-      <div style="font-size:15px;font-weight:600;color:var(--txt)">Menu item summary</div>
-      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Read-only &mdash; edit by ingredient above</div>
+    <div class="sub-tabs" id="recipes-view-tabs">
+      <button id="rv-ingredient" class="on" type="button" data-action="recipes-view" data-view="ingredient">By ingredient</button>
+      <button id="rv-dish" type="button" data-action="recipes-view" data-view="dish">By dish</button>
+    </div>
+    <div id="recipes-by-ingredient">
+      <div id="recipes-drift-banner"><!-- populated by renderRecipes from DRIFT_BANNER state --></div>
+      <div id="recipes-list"><!-- ingredient cards rendered here --></div>
+    </div>
+    <!-- By dish is the former Menu tab (Toast menu items, units sold this week)
+         joined to the read-only cost summary that used to sit under the
+         ingredient list. Tap a dish → its ingredient cost renders above. -->
+    <div id="recipes-by-dish" style="display:none">
       <div id="recipes-summary-card"><!-- populated by renderRecipeSummary --></div>
+      <div class="recipes-dish-note">Read-only &mdash; edit allocations under By ingredient</div>
+      <div id="menu-list"></div>
     </div>
   </div>
   <!-- #s5 / #s6 are GATED tabs (design §1). applyTabGates() removes the button
@@ -466,7 +490,6 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div id="cost-container"><!-- populated by renderCost from COST_DATA / COST_STATE --></div>
   </div>
   <div id="s7" style="display:none">
-    <a class="back" href="purchasing.html" style="margin-bottom:8px">Purchase Orders</a>
     <div id="badge-reset-section" style="display:none"></div>
     <div class="sub-tabs">
       <button id="st1" class="on" onclick="showSetupSub(1)">Items</button>
@@ -621,8 +644,7 @@ function renderSyncUI(){
   if(running){
     btn.innerHTML='Cancel Sync Receipts'+elapsedSpan();
   }else{
-    var deepChk=document.getElementById('deep-sync-toggle');
-    btn.textContent=(deepChk&&deepChk.checked)?'Deep Sync Receipts…':'Sync Receipts';
+    btn.textContent='Sync Receipts';
   }
   // Chip rules:
   //  - running: live chip carrying elapsed time (see SYNC_TICK_TIMER). This
@@ -802,17 +824,22 @@ async function triggerSync(){
   }
 }
 
-// showReprocessBtn shows the "Retry Parse (All Receipts)" button only for admins/superadmins.
-// Called after CURRENT_USER is loaded and after each renderHistoryList so the
-// button visibility stays in sync with the user's role.
-function showReprocessBtn(){
+// showAdminSyncTools shows the "More" button (deep sync + retry-parse-all)
+// only for admins/superadmins. Called after CURRENT_USER is loaded and after
+// each renderHistoryList so visibility stays in sync with the user's role.
+function showAdminSyncTools(){
   var admin=isAdmin();
-  var btn=document.getElementById('reprocess-all-btn');
-  if(btn)btn.style.display=admin?'':'none';
-  var drow=document.getElementById('deep-sync-toggle-row');
-  if(drow)drow.style.display=admin?'':'none';
-  // A hidden checkbox must not keep steering the primary button.
-  if(!admin){var dchk=document.getElementById('deep-sync-toggle');if(dchk)dchk.checked=false;}
+  var more=document.getElementById('sync-more-btn');
+  if(more)more.style.display=admin?'':'none';
+  if(!admin)closeSyncMoreSheet();
+}
+function openSyncMoreSheet(){
+  var ov=document.getElementById('sync-more-overlay');
+  if(ov)ov.classList.add('on');
+}
+function closeSyncMoreSheet(){
+  var ov=document.getElementById('sync-more-overlay');
+  if(ov)ov.classList.remove('on');
 }
 
 // Deep Sync — re-pull Mercury over an explicit date range so months-old charges
@@ -892,10 +919,6 @@ async function triggerDeepSync(){
     SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'deep'};
     SYNC_CHIP_DISMISSED_ID=null;
     closeDeepSyncModal();
-    // A deep sync is a one-off. Leaving the box ticked would silently turn the
-    // next press of the primary button into another deep run.
-    var deepChk=document.getElementById('deep-sync-toggle');
-    if(deepChk)deepChk.checked=false;
     showToastMessage('Deep sync '+from+' → '+to+' running…');
     renderSyncUI();
     startSyncPoll();
@@ -931,22 +954,23 @@ async function triggerReprocessAll(){
 
 // Event delegation for the sync button + chip dismiss × — keep with existing
 // document-level click wiring style used elsewhere in this file.
-document.addEventListener('change',function(e){
-  if(e.target&&e.target.id==='deep-sync-toggle')renderSyncUI();
-});
-
 document.addEventListener('click',function(e){
   var t=e.target;
   if(!t)return;
+  // The sheet's items carry a <span> caption, so resolve to the button.
+  var item=t.closest&&t.closest('.sync-menu-item');
+  if(item)t=item;
   if(t.id==='sync-receipts-btn'){
     if(SYNC_STATE&&SYNC_STATE.status==='running'){openCancelSyncModal();return;}
-    var deep=document.getElementById('deep-sync-toggle');
-    if(deep&&deep.checked){openDeepSyncModal();}else{triggerSync();}
+    triggerSync();
     return;
   }
+  if(t.id==='sync-more-btn'){openSyncMoreSheet();return;}
+  if(t.id==='sync-more-close'||t.id==='sync-more-overlay'){closeSyncMoreSheet();return;}
+  if(t.id==='deep-sync-open'){closeSyncMoreSheet();openDeepSyncModal();return;}
   if(t.id==='cancel-sync-confirm'){triggerCancelSync();return;}
   if(t.id==='cancel-sync-back'||t.id==='cancel-sync-overlay'){closeCancelSyncModal();return;}
-  if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
+  if(t.id==='reprocess-all-btn'){closeSyncMoreSheet();triggerReprocessAll();return;}
   if(t.id==='deep-sync-run'){triggerDeepSync();return;}
   if(t.id==='deep-sync-cancel'||t.id==='deep-sync-overlay'){closeDeepSyncModal();return;}
   if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
@@ -990,8 +1014,11 @@ function applyTabGates(){
 }
 
 function show(n){
+  // Legacy deep link: #tab=3 was the Menu tab until B-455 folded it into
+  // Recipes as the "By dish" view. Old bookmarks land there, not on Receipts.
+  if(n===3){n=4;RECIPES_VIEW='dish';}
   // Deep-link guard (§1.3 station 5): a pasted #tab=5 must not render a tab
-  // shell that was gated away. Falling back to Purchases keeps the page usable
+  // shell that was gated away. Falling back to Receipts keeps the page usable
   // rather than leaving every section hidden.
   if(!document.getElementById('s'+n))n=1;
   [1,2,3,4,5,6,7].forEach(i=>{
@@ -1000,22 +1027,26 @@ function show(n){
     if(btn)btn.className=i===n?'on':'';
   });
   ACTIVE_TAB=n;
-  location.hash='tab='+n;
+  location.hash=recipesHash(n);
   // Reload fresh data when switching tabs
   if(n===1){loadHistory();refreshSyncStatus();}
   if(n===2){loadStock();}
-  if(n===3){loadMenu();}
-  if(n===4){loadRecipes();}
+  if(n===4){loadRecipes();if(RECIPES_VIEW==='dish')loadMenu();}
   if(n===5){loadTrends();}
   if(n===6){loadCost();}
   if(n===7){loadItems();if(isAdmin())loadBadgeResetConfig();}
   render();
 }
 
+// The hash carries the Recipes view so a reload (and a shared link) reopens
+// the same screen. Only tab 4 has a view; every other tab is just its number.
+function recipesHash(n){
+  return 'tab='+n+(n===4&&RECIPES_VIEW==='dish'?'&view=dish':'');
+}
+
 function render(){
   if(ACTIVE_TAB===1)renderHistoryList();
   if(ACTIVE_TAB===2)renderStock();
-  if(ACTIVE_TAB===3)renderMenu();
   if(ACTIVE_TAB===4)renderRecipes();
   if(ACTIVE_TAB===5)renderTrends();
   if(ACTIVE_TAB===6)renderCost();
@@ -1221,7 +1252,7 @@ function renderPendingCard(p){
     // Mercury window, so a charge older than that is never revisited and the
     // promise would never come true. Retry Parse (All Receipts) re-reads the stored
     // receipt regardless of age, so it is the one always-true instruction.
-    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse. Tap “Retry Parse (All Receipts)” above to run it now.</div>';
+    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse. Run it now from More › Retry parse.</div>';
   }
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
@@ -1456,8 +1487,8 @@ function updateHistoryTabLabel(){
   var btn=document.getElementById('t1');
   if(!btn)return;
   var n=PENDING_PURCHASES.length;
-  btn.textContent=n>0?'Purchases ('+n+')':'Purchases';
-  btn.style.color=n>0?'var(--warn-tx)':'';' '
+  btn.innerHTML='Receipts'+(n>0?'<span class="tab-badge" aria-label="'+n+' to review">'+n+'</span>':'');
+  btn.style.color=n>0?'var(--warn-tx)':'';
 }
 
 function loadMore(){
@@ -1466,14 +1497,21 @@ function loadMore(){
   loadHistory(true);
 }
 
+// MENU_STATE guards renderMenu: the dish list is re-rendered by every
+// renderRecipes() call, and must not paint "No menu items" over a skeleton
+// or an inline error while a load is still the truth.
+var MENU_STATE='idle'; // idle | loading | ready | error
 async function loadMenu(){
+  MENU_STATE='loading';
   showSkeleton('menu-list');
   try{
     var since=new Date(Date.now()-7*24*60*60*1000).toISOString().slice(0,10);
     var data=await api('/api/v1/inventory/menu-items?since='+since);
     MENU_DATA=data||[];
+    MENU_STATE='ready';
     renderMenu();
   }catch(e){
+    MENU_STATE='error';
     if(e.message==='unauthorized')return;
     showInlineError('menu-list','Couldn\u2019t load menu items.','loadMenu()');
   }
@@ -1481,7 +1519,7 @@ async function loadMenu(){
 
 function renderMenu(){
   var list=document.getElementById('menu-list');
-  if(!list)return;
+  if(!list||MENU_STATE!=='ready')return;
   if(!MENU_DATA.length){
     list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No menu items</h3><p>Toast ingest has not populated the menu yet. Run <code>sync-toast</code> or wait for the next 12h cycle.</p></div>';
     return;
@@ -1489,7 +1527,8 @@ function renderMenu(){
   var html='';
   MENU_DATA.forEach(function(m){
     var subgroup=m.menu_subgroup?' &middot; '+escHtml(m.menu_subgroup):'';
-    html+='<div class="stock-item" data-action="menu-card-to-recipes" data-menu-item-id="'+escHtml(m.id)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--brd);cursor:pointer">'+
+    var sel=m.id===SELECTED_MENU_ITEM_ID?' selected':'';
+    html+='<div class="stock-item menu-dish'+sel+'" data-action="menu-card-to-recipes" data-menu-item-id="'+escHtml(m.id)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--brd);cursor:pointer">'+
       '<div style="flex:1;min-width:0">'+
         '<div class="stock-item-name" style="font-weight:500">'+escHtml(m.name)+'</div>'+
         '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escHtml(m.menu_group||'')+subgroup+' &middot; last sold '+formatDate(m.last_seen)+'</div>'+
@@ -1959,7 +1998,7 @@ function trendsUnitemized(d){
        'offsetting gaps and no gaps at all produce the same small number, and this endpoint '+
        'reports no per-receipt count &mdash; so a figure near zero is not evidence that '+
        'coverage is good. To see where it comes from, check individual receipts on the '+
-       'Purchases tab.</div>'
+       'Receipts tab.</div>'
       :'')+'</div>';
 }
 
@@ -2302,7 +2341,7 @@ function renderCost(){
     host.innerHTML=winLine+
       '<div class="cost-empty"><h3>No sales data yet</h3>'+
       '<p>Food cost appears here once sales sync.</p>'+
-      '<p>Ingredient spend is still being recorded on the Purchases tab.</p></div>';
+      '<p>Ingredient spend is still being recorded on the Receipts tab.</p></div>';
     return;
   }
 
@@ -2866,7 +2905,7 @@ function gotoSetupItem(itemId,desc){
   ITEM_SEARCH='';
   var searchEl=document.getElementById('item-search');
   if(searchEl)searchEl.value='';
-  // Switch to Setup tab (now t7/s7 — Recipes inserted as tab 4 in Phase 999.2 pushed Setup to 7)
+  // Switch to Setup tab (t7/s7 — slot ids are stable even though tab 3 is gone, B-455)
   ACTIVE_TAB=7;
   [1,2,3,4,5,6,7].forEach(function(i){
     var el=document.getElementById('s'+i); if(el)el.style.display=i===7?'':'none';
@@ -3405,12 +3444,13 @@ document.addEventListener('DOMContentLoaded',async function(){
   try{var apps=await api('/api/v1/me/apps');APP_GRANTS=(apps||[]).map(function(a){return a.slug;});}
   catch(e){APP_GRANTS=[];}
   applyTabGates();
-  showReprocessBtn();
+  showAdminSyncTools();
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
   try{var v=await api('/api/v1/inventory/vendors');VENDORS=v||[];}catch(e){}
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
+  if(/[#&]view=dish(&|$)/.test(location.hash))RECIPES_VIEW='dish';
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
   var hashNewItem=decodeURIComponent((location.hash.match(/newItem=([^&]+)/)||[])[1]||'');
   if(hashNewItem){hashTab='7';PREFILL_NEW_ITEM=hashNewItem;}
@@ -3632,6 +3672,17 @@ let RECIPES_DATA=[];           // [{purchase_item_id, description, last_week_spe
 let EXPANDED_INGREDIENTS={};   // purchase_item_id -> bool
 let SELECTED_MENU_ITEM_ID=null;
 let DRIFT_BANNER=null;         // {week_start, sections:[]} or null
+// Which Recipes view is showing: 'ingredient' (allocation sliders) or 'dish'
+// (the former Menu tab + the read-only cost summary). Set from #view=dish at
+// boot, from the legacy #tab=3, and by the By ingredient / By dish buttons.
+var RECIPES_VIEW='ingredient';
+
+function setRecipesView(v){
+  RECIPES_VIEW=v==='dish'?'dish':'ingredient';
+  if(ACTIVE_TAB===4)location.hash=recipesHash(4);
+  renderRecipes();
+  if(RECIPES_VIEW==='dish')loadMenu();
+}
 
 async function loadRecipes(){
   try{
@@ -3651,9 +3702,18 @@ async function loadRecipes(){
 }
 
 function renderRecipes(){
+  var dish=RECIPES_VIEW==='dish';
+  var byIng=document.getElementById('recipes-by-ingredient');
+  var byDish=document.getElementById('recipes-by-dish');
+  if(byIng)byIng.style.display=dish?'none':'';
+  if(byDish)byDish.style.display=dish?'':'none';
+  var bi=document.getElementById('rv-ingredient'),bd=document.getElementById('rv-dish');
+  if(bi)bi.className=dish?'':'on';
+  if(bd)bd.className=dish?'on':'';
   renderDriftBanner();
   renderIngredientList();
   renderRecipeSummary();
+  renderMenu();
 }
 
 function renderDriftBanner(){
@@ -3678,7 +3738,7 @@ function renderIngredientList(){
   var host=document.getElementById('recipes-list');
   if(!host)return;
   if(RECIPES_DATA.length===0){
-    host.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No ingredients yet</h3><p>Confirm a receipt on the Purchases tab and the items will show up here for allocation.</p></div>';
+    host.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No ingredients yet</h3><p>Confirm a receipt on the Receipts tab and the items will show up here for allocation.</p></div>';
     return;
   }
   // Sort by last_week_spend DESC; items with 0 spend go to bottom alphabetically.
@@ -3750,7 +3810,7 @@ function renderRecipeSummary(){
   var host=document.getElementById('recipes-summary-card');
   if(!host)return;
   if(!SELECTED_MENU_ITEM_ID){
-    host.innerHTML='<div class="recipe-summary-empty">Tap an ingredient to see how it breaks down by dish</div>';
+    host.innerHTML='<div class="recipe-summary-empty">Tap a dish to see its ingredient cost</div>';
     return;
   }
   var menuName='';
@@ -3857,6 +3917,10 @@ document.addEventListener('click',function(e){
   // Ignore clicks inside the menu-picker modal — it has its own listener.
   if(el.closest('#recipe-menu-picker'))return;
   var action=el.dataset.action;
+  if(action==='recipes-view'){
+    setRecipesView(el.dataset.view);
+    return;
+  }
   if(action==='toggle-recipe-row'){
     // Don't toggle if click was on an inner data-action element (e.g. slider, add btn, alloc name).
     var inner=e.target.closest('[data-action]');
@@ -3869,8 +3933,11 @@ document.addEventListener('click',function(e){
     openMenuItemPicker(el.dataset.purchaseItemId);
   }else if(action==='view-menu-summary'){
     e.stopPropagation();
+    // The summary card lives in the By dish view, so a tap on a dish name in
+    // the ingredient sliders switches over to it.
     SELECTED_MENU_ITEM_ID=el.dataset.menuItemId;
-    renderRecipeSummary();
+    setRecipesView('dish');
+    scrollToRecipeSummary();
   }else if(action==='clear-menu-summary'){
     e.stopPropagation();
     SELECTED_MENU_ITEM_ID=null;
@@ -3887,19 +3954,25 @@ document.addEventListener('click',function(e){
   }
 });
 
-// Menu tab → Recipes cross-link. Not gated on ACTIVE_TAB since the source is tab 3.
+function scrollToRecipeSummary(){
+  setTimeout(function(){
+    var card=document.getElementById('recipes-summary-card');
+    if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+  },100);
+}
+
+// Dish card → cost summary. The action name predates B-455 (it was the Menu
+// tab's cross-link to Recipes); the card now lives inside Recipes › By dish,
+// so this selects the dish and re-renders the summary above the list.
 document.addEventListener('click',function(e){
   var el=e.target.closest('[data-action="menu-card-to-recipes"]');
   if(!el)return;
   var menuItemID=el.dataset.menuItemId;
   if(!menuItemID)return;
-  show(4);
   SELECTED_MENU_ITEM_ID=menuItemID;
-  renderRecipeSummary();
-  setTimeout(function(){
-    var card=document.getElementById('recipes-summary-card');
-    if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
-  },100);
+  if(ACTIVE_TAB!==4){RECIPES_VIEW='dish';show(4);}
+  else{setRecipesView('dish');}
+  scrollToRecipeSummary();
 });
 
 document.addEventListener('input',function(e){

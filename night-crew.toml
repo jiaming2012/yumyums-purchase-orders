@@ -67,9 +67,13 @@ subset = 'npx playwright test "{tags}"'
 [e2e.seams]
 "backend/internal/inventory"  = ["inventory", "recipes"]
 "backend/internal/recipes"    = ["inventory", "recipes"]
-"inventory.html"              = ["inventory", "recipes", "health"]
+# states-inventory-nav is the B-455 / WO-1 state table (tab bar, By dish view,
+# More sheet, Setup). It reads the same page, so it rides every inventory.html
+# change — a narrow entry here is exactly how a regression escapes a green gate.
+"inventory.html"              = ["inventory", "recipes", "health", "states-inventory-nav"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
+"tests/states-inventory-nav.spec.js" = ["states-inventory-nav"]
 # Operations carries two MORE specs than its name suggests. sync.spec.js and
 # repro-cut-task.spec.js both drive the workflows runner end-to-end, so a change to
 # the workflow package or to workflows.html can break them — and under the old

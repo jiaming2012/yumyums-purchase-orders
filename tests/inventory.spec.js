@@ -112,17 +112,51 @@ test.describe('Inventory', () => {
 
   // ── Tab navigation ──────────────────────────────────────────────────────
 
-  test('shows 7 tabs: Purchases, Stock, Menu, Recipes, Trends, Cost, Setup', async ({ page }) => {
-    await expect(page.locator('#t1')).toContainText('Purchases');
+  // B-455 / WO-1: six tabs, not seven. Menu folded into Recipes as the
+  // "By dish" view; the slot ids (#t4 Recipes, #t7 Setup, #t5/#t6 gated)
+  // are deliberately unchanged so every #tab= deep link keeps working.
+  test('shows 6 tabs: Receipts, Stock, Recipes, Trends, Cost, Setup — no Menu', async ({ page }) => {
+    await expect(page.locator('#t1')).toContainText('Receipts');
     await expect(page.locator('#t2')).toContainText('Stock');
-    await expect(page.locator('#t3')).toContainText('Menu');
+    await expect(page.locator('#t3')).toHaveCount(0);
+    await expect(page.locator('#s3')).toHaveCount(0);
     await expect(page.locator('#t4')).toContainText('Recipes');
     await expect(page.locator('#t5')).toContainText('Trends');
     await expect(page.locator('#t6')).toContainText('Cost');
     await expect(page.locator('#t7')).toContainText('Setup');
+    await expect(page.locator('.tabs button')).toHaveCount(6);
   });
 
-  test('Purchases tab is active by default', async ({ page }) => {
+  test('the tab bar fits one row at phone width — no label wraps', async ({ page }) => {
+    // The seven-tab bar wrapped "Purchases (10)" onto two lines at 480px.
+    // Every button must be the same height as its neighbours and single-line.
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
+    await expect(page.locator('#t1')).toContainText('Receipts');
+    await expect(page.locator('#t1 .tab-badge')).toHaveText('10');
+    await expect(page.locator('.tabs button')).toHaveCount(6);
+    // Count real line boxes of each label's text node (the corner badge is
+    // absolutely positioned and must not count): one line each, or it wrapped.
+    const lines = await page.locator('.tabs button').evaluateAll(bs => bs.map(b => {
+      const r = document.createRange(); r.selectNode(b.firstChild);
+      return new Set(Array.from(r.getClientRects()).map(x => Math.round(x.top))).size;
+    }));
+    expect(lines, 'every tab label is a single line box').toEqual(lines.map(() => 1));
+  });
+
+  test('legacy #tab=3 (the old Menu tab) lands on Recipes › By dish', async ({ page }) => {
+    await page.goto('/inventory.html#tab=3');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t4')).toHaveClass(/on/);
+    await expect(page.locator('#s4')).toBeVisible();
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+    await expect(page.locator('#recipes-by-ingredient')).toBeHidden();
+    await expect(page.locator('#rv-dish')).toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('#tab=4&view=dish');
+  });
+
+  test('Receipts tab is active by default', async ({ page }) => {
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(page.locator('#s1')).toBeVisible();
     await expect(page.locator('#s2')).not.toBeVisible();
@@ -137,7 +171,10 @@ test.describe('Inventory', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#t4')).toHaveClass(/on/);
     await expect(page.locator('#s4')).toBeVisible();
-    await expect(page.locator('#s3')).not.toBeVisible();
+    await expect(page.locator('#s2')).not.toBeVisible();
+    // Default view is by ingredient; the summary card lives in the dish view.
+    await expect(page.locator('#recipes-by-ingredient')).toBeVisible();
+    await expect(page.locator('#recipes-by-dish')).toBeHidden();
   });
 
   test('Recipes tab loads /api/v1/inventory/recipes and /api/v1/inventory/recipes/drift', async ({ page }) => {
@@ -232,7 +269,7 @@ test.describe('Inventory', () => {
 
     // Confirm baseline: summary card shows the empty placeholder.
     const before = await page.locator('#recipes-summary-card').innerHTML();
-    expect(before).toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(before).toContain('Tap a dish to see its ingredient cost');
 
     // Tap the menu item name.
     await page.click('#synth-alloc-name');
@@ -240,18 +277,22 @@ test.describe('Inventory', () => {
     // After the click, the placeholder text MUST be replaced — either by the
     // populated card or by the "No allocations" empty state.
     const after = await page.locator('#recipes-summary-card').innerHTML();
-    expect(after, 'click on .recipe-alloc-name must update the summary card').not.toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(after, 'click on .recipe-alloc-name must update the summary card').not.toContain('Tap a dish to see its ingredient cost');
+    // The summary card lives in the By dish view, so the tap must also switch to it.
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+    await expect(page.locator('#rv-dish')).toHaveClass(/on/);
   });
 
-  test('tapping a Menu tab card jumps to Recipes with that menu item selected', async ({ page }) => {
+  test('tapping a dish in Recipes › By dish selects it in the summary card', async ({ page }) => {
     // UX gap from human-verify: user tapped a card on the Menu tab expecting
-    // a cost breakdown to appear. Menu cards were read-only by design — the
-    // breakdown lives on the Recipes tab. Closes the loop with a cross-link.
-    await page.click('#t3');
+    // a cost breakdown to appear. The Menu tab is now the By dish view of
+    // Recipes (B-455), so the card and the summary share one screen.
+    await page.click('#t4');
+    await page.click('#rv-dish');
     await page.waitForLoadState('networkidle');
-    // show(3) fires an async menu load that re-renders #menu-list, detaching
-    // injected synthetic DOM. Let it settle before seeding (same guard the
-    // Recipes-tab tests use).
+    // Switching to By dish fires an async menu load that re-renders
+    // #menu-list, detaching injected synthetic DOM. Let it settle before
+    // seeding (same guard the Recipes-tab tests use).
     await page.waitForTimeout(500);
 
     // Inject a synthetic Menu card with the cross-link action.
@@ -264,17 +305,16 @@ test.describe('Inventory', () => {
       `;
     });
 
-    // Sanity check: Menu tab is active.
-    await expect(page.locator('#t3')).toHaveClass(/on/);
+    // Sanity check: the dish view is showing.
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
 
     await page.click('#synth-menu-card');
-    // Tab should switch to Recipes.
     await expect(page.locator('#t4')).toHaveClass(/on/, { timeout: 3000 });
-    await expect(page.locator('#s4')).toBeVisible();
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
 
     // Summary card must update — placeholder gone (either populated card or "No allocations").
     const summary = await page.locator('#recipes-summary-card').innerHTML();
-    expect(summary, 'Menu-card tap must populate the Recipes summary card').not.toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(summary, 'dish tap must populate the Recipes summary card').not.toContain('Tap a dish to see its ingredient cost');
   });
 
   test('Setup tab (now tab 7) renders catalog content when activated', async ({ page }) => {
@@ -538,9 +578,9 @@ test.describe('Inventory', () => {
     await expect(page.locator('#s6')).not.toContainText('Food Cost Intelligence');
   });
 
-  // ── Menu tab (Phase 22 — Toast ingest) ──────────────────────────────────
+  // ── Recipes › By dish, formerly the Menu tab (Phase 22 — Toast ingest; folded by B-455) ──────────────────────────────────
 
-  test('Menu tab renders empty state when API returns []', async ({ page }) => {
+  test('By dish renders empty state when API returns []', async ({ page }) => {
     // Stub the menu-items endpoint to return empty so this test is independent of
     // the dev DB's Toast ingest state.
     await page.route('**/api/v1/inventory/menu-items*', async route => {
@@ -552,12 +592,13 @@ test.describe('Inventory', () => {
     });
     await page.goto('/inventory.html');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t3').click();
-    await expect(page.locator('#s3')).toBeVisible();
+    await page.locator('#t4').click();
+    await page.locator('#rv-dish').click();
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
     await expect(page.locator('#menu-list')).toContainText('No menu items');
   });
 
-  test('Menu tab renders rows when API returns data', async ({ page }) => {
+  test('By dish renders rows when API returns data', async ({ page }) => {
     await page.route('**/api/v1/inventory/menu-items*', async route => {
       await route.fulfill({
         status: 200,
@@ -580,7 +621,8 @@ test.describe('Inventory', () => {
     });
     await page.goto('/inventory.html');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t3').click();
+    await page.locator('#t4').click();
+    await page.locator('#rv-dish').click();
     const list = page.locator('#menu-list');
     await expect(list).toContainText('Jerk Sliders');
     await expect(list).toContainText('Sandwiches');
@@ -844,7 +886,6 @@ test.describe('Inventory', () => {
 
   test('Deep Sync date inputs line up with the Cancel/Run buttons below them', async ({ page }) => {
     await page.evaluate(() => {
-      document.getElementById('deep-sync-toggle-row').style.display = '';
       document.getElementById('deep-sync-overlay').classList.add('on');
     });
     const overlay = page.locator('#deep-sync-overlay');
@@ -906,10 +947,10 @@ test.describe('Inventory', () => {
 
   test('a queued re-parse says so, and survives a reload', async ({ page }) => {
     await stubPending(page, { retry_requested_at: '2026-09-29T06:00:00Z' });
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Run it now from More › Retry parse');
     await page.reload();
     await waitForHistoryContent(page);
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Run it now from More › Retry parse');
   });
 
   test('line items from a failed parse pre-fill the review form', async ({ page }) => {
@@ -1047,17 +1088,24 @@ test.describe('Inventory', () => {
     expect(failed.bg).not.toBe(done.bg);
   });
 
-  // ── Deep sync is a checkbox on the primary button (260929) ──────────────
+  // ── Admin sync tools live behind one "More" button (B-455 / WO-1) ───────
+  //
+  // The Receipts tab used to stack three full-width controls (Sync Receipts,
+  // a deep-sync checkbox, Retry Parse (All Receipts)) above the queue. Now
+  // there is one row: Sync Receipts plus, for admins only, a More button that
+  // opens a sheet holding Deep sync… and Retry parse (all pending receipts).
 
-  async function showDeepToggle(page) {
+  // The test login is the superadmin, so once boot has run showAdminSyncTools()
+  // the More button is simply there; do not fake CURRENT_USER — isAdmin() reads
+  // `is_superadmin` / `roles`, and an overwrite hides the real user's tools.
+  async function asAdmin(page) {
     await page.goto('/inventory.html');
-    await page.evaluate(() => {
-      document.getElementById('deep-sync-toggle-row').style.display = '';
-    });
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#sync-more-btn')).toBeVisible();
   }
 
-  test('Sync Receipts runs a normal sync when the deep box is unticked', async ({ page }) => {
-    await showDeepToggle(page);
+  test('Sync Receipts runs a normal sync straight from the primary button', async ({ page }) => {
+    await asAdmin(page);
     let deepCalls = 0, syncCalls = 0;
     await page.route(/\/api\/v1\/inventory\/purchases\/deep-sync/, async (r) => { deepCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
     await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => { syncCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
@@ -1067,46 +1115,81 @@ test.describe('Inventory', () => {
     expect(syncCalls).toBe(1);
     expect(deepCalls).toBe(0);
     await expect(page.locator('#deep-sync-overlay')).not.toHaveClass(/on/);
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
   });
 
-  test('ticking the deep box relabels the button and routes it to the range picker', async ({ page }) => {
-    await showDeepToggle(page);
+  test('the Receipts tab has exactly one control row above the queue', async ({ page }) => {
+    await asAdmin(page);
+    await expect(page.locator('#sync-receipts-btn')).toBeVisible();
+    await expect(page.locator('#sync-more-btn')).toBeVisible();
+    // Both sit on one row: same top edge.
+    const a = await page.locator('#sync-receipts-btn').boundingBox();
+    const b = await page.locator('#sync-more-btn').boundingBox();
+    expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1);
+    // The deep-sync checkbox and the full-width Retry Parse button are gone
+    // from the tab body; Retry parse now lives inside the sheet.
+    await expect(page.locator('#deep-sync-toggle')).toHaveCount(0);
+    await expect(page.locator('#reprocess-all-btn')).toBeHidden();
+  });
+
+  test('More opens the sheet; Deep sync… routes to the range picker', async ({ page }) => {
+    await asAdmin(page);
     let syncCalls = 0;
     await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => { syncCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
-    await page.locator('#deep-sync-toggle').check();
-    // The button must say which run it will start BEFORE it is pressed.
-    await expect(page.locator('#sync-receipts-btn')).toHaveText('Deep Sync Receipts…');
-    await page.locator('#sync-receipts-btn').click();
-    // The date modal still opens: it is the only place the range (200 days,
-    // widenable to 400) can be set, so running straight from the checkbox
-    // would make that range unreachable.
+    await page.locator('#sync-more-btn').click();
+    await expect(page.locator('#sync-more-overlay')).toHaveClass(/on/);
+    await expect(page.locator('#deep-sync-open')).toBeVisible();
+    await expect(page.locator('#reprocess-all-btn')).toBeVisible();
+    await page.locator('#deep-sync-open').click();
+    // The sheet closes and the date modal opens: it is the only place the
+    // range (200 days, widenable to 400) can be set.
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
     await expect(page.locator('#deep-sync-overlay')).toHaveClass(/on/);
     await expect(page.locator('#deep-from')).not.toHaveValue('');
     await expect(page.locator('#deep-to')).not.toHaveValue('');
     expect(syncCalls, 'the normal sync must NOT have fired').toBe(0);
   });
 
-  test('the deep box unticks itself once a deep run has started', async ({ page }) => {
-    await showDeepToggle(page);
-    await page.route(/\/api\/v1\/inventory\/purchases\/deep-sync/, async (r) => {
-      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 9, started_at: new Date().toISOString() }) });
+  test('Retry parse (all) in the sheet fires reprocess-all after confirmation', async ({ page }) => {
+    await asAdmin(page);
+    let reprocessCalls = 0;
+    await page.route(/\/api\/v1\/inventory\/purchases\/reprocess-all/, async (r) => {
+      reprocessCalls++;
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reset_count: 3, sync_id: 11, started_at: new Date().toISOString() }) });
     });
-    await page.locator('#deep-sync-toggle').check();
-    await page.locator('#sync-receipts-btn').click();
-    await expect(page.locator('#deep-sync-overlay')).toHaveClass(/on/);
-    await page.locator('#deep-sync-run').click();
-    // Leaving it ticked would silently turn the next press into another deep run.
-    await expect(page.locator('#deep-sync-toggle')).not.toBeChecked();
+    page.on('dialog', d => d.accept());
+    await page.locator('#sync-more-btn').click();
+    await page.locator('#reprocess-all-btn').click();
+    await page.waitForTimeout(400);
+    expect(reprocessCalls).toBe(1);
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
+    await expect(page.locator('#sync-receipts-btn')).toContainText('Cancel Sync Receipts');
   });
 
-  test('a non-admin gets no deep-sync control at all', async ({ page }) => {
+  test('Close and the backdrop both dismiss the sheet without starting anything', async ({ page }) => {
+    await asAdmin(page);
+    let any = 0;
+    await page.route(/\/api\/v1\/inventory\/(sync-receipts$|purchases\/(deep-sync|reprocess-all))/, async (r) => { any++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.locator('#sync-more-btn').click();
+    await expect(page.locator('#sync-more-overlay')).toHaveClass(/on/);
+    await page.locator('#sync-more-close').click();
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
+    await page.locator('#sync-more-btn').click();
+    await page.locator('#sync-more-overlay').click({ position: { x: 5, y: 5 } });
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
+    expect(any).toBe(0);
+  });
+
+  test('a non-admin gets no More button, so no deep sync and no retry-all', async ({ page }) => {
     await page.goto('/inventory.html');
     await page.evaluate(() => {
       CURRENT_USER = { role: 'team_member' };
-      showReprocessBtn();
+      showAdminSyncTools();
     });
-    await expect(page.locator('#deep-sync-toggle-row')).toBeHidden();
-    await expect(page.locator('#deep-sync-toggle')).not.toBeChecked();
+    await expect(page.locator('#sync-more-btn')).toBeHidden();
+    await expect(page.locator('#sync-receipts-btn')).toBeVisible();
+    await expect(page.locator('#deep-sync-open')).toBeHidden();
+    await expect(page.locator('#reprocess-all-btn')).toBeHidden();
   });
 
   // ── Cancelling a run in flight (260929) ─────────────────────────────────
@@ -2711,11 +2794,11 @@ test.describe('Inventory', () => {
 
   // ── Setup tab back link ─────────────────────────────────────────────
 
-  test('Setup tab has back link to Purchase Orders', async ({ page }) => {
+  test('Setup tab no longer links out to Purchase Orders (that is an HQ tile)', async ({ page }) => {
     await page.locator('#t7').click();
-    const link = page.locator('#s7 a.back[href="purchasing.html"]');
-    await expect(link).toBeVisible();
-    await expect(link).toContainText('Purchase Orders');
+    await expect(page.locator('#s7')).toBeVisible();
+    await expect(page.locator('#s7 a[href="purchasing.html"]')).toHaveCount(0);
+    await expect(page.locator('#s7')).not.toContainText('Purchase Orders');
   });
 
   // ── Badge Reset timezone ────────────────────────────────────────────
@@ -4185,7 +4268,7 @@ test.describe('Retry parse auto-sync (260702-l67)', () => {
   });
 });
 
-// ─── Prove sweep: Purchases (FR-3 / FR-5 / FR-11) ────────────────────────────
+// ─── Prove sweep: Receipts, formerly Purchases (FR-3 / FR-5 / FR-11) ────────────────────────────
 // Red-first assertions naming observable DB/UI behavior for three UNPROVEN
 // Purchases flows (PRD-inventory-hardening §Tab-1). Each seeds real data via the
 // API (no direct DB) with a unique bank_tx_id / vendor name per run so the
@@ -4894,7 +4977,7 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
   // live handler and assert the render reflects exactly what it returned. This
   // replaces the two route.fulfill-stubbed Menu tests' provenance: those assert
   // row SHAPE against injected data; this proves the tab consumes the LIVE endpoint.
-  test('FR-16: Menu tab renders from the LIVE menu-items handler (no stub)', async ({ page }) => {
+  test('FR-16: Recipes › By dish renders from the LIVE menu-items handler (no stub)', async ({ page }) => {
     // 1) The live endpoint returns 200 + a JSON array (real handler, not a mock).
     const api = await page.evaluate(async () => {
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -4908,10 +4991,11 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
     expect(api.status, 'live menu-items handler must return 200').toBe(200);
     expect(api.isArray, 'live handler returns a JSON array').toBe(true);
 
-    // 2) Activate the Menu tab; the tab's own loadMenu() calls the same live
-    //    endpoint (no route interception) and renders into #menu-list.
-    await page.locator('#t3').click();
-    await expect(page.locator('#s3')).toBeVisible();
+    // 2) Open Recipes › By dish (the former Menu tab); its loadMenu() calls the
+    //    same live endpoint (no route interception) and renders into #menu-list.
+    await page.locator('#t4').click();
+    await page.locator('#rv-dish').click();
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
     const list = page.locator('#menu-list');
 
     if (api.len > 0) {
