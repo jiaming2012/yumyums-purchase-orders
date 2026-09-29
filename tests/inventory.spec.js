@@ -4434,6 +4434,35 @@ test.describe('Inline reparse (260929)', () => {
     await expect(card.locator('[data-action="redownload"]')).toBeEnabled();
   });
 
+  test('the amount is centred on the card and shares the confirmed cards\u2019 right edge', async ({ page }) => {
+    const st = await wire(page, STALE);
+    // Put a confirmed card above the pending one — the comparison is against
+    // the real neighbour, not arithmetic about padding.
+    await page.route('**/api/v1/inventory/purchases?*', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'evt-above', vendor_name: 'Save A Lot', event_date: '2026-09-12', total: 3.29, created_at: NOW },
+      ]) });
+    });
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    const total = card.locator('.event-total');
+    await expect(total).toHaveText('-$18.39');
+    const [c, t, b, n] = await Promise.all([
+      card.boundingBox(), total.boundingBox(), card.locator('.approval-badge').boundingBox(),
+      page.locator('[data-action="toggle-event"][data-id="evt-above"] .event-total').boundingBox(),
+    ]);
+    // Same right edge as the confirmed card's amount.
+    expect(Math.abs((t.x + t.width) - (n.x + n.width))).toBeLessThanOrEqual(1);
+    // Vertically centred on the card.
+    expect(Math.abs((t.y + t.height / 2) - (c.y + c.height / 2))).toBeLessThanOrEqual(2);
+    // Badge still holds the top-right corner, clear of the amount.
+    expect(b.y - c.y).toBeLessThanOrEqual(16);
+    expect(b.y + b.height).toBeLessThan(t.y);
+    expect(st.calls.pendingGets).toBeGreaterThan(0);
+  });
+
   test('Re-download while a sync is running is refused in words, not queued', async ({ page }) => {
     const st = await wire(page, STALE);
     // Another tab's run is in flight.

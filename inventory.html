@@ -1265,8 +1265,15 @@ function renderPendingCard(p){
   // resolved it from Mercury's cardId at ingest; absent (NULL) means not a
   // swipe or not yet resolved, and the line stays exactly as before.
   var who=cardLabel(p);
+  // The amount is placed exactly as on a confirmed card: right edge on the
+  // card's 16px padding (a confirmed card's .event-header puts its total
+  // there), vertically centred on the card — so a column of cards reads as
+  // one column of amounts whether a row is pending or not. The badge keeps
+  // the top-right corner. It used to be a trailing line under the buttons,
+  // where it read as part of the actions. fmtMoney puts the sign before the
+  // currency (-$18.39, not $-18.39); the sign itself is the bank's convention.
   var catHtml='<div class="event-meta" style="margin-top:2px;font-size:11px">Mercury: '+(mcat?escHtml(mcat):'<span style="opacity:.65;font-style:italic">uncategorised</span>')+(who?' · '+escHtml(who):'')+'</div>';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-total" style="position:absolute;right:16px;top:50%;transform:translateY(-50%)">'+fmtMoney(p.bank_total||p.total||0)+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+catHtml+parseErrHtml+'</div>';
 }
 
 function renderReviewForm(p){
