@@ -4230,7 +4230,7 @@ test.describe('Inline reparse (260929)', () => {
   // counters so a test can drive idle → running → done without the 3s poll.
   async function wire(page, row, opts) {
     const o = Object.assign({ reprocessStatus: 200 }, opts);
-    const st = { sync: null, rows: [row], calls: { reprocess: 0, retryParse: 0, syncReceipts: 0, pendingGets: 0 } };
+    const st = { sync: null, rows: [row], calls: { reprocess: 0, retryParse: 0, syncReceipts: 0, pendingGets: 0, redownload: 0 } };
     await page.route('**/api/v1/inventory/purchases?*', async route => {
       if (route.request().method() !== 'GET') return route.continue();
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
@@ -4253,6 +4253,13 @@ test.describe('Inline reparse (260929)', () => {
       st.calls.syncReceipts++;
       st.sync = { id: 'sync-m', status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual' };
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'sync-m', started_at: NOW }) });
+    });
+    await page.route('**/api/v1/inventory/purchases/pending/*/redownload', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      st.calls.redownload++;
+      st.sync = { id: 43, status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'redownload' };
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ id: row.id, sync_id: 43, started_at: NOW, status: 'running' }) });
     });
     await page.route('**/api/v1/inventory/purchases/pending/*/reprocess', async route => {
       if (route.request().method() !== 'POST') return route.continue();
@@ -4359,6 +4366,85 @@ test.describe('Inline reparse (260929)', () => {
     await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
     await expect(card.locator('[data-action="cancel-reparse"]')).toHaveText('Cancel Sync Receipts');
     expect(st.calls.syncReceipts).toBe(0);
+  });
+
+  // ── Re-download from source: the receipt on Mercury changed ──────────────
+
+  test('Re-download from source asks Mercury for this charge and rides the same in-flight visual', async ({ page }) => {
+    const st = await wire(page, STALE);
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    const redl = card.locator('[data-action="redownload"]');
+    await expect(redl).toHaveText('Re-download from source');
+    // It sits under Retry parse, as a second choice — not instead of it.
+    const retryBox = await card.locator('[data-action="retry-parse"]').boundingBox();
+    const redlBox = await redl.boundingBox();
+    expect(redlBox.y).toBeGreaterThan(retryBox.y);
+
+    await redl.click();
+    await expect.poll(() => st.calls.redownload, { timeout: 4000 }).toBe(1);
+    expect(st.calls.reprocess).toBe(0);
+    expect(st.calls.retryParse).toBe(0);
+    expect(st.calls.syncReceipts).toBe(0);
+
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+    await expect(card.locator('[data-action="cancel-reparse"]')).toHaveText('Cancel Sync Receipts');
+    await expect(card.locator('[data-action="redownload"]')).toHaveCount(0);
+    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+
+    // Mercury had the new files: the row re-prices itself when the run lands.
+    const getsBefore = st.calls.pendingGets;
+    st.sync = { id: 43, status: 'done', started_at: NOW, finished_at: NOW, processed: 1, auto_created: 0, pending_review: 1, cached: 0, triggered_by: 'redownload' };
+    st.rows = [Object.assign({}, STALE, { reason: 'vendor_not_in_catalog', parse_error: null,
+      receipt_urls: ['https://storage.example.test/r/new-0.jpg', 'https://storage.example.test/r/new-1.jpg'],
+      items: [{ name: 'Foil', quantity: 1, price: 46.56 }, { name: 'Refund: Foil', quantity: 1, price: -28.17 }] })];
+    await page.evaluate(() => window.refreshSyncStatus());
+    await expect.poll(() => st.calls.pendingGets, { timeout: 4000 }).toBeGreaterThan(getsBefore);
+    await expect(card.locator('.approval-badge')).toContainText('Needs Review');
+    await expect(card).not.toContainText('attempt 1: score=29.19');
+    await expect(card.locator('[data-action="redownload"]')).toBeEnabled();
+    await expect(page.locator('#sync-receipts-chip')).toBeHidden();
+  });
+
+  test('a Missing Receipt row offers Re-download from source — that is the row a file was since attached to', async ({ page }) => {
+    await wire(page, Object.assign({}, STALE, { reason: 'no_attachment_on_bank_tx', receipt_url: null, parse_error: null, items: [] }));
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    await expect(card.locator('.approval-badge')).toContainText('Missing Receipt');
+    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+    await expect(card.locator('[data-action="redownload"]')).toHaveText('Re-download from source');
+  });
+
+  test('when Mercury has nothing new, the failure is said and the row is left as it was', async ({ page }) => {
+    const st = await wire(page, STALE);
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    await card.locator('[data-action="redownload"]').click();
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+
+    st.sync = { id: 43, status: 'failed', started_at: NOW, finished_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0,
+      triggered_by: 'redownload', error: 'Mercury has no receipt attached to this charge' };
+    await page.evaluate(() => window.refreshSyncStatus());
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('Mercury has no receipt attached to this charge');
+    await expect(chip).toHaveClass(/err/);
+    // Back to what it was — evidence intact, both buttons offered again.
+    await page.evaluate(() => window.renderHistoryList());
+    await expect(card.locator('.approval-badge')).toContainText('Needs Review');
+    await expect(card).toContainText('attempt 1: score=29.19');
+    await expect(card.locator('[data-action="retry-parse"]')).toBeEnabled();
+    await expect(card.locator('[data-action="redownload"]')).toBeEnabled();
+  });
+
+  test('Re-download while a sync is running is refused in words, not queued', async ({ page }) => {
+    const st = await wire(page, STALE);
+    // Another tab's run is in flight.
+    st.sync = { id: 9, status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual' };
+    await page.evaluate(() => window.refreshSyncStatus());
+    await page.evaluate(() => window.renderHistoryList());
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    // This row is not part of that run, so it keeps its own buttons.
+    await card.locator('[data-action="redownload"]').click();
+    await expect(page.getByText('A sync is already running')).toBeVisible();
+    expect(st.calls.redownload).toBe(0);
   });
 });
 

@@ -707,6 +707,13 @@ func main() {
 					r.Post("/purchases/pending/{id}/reprocess", inventory.ReprocessOnePendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
 						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
 					}))
+					// "Re-download from source": go back to Mercury for THIS charge's
+					// attachments as they are now (the operator replaced the file, or
+					// paired a purchase with its refund), store them over the old
+					// download, and parse. Offered on Missing Receipt rows too.
+					r.Post("/purchases/pending/{id}/redownload", inventory.RedownloadPendingHandler(pool, func(ctx context.Context, bankTxID string, since time.Time) (string, error) {
+						return receipt.RedownloadFromMercury(ctx, receiptCfg, bankTxID, since)
+					}))
 					r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
 					r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 					r.Get("/stock", inventory.GetStockHandler(pool))

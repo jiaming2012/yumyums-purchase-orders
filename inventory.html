@@ -669,7 +669,7 @@ function renderSyncUI(){
     // A one-row re-read (per-card Retry parse) reports on the card itself —
     // the row refreshes on running→done — so a summary chip would be a
     // second, vaguer telling of the same thing. Failed/cancelled still show.
-    if(s.triggered_by==='reprocess_one'){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
+    if(s.triggered_by==='reprocess_one'||s.triggered_by==='redownload'){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
     var parts, headline;
     // 260701-a23: branch on trigger so the chip says what actually happened.
     // Manual runs read lookback_days off the row (added in
@@ -845,7 +845,7 @@ function openCancelSyncModal(){
   var ov=document.getElementById('cancel-sync-overlay');
   if(!ov)return;
   var hint=document.getElementById('cancel-sync-hint');
-  if(hint&&SYNC_STATE&&SYNC_STATE.triggered_by==='reprocess_one'){
+  if(hint&&SYNC_STATE&&(SYNC_STATE.triggered_by==='reprocess_one'||SYNC_STATE.triggered_by==='redownload')){
     hint.textContent='This receipt is abandoned and stays in the review queue. You can retry it straight away.';
   } else if(hint&&SYNC_STATE&&SYNC_STATE.triggered_by!=='reprocess_all'){
     hint.textContent='Transactions already pulled keep their results. The rest are not attempted. You can start another sync straight away.';
@@ -1245,6 +1245,16 @@ function renderPendingCard(p){
     } else {
       parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
     }
+  }
+  // Re-download from source: go back to Mercury for this charge's attachments
+  // as they are NOW. Retry parse re-reads what HQ already downloaded; when the
+  // operator replaced the file on Mercury (wrong receipt attached, or a
+  // purchase since paired with its refund) only Mercury has the right files.
+  // Offered on every open row — a "Missing Receipt" row is exactly the one a
+  // file has since been attached to — and hidden while a run is in flight,
+  // when the cancel control above is the only button that makes sense.
+  if(!reparsing){
+    parseErrHtml+='<button class="retry-parse-btn" data-action="redownload" data-id="'+p.id+'">Re-download from source</button>';
   }
   // Surface Mercury's own category so the operator can see why a charge is (or
   // isn't) auto-hidden: a non-food category outside the COGS allowlist would be
@@ -2536,6 +2546,36 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='discard-receipt'){
     captureReviewFormInputs(id);
     discardReceipt(id);
+  } else if(action==='redownload'){
+    // One run, same single-flight slot and same on-card visual as a re-read.
+    // There is no flag to queue behind a running sync (the request is
+    // "fetch from Mercury now"), so a busy slot is said, not queued.
+    var did=id;
+    var drow=PENDING_PURCHASES.find(function(pp){return pp.id===did;});
+    if(SYNC_STATE && SYNC_STATE.status==='running'){
+      showToastMessage('A sync is already running — stop it or let it finish, then try again');
+      return;
+    }
+    fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(did)+'/redownload',{
+      method:'POST',credentials:'include'
+    }).then(function(resp){
+      if(resp.ok){
+        return resp.json().then(function(body){
+          if(drow){drow.retryQueued=true;}
+          SYNC_STATE={id:body.sync_id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'redownload'};
+          renderSyncUI();
+          renderHistoryList();
+          startSyncPoll();
+        });
+      }
+      if(resp.status===409){
+        showToastMessage('A sync is already running — stop it or let it finish, then try again');
+        return refreshSyncStatus();
+      }
+      showToastMessage('Could not re-download: HTTP '+resp.status);
+    }).catch(function(err){
+      showToastMessage('Could not re-download: '+err.message);
+    });
   } else if(action==='cancel-reparse'){
     // The card's in-flight button is the header's Cancel Sync Receipts, so it
     // opens the same Stop-sync question (whose hint, for a one-row run, names
