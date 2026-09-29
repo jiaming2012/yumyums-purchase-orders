@@ -1496,6 +1496,40 @@ test.describe('Boot without SubtleCrypto (plain-http LAN origin)', () => {
     expect((await details.textContent()).length).toBeGreaterThan('Details'.length);
   });
 
+  test('on a LAN/dev address the hint says https, NOT "go to hq.yumyums.kitchen"', async ({ page }) => {
+    // Someone on 192.168.8.176 typed that host deliberately. Telling them to
+    // open the deployment reads as "abandon the address you chose" — the fix
+    // for them is https on the SAME host. Only a non-local browser is really
+    // being pointed home.
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'isSecureContext', { get: () => false, configurable: true });
+      Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+    });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/marketing.html');
+    const status = page.locator('#scan-status');
+    await expect(status).toContainText("Scanner didn't start");
+    await expect(status).toContainText('needs a secure (https) connection');
+    // The dev/test origin is localhost, which isLocalOrigin() treats as local.
+    await expect(status).toContainText('Reopen this same address over https');
+    await expect(status).not.toContainText('hq.yumyums.kitchen');
+  });
+
+  test('the Details cause reads as a sentence, not an internal symbol name', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { get: () => undefined, configurable: true });
+    });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/marketing.html');
+    const details = page.locator('#scan-status details');
+    await expect(details).toHaveCount(1);
+    const text = await details.textContent();
+    // "createTokenHasher: no SubtleCrypto available" is a symbol and a type
+    // name; a crew member cannot act on either.
+    expect(text).not.toMatch(/createTokenHasher|SubtleCrypto|IDBFactory|Dexie/);
+    expect(text).toMatch(/local storage|private browsing/i);
+  });
+
   test('camera failure on an insecure origin names the fix: open the https address, or scan from a photo', async ({ page }) => {
     await withoutSubtleCrypto(page);
     await openScanner(page);
