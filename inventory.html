@@ -79,6 +79,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .review-line-item-row input[type=text]{flex:2;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit}
 .review-line-item-row input[type=number]{flex:1;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;min-width:0}
 .review-line-item-row .case-check{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--mut);white-space:nowrap}
+.review-line-item-row input.bad,.review-tax.bad{border-color:var(--warn-tx);border-width:1px}
 .review-line-item-row .remove-line-btn{border:none;background:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 4px;line-height:1}
 .line-total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut);padding:6px 0;border-top:0.5px solid var(--brd);margin-top:4px}
 .line-total-value{font-weight:600;color:var(--txt)}
@@ -516,6 +517,63 @@ var SYNC_CHIP_DISMISSED_ID=null;
 // only for honest chip copy; the server row doesn't persist the window.
 var DEEP_SYNC_RANGE=null;
 var SYNC_POLL_MS=3000;
+// The status poll is every 3s and, until a run finishes, every response is
+// byte-identical: processed/auto_created/… are written once, in the same
+// UPDATE that sets status='done' (reprocess_pending.go). So a run in flight
+// has NO progress data to show, and a static "Reparsing…" is indistinguishable
+// from a hung job. Elapsed time is the one honest liveness signal available
+// without changing the backend — it is computed from started_at, it cannot
+// stall while the page is alive, and it never implies progress that isn't
+// being measured. Ticked separately from the poll so it moves every second.
+var SYNC_TICK_TIMER=null;
+var SYNC_TICK_MS=1000;
+
+// "9s" · "2m 05s" · "1h 03m" — short enough for a pill, and the units change
+// as the wait grows so the number stays readable at a glance.
+function formatElapsed(ms){
+  var total=Math.max(0,Math.floor(ms/1000));
+  if(total<60)return total+'s';
+  var m=Math.floor(total/60),sec=total%60;
+  if(m<60)return m+'m '+(sec<10?'0':'')+sec+'s';
+  var h=Math.floor(m/60);
+  return h+'h '+((m%60)<10?'0':'')+(m%60)+'m';
+}
+
+// Empty string when there is nothing running or no usable start time: callers
+// concatenate it, so an unknown start must add nothing rather than "NaN".
+function syncElapsedText(){
+  var s=SYNC_STATE;
+  if(!s||s.status!=='running'||!s.started_at)return '';
+  var started=Date.parse(s.started_at);
+  if(!isFinite(started))return '';
+  return formatElapsed(Date.now()-started);
+}
+
+// Markup for an elapsed span that is already correct at render time. The
+// history list is rebuilt on every 3s poll, which throws away whatever the
+// ticker last wrote — emitting the current value inline means the number never
+// blanks for a second after each refresh.
+function elapsedSpan(){
+  var t=syncElapsedText();
+  return '<span class="sync-elapsed">'+(t?' '+syncEscapeHTML(t):'')+'</span>';
+}
+
+// Updates only the elapsed spans. A full renderHistoryList() every second would
+// rebuild the review form under the operator's fingers.
+function tickSyncElapsed(){
+  var txt=syncElapsedText();
+  var nodes=document.querySelectorAll('.sync-elapsed');
+  for(var i=0;i<nodes.length;i++)nodes[i].textContent=txt?' '+txt:'';
+}
+function startSyncTick(){
+  if(SYNC_TICK_TIMER)return;
+  tickSyncElapsed();
+  SYNC_TICK_TIMER=setInterval(tickSyncElapsed,SYNC_TICK_MS);
+}
+function stopSyncTick(){
+  if(SYNC_TICK_TIMER){clearInterval(SYNC_TICK_TIMER);SYNC_TICK_TIMER=null;}
+  tickSyncElapsed();
+}
 
 function syncEscapeHTML(str){
   return String(str).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
@@ -528,12 +586,27 @@ function renderSyncUI(){
   var s=SYNC_STATE;
   var running=s&&s.status==='running';
   btn.disabled=!!running;
-  btn.textContent=running?'Syncing…':'Sync Receipts';
+  if(running){
+    btn.innerHTML='Syncing…'+elapsedSpan();
+  }else{
+    btn.textContent='Sync Receipts';
+  }
   // Chip rules:
-  //  - running: hide chip (button label carries the state)
+  //  - running: live chip carrying elapsed time (see SYNC_TICK_TIMER). This
+  //    used to hide the chip and leave the button's static "Syncing…" as the
+  //    only signal, which reads as hung the moment a run takes more than a few
+  //    seconds — and a reprocess is a download plus a model call per receipt.
   //  - failed: red chip, not dismissable until user retries
   //  - done: green chip with summary + ×; hide if user already dismissed this run id
-  if(!s||running){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
+  if(!s){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
+  if(running){
+    chip.style.display='';
+    chip.className='sync-chip';
+    // No count: `processed` is written once, at the end, so any X-of-N here
+    // would be a fabrication. Elapsed time is what we actually know.
+    chip.innerHTML='<span>Working…'+elapsedSpan()+' · this runs one receipt at a time, so give it a minute.</span>';
+    return;
+  }
   if(s.status==='failed'){
     chip.style.display='';
     chip.className='sync-chip err';
@@ -621,12 +694,14 @@ async function refreshSyncStatus(){
 }
 
 function startSyncPoll(){
+  startSyncTick();
   if(SYNC_POLL_TIMER)return;
   if(document.hidden)return; // visibilitychange listener will start it later
   SYNC_POLL_TIMER=setInterval(refreshSyncStatus,SYNC_POLL_MS);
 }
 function stopSyncPoll(){
   if(SYNC_POLL_TIMER){clearInterval(SYNC_POLL_TIMER);SYNC_POLL_TIMER=null;}
+  stopSyncTick();
 }
 
 document.addEventListener('visibilitychange',function(){
@@ -961,7 +1036,19 @@ function renderPendingCard(p){
   // receipt paired to bank tx). The data-mismatch flag tells the click
   // handler whether to confirm() before POSTing — parse-error-only stays
   // zero-friction (koi behavior preserved).
-  var hasParseError=p.reason==='Receipt could not be parsed automatically' && p.parse_error;
+  // Every open pending row can be re-read, so the button is offered on all of
+  // them bar the explicit no-attachment placeholder, where there is genuinely
+  // nothing to parse. It used to require parse_error OR mismatched items — and
+  // "Retry parse" itself wiped both, so the row that most needed a second
+  // attempt was exactly the one that could no longer ask for one. Whether a
+  // re-read can actually succeed depends on Mercury still holding the
+  // attachment (recent rows) or a stored receipt URL (Reprocess All Pending),
+  // neither of which this card can see — so it does not pretend to, and the
+  // backend gate matches (see RetryParsePendingPurchaseHandler).
+  var parseErrText=p.parse_error?String(p.parse_error):'';
+  var isTransient=parseErrText.indexOf('transient: ')===0;
+  var hasParseError=!!parseErrText&&!isTransient;
+  var retryQueued=!!p.retry_requested_at;
   var itemsArr=Array.isArray(p.items)?p.items:[];
   var hasItems=itemsArr.length>0;
   var pLineTotal=itemsArr.reduce(function(s,it){
@@ -979,23 +1066,31 @@ function renderPendingCard(p){
   // While reparsing, force the button to render (as disabled Reparsing…)
   // even if we optimistically cleared parse_error in the click handler —
   // the operator needs to see per-row state throughout the sync run.
-  var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && p.retryQueued);
-  var showRetry=hasParseError || itemsMismatch || reparsing;
+  var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && (p.retryQueued||retryQueued));
+  var showRetry=!isNoAttachment || reparsing;
   if(reparsing){
-    pendingBadgeHtml='<span class="approval-badge">Reparsing…</span>';
+    pendingBadgeHtml='<span class="approval-badge">Reparsing…'+elapsedSpan()+'</span>';
   }
+  // "Receipt could not be parsed automatically" on its own tells the operator
+  // nothing they can act on. Always say WHY when a cause was recorded, and say
+  // plainly when none was rather than leaving the bare reason standing alone.
   var parseErrHtml='';
-  if(hasParseError){
-    var perr=String(p.parse_error);
-    if(perr.indexOf('transient: ')===0){
-      // The worker could not reach Anthropic (out of credits, rate limit,
-      // outage) — the receipt itself is untested. Say so in words; the next
-      // sync retries it automatically, and Retry parse still works now.
-      parseErrHtml='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Not parsed yet: '+escHtml(perr.slice(11))+'. The next sync will retry automatically.</div>';
-    } else {
-      var truncated=perr.slice(0,140);
-      parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
-    }
+  if(isTransient){
+    // The worker could not reach the parser (out of credits, rate limit,
+    // outage) — the receipt itself is untested. Say so in words; the next
+    // sync retries it automatically, and Retry parse still works now.
+    parseErrHtml='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Not parsed yet: '+escHtml(parseErrText.slice(11))+'. The next sync will retry automatically.</div>';
+  } else if(hasParseError){
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Why: '+escHtml(parseErrText.slice(0,140))+'</div>';
+  } else if(p.reason==='Receipt could not be parsed automatically'){
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">No cause was recorded for this one.</div>';
+  }
+  if(retryQueued&&!reparsing){
+    // NOT "runs on the next sync": the worker only fetches a rolling 14-day
+    // Mercury window, so a charge older than that is never revisited and the
+    // promise would never come true. Reprocess All Pending re-reads the stored
+    // receipt regardless of age, so it is the one always-true instruction.
+    parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Queued for re-parse — tap Reprocess All Pending above.</div>';
   }
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
@@ -1041,7 +1136,7 @@ function renderReviewForm(p){
   var tax=Number(state.tax)||0;
   var grandTotal=lineTotal+tax;
   var bankTotal=Math.abs(Number(state.bank_total));
-  var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
+  var mismatch=!isFinite(grandTotal)||!isFinite(bankTotal)||Math.abs(grandTotal-bankTotal)>0.01;
   var mismatchBanner=mismatch?'<div class="correction-banner">Total ('+fmtMoney(grandTotal)+') doesn\'t match bank transaction ('+fmtMoney(bankTotal)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ('+fmtMoney(grandTotal)+'). Ready to confirm.</div>';
   // Phase 260607-fxl: Confirm Receipt is enabled only when (items present AND
   // totals match) OR (items empty AND reason is the no-attachment sentinel —
@@ -1054,8 +1149,8 @@ function renderReviewForm(p){
   var linesHtml=state.line_items.map(function(li,i){
     return '<div class="review-line-item-row">'+
       '<div class="review-li-name-wrap '+(li.purchase_item_id?'linked':'unlinked')+'"><input type="text" class="review-li-name" data-idx="'+i+'" data-item-id="'+(li.purchase_item_id||'')+'" value="'+escHtml(li.name)+'" placeholder="Tap to select item..." autocomplete="off" readonly></div>'+
-      '<input type="number" class="review-li-qty" data-idx="'+i+'" value="'+li.qty+'" min="0" step="1" placeholder="Qty" style="max-width:60px">'+
-      '<input type="text" inputmode="decimal" class="review-li-price" data-idx="'+i+'" value="'+Number(li.price).toFixed(2)+'" placeholder="$0.00" style="max-width:80px">'+
+      '<input type="number" class="review-li-qty'+(isFinite(Number(li.qty))?'':' bad')+'" data-idx="'+i+'" value="'+escHtml(isFinite(Number(li.qty))?String(li.qty):(li.qty_raw||''))+'" min="0" step="1" placeholder="Qty" style="max-width:60px">'+
+      '<input type="text" inputmode="decimal" class="review-li-price'+(isFinite(Number(li.price))?'':' bad')+'" data-idx="'+i+'" value="'+escHtml(isFinite(Number(li.price))?Number(li.price).toFixed(2):(li.price_raw||''))+'" placeholder="$0.00" style="max-width:80px">'+
       '<label class="case-check"><input type="checkbox" class="review-li-case" data-idx="'+i+'"'+(li.is_case?' checked':'')+'>Case</label>'+
       '<button class="remove-line-btn" data-action="remove-review-line" data-id="'+p.id+'" data-idx="'+i+'" aria-label="Remove">&times;</button>'+
     '</div>';
@@ -1073,7 +1168,7 @@ function renderReviewForm(p){
     '<div class="field-group"><div class="field-label">Date</div><input type="date" class="field-input review-date" data-id="'+p.id+'" value="'+escHtml(state.event_date)+'"></div>'+
     '<div class="review-line-items" data-id="'+p.id+'">'+linesHtml+
     priceHint+'<div class="line-total-row"><span>Line item total</span><span class="line-total-value">'+fmtMoney(lineTotal)+'</span></div>'+
-    '<div class="line-total-row"><span>Tax</span><input type="text" inputmode="decimal" class="review-tax" data-id="'+p.id+'" value="'+Number(state.tax).toFixed(2)+'" placeholder="0.00" style="max-width:80px;text-align:right;padding:4px 8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit"></div>'+
+    '<div class="line-total-row"><span>Tax</span><input type="text" inputmode="decimal" class="review-tax'+(isFinite(Number(state.tax))?'':' bad')+'" data-id="'+p.id+'" value="'+escHtml(isFinite(Number(state.tax))?Number(state.tax).toFixed(2):String(state.tax_raw||''))+'" placeholder="0.00" style="max-width:80px;text-align:right;padding:4px 8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit"></div>'+
     '<div class="line-total-row" style="font-weight:600"><span>Total</span><span class="grand-total-value">'+fmtMoney(lineTotal+Number(state.tax))+'</span></div>'+
     '</div>'+
     '<button class="add-line-btn" data-action="add-review-line" data-id="'+p.id+'">+ Add Line Item</button>'+
@@ -1101,7 +1196,15 @@ function titleCase(s){return String(s||'').toLowerCase().replace(/\b\w/g,functio
 
 // Signed currency. A refund line can drive a subtotal negative; '$-1.90' reads
 // like a typo, so the sign goes outside the symbol.
-function fmtMoney(n){n=Number(n)||0;return (n<0?'-$':'$')+Math.abs(n).toFixed(2);}
+//
+// A non-finite total renders as an em dash, NOT $0.00. `Number(n)||0` would
+// turn one malformed price ("1.90.00") into a confident $0.00 subtotal, and
+// because NaN>0.01 is false the mismatch check would then read "Amounts match"
+// and enable Confirm on a receipt that does not balance (UI-R7: fail loud).
+function fmtMoney(n){n=Number(n);if(!isFinite(n))return '—';return (n<0?'-$':'$')+Math.abs(n).toFixed(2);}
+// A price/qty/tax box the user has emptied is 0, not an error; anything else
+// that does not parse is an error and must stay NaN all the way to the banner.
+function numOrNaN(v){v=String(v==null?'':v).trim();return v===''?0:Number(v);}
 
 function captureReviewFormInputs(pendingId){
   var container=document.querySelector('.review-form[data-pending-id="'+pendingId+'"]');
@@ -1112,14 +1215,18 @@ function captureReviewFormInputs(pendingId){
   var dateEl=container.querySelector('.review-date');
   if(dateEl)state.event_date=dateEl.value;
   var taxEl=container.querySelector('.review-tax');
-  if(taxEl)state.tax=Number(taxEl.value)||0;
+  if(taxEl){state.tax=numOrNaN(taxEl.value);state.tax_raw=isFinite(state.tax)?null:taxEl.value;}
   var nameEls=container.querySelectorAll('.review-li-name');
   var qtyEls=container.querySelectorAll('.review-li-qty');
   var priceEls=container.querySelectorAll('.review-li-price');
   var caseEls=container.querySelectorAll('.review-li-case');
   state.line_items=[];
   for(var i=0;i<nameEls.length;i++){
-    state.line_items.push({name:nameEls[i].value,qty:Number(qtyEls[i]?qtyEls[i].value:0),price:Number(priceEls[i]?priceEls[i].value:0),is_case:caseEls[i]?caseEls[i].checked:false,purchase_item_id:nameEls[i].dataset.itemId||null});
+    var qtyRaw=qtyEls[i]?qtyEls[i].value:'0',priceRaw=priceEls[i]?priceEls[i].value:'0';
+    var qtyNum=numOrNaN(qtyRaw),priceNum=numOrNaN(priceRaw);
+    state.line_items.push({name:nameEls[i].value,qty:qtyNum,price:priceNum,
+      qty_raw:isFinite(qtyNum)?null:qtyRaw,price_raw:isFinite(priceNum)?null:priceRaw,
+      is_case:caseEls[i]?caseEls[i].checked:false,purchase_item_id:nameEls[i].dataset.itemId||null});
   }
 }
 
@@ -2337,6 +2444,22 @@ document.getElementById('history-list').addEventListener('click',function(e){
   }
 });
 
+// Tapping into a number box selects what is already there, so typing replaces
+// the value outright rather than inserting into it — entering 1.90 over a
+// pre-filled 0.00 was producing "1.90.00". focus fires only when the box GAINS
+// focus, so tapping again to place the caret still edits character by character.
+// The rAF is for iOS, which positions its own caret after focus and would
+// otherwise collapse the selection immediately.
+document.getElementById('history-list').addEventListener('focusin',function(e){
+  var el=e.target;
+  if(!el||!el.classList)return;
+  if(!el.classList.contains('review-li-price')&&!el.classList.contains('review-li-qty')&&!el.classList.contains('review-tax'))return;
+  requestAnimationFrame(function(){
+    if(document.activeElement!==el)return;
+    try{el.select();}catch(_){}
+  });
+});
+
 // Double-tap a line price to flip its sign. The iOS decimal keypad has no minus
 // key, so this is the only way to enter a refund or credit line on a phone.
 document.getElementById('history-list').addEventListener('dblclick',function(e){
@@ -2369,13 +2492,17 @@ document.getElementById('history-list').addEventListener('input',function(e){
     var tax=Number(state.tax)||0;
     var grandTotal=lineTotal+tax;
     var bankTotal=Math.abs(Number(state.bank_total));
+    var badInput=!isFinite(lineTotal)||!isFinite(tax);
+    form.querySelectorAll('.review-li-price,.review-li-qty,.review-tax').forEach(function(el){
+      el.classList.toggle('bad',!isFinite(numOrNaN(el.value)));
+    });
     var totalEl=form.querySelector('.line-total-value');
     if(totalEl)totalEl.textContent=fmtMoney(lineTotal);
     var grandEl=form.querySelector('.grand-total-value');
     if(grandEl)grandEl.textContent=fmtMoney(grandTotal);
     var warnBanner=form.querySelector('.correction-banner');
     var matchBanner=form.querySelector('.match-banner');
-    var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
+    var mismatch=badInput||!isFinite(bankTotal)||Math.abs(grandTotal-bankTotal)>0.01;
     var title=form.querySelector('.review-form-title');
     if(mismatch){
       if(matchBanner)matchBanner.remove();
@@ -3251,11 +3378,26 @@ function showCreateItemForm(prefill){
   var list=document.getElementById('item-modal-list');
   if(!list)return;
   var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+  // The receipt's own wording, carried in so the crew can keep it as the
+  // nickname while giving the item a name a human would use. Blank when the
+  // picker was opened with no line text.
+  var receiptText=(ITEM_MODAL_TARGET&&ITEM_MODAL_TARGET.value?ITEM_MODAL_TARGET.value.trim():'');
+  var locOpts='<option value="">— None —</option>'+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);})
+    .map(function(v){return '<option value="'+escHtml(v.name)+'">'+escHtml(v.name)+'</option>';}).join('');
+  // Same field set as the Setup editor (see renderItemEditForm). An item
+  // created here used to come out with only a name and a group, so every one
+  // had to be hunted down in Setup afterwards to finish it.
   list.innerHTML='<div class="item-modal-new-form">'+
     '<div class="field-group"><div class="field-label">Item Name</div>'+
     '<input type="text" class="field-input" id="modal-new-item-name" value="'+escHtml(prefill)+'"></div>'+
+    '<div class="field-group"><div class="field-label">Nickname</div>'+
+    '<input type="text" class="field-input" id="modal-new-item-alias" value="'+escHtml(receiptText)+'" placeholder="What the receipt calls it"></div>'+
     '<div class="field-group"><div class="field-label">Group</div>'+
     '<select class="field-input" id="modal-new-item-group">'+groupOpts+'</select></div>'+
+    '<div class="field-group"><div class="field-label">Store Location</div>'+
+    '<select class="field-input" id="modal-new-item-location">'+locOpts+'</select></div>'+
+    '<div class="field-group"><div class="field-label">Location in Store</div>'+
+    '<input type="text" class="field-input" id="modal-new-item-in-store" placeholder="e.g. Center Aisle, Back of Store"></div>'+
     '<button class="btn-primary" id="modal-create-item-btn">Create Item</button>'+
     '</div>';
   document.getElementById('modal-new-item-name').focus();
@@ -3274,7 +3416,17 @@ function showCreateItemForm(prefill){
       err.textContent='A group is required. Select a group or create a new one first.';
       return;
     }
-    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
+    var aliasEl=document.getElementById('modal-new-item-alias');
+    var locEl=document.getElementById('modal-new-item-location');
+    var inStoreEl=document.getElementById('modal-new-item-in-store');
+    var alias=aliasEl?aliasEl.value.trim():'';
+    var payload={description:name,group_id:groupId};
+    // Server drops an alias equal to the description (description always beats
+    // alias at match time), so sending it unconditionally is safe.
+    if(alias)payload.aliases=[alias];
+    if(locEl&&locEl.value)payload.store_location=locEl.value;
+    if(inStoreEl&&inStoreEl.value.trim())payload.location_in_store=inStoreEl.value.trim();
+    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(){
       return api('/api/v1/inventory/items');
     }).then(function(data){
       ALL_ITEMS=data||[];

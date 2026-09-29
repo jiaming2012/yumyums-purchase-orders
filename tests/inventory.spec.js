@@ -775,6 +775,55 @@ test.describe('Inventory', () => {
     expect(Number(refund.price)).toBe(-1.9);
   });
 
+  test('a malformed price never reads as $0.00 or as a matching total', async ({ page }) => {
+    // The regression this guards shipped as a green banner: "1.90.00" parses to
+    // NaN, Number(NaN)||0 rendered it $0.00, and NaN>0.01 is false — so the form
+    // said "Amounts match. Ready to confirm." on a receipt that did not balance.
+    await seedAndOpen(page, 'nan', -38.08, [
+      { name: 'Fries', quantity: 1, price: 36.99 },
+      { name: 'Tip', quantity: 1, price: 1.09 },
+    ]);
+    const price = page.locator('.review-li-price').nth(1);
+    await price.fill('1.90.00');
+    await price.dispatchEvent('input');
+    await expect(page.locator('.line-total-value')).toHaveText('—');
+    await expect(page.locator('.grand-total-value')).toHaveText('—');
+    await expect(page.locator('.match-banner')).toHaveCount(0);
+    await expect(page.locator('.correction-banner')).toBeVisible();
+    await expect(page.locator('[data-action="confirm-receipt"]')).toBeDisabled();
+    await expect(price).toHaveClass(/bad/);
+    // Correcting it clears the flag and restores real totals.
+    await price.fill('1.09');
+    await price.dispatchEvent('input');
+    await expect(price).not.toHaveClass(/bad/);
+    await expect(page.locator('.line-total-value')).toHaveText('$38.08');
+    await expect(page.locator('.match-banner')).toBeVisible();
+  });
+
+  test('a malformed price survives re-render as typed, not as "NaN"', async ({ page }) => {
+    await seedAndOpen(page, 'nanraw', -38.08, [{ name: 'Fries', quantity: 1, price: 36.99 }]);
+    const price = page.locator('.review-li-price').first();
+    await price.fill('1.90.00');
+    await price.dispatchEvent('input');
+    // Adding a line re-renders the whole form from state.
+    await page.locator('[data-action="add-review-line"]').first().click();
+    await expect(page.locator('.review-li-price').first()).toHaveValue('1.90.00');
+  });
+
+  test('tapping a number box selects it so the next keystroke replaces the value', async ({ page }) => {
+    await seedAndOpen(page, 'selectall', -10.00, [{ name: 'Widget', quantity: 1, price: 0 }]);
+    const price = page.locator('.review-li-price').first();
+    await expect(price).toHaveValue('0.00');
+    await price.focus();
+    const sel = await price.evaluate((el) => ({ start: el.selectionStart, end: el.selectionEnd, len: el.value.length }));
+    expect(sel.start).toBe(0);
+    expect(sel.end).toBe(sel.len);
+    // Typing over a full selection replaces rather than inserts — this is the
+    // "0.00" + "1.90" = "1.90.00" case.
+    await page.keyboard.type('1.90');
+    await expect(price).toHaveValue('1.90');
+  });
+
   test('the review Date field is boxed and aligned like the Vendor field', async ({ page }) => {
     await seedAndOpen(page, 'datewidth', -10.00, [{ name: 'Widget', quantity: 1, price: 10.00 }]);
     const dateBox = await page.locator('.review-date').boundingBox();
@@ -815,6 +864,167 @@ test.describe('Inventory', () => {
     });
     expect(css.appearance).toBe('none');
     expect(css.minWidth).toBe('0px');
+  });
+
+  // ── Parse failure is explained, and every row can be retried (260929) ────
+
+  // Stubs the pending queue with one row so the card's own rendering can be
+  // asserted without depending on what a live parse happened to produce.
+  async function stubPending(page, row) {
+    await page.route(/\/api\/v1\/inventory\/purchases\/pending(\?|$)/, async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([Object.assign({
+        id: 'pp-1', bank_tx_id: 'tx-pp-1', bank_total: -30.24, vendor: 'Save A Lot 3025',
+        event_date: '2026-09-12', reason: 'Receipt could not be parsed automatically',
+        mercury_category: 'COGS', items: [], created_at: '2026-09-12T12:00:00Z',
+        receipt_url: 'https://example.test/r.pdf',
+      }, row)]) });
+    });
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+  }
+
+  test('a parse failure states its cause instead of only that it failed', async ({ page }) => {
+    await stubPending(page, { parse_error: 'receipt image was too blurry to read' });
+    const card = page.locator('[data-action="review-pending"][data-id="pp-1"]');
+    await expect(card).toContainText('receipt image was too blurry to read');
+  });
+
+  test('a parse failure with no recorded cause says so rather than standing bare', async ({ page }) => {
+    await stubPending(page, {});
+    const card = page.locator('[data-action="review-pending"][data-id="pp-1"]');
+    await expect(card).toContainText('No cause was recorded');
+  });
+
+  test('Retry parse is offered on a pending row with no parse_error and no items', async ({ page }) => {
+    // The state pressing Retry parse used to leave behind: the button gated on
+    // parse_error OR mismatched items, and the retry wiped both — so the row
+    // could be retried exactly once and never again.
+    await stubPending(page, {});
+    await expect(page.locator('[data-action="retry-parse"][data-id="pp-1"]')).toBeVisible();
+  });
+
+  test('a queued re-parse says so, and survives a reload', async ({ page }) => {
+    await stubPending(page, { retry_requested_at: '2026-09-29T06:00:00Z' });
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse — tap Reprocess All Pending');
+    await page.reload();
+    await waitForHistoryContent(page);
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse — tap Reprocess All Pending');
+  });
+
+  test('line items from a failed parse pre-fill the review form', async ({ page }) => {
+    // The partial parse is the operator's starting point. It used to be deleted
+    // — by the retry handler, and by the worker persisting the failed retry's
+    // empty result over the first attempt's.
+    await stubPending(page, { items: [
+      { name: 'Milk', quantity: 2, price: 3.49 },
+      { name: 'Bread', quantity: 1, price: 2.99 },
+    ] });
+    await page.locator('[data-action="review-pending"][data-id="pp-1"]').locator('.event-vendor').click();
+    await expect(page.locator('.review-form')).toBeVisible();
+    await expect(page.locator('.review-line-item-row')).toHaveCount(2);
+    await expect(page.locator('.review-li-price').first()).toHaveValue('3.49');
+    await expect(page.locator('.review-li-price').nth(1)).toHaveValue('2.99');
+  });
+
+  test('a transient failure is still described in words', async ({ page }) => {
+    await stubPending(page, { parse_error: 'transient: out of API credits' });
+    const card = page.locator('[data-action="review-pending"][data-id="pp-1"]');
+    await expect(card).toContainText('Not parsed yet: out of API credits');
+    await expect(card).toContainText('next sync will retry automatically');
+  });
+
+  // ── Sync liveness: elapsed time (tier B) ────────────────────────────────
+
+  test('formatElapsed reads as a duration at every scale', async ({ page }) => {
+    await page.goto('/inventory.html');
+    const out = await page.evaluate(() => [0, 9000, 59000, 60000, 125000, 3600000, 3780000].map((ms) => formatElapsed(ms)));
+    expect(out).toEqual(['0s', '9s', '59s', '1m 00s', '2m 05s', '1h 00m', '1h 03m']);
+    // A clock skew that puts started_at in the future must not render "-4s".
+    expect(await page.evaluate(() => formatElapsed(-4000))).toBe('0s');
+  });
+
+  test('a running sync shows elapsed time that actually advances', async ({ page }) => {
+    // The complaint this answers: "Reparsing…" with nothing moving is
+    // indistinguishable from a hung job. The poll returns an identical body
+    // every 3s until the run ends, so elapsed time is the only live signal.
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/status/, async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        id: 42, status: 'running', started_at: new Date(Date.now() - 5000).toISOString(),
+        processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual',
+      }) });
+    });
+    await page.goto('/inventory.html');
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('Working…');
+    const first = await page.locator('.sync-elapsed').first().textContent();
+    expect(first.trim()).toMatch(/^\d+s$/);
+    // Advance past two ticks and assert the number moved.
+    await page.waitForTimeout(2200);
+    const second = await page.locator('.sync-elapsed').first().textContent();
+    expect(parseInt(second, 10)).toBeGreaterThan(parseInt(first, 10));
+  });
+
+  test('the elapsed ticker stops when no run is in flight', async ({ page }) => {
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    // No running sync -> the chip carries no elapsed text and the button reads
+    // its resting label rather than a frozen "Syncing… 0s".
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Sync Receipts');
+    expect(await page.evaluate(() => syncElapsedText())).toBe('');
+  });
+
+  // ── Creating an item from the receipt picker (260929) ───────────────────
+
+  test('POST /items stores nickname and location alongside the new item', async ({ page }) => {
+    // Create used to accept only description/group_id/store_location, so an
+    // item made from the picker came out half-filled and had to be finished in
+    // Setup. It now takes the editor's whole field set in one round trip.
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const groupId = (groups && groups[0] && groups[0].id) || null;
+    expect(groupId, 'need at least one item group seeded').toBeTruthy();
+    const desc = 'Plastic Wrap ' + Date.now();
+    const nickname = 'Handi Wrap Strg Sldr Qt 15ct ' + Date.now();
+    const res = await page.evaluate(async ([description, group_id, alias]) => {
+      const r = await fetch('/api/v1/inventory/items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description, group_id, aliases: [alias],
+          store_location: 'Restaurant Depot', location_in_store: 'Center Aisle',
+        }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [desc, groupId, nickname]);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+
+    const items = await invApiCall(page, 'GET', 'items');
+    const made = (items || []).find((i) => i.id === res.body.id);
+    expect(made, 'created item should come back from /items').toBeTruthy();
+    expect(made.store_location).toBe('Restaurant Depot');
+    expect(made.location_in_store).toBe('Center Aisle');
+    expect((made.aliases || []).map((a) => a.toLowerCase())).toContain(nickname.toLowerCase());
+  });
+
+  test('an alias equal to the description is not stored as a nickname', async ({ page }) => {
+    // Description already beats alias at match time, so storing it twice is
+    // noise the crew would have to look at in the Nicknames chips forever.
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const groupId = (groups && groups[0] && groups[0].id) || null;
+    const desc = 'Same Name Item ' + Date.now();
+    const res = await page.evaluate(async ([description, group_id]) => {
+      const r = await fetch('/api/v1/inventory/items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // Lower-cased: the match is case-insensitive, and normalizeItemName
+        // title-cases the description on the way in.
+        body: JSON.stringify({ description, group_id, aliases: [description.toLowerCase()] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [desc, groupId]);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const items = await invApiCall(page, 'GET', 'items');
+    const made = (items || []).find((i) => i.id === res.body.id);
+    expect(made.aliases || []).toHaveLength(0);
   });
 
   // ── Back link and PWA boilerplate ────────────────────────────────────────
@@ -957,6 +1167,12 @@ test.describe('Inventory', () => {
 
   // ── Item dropdown in receipt review ────────────────────────────────────
 
+  // These tests click the card's VENDOR LINE, not its centre. Every pending
+  // card now renders a "Retry parse" button (see renderPendingCard — any open
+  // row can be re-read, not just one with a stored parse_error), and it sits
+  // mid-card where a bare .click() lands, so a centre click hits the button
+  // instead of opening the review form. openSeededReviewForm already carried
+  // this note for mismatch/parse-error cards; it is universal now.
   test('review form line item name is readonly (dropdown-only)', async ({ page }) => {
     const txId = 'test-item-readonly-' + Date.now();
     const seeded = await seedPendingPurchase(page, {
@@ -968,7 +1184,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const nameInput = page.locator('.review-li-name').first();
       const readonly = await nameInput.getAttribute('readonly');
       expect(readonly).not.toBeNull();
@@ -986,7 +1202,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const nameInput = page.locator('.review-li-name').first();
       await nameInput.click();
       await expect(page.locator('.item-modal')).toBeVisible();
@@ -1008,7 +1224,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await page.fill('#item-modal-search', 'Unique Test Item');
@@ -1031,7 +1247,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await page.fill('#item-modal-search', 'new fancy item');
@@ -1054,7 +1270,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       const searchVal = await page.locator('#item-modal-search').inputValue();
@@ -1075,7 +1291,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await page.fill('#item-modal-search', 'brand new thing');
@@ -1101,7 +1317,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       // Try to confirm without selecting items from catalog
       await page.locator('[data-action="confirm-receipt"]').first().click();
       // Should show error
@@ -1121,7 +1337,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const nameInput = page.locator('.review-li-name').first();
       await nameInput.click();
       await expect(page.locator('.item-modal')).toBeVisible();
@@ -1152,7 +1368,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await expect(page.locator('.vendor-search-wrap')).toBeVisible();
       await expect(page.locator('.vendor-add-btn')).toBeVisible();
     }
@@ -1169,7 +1385,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const vendorInput = page.locator('.review-vendor');
       await vendorInput.fill('');
       await vendorInput.type('a');
@@ -1419,7 +1635,7 @@ test.describe('Inventory', () => {
     await waitForHistoryContent(page);
     const pending = page.locator('[data-action="review-pending"]').first();
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]');
       if (await receiptBtn.count() > 0) {
         await receiptBtn.first().click();
@@ -1596,7 +1812,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     expect(await pending.count(), 'seeded pending purchase must render').toBeGreaterThan(0);
-    await pending.click();
+    await pending.locator('.event-vendor').click();
     const wrap = page.locator('.review-li-name-wrap').first();
     await expect(wrap).toHaveClass(/linked/);
     // The line resolves to the item's canonical name, not the alias text
@@ -1617,7 +1833,7 @@ test.describe('Inventory', () => {
     });
     await page.reload();
     await waitForHistoryContent(page);
-    await page.locator('[data-action="review-pending"]').first().click();
+    await page.locator('[data-action="review-pending"]').first().locator('.event-vendor').click();
     // Line is unlinked — open the picker and link it to the catalog item
     await expect(page.locator('.review-li-name-wrap').first()).toHaveClass(/unlinked/);
     await page.locator('.review-li-name').first().click();
@@ -1639,7 +1855,7 @@ test.describe('Inventory', () => {
     });
     await page.reload();
     await waitForHistoryContent(page);
-    await page.locator('[data-action="review-pending"]').first().click();
+    await page.locator('[data-action="review-pending"]').first().locator('.event-vendor').click();
     await expect(page.locator('.review-li-name-wrap').first()).toHaveClass(/linked/);
     await expect(page.locator('.review-li-name').first()).toHaveValue(itemName);
   });
@@ -1703,7 +1919,7 @@ test.describe('Inventory', () => {
     // so .first() is whichever queue card has the newest date, not this one.
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       // Should start as unlinked (orange)
       const wrap = page.locator('.review-li-name-wrap').first();
       await expect(wrap).toHaveClass(/unlinked/);
@@ -1807,7 +2023,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await page.fill('#item-modal-search', 'no group item');
@@ -1834,7 +2050,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await page.fill('#item-modal-search', 'fixable unique ' + Date.now());
@@ -1902,7 +2118,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id (list is in event-date order since 2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const wrap = page.locator('.review-li-name-wrap').first();
       await expect(wrap).toHaveClass(/unlinked/);
     }
@@ -1924,7 +2140,7 @@ test.describe('Inventory', () => {
     // Target THE seeded card by id — the list is in event-date order (2026-09-28).
     const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const wrap = page.locator('.review-li-name-wrap').first();
       await expect(wrap).toHaveClass(/linked/);
       await expect(wrap).not.toHaveClass(/unlinked/);
@@ -1952,7 +2168,7 @@ test.describe('Inventory', () => {
     // Open pending and select the catalog item
     const pending = page.locator('[data-action="review-pending"]').first();
     if (await pending.count() === 0) return;
-    await pending.click();
+    await pending.locator('.event-vendor').click();
     await page.locator('.review-li-name').first().click();
     await expect(page.locator('.item-modal')).toBeVisible();
     await page.fill('#item-modal-search', itemName.substring(0, 10));
@@ -3375,7 +3591,10 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="pe-1"]');
     await expect(card).toBeVisible();
-    await expect(card).toContainText('Parser error:');
+    // The label is "Why:" now, not "Parser error:" — the card leads with the
+    // cause because "Receipt could not be parsed automatically" alone told the
+    // operator nothing they could act on.
+    await expect(card).toContainText('Why:');
     await expect(card).toContainText("invalid character '<'");
   });
 
@@ -3403,7 +3622,7 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
     await expect(card).toBeVisible();
     await expect(card).toContainText('Anthropic account out of credits');
     await expect(card).toContainText('retry');
-    await expect(card).not.toContainText('Parser error:');
+    await expect(card).not.toContainText('Why:');
     await expect(card).not.toContainText('transient:');
     await expect(card).not.toContainText('Request-ID');
     // Still manually retryable once credits are back.
@@ -3435,16 +3654,19 @@ test.describe('Retry parse button (260607-koi)', () => {
 
     const card = page.locator('[data-action="review-pending"][data-id="koi-1"]');
     await expect(card).toBeVisible();
-    // Regression sanity: 260607-e1c Parser error line still renders.
-    await expect(card).toContainText('Parser error:');
+    // Regression sanity: the cause line still renders (now labelled "Why:").
+    await expect(card).toContainText('Why:');
     // New: the Retry parse button is visible and labelled.
     const btn = card.locator('[data-action="retry-parse"]');
     await expect(btn).toBeVisible();
     await expect(btn).toContainText('Retry parse');
   });
 
-  test('is hidden when parse_error is empty', async ({ page }) => {
-    // parse_error omitted (falsey) — button must NOT render but card still does.
+  test('is still offered when parse_error is empty', async ({ page }) => {
+    // Inverted 2026-09-29. The button used to be gated on parse_error, and
+    // pressing it NULLed parse_error — so a row could be retried once and then
+    // never again, and the row with no recorded cause (exactly the one needing
+    // a second reading) offered nothing. parse_error omitted (falsey) here.
     await page.route('**/api/v1/inventory/purchases/pending', async route => {
       if (route.request().method() !== 'GET') return route.continue();
       await route.fulfill({
@@ -3465,13 +3687,15 @@ test.describe('Retry parse button (260607-koi)', () => {
     await expect(card).toBeVisible();
     // Regression sanity: card itself still renders.
     await expect(card).toContainText('Some Vendor');
-    // Button must not exist.
-    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
-    // Parser error line must not render either (parse_error falsey).
-    await expect(card).not.toContainText('Parser error:');
+    // The button is offered regardless of parse_error.
+    await expect(card.locator('[data-action="retry-parse"]')).toBeVisible();
+    // No cause recorded — the card says so rather than leaving the bare
+    // "could not be parsed automatically" standing alone (UI-R3).
+    await expect(card).not.toContainText('Why:');
+    await expect(card).toContainText('No cause was recorded');
   });
 
-  test('clears parse_error from card on success', async ({ page }) => {
+  test('keeps the cause on the card after a successful retry request', async ({ page }) => {
     // Mutable stub: first GET returns the row with parse_error; the POST
     // is intercepted with 200 success.
     await page.route('**/api/v1/inventory/purchases/pending', async route => {
@@ -3487,8 +3711,9 @@ test.describe('Retry parse button (260607-koi)', () => {
         }])
       });
     });
-    // Stub the POST retry-parse endpoint to return the row with parse_error
-    // cleared. The * glob covers the URL-encoded id.
+    // Stub the POST retry-parse endpoint with what the handler now returns:
+    // the row with parse_error INTACT and retry_requested_at stamped. The *
+    // glob covers the URL-encoded id.
     await page.route('**/api/v1/inventory/purchases/pending/*/retry-parse', async route => {
       if (route.request().method() !== 'POST') return route.continue();
       await route.fulfill({
@@ -3497,7 +3722,8 @@ test.describe('Retry parse button (260607-koi)', () => {
           id: 'koi-3', bank_tx_id: 'tx-koi-3', bank_total: -391.96,
           vendor: 'RESTAURANT DEPOT', event_date: '2026-06-05',
           reason: 'Receipt could not be parsed automatically',
-          parse_error: null,
+          parse_error: 'failed to unmarshal: invalid character \'<\'',
+          retry_requested_at: '2026-09-29T06:00:00Z',
           items: [], created_at: new Date().toISOString(),
         })
       });
@@ -3508,15 +3734,18 @@ test.describe('Retry parse button (260607-koi)', () => {
 
     const card = page.locator('[data-action="review-pending"][data-id="koi-3"]');
     await expect(card).toBeVisible();
-    await expect(card).toContainText('Parser error:');
+    await expect(card).toContainText('Why:');
     const btn = card.locator('[data-action="retry-parse"]');
     await expect(btn).toBeVisible();
 
     await btn.click();
 
-    // After success: Parser error line + retry button both disappear.
-    await expect(card).not.toContainText('Parser error:');
-    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+    // Inverted 2026-09-29: the cause and the button both SURVIVE. Asking why a
+    // receipt failed used to delete the answer — the retry handler NULLed
+    // parse_error to signal the worker, and the card keyed both the cause line
+    // and the button off that column. See migration 0079.
+    await expect(card).toContainText('Why:');
+    await expect(card.locator('[data-action="retry-parse"]')).toBeVisible();
   });
 });
 
@@ -3807,7 +4036,8 @@ test.describe('Inventory prove sweep — Purchases', () => {
     // seeded row to avoid cross-test ambiguity.
     const card = page.locator('[data-action="review-pending"][data-id="' + seed.id + '"]');
     await expect(card).toBeVisible();
-    await card.click();
+    // Vendor line, not the card centre — the Retry parse button sits there.
+    await card.locator('.event-vendor').click();
 
     // Scope the line-item wrap to THIS pending row's review form.
     const form = page.locator('.review-form[data-pending-id="' + seed.id + '"]');
@@ -3835,7 +4065,8 @@ test.describe('Inventory prove sweep — Purchases', () => {
     // Reopen the SAME card by id — the selection must survive the reload.
     const card2 = page.locator('[data-action="review-pending"][data-id="' + seed.id + '"]');
     await expect(card2).toBeVisible();
-    await card2.click();
+    // Vendor line, not the card centre — the Retry parse button sits there.
+    await card2.locator('.event-vendor').click();
     const form2 = page.locator('.review-form[data-pending-id="' + seed.id + '"]');
     const wrap2 = form2.locator('.review-li-name-wrap').first();
     await expect(wrap2).toHaveClass(/linked/);
