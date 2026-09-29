@@ -67,9 +67,13 @@ subset = 'npx playwright test "{tags}"'
 [e2e.seams]
 "backend/internal/inventory"  = ["inventory", "recipes"]
 "backend/internal/recipes"    = ["inventory", "recipes"]
-"inventory.html"              = ["inventory", "recipes", "health"]
+# states-inventory-nav is the B-455 / WO-1 state table (tab bar, By dish view,
+# More sheet, Setup). It reads the same page, so it rides every inventory.html
+# change — a narrow entry here is exactly how a regression escapes a green gate.
+"inventory.html"              = ["inventory", "recipes", "health", "states-inventory-nav"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
+"tests/states-inventory-nav.spec.js" = ["states-inventory-nav"]
 # Operations carries two MORE specs than its name suggests. sync.spec.js and
 # repro-cut-task.spec.js both drive the workflows runner end-to-end, so a change to
 # the workflow package or to workflows.html can break them — and under the old
@@ -139,6 +143,12 @@ subset = 'npx playwright test "{tags}"'
 "backend/internal/purchasing" = ["purchasing"]
 "purchasing.html"             = ["purchasing"]
 "tests/purchasing.spec.js"    = ["purchasing"]
+# The launcher shell. index.html writes the identity token the service worker
+# partitions api-cache by (sw-api-cache-partition) and paints tiles from
+# /api/v1/me/apps (grant-enforcement-parity) — both suites drive it directly.
+# Added on fix/sticky-launcher-header (2026-09-28): the row was missing.
+"index.html"                  = ["index", "storage-banner", "version-badge", "sw-api-cache-partition", "grant-enforcement-parity"]
+"tests/index.spec.js"         = ["index"]
 # ─────────────────────────────────────────────────────────────────────────────
 # THE SYNC CLIENT SEAM — B-154 rider (card `client-guard-coverage`, run 20260901,
 # the FIRST sync-touching card). Before this row, `sync-rxdb/**` was one of the

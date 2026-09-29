@@ -1290,11 +1290,23 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // (the raw receipt text becomes the alias) and managed explicitly in Setup.
 // Upsert on lower(alias): re-linking the same receipt text to a different
 // item re-points the alias — the latest human decision wins.
+//
+// display_if_first (opt-in, sent by the Setup editor only): when the item has
+// NO aliases before this one, the new alias is promoted to its displayed name
+// in the same transaction — a first nickname is the only candidate, so it is
+// the default. Any existing alias, starred or not, means the operator has a
+// choice to make and the new one arrives unpromoted. The receipt-link
+// auto-learn path never sends the flag: raw receipt text must not become an
+// item's label everywhere just by being the first thing linked.
+//
+// Response: 201 {"id", "display_alias"} — display_alias is the alias when it
+// was promoted here, else "".
 func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			PurchaseItemID string `json:"purchase_item_id"`
 			Alias          string `json:"alias"`
+			DisplayIfFirst bool   `json:"display_if_first"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -1305,11 +1317,22 @@ func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "purchase_item_id_and_alias_required")
 			return
 		}
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			slog.Error("AddItemAlias begin failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context())
+
 		// An alias equal to the item's own description would never be
 		// consulted (description wins at match time) — skip the clutter.
+		// FOR UPDATE serialises concurrent adds for the same item, so two
+		// "first" nicknames cannot both see zero aliases and both promote
+		// (the partial unique index would 500 the loser).
 		var sameAsDesc bool
-		err := pool.QueryRow(r.Context(),
-			`SELECT LOWER(description) = LOWER($2) FROM purchase_items WHERE id = $1`,
+		err = tx.QueryRow(r.Context(),
+			`SELECT LOWER(description) = LOWER($2) FROM purchase_items WHERE id = $1 FOR UPDATE`,
 			input.PurchaseItemID, input.Alias,
 		).Scan(&sameAsDesc)
 		if err != nil {
@@ -1320,26 +1343,50 @@ func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		promote := false
+		if input.DisplayIfFirst {
+			var existing int
+			if err := tx.QueryRow(r.Context(),
+				`SELECT count(*) FROM item_aliases WHERE purchase_item_id = $1 AND LOWER(alias) <> LOWER($2)`,
+				input.PurchaseItemID, input.Alias,
+			).Scan(&existing); err != nil {
+				slog.Error("AddItemAlias count failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			promote = existing == 0
+		}
 		var id string
-		err = pool.QueryRow(r.Context(), `
-			INSERT INTO item_aliases (purchase_item_id, alias)
-			VALUES ($1, $2)
+		err = tx.QueryRow(r.Context(), `
+			INSERT INTO item_aliases (purchase_item_id, alias, is_display)
+			VALUES ($1, $2, $3)
 			ON CONFLICT (LOWER(alias)) DO UPDATE
 			  SET purchase_item_id = EXCLUDED.purchase_item_id,
-			      -- An alias re-pointed to a different item arrives unpromoted:
-			      -- it was chosen as a label for the item it is LEAVING, and
-			      -- the item it joins may already have a promoted alias (only
-			      -- one is allowed, so keeping the flag would 500 the request).
-			      is_display = false
+			      -- An alias re-pointed to a different item arrives unpromoted
+			      -- unless the item it joins has no aliases at all and the
+			      -- caller asked for the first-nickname default: it was chosen
+			      -- as a label for the item it is LEAVING, and the item it
+			      -- joins may already have a promoted alias (only one is
+			      -- allowed, so keeping the flag would 500 the request).
+			      is_display = EXCLUDED.is_display
 			RETURNING id`,
-			input.PurchaseItemID, input.Alias,
+			input.PurchaseItemID, input.Alias, promote,
 		).Scan(&id)
 		if err != nil {
 			slog.Error("AddItemAlias insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+		if err := tx.Commit(r.Context()); err != nil {
+			slog.Error("AddItemAlias commit failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		displayAlias := ""
+		if promote {
+			displayAlias = input.Alias
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "display_alias": displayAlias})
 	}
 }
 

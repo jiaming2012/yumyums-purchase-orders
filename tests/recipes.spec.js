@@ -353,7 +353,7 @@ test.describe('Recipes tab — E2E', () => {
     await page.click('#t4');
     await page.waitForLoadState('networkidle');
     const html = await page.locator('#recipes-summary-card').innerHTML();
-    expect(html).toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(html).toContain('Tap a dish to see its ingredient cost');
   });
 
   test('clear-menu-summary action restores the placeholder', async ({ page }) => {
@@ -390,7 +390,7 @@ test.describe('Recipes tab — E2E', () => {
 
     // Card should NOT show the placeholder (selection has been made).
     let html = await page.locator('#recipes-summary-card').innerHTML();
-    expect(html).not.toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(html).not.toContain('Tap a dish to see its ingredient cost');
 
     // Now trigger clear-menu-summary via the matching action. If a button is
     // not rendered by default (data-dependent), inject one.
@@ -409,7 +409,7 @@ test.describe('Recipes tab — E2E', () => {
     }
 
     html = await page.locator('#recipes-summary-card').innerHTML();
-    expect(html, 'clear-menu-summary must restore the placeholder').toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(html, 'clear-menu-summary must restore the placeholder').toContain('Tap a dish to see its ingredient cost');
   });
 });
 
@@ -471,7 +471,7 @@ test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', (
     // Total ingredient cost = 25.00 + 4.00 = 29.00 (the summed COGS, not 0/placeholder).
     expect(out.total).toContain('$29.00');
     // And it is NOT the placeholder.
-    expect(out.html).not.toContain('Tap an ingredient to see how it breaks down by dish');
+    expect(out.html).not.toContain('Tap a dish to see its ingredient cost');
   });
 
   // NFR-8 (PRIORITY) — the slider rollback. When a slider RELEASE (change event)

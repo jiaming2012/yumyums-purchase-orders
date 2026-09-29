@@ -16,10 +16,15 @@
 :root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
-.app{max-width:480px;margin:0 auto;padding-top:20px}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:0 16px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto}
+/* Fixed header: logo, wordmark, tagline and greeting stay put; the tile grid
+   scrolls beneath. Sticky (not an inner scroll box) so the body still scrolls
+   and ptr.js's window.scrollY===0 pull-to-refresh keeps working. The header
+   owns the safe-area top padding so its background covers the status bar. */
+.hdr{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(env(safe-area-inset-top) + 20px) 0 12px;margin-bottom:12px;border-bottom:0.5px solid var(--brd)}
 .wordmark{font-size:22px;font-weight:700;color:var(--txt);margin-bottom:4px}
-.tagline{font-size:13px;color:#fff;margin-bottom:24px;font-weight:500}
+.tagline{font-size:13px;color:var(--txt);margin-bottom:20px;font-weight:500}
 .tagline i{color:#c8962e;font-style:italic}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tile{background:var(--card);border-radius:14px;padding:18px 16px 16px;border:0.5px solid var(--brd);text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
@@ -32,28 +37,31 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .tile.soon .tile-title{color:var(--mut)}
 .badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:8px;background:var(--brd);color:var(--mut);letter-spacing:0.2px}
 .badge-warn{background:var(--warn-bg);color:var(--warn-tx)}
-.user-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.user-bar{display:flex;justify-content:space-between;align-items:center}
 .user-bar .greeting{font-size:15px;font-weight:500}
 .user-bar .logout-btn{background:none;border:none;color:var(--mut);font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;font-family:inherit}
 .user-bar .logout-btn:active{opacity:0.6}
 .logo{display:block;margin:0 0 8px auto;max-width:120px;width:35%;height:auto}
 .verline{max-width:480px;margin:22px auto 0;padding:0 0 8px;font-size:11px;color:var(--mut);text-align:center;letter-spacing:0.2px}
 .verline .stale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-weight:500}
-.warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
+.warnbanner{max-width:480px;margin:0 auto 12px;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
 .warnbanner-admin{max-width:480px;margin:8px auto 0;padding:9px 14px;border-radius:10px;border:0.5px solid var(--warn-tx);color:var(--warn-tx);font-size:12px;font-weight:500;text-align:center;line-height:1.4}
 .warnbanner-diag{margin:6px 0 0;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.18);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:400;text-align:left;white-space:pre-wrap;user-select:all;-webkit-user-select:all}
 </style>
 </head>
 <body>
 <div class="app">
-  <img class="logo" src="icons/logo-square.png" alt="Yumyums Smokin' Grille">
-  <div class="wordmark">Yumyums HQ</div>
-  <div class="tagline">&#x1f354; Great <i>Food</i> begins with <i>Great Operations.</i></div>
+  <header class="hdr" id="hdr">
+    <img class="logo" src="icons/logo-square.png" alt="Yumyums Smokin' Grille">
+    <div class="wordmark">Yumyums HQ</div>
+    <div class="tagline">&#x1f354; Great <i>Food</i> begins with <i>Great Operations.</i></div>
 
   <!-- Server-side failures the crew can see but not fix. Rendered by
        health-banner.js; the launcher carries every check because it is the one
        page that stands for the whole app. -->
   <div id="health-banners" hidden></div>
+    <!-- renderUserHeader() appends the .user-bar greeting row here -->
+  </header>
 
   <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
@@ -104,7 +112,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <a class="tile active" href="inventory.html">
       <div class="tile-icon">📦</div>
       <div class="tile-title">Inventory</div>
-      <div class="tile-desc">Purchase history and stock levels</div>
+      <div class="tile-desc">Receipts, stock levels and recipes</div>
     </a>
 
     <a class="tile active" href="marketing.html">
@@ -136,8 +144,7 @@ function renderUserHeader(name){
   btn.onclick=logout;
   bar.appendChild(g);
   bar.appendChild(btn);
-  var grid=document.querySelector('.app .grid');
-  grid.parentNode.insertBefore(bar,grid);
+  document.getElementById('hdr').appendChild(bar);
 }
 function filterTilesByPermissions(apps){
   var allowed=new Set(apps.map(function(a){return a.slug;}));
