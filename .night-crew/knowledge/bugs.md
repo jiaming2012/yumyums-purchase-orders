@@ -29,6 +29,16 @@ second reading was the one that could no longer ask. Fixed by `retry_requested_a
 (migration 0079) separating the signal from the data.
 *Handling:* when a write re-arms a workflow, check whether the fields it clears
 are also the fields the UI reads to offer that workflow.
+*Tail, same day:* the server-side fix left the page's optimistic update behind —
+the click handler still did `row.parse_error=''` (and `items=[]` on mismatch),
+so "Why:" vanished on tap until the next reload, and the koi test that asserted
+the cause survives was red on `dev`. An optimistic update is a second copy of
+the server's write; when the write changes, grep the client for its mirror.
+The same card also told the operator to "Tap Retry Parse (All Receipts)" — an
+instruction standing in for a fix, because the per-card retry ran a Mercury
+sync that cannot reach a charge older than the 14-day lookback. Replaced by
+`POST /purchases/pending/{id}/reprocess` (the storage re-read, one row) and
+`tests/inventory.spec.js` — "Inline reparse (260929)".
 
 **A cached answer masquerading as a live one.** `/api/v1/health` matches
 `build-sw.js`'s `/api/` NetworkFirst rule, so on a flaky phone the SW served a
