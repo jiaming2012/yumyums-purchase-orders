@@ -701,6 +701,12 @@ func main() {
 					r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 					r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
 					r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
+					// The per-card re-read: the sweep above narrowed to one row, so a
+					// charge older than the Mercury lookback can still be re-parsed
+					// from its stored receipt without touching every other pending row.
+					r.Post("/purchases/pending/{id}/reprocess", inventory.ReprocessOnePendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
+					}))
 					r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
 					r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 					r.Get("/stock", inventory.GetStockHandler(pool))
