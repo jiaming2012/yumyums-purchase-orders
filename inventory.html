@@ -60,10 +60,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .approval-badge.missing{background:#fee2e2;color:#991b1b}
 @media(prefers-color-scheme:dark){.approval-badge.missing{background:#7f1d1d;color:#fca5a5}}
 .review-form{background:var(--card);border:0.5px solid var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:8px}
-.review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
+/* The title row doubles as the form's way out (UI-R2): labeled, not a bare
+   glyph, and a >=44px touch target. */
+.review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:8px;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+.review-form-title .collapse-hint{font-size:12px;font-weight:500;color:var(--mut);border:0.5px solid var(--brd);border-radius:999px;padding:7px 14px;white-space:nowrap}
+.review-price-hint{font-size:11px;color:var(--mut);margin:2px 0 6px}
 .field-group{margin-bottom:12px}
 .field-label{font-size:12px;color:var(--mut);margin-bottom:4px}
 .field-input{width:100%;padding:9px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit}
+input[type=date].field-input{appearance:none;-webkit-appearance:none;width:100%;min-width:0;max-width:100%;text-align:left;display:block}
 select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px}
 .correction-banner{background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.4}
 .match-banner{background:#dcfce7;color:#166534;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.4}
@@ -121,8 +126,12 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .ds-card h3{margin:0 0 6px;font-size:16px;font-weight:600;color:var(--txt)}
 .ds-hint{font-size:12px;color:var(--mut);margin-bottom:14px}
 .ds-row{display:flex;gap:10px;margin-bottom:14px}
-.ds-row label{flex:1;font-size:12px;color:var(--mut)}
+/* min-width:0 is load-bearing: a flex item defaults to min-width:auto, so on
+   iOS these two labels refuse to shrink below the date input's UA intrinsic
+   width and 'To' overruns the card past the Run button below it. */
+.ds-row label{flex:1;min-width:0;font-size:12px;color:var(--mut)}
 .ds-row input{width:100%;padding:8px;margin-top:4px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;color:var(--txt);font-family:inherit;font-size:14px;box-sizing:border-box}
+.ds-row input[type=date]{appearance:none;-webkit-appearance:none;min-width:0;max-width:100%;text-align:left}
 .ds-actions{display:flex;gap:10px}
 .ds-actions button{flex:1}
 .coming-soon{text-align:center;padding:60px 20px;color:var(--mut)}
@@ -1033,7 +1042,7 @@ function renderReviewForm(p){
   var grandTotal=lineTotal+tax;
   var bankTotal=Math.abs(Number(state.bank_total));
   var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
-  var mismatchBanner=mismatch?'<div class="correction-banner">Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.</div>';
+  var mismatchBanner=mismatch?'<div class="correction-banner">Total ('+fmtMoney(grandTotal)+') doesn\'t match bank transaction ('+fmtMoney(bankTotal)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ('+fmtMoney(grandTotal)+'). Ready to confirm.</div>';
   // Phase 260607-fxl: Confirm Receipt is enabled only when (items present AND
   // totals match) OR (items empty AND reason is the no-attachment sentinel —
   // the 260605-pk1 flow). Parse-failed rows with no items, or any row whose
@@ -1051,20 +1060,21 @@ function renderReviewForm(p){
       '<button class="remove-line-btn" data-action="remove-review-line" data-id="'+p.id+'" data-idx="'+i+'" aria-label="Remove">&times;</button>'+
     '</div>';
   }).join('');
+  var priceHint=state.line_items.length?'<div class="review-price-hint">Double-tap a price to make it negative (refunds &amp; credits).</div>':'';
   var errorHtml=REVIEW_FORM_STATE[p.id]._error?'<div class="inline-error">'+escHtml(REVIEW_FORM_STATE[p.id]._error)+'</div>':'';
   var _ruPend=p.receipt_urls&&p.receipt_urls.length>0?p.receipt_urls:null;
   var _urlPend=p.receipt_url||(_ruPend?_ruPend[0]:'');
   var _urlsAttrPend=_ruPend?' data-urls="'+escHtml(JSON.stringify(_ruPend))+'"':'';
   var receiptBtn=_urlPend?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlPend)+'"'+_urlsAttrPend+'>View Original Receipt</button>':'';
   return '<div class="review-form" data-pending-id="'+p.id+'">'+
-    '<div class="review-form-title">Review Receipt</div>'+
+    '<div class="review-form-title" data-action="review-pending" data-id="'+p.id+'">Review Receipt<span class="collapse-hint">Close</span></div>'+
     mismatchBanner+
     '<div class="field-group"><div class="field-label">Vendor</div><div class="vendor-search-wrap"><input class="field-input review-vendor" data-id="'+p.id+'" value="'+escHtml(state.vendor_name)+'" autocomplete="off" placeholder="Search vendors..."><button class="vendor-add-btn" data-action="add-vendor" data-id="'+p.id+'" title="Add new vendor">+</button></div></div>'+
     '<div class="field-group"><div class="field-label">Date</div><input type="date" class="field-input review-date" data-id="'+p.id+'" value="'+escHtml(state.event_date)+'"></div>'+
     '<div class="review-line-items" data-id="'+p.id+'">'+linesHtml+
-    '<div class="line-total-row"><span>Line item total</span><span class="line-total-value">$'+lineTotal.toFixed(2)+'</span></div>'+
+    priceHint+'<div class="line-total-row"><span>Line item total</span><span class="line-total-value">'+fmtMoney(lineTotal)+'</span></div>'+
     '<div class="line-total-row"><span>Tax</span><input type="text" inputmode="decimal" class="review-tax" data-id="'+p.id+'" value="'+Number(state.tax).toFixed(2)+'" placeholder="0.00" style="max-width:80px;text-align:right;padding:4px 8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit"></div>'+
-    '<div class="line-total-row" style="font-weight:600"><span>Total</span><span class="grand-total-value">$'+(lineTotal+Number(state.tax)).toFixed(2)+'</span></div>'+
+    '<div class="line-total-row" style="font-weight:600"><span>Total</span><span class="grand-total-value">'+fmtMoney(lineTotal+Number(state.tax))+'</span></div>'+
     '</div>'+
     '<button class="add-line-btn" data-action="add-review-line" data-id="'+p.id+'">+ Add Line Item</button>'+
     errorHtml+
@@ -1088,6 +1098,10 @@ function cardLabel(o){
   return [first,last4].filter(Boolean).join(' · ');
 }
 function titleCase(s){return String(s||'').toLowerCase().replace(/\b\w/g,function(c){return c.toUpperCase();});}
+
+// Signed currency. A refund line can drive a subtotal negative; '$-1.90' reads
+// like a typo, so the sign goes outside the symbol.
+function fmtMoney(n){n=Number(n)||0;return (n<0?'-$':'$')+Math.abs(n).toFixed(2);}
 
 function captureReviewFormInputs(pendingId){
   var container=document.querySelector('.review-form[data-pending-id="'+pendingId+'"]');
@@ -2128,7 +2142,11 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='goto-setup-item'){
     gotoSetupItem(el.dataset.itemId,el.dataset.itemDesc);
   } else if(action==='review-pending'){
-    REVIEW_OPEN_ID=(REVIEW_OPEN_ID===id)?null:id;
+    // Tapping the card opens it; tapping the form's own title closes it again.
+    // Capture before collapsing — the form is torn down by the re-render, so
+    // anything typed and not yet read back into REVIEW_FORM_STATE is lost.
+    if(REVIEW_OPEN_ID===id){captureReviewFormInputs(id);REVIEW_OPEN_ID=null;}
+    else REVIEW_OPEN_ID=id;
     renderHistoryList();
   } else if(action==='add-review-line'){
     captureReviewFormInputs(id);
@@ -2319,6 +2337,18 @@ document.getElementById('history-list').addEventListener('click',function(e){
   }
 });
 
+// Double-tap a line price to flip its sign. The iOS decimal keypad has no minus
+// key, so this is the only way to enter a refund or credit line on a phone.
+document.getElementById('history-list').addEventListener('dblclick',function(e){
+  var el=e.target;
+  if(!el||!el.classList||!el.classList.contains('review-li-price'))return;
+  var n=Number(el.value);
+  if(!isFinite(n)||n===0)return;
+  el.value=(-n).toFixed(2);
+  // Let the existing input listener capture state and recompute the totals.
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+});
+
 // Re-render review form on input changes to update mismatch warning in real-time
 document.getElementById('history-list').addEventListener('input',function(e){
   var form=e.target.closest('.review-form');
@@ -2340,9 +2370,9 @@ document.getElementById('history-list').addEventListener('input',function(e){
     var grandTotal=lineTotal+tax;
     var bankTotal=Math.abs(Number(state.bank_total));
     var totalEl=form.querySelector('.line-total-value');
-    if(totalEl)totalEl.textContent='$'+lineTotal.toFixed(2);
+    if(totalEl)totalEl.textContent=fmtMoney(lineTotal);
     var grandEl=form.querySelector('.grand-total-value');
-    if(grandEl)grandEl.textContent='$'+grandTotal.toFixed(2);
+    if(grandEl)grandEl.textContent=fmtMoney(grandTotal);
     var warnBanner=form.querySelector('.correction-banner');
     var matchBanner=form.querySelector('.match-banner');
     var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
@@ -2351,19 +2381,19 @@ document.getElementById('history-list').addEventListener('input',function(e){
       if(matchBanner)matchBanner.remove();
       if(!warnBanner){
         var b=document.createElement('div');b.className='correction-banner';
-        b.textContent='Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.';
+        b.textContent='Total ('+fmtMoney(grandTotal)+') doesn\'t match bank transaction ('+fmtMoney(bankTotal)+'). Check amounts before saving.';
         if(title)title.after(b);else form.prepend(b);
       } else {
-        warnBanner.textContent='Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.';
+        warnBanner.textContent='Total ('+fmtMoney(grandTotal)+') doesn\'t match bank transaction ('+fmtMoney(bankTotal)+'). Check amounts before saving.';
       }
     } else {
       if(warnBanner)warnBanner.remove();
       if(!matchBanner){
         var b=document.createElement('div');b.className='match-banner';
-        b.textContent='Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.';
+        b.textContent='Amounts match ('+fmtMoney(grandTotal)+'). Ready to confirm.';
         if(title)title.after(b);else form.prepend(b);
       } else {
-        matchBanner.textContent='Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.';
+        matchBanner.textContent='Amounts match ('+fmtMoney(grandTotal)+'). Ready to confirm.';
       }
     }
     // Phase 260607-fxl: keep Confirm Receipt button disabled state in sync

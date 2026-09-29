@@ -661,6 +661,162 @@ test.describe('Inventory', () => {
     }
   });
 
+
+  // ── Negative line prices + collapse (260929-neg) ─────────────────────────
+  // The iOS decimal keypad has no minus key, so a refund/credit line (e.g. a
+  // -$1.90 tip refund) could not be entered at all. Double-tapping the price
+  // field negates it. These three tests are the regressions for that report
+  // plus the two fixes that shipped with it.
+
+  // Seeds a pending purchase with the given items and returns its id, leaving
+  // the review form open. Unlike openSeededReviewForm it lets the caller set
+  // the bank total and line items so totals maths can be asserted.
+  async function seedAndOpen(page, tag, bankTotal, items) {
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: 'test-' + tag + '-' + Date.now(), vendor: 'Refund Vendor',
+      bankTotal, eventDate: '2026-04-15', reason: 'test', items,
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    await page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`)
+      .locator('.event-vendor').click();
+    await expect(page.locator('.review-form')).toBeVisible();
+    return seeded.id;
+  }
+
+  test('double-tapping a line price negates it and flips back', async ({ page }) => {
+    await seedAndOpen(page, 'negate', -10.00, [{ name: 'Tip Refund', quantity: 1, price: 1.90 }]);
+    const price = page.locator('.review-li-price').first();
+    await expect(price).toHaveValue('1.90');
+    await price.dblclick();
+    await expect(price).toHaveValue('-1.90');
+    // Second double-tap restores the positive value — the toggle is symmetric.
+    await price.dblclick();
+    await expect(price).toHaveValue('1.90');
+  });
+
+  test('a negated line price makes a refund receipt balance', async ({ page }) => {
+    // 36.99 + 2.99 + 1.90 = 41.88, but the tip line is a refund: the receipt
+    // only balances against the $38.08 bank charge once it reads -1.90.
+    await seedAndOpen(page, 'balance', -38.08, [
+      { name: 'Fries', quantity: 1, price: 36.99 },
+      { name: 'Service Fee', quantity: 1, price: 2.99 },
+      { name: 'Tip Refund', quantity: 1, price: 1.90 },
+    ]);
+    await expect(page.locator('.correction-banner')).toBeVisible();
+    await page.locator('.review-li-price').nth(2).dblclick();
+    await expect(page.locator('.line-total-value')).toHaveText('$38.08');
+    await expect(page.locator('.grand-total-value')).toHaveText('$38.08');
+    await expect(page.locator('.correction-banner')).toHaveCount(0);
+    await expect(page.locator('.match-banner')).toBeVisible();
+    // A balanced receipt is confirmable.
+    await expect(page.locator('[data-action="confirm-receipt"]')).toBeEnabled();
+  });
+
+  test('a negative line total renders as -$X.XX, not $-X.XX', async ({ page }) => {
+    await seedAndOpen(page, 'fmt', -10.00, [{ name: 'Refund Only', quantity: 1, price: 1.90 }]);
+    await page.locator('.review-li-price').first().dblclick();
+    await expect(page.locator('.line-total-value')).toHaveText('-$1.90');
+    await expect(page.locator('.grand-total-value')).toHaveText('-$1.90');
+  });
+
+  test('tapping the Review Receipt title collapses the form back to the card', async ({ page }) => {
+    const id = await seedAndOpen(page, 'collapse', -10.00, [{ name: 'Widget', quantity: 1, price: 10.00 }]);
+    // UI-R2: the way out is labeled and a >=44px touch target, not a bare glyph.
+    const title = page.locator('.review-form-title');
+    await expect(title.locator('.collapse-hint')).toHaveText('Close');
+    expect((await title.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await title.click();
+    await expect(page.locator(`.review-form[data-pending-id="${id}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-action="review-pending"][data-id="${id}"]`)).toBeVisible();
+  });
+
+  test('edits survive collapsing and reopening the review form', async ({ page }) => {
+    const id = await seedAndOpen(page, 'roundtrip', -10.00, [{ name: 'Widget', quantity: 1, price: 10.00 }]);
+    const price = page.locator('.review-li-price').first();
+    await price.fill('12.34');
+    await price.dispatchEvent('input');
+    await page.locator('.review-form-title').click();
+    await expect(page.locator(`.review-form[data-pending-id="${id}"]`)).toHaveCount(0);
+    await page.locator(`[data-action="review-pending"][data-id="${id}"]`).locator('.event-vendor').click();
+    await expect(page.locator('.review-li-price').first()).toHaveValue('12.34');
+  });
+
+  test('a negative line price round-trips through confirm and persists', async ({ page }) => {
+    // The UI affordance is only half of it — this walks the exact payload
+    // confirmReceipt() posts, so a future NOT-NULL/CHECK or an abs() in the
+    // handler would fail here rather than silently swallowing the refund.
+    const item = await invApiCall(page, 'POST', 'items', { description: 'Refund Probe ' + Date.now(), unit: 'ea' });
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: 'test-confirm-neg-' + Date.now(), vendor: 'Refund Vendor',
+      bankTotal: -38.08, eventDate: '2026-04-15', reason: 'test',
+      items: [{ name: 'Tip Refund', quantity: 1, price: 1.90 }],
+    });
+    const res = await page.evaluate(async ([id, itemId]) => {
+      const r = await fetch('/api/v1/inventory/purchases/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id, vendor_name: 'Refund Vendor', event_date: '2026-04-15', tax: 0, total: 38.08,
+          line_items: [
+            { purchase_item_id: itemId, name: 'Fries', description: 'Fries', quantity: 1, price: 36.99, is_case: false },
+            { purchase_item_id: itemId, name: 'Service Fee', description: 'Service Fee', quantity: 1, price: 2.99, is_case: false },
+            { purchase_item_id: itemId, name: 'Tip Refund', description: 'Tip Refund', quantity: 1, price: -1.90, is_case: false },
+          ],
+        }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [seeded.id, item.id]);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+
+    const purchases = await invApiCall(page, 'GET', 'purchases?page=1');
+    const evt = (purchases || []).find((e) => e.bank_tx_id === 'test-confirm-neg-' || (e.line_items || []).some((li) => Number(li.price) === -1.9));
+    expect(evt, 'confirmed event with the refund line should come back from /purchases').toBeTruthy();
+    const refund = evt.line_items.find((li) => Number(li.price) === -1.9);
+    expect(Number(refund.price)).toBe(-1.9);
+  });
+
+  test('the review Date field is boxed and aligned like the Vendor field', async ({ page }) => {
+    await seedAndOpen(page, 'datewidth', -10.00, [{ name: 'Widget', quantity: 1, price: 10.00 }]);
+    const dateBox = await page.locator('.review-date').boundingBox();
+    const wrapBox = await page.locator('.vendor-search-wrap').boundingBox();
+    expect(Math.abs(dateBox.x - wrapBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs((dateBox.x + dateBox.width) - (wrapBox.x + wrapBox.width))).toBeLessThanOrEqual(1);
+    // The overflow this guards is iOS-only: Safari gives input[type=date] a UA
+    // intrinsic width that outruns the card, and centres its text, so Chromium
+    // geometry alone passes vacuously. Assert the two declarations that
+    // actually suppress that, so the fix can't be dropped silently.
+    const css = await page.locator('.review-date').evaluate((el) => {
+      const c = getComputedStyle(el);
+      return { appearance: c.webkitAppearance || c.appearance, textAlign: c.textAlign };
+    });
+    expect(css.appearance).toBe('none');
+    expect(['left', 'start']).toContain(css.textAlign);
+  });
+
+  test('Deep Sync date inputs line up with the Cancel/Run buttons below them', async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById('deep-sync-btn').style.display = '';
+      document.getElementById('deep-sync-overlay').classList.add('on');
+    });
+    const overlay = page.locator('#deep-sync-overlay');
+    await expect(overlay).toBeVisible();
+    const to = await page.locator('#deep-to').boundingBox();
+    const from = await page.locator('#deep-from').boundingBox();
+    const run = await page.locator('#deep-sync-run').boundingBox();
+    const cancel = await page.locator('#deep-sync-cancel').boundingBox();
+    // The two rows are separate flex containers; they only read as one grid if
+    // their outer edges agree. iOS gave input[type=date] an intrinsic width the
+    // flex items could not shrink below, pushing 'To' past 'Run'.
+    expect(Math.abs((to.x + to.width) - (run.x + run.width))).toBeLessThanOrEqual(1);
+    expect(Math.abs(from.x - cancel.x)).toBeLessThanOrEqual(1);
+    const css = await page.locator('#deep-to').evaluate((el) => {
+      const c = getComputedStyle(el);
+      return { appearance: c.webkitAppearance || c.appearance, minWidth: getComputedStyle(el.parentElement).minWidth };
+    });
+    expect(css.appearance).toBe('none');
+    expect(css.minWidth).toBe('0px');
+  });
+
   // ── Back link and PWA boilerplate ────────────────────────────────────────
 
   test('back link navigates to HQ', async ({ page }) => {
@@ -4712,9 +4868,15 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
     await page.goto('/inventory.html');
     const card = page.locator('#history-list .event-card[data-id="ev-1"]');
     await card.click();
-    await expect(card.locator('.line-item').filter({ hasText: 'Mystery Line' })).toBeVisible();
-    await expect(card.locator('[data-action="goto-setup-item"]')).toHaveCount(1);
-    await card.locator('.line-item').filter({ hasText: 'Mystery Line' }).click();
+    const orphan = card.locator('.line-item').filter({ hasText: 'Mystery Line' });
+    await expect(orphan).toBeVisible();
+    // Assert the contract this test is named for — the UNLINKED line carries no
+    // link — rather than a card-wide count. The count form asserted 1 and went
+    // stale the moment 5cf6e5c/fb0dadd added two more linked lines to the shared
+    // stub; scoping it to the orphan row cannot rot the same way.
+    await expect(orphan.locator('[data-action="goto-setup-item"]')).toHaveCount(0);
+    await expect(card.locator('[data-action="goto-setup-item"]')).toHaveCount(3);
+    await orphan.click();
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(card.locator('.line-item')).toHaveCount(0);
   });
