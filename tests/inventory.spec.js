@@ -904,12 +904,28 @@ test.describe('Inventory', () => {
     await expect(page.locator('[data-action="retry-parse"][data-id="pp-1"]')).toBeVisible();
   });
 
-  test('a queued re-parse says so, and survives a reload', async ({ page }) => {
+  test('a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth', async ({ page }) => {
+    // retry_requested_at used to render "Queued for re-parse. Tap Retry Parse
+    // (All Receipts) above" — because the per-card retry could not reach a
+    // charge older than the Mercury lookback and the sweep was the only fix.
+    // Retry parse now re-reads the stored receipt itself, so a leftover flag
+    // from the old path must not send the operator to the admin sweep.
     await stubPending(page, { retry_requested_at: '2026-09-29T06:00:00Z' });
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
+    const card = page.locator('[data-action="review-pending"][data-id="pp-1"]');
+    await expect(card.locator('[data-action="retry-parse"]')).toBeVisible();
+    await expect(card).not.toContainText('Queued for re-parse');
+    await expect(card).not.toContainText('Retry Parse (All Receipts)');
+  });
+
+  test('a queued re-parse on a row with no stored receipt says when it will run, and survives a reload', async ({ page }) => {
+    // Nothing in storage → only a Mercury sync can fetch the receipt, and only
+    // while the charge is inside the lookback. Say exactly that.
+    await stubPending(page, { retry_requested_at: '2026-09-29T06:00:00Z', receipt_url: null });
+    const copy = 'Re-parse requested — runs on the next sync if Mercury still has the receipt.';
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText(copy);
     await page.reload();
     await waitForHistoryContent(page);
-    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText('Queued for re-parse. Tap “Retry Parse (All Receipts)” above');
+    await expect(page.locator('[data-action="review-pending"][data-id="pp-1"]')).toContainText(copy);
   });
 
   test('line items from a failed parse pre-fill the review form', async ({ page }) => {
@@ -4190,6 +4206,147 @@ test.describe('Retry parse auto-sync (260702-l67)', () => {
 // Purchases flows (PRD-inventory-hardening §Tab-1). Each seeds real data via the
 // API (no direct DB) with a unique bank_tx_id / vendor name per run so the
 // assertions stand on their own and do not pollute sibling tests.
+// ─── Inline reparse (260929): Retry parse re-reads THIS receipt ─────────────
+//
+// The per-card button used to POST /retry-parse (a flag) and start a full
+// Mercury sync, which only walks the 14-day lookback — so an older charge was
+// never revisited and the card told the operator to run "Retry Parse (All
+// Receipts)". Now a row with a stored receipt POSTs /reprocess and is re-read
+// in place; only a row with nothing in storage keeps the Mercury path.
+test.describe('Inline reparse (260929)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  const NOW = '2026-09-29T10:00:00Z';
+  const STALE = { id: 'pend-inl', bank_tx_id: 'tx-inl-1', bank_total: -18.39,
+    vendor: 'Restaurant Depot', event_date: '2026-09-11',
+    reason: 'Receipt derived total $47.58 does not match transaction amount $18.39',
+    parse_error: 'attempt 1: score=29.19 total=18.39',
+    items: [{ name: 'Foil', quantity: 1, price: 46.56 }], created_at: NOW,
+    receipt_url: 'https://storage.example.test/r/inl.jpg' };
+
+  // wire installs every route the flow touches and returns mutable knobs +
+  // counters so a test can drive idle → running → done without the 3s poll.
+  async function wire(page, row, opts) {
+    const o = Object.assign({ reprocessStatus: 200 }, opts);
+    const st = { sync: null, rows: [row], calls: { reprocess: 0, retryParse: 0, syncReceipts: 0, pendingGets: 0 } };
+    await page.route('**/api/v1/inventory/purchases?*', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route(/\/api\/v1\/inventory\/purchases\/pending(\?|$)/, async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      st.calls.pendingGets++;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(st.rows) });
+    });
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(st.sync) });
+    });
+    await page.route('**/api/v1/inventory/purchases/pending/*/retry-parse', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      st.calls.retryParse++;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+    await page.route('**/api/v1/inventory/sync-receipts', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      st.calls.syncReceipts++;
+      st.sync = { id: 'sync-m', status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual' };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'sync-m', started_at: NOW }) });
+    });
+    await page.route('**/api/v1/inventory/purchases/pending/*/reprocess', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      st.calls.reprocess++;
+      if (o.reprocessStatus === 409) {
+        // Another tab's run took the slot between our page load and the tap.
+        st.sync = { id: 77, status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual' };
+        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'sync_already_running' }) });
+        return;
+      }
+      st.sync = { id: 42, status: 'running', started_at: NOW, processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'reprocess_one' };
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ id: row.id, sync_id: 42, started_at: NOW, status: 'running' }) });
+    });
+    await page.goto('/inventory.html');
+    await waitForHistoryContent(page);
+    return st;
+  }
+
+  test('a row with a stored receipt is re-read in place — no flag, no full sync', async ({ page }) => {
+    const st = await wire(page, STALE);
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    const btn = card.locator('[data-action="retry-parse"]');
+    await expect(card.locator('.approval-badge')).toContainText('Needs Review');
+    await expect(btn).toBeEnabled();
+
+    // The mismatch confirm() still guards a row whose parsed items disagree
+    // with the bank total; accept it.
+    page.once('dialog', d => d.accept());
+    await btn.click();
+
+    await expect.poll(() => st.calls.reprocess, { timeout: 4000 }).toBe(1);
+    expect(st.calls.retryParse).toBe(0);
+    expect(st.calls.syncReceipts).toBe(0);
+
+    // The card itself is the visual: pill + button read Reparsing…, button
+    // disabled, and nothing sends the operator to the admin sweep.
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+    await expect(btn).toContainText('Reparsing…');
+    await expect(btn).toBeDisabled();
+    await expect(card).not.toContainText('Retry Parse (All Receipts)');
+    // The partial parse stays on screen while the re-read runs — it is not
+    // thrown away up front the way the old mismatch path did.
+    await expect(card).toContainText('attempt 1: score=29.19');
+  });
+
+  test('when the re-read finishes the row refreshes itself and no sync chip lingers', async ({ page }) => {
+    const st = await wire(page, STALE);
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    page.once('dialog', d => d.accept());
+    await card.locator('[data-action="retry-parse"]').click();
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+    const getsBefore = st.calls.pendingGets;
+
+    // Server finishes: the row was re-read and now carries a clean parse.
+    st.sync = { id: 42, status: 'done', started_at: NOW, finished_at: NOW, processed: 1, auto_created: 0, pending_review: 1, cached: 0, triggered_by: 'reprocess_one' };
+    st.rows = [Object.assign({}, STALE, { reason: 'vendor_not_in_catalog', parse_error: null,
+      items: [{ name: 'Foil', quantity: 1, price: 18.39 }] })];
+    await page.evaluate(() => window.refreshSyncStatus());
+
+    await expect.poll(() => st.calls.pendingGets, { timeout: 4000 }).toBeGreaterThan(getsBefore);
+    await expect(card.locator('.approval-badge')).toContainText('Needs Review');
+    await expect(card).not.toContainText('attempt 1: score=29.19');
+    const btn = card.locator('[data-action="retry-parse"]');
+    await expect(btn).toContainText('Retry parse');
+    await expect(btn).toBeEnabled();
+    // One receipt reporting on itself is not a sync summary.
+    await expect(page.locator('#sync-receipts-chip')).toBeHidden();
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Sync Receipts');
+  });
+
+  test('a row with no stored receipt still goes through Mercury', async ({ page }) => {
+    const st = await wire(page, Object.assign({}, STALE, { receipt_url: null, items: [], parse_error: 'haiku: timeout' }));
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    await card.locator('[data-action="retry-parse"]').click();
+    await expect.poll(() => st.calls.retryParse, { timeout: 4000 }).toBe(1);
+    await expect.poll(() => st.calls.syncReceipts, { timeout: 4000 }).toBe(1);
+    expect(st.calls.reprocess).toBe(0);
+    await page.waitForFunction(() => window.SYNC_STATE && window.SYNC_STATE.status === 'running');
+    await page.evaluate(() => window.renderHistoryList());
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+  });
+
+  test('a 409 from another tab’s run queues the row and says so', async ({ page }) => {
+    const st = await wire(page, Object.assign({}, STALE, { items: [], parse_error: 'haiku: timeout' }), { reprocessStatus: 409 });
+    const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
+    await card.locator('[data-action="retry-parse"]').click();
+    await expect.poll(() => st.calls.reprocess, { timeout: 4000 }).toBe(1);
+    await expect(page.getByText('Reparse queued — sync already running')).toBeVisible();
+    // The page picks up the other tab's run and the row rides it.
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+    await expect(card.locator('[data-action="retry-parse"]')).toBeDisabled();
+    expect(st.calls.syncReceipts).toBe(0);
+  });
+});
+
 test.describe('Inventory prove sweep — Purchases', () => {
 
   test.beforeEach(async ({ page }) => {
