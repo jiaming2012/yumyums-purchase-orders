@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -156,4 +157,55 @@ func TestRunIngestCycle_GenuineParseFailureStaysParked(t *testing.T) {
 	if second.parseCallCount != 0 || res.Cached != 1 {
 		t.Errorf("poll 2 re-parsed a genuinely failed row: parseCalls=%d cached=%d", second.parseCallCount, res.Cached)
 	}
+}
+
+// TestParseFailureCause_NamesTheCauseNotTheModel pins the string the operator
+// reads on a pending card. It used to be "sonnet: <err>; sonnet-retry: <err>",
+// which put a model name in front of them twice and repeated one cause
+// verbatim; which model ran belongs in the logs, not on the card.
+func TestParseFailureCause_NamesTheCauseNotTheModel(t *testing.T) {
+	boom := errors.New("receipt image was too blurry to read")
+	other := errors.New("the file was not a receipt")
+
+	t.Run("identical causes collapse to one", func(t *testing.T) {
+		got := parseFailureCause(boom, errors.New("receipt image was too blurry to read"))
+		if got != "receipt image was too blurry to read" {
+			t.Errorf("got %q, want the cause once", got)
+		}
+	})
+
+	t.Run("different causes are both kept", func(t *testing.T) {
+		got := parseFailureCause(boom, other)
+		want := "receipt image was too blurry to read; then the file was not a receipt"
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("internal wrapper prefixes are peeled off", func(t *testing.T) {
+		// What the seams actually produce, nested two deep.
+		a := errors.New("ParseReceipt: failed to parse JSON body: parseJSONBody: cannot unmarshal number 40.0")
+		b := errors.New("ParseReceiptWithSonnet: failed to parse JSON body: parseJSONBody: cannot unmarshal number 40.0")
+		got := parseFailureCause(a, b)
+		if got != "cannot unmarshal number 40.0" {
+			t.Errorf("got %q, want the bare cause once", got)
+		}
+	})
+
+	t.Run("never names a model", func(t *testing.T) {
+		got := strings.ToLower(parseFailureCause(
+			errors.New("ParseReceipt: API call failed: 529 overloaded"),
+			errors.New("ParseReceiptWithSonnet: failed to parse JSON body: invalid character 'x'")))
+		for _, banned := range []string{"sonnet", "haiku", "opus", "claude", "anthropic"} {
+			if strings.Contains(got, banned) {
+				t.Errorf("cause %q leaks %q to the operator", got, banned)
+			}
+		}
+	})
+
+	t.Run("nil errors still say something", func(t *testing.T) {
+		if got := parseFailureCause(nil, nil); got == "" {
+			t.Error("got empty string; the card would show no cause at all")
+		}
+	})
 }

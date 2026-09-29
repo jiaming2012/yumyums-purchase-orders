@@ -672,7 +672,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
-			       reason, parse_error, mercury_category, items,
+			       reason, parse_error, retry_requested_at, mercury_category, items,
 			       confirmed_at, confirmed_by, discarded_at, created_at,
 			       card_holder, card_last4
 			FROM pending_purchases
@@ -695,7 +695,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
-				&p.Reason, &p.ParseError, &p.MercuryCategory, &p.Items,
+				&p.Reason, &p.ParseError, &p.RetryRequestedAt, &p.MercuryCategory, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 				&p.CardHolder, &p.CardLast4,
 			); err != nil {
@@ -1004,41 +1004,37 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		hasParseError := parseError.Valid && parseError.String != ""
 
-		switch {
-		case hasParseError || itemsMismatch:
-			// Unified retry reset: clear items + reason + parse_error so the
-			// row matches the worker's parseFailedRetry upgrade gate, which
-			// requires reason='Receipt could not be parsed automatically'
-			// AND items=[] AND parse_error IS NULL. Previously the two
-			// branches were mutually exclusive — a row with BOTH
-			// parse_error set AND items populated (the state c43ff15's
-			// retry-loop persistence creates on validate-fail) would only
-			// clear parse_error, leaving items + the validate-fail reason
-			// in place; the worker would then skip on the next sync.
-			if _, err := pool.Exec(r.Context(),
-				`UPDATE pending_purchases
-				    SET items = '[]'::jsonb,
-				        reason = 'Receipt could not be parsed automatically',
-				        parse_error = NULL
-				  WHERE id = $1`,
-				id,
-			); err != nil {
-				slog.Error("RetryParsePendingPurchase update failed", "error", err)
-				writeError(w, http.StatusInternalServerError, "internal_error")
-				return
-			}
-			slog.Info("RetryParse: row re-queued",
-				"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
-				"line_total", lineTotal, "bank_total", absBank)
-		default:
-			// parse_error NULL AND items match totals (or items empty) —
-			// nothing to retry.
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
-				"error":  "nothing_to_retry",
-				"reason": "row has no parse_error to clear and items match bank_total",
-			})
+		// Re-arming is now a flag, not a demolition. This used to run
+		//
+		//     SET items = '[]'::jsonb,
+		//         reason = 'Receipt could not be parsed automatically',
+		//         parse_error = NULL
+		//
+		// because the worker's upgrade gate recognised an eligible row by
+		// "no parse_error AND no items" — so asking for a retry meant deleting
+		// the cause the operator wanted explained and the line items they
+		// wanted pre-filled, and (since inventory.html gates the button on
+		// those same fields) removing the button. retry_requested_at carries
+		// the request instead; parse_error and items survive untouched.
+		//
+		// Eligibility is no longer decided here. Whether a receipt can actually
+		// be re-read depends on Mercury still holding the attachment, which this
+		// handler cannot see — the worker checks len(tx.Attachments) and skips
+		// otherwise, so an unfulfillable request costs one nulled column. The
+		// old branch refused every row whose parse produced a clean-looking but
+		// wrong result, and refused a second attempt on any already-retried row;
+		// the operator's point stands, they should all be retryable.
+		if _, err := pool.Exec(r.Context(),
+			`UPDATE pending_purchases SET retry_requested_at = now() WHERE id = $1`,
+			id,
+		); err != nil {
+			slog.Error("RetryParsePendingPurchase update failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		slog.Info("RetryParse: row re-queued",
+			"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
+			"line_total", lineTotal, "bank_total", absBank)
 
 		// Re-fetch and return the updated row using the same projection
 		// ListPendingPurchasesHandler uses, so the FE response shape matches.
@@ -1061,7 +1057,7 @@ func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string
 	err := pool.QueryRow(ctx, `
 		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 		       tax, total, total_units, total_cases, receipt_url, receipt_urls,
-		       reason, parse_error, items,
+		       reason, parse_error, retry_requested_at, items,
 		       confirmed_at, confirmed_by, discarded_at, created_at,
 		       card_holder, card_last4
 		FROM pending_purchases
@@ -1069,7 +1065,7 @@ func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string
 	).Scan(
 		&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
-		&p.Reason, &p.ParseError, &p.Items,
+		&p.Reason, &p.ParseError, &p.RetryRequestedAt, &p.Items,
 		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 		&p.CardHolder, &p.CardLast4,
 	)
@@ -1149,10 +1145,16 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // CreateItemHandler creates a new purchase item.
 func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// LocationInStore and Aliases were editable ONLY in the Setup editor,
+		// so an item created from the receipt picker came out half-filled and
+		// had to be found and edited again later. Create now takes the same
+		// field set the editor does, in one round trip.
 		var input struct {
-			Description   string  `json:"description"`
-			GroupID       *string `json:"group_id,omitempty"`
-			StoreLocation *string `json:"store_location,omitempty"`
+			Description     string   `json:"description"`
+			GroupID         *string  `json:"group_id,omitempty"`
+			StoreLocation   *string  `json:"store_location,omitempty"`
+			LocationInStore *string  `json:"location_in_store,omitempty"`
+			Aliases         []string `json:"aliases,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -1167,16 +1169,57 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		input.Description = normalizeItemName(input.Description)
+
+		// One transaction: an item whose nicknames failed to save is worse than
+		// no item, because the next receipt silently fails to auto-match and
+		// nothing says why.
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			slog.Error("CreateItem begin tx failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context()) //nolint:errcheck
+
 		var id string
-		err := pool.QueryRow(r.Context(), `
-			INSERT INTO purchase_items (description, group_id, store_location)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description, store_location = COALESCE(EXCLUDED.store_location, purchase_items.store_location)
+		err = tx.QueryRow(r.Context(), `
+			INSERT INTO purchase_items (description, group_id, store_location, location_in_store)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (description) DO UPDATE SET
+				description       = EXCLUDED.description,
+				store_location    = COALESCE(EXCLUDED.store_location, purchase_items.store_location),
+				location_in_store = COALESCE(EXCLUDED.location_in_store, purchase_items.location_in_store)
 			RETURNING id`,
-			input.Description, input.GroupID, input.StoreLocation,
+			input.Description, input.GroupID, input.StoreLocation, input.LocationInStore,
 		).Scan(&id)
 		if err != nil {
 			slog.Error("CreateItem insert failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Same upsert-on-LOWER(alias) rule the alias endpoint and merge use:
+		// latest link wins, and an alias equal to the description is dropped
+		// because description already beats alias at match time.
+		for _, alias := range input.Aliases {
+			alias = strings.TrimSpace(alias)
+			if alias == "" || strings.EqualFold(alias, input.Description) {
+				continue
+			}
+			if _, aErr := tx.Exec(r.Context(), `
+				INSERT INTO item_aliases (purchase_item_id, alias)
+				VALUES ($1, $2)
+				ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id`,
+				id, alias,
+			); aErr != nil {
+				slog.Error("CreateItem alias insert failed", "error", aErr)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+		}
+
+		if cErr := tx.Commit(r.Context()); cErr != nil {
+			slog.Error("CreateItem commit failed", "error", cErr)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

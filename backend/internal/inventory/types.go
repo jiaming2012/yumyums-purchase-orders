@@ -100,6 +100,11 @@ type PendingPurchase struct {
 	ReceiptURLs []string         `json:"receipt_urls,omitempty"`
 	Reason          *string      `json:"reason,omitempty"`
 	ParseError      *string      `json:"parse_error,omitempty"`
+	// RetryRequestedAt is set when the operator asked for a re-parse and
+	// cleared when the worker has done it (migration 0079). The card reads it
+	// so "queued for re-parse" survives a reload instead of living only in a
+	// transient FE flag.
+	RetryRequestedAt *time.Time  `json:"retry_requested_at,omitempty"`
 	MercuryCategory *string      `json:"mercury_category,omitempty"` // Mercury's own category; NULL = uncategorised
 	CardHolder      *string      `json:"card_holder,omitempty"`      // name on the Mercury card that was swiped; NULL = unknown / not a swipe
 	CardLast4       *string      `json:"card_last4,omitempty"`

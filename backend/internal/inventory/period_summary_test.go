@@ -1771,10 +1771,16 @@ func retryParseHelper(t *testing.T, id string) *httptest.ResponseRecorder {
 	return rec
 }
 
-// TestRetryParse_ClearsParseError verifies the happy path: a pending row with a
-// parse_error set is updated so parse_error becomes NULL and the row is
-// returned in the 200 response body.
-func TestRetryParse_ClearsParseError(t *testing.T) {
+// TestRetryParse_PreservesEvidence verifies the happy path: a retry request is
+// recorded as retry_requested_at, and the parse_error the operator wants
+// explained survives it.
+//
+// Renamed from TestRetryParse_ClearsParseError, which asserted the opposite:
+// parse_error had to become NULL because the worker's upgrade gate recognised
+// an eligible row by its absence. That coupling is what made "Retry parse"
+// delete the card's only statement of WHY the receipt failed — migration 0079
+// moved the signal to its own column.
+func TestRetryParse_PreservesEvidence(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
 	}
@@ -1802,19 +1808,26 @@ func TestRetryParse_ClearsParseError(t *testing.T) {
 	if body.ID != ppID {
 		t.Errorf("response id = %q, want %q", body.ID, ppID)
 	}
-	if body.ParseError != nil && *body.ParseError != "" {
-		t.Errorf("response parse_error = %q, want nil or empty", *body.ParseError)
+	if body.ParseError == nil || *body.ParseError != "haiku: boom; sonnet: boom" {
+		t.Errorf("response parse_error = %v, want it preserved", body.ParseError)
+	}
+	if body.RetryRequestedAt == nil {
+		t.Error("response retry_requested_at = nil, want a timestamp")
 	}
 
-	// DB sanity: column is now NULL.
+	// DB sanity: the cause survives, and the request is recorded beside it.
 	var parseErrAfter sql.NullString
+	var retryAfter sql.NullTime
 	if err := testPool.QueryRow(t.Context(),
-		`SELECT parse_error FROM pending_purchases WHERE id = $1`, ppID,
-	).Scan(&parseErrAfter); err != nil {
+		`SELECT parse_error, retry_requested_at FROM pending_purchases WHERE id = $1`, ppID,
+	).Scan(&parseErrAfter, &retryAfter); err != nil {
 		t.Fatalf("select parse_error: %v", err)
 	}
-	if parseErrAfter.Valid {
-		t.Errorf("parse_error column = %q, want NULL", parseErrAfter.String)
+	if !parseErrAfter.Valid || parseErrAfter.String != "haiku: boom; sonnet: boom" {
+		t.Errorf("parse_error column = %v, want preserved", parseErrAfter)
+	}
+	if !retryAfter.Valid {
+		t.Error("retry_requested_at column = NULL, want a timestamp")
 	}
 }
 
@@ -1879,10 +1892,18 @@ func TestRetryParse_422OnConfirmedRow(t *testing.T) {
 	}
 }
 
-// TestRetryParse_422WhenNothingToRetry verifies the no-op guard: a pending row
-// whose parse_error is already NULL returns the 422 nothing_to_retry envelope
-// rather than uselessly executing the UPDATE.
-func TestRetryParse_422WhenNothingToRetry(t *testing.T) {
+// TestRetryParse_AcceptedWithNoPriorError verifies that a row carrying no
+// parse_error is still retryable.
+//
+// Inverted from TestRetryParse_422WhenNothingToRetry, which asserted the 422
+// nothing_to_retry envelope for exactly this row. That guard read as a no-op
+// optimisation but was a trap in practice: pressing Retry parse NULLed
+// parse_error, so the second press hit this branch and was refused, and
+// inventory.html hid the button for the same reason. The row that most needed
+// re-reading was the one that could no longer ask. Whether a re-read is
+// possible depends on Mercury still holding the attachment, which this handler
+// cannot see — the worker checks that and skips.
+func TestRetryParse_AcceptedWithNoPriorError(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
 	}
@@ -1895,26 +1916,28 @@ func TestRetryParse_422WhenNothingToRetry(t *testing.T) {
 
 	rec := retryParseHelper(t, ppID)
 
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 	}
-	var body map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("decode body: %v", err)
+	var retryAfter sql.NullTime
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT retry_requested_at FROM pending_purchases WHERE id = $1`, ppID,
+	).Scan(&retryAfter); err != nil {
+		t.Fatalf("select retry_requested_at: %v", err)
 	}
-	if body["error"] != "nothing_to_retry" {
-		t.Errorf("error = %q, want %q", body["error"], "nothing_to_retry")
-	}
-	if body["reason"] == "" {
-		t.Errorf("reason is empty; want explanatory text")
+	if !retryAfter.Valid {
+		t.Error("retry_requested_at = NULL, want a timestamp")
 	}
 }
 
-// TestRetryParse_ItemsMismatch_Accepted verifies the 260607-s6r broadening:
-// a pending row with parse_error=NULL but items populated whose line_total
-// doesn't match bank_total is accepted, items are cleared to '[]'::jsonb,
-// and reason is reset to the parse-failed sentinel so the worker's
-// parseFailedRetry gate matches on next sync.
+// TestRetryParse_ItemsMismatch_Accepted verifies that a row whose items don't
+// sum to bank_total is accepted for re-parse AND KEEPS THOSE ITEMS.
+//
+// It used to assert the opposite — items cleared to '[]'::jsonb and reason
+// overwritten — because the worker's gate recognised an eligible row by having
+// no items. So asking to re-read a receipt threw away the lines already
+// extracted from it, and the review form opened empty. Those lines are the
+// operator's pre-fill; migration 0079 keeps them.
 func TestRetryParse_ItemsMismatch_Accepted(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -1947,40 +1970,39 @@ func TestRetryParse_ItemsMismatch_Accepted(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 	}
 
-	// DB sanity: items emptied, reason updated, parse_error still NULL,
-	// row still pending (confirmed_at unchanged).
+	// DB sanity: the extracted line survives for pre-fill, the retry is
+	// recorded, and the row is still pending (confirmed_at unchanged).
 	var (
 		itemsAfter     []byte
-		reasonAfter    sql.NullString
-		parseErrAfter  sql.NullString
+		retryAfter     sql.NullTime
 		confirmedAfter sql.NullTime
 	)
 	if err := testPool.QueryRow(t.Context(),
-		`SELECT items, reason, parse_error, confirmed_at
+		`SELECT items, retry_requested_at, confirmed_at
 		   FROM pending_purchases WHERE id = $1`, ppID,
-	).Scan(&itemsAfter, &reasonAfter, &parseErrAfter, &confirmedAfter); err != nil {
+	).Scan(&itemsAfter, &retryAfter, &confirmedAfter); err != nil {
 		t.Fatalf("select after: %v", err)
 	}
-	if string(itemsAfter) != "[]" {
-		t.Errorf("items after = %q, want %q", string(itemsAfter), "[]")
+	if !strings.Contains(string(itemsAfter), `"name": "x"`) {
+		t.Errorf("items after = %q, want the extracted line preserved", string(itemsAfter))
 	}
-	if !reasonAfter.Valid || reasonAfter.String != "Receipt could not be parsed automatically" {
-		t.Errorf("reason after = %v, want %q", reasonAfter, "Receipt could not be parsed automatically")
-	}
-	if parseErrAfter.Valid {
-		t.Errorf("parse_error after = %q, want NULL", parseErrAfter.String)
+	if !retryAfter.Valid {
+		t.Error("retry_requested_at after = NULL, want a timestamp")
 	}
 	if confirmedAfter.Valid {
 		t.Errorf("confirmed_at after = %v, want NULL", confirmedAfter.Time)
 	}
 }
 
-// TestRetryParse_ItemsMatchTotals_StillRejected verifies that the 260607-s6r
-// broadening does NOT scope-creep into "any populated items row": when items
-// are populated AND totals match within 0.01, the row is healthy and
-// retry-parse must still return 422 nothing_to_retry (matches the existing
-// koi guard).
-func TestRetryParse_ItemsMatchTotals_StillRejected(t *testing.T) {
+// TestRetryParse_HealthyRowStillRetryable verifies that a row whose items sum
+// exactly to bank_total can still be re-parsed on request.
+//
+// Inverted from TestRetryParse_ItemsMatchTotals_StillRejected. Totals adding up
+// is not proof the parse was right — the receipt the operator is looking at can
+// balance and still carry the wrong vendor, the wrong date, or five lines named
+// "unnamed item". Refusing the request made an arithmetic check the arbiter of
+// whether a human is allowed to ask for a second reading.
+func TestRetryParse_HealthyRowStillRetryable(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
 	}
@@ -2004,15 +2026,21 @@ func TestRetryParse_ItemsMatchTotals_StillRejected(t *testing.T) {
 
 	rec := retryParseHelper(t, ppID)
 
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 	}
-	var body map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("decode body: %v", err)
+	var itemsAfter []byte
+	var retryAfter sql.NullTime
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items, retry_requested_at FROM pending_purchases WHERE id = $1`, ppID,
+	).Scan(&itemsAfter, &retryAfter); err != nil {
+		t.Fatalf("select after: %v", err)
 	}
-	if body["error"] != "nothing_to_retry" {
-		t.Errorf("error = %q, want %q", body["error"], "nothing_to_retry")
+	if !retryAfter.Valid {
+		t.Error("retry_requested_at = NULL, want a timestamp")
+	}
+	if !strings.Contains(string(itemsAfter), `"name": "x"`) {
+		t.Errorf("items after = %q, want preserved", string(itemsAfter))
 	}
 }
 
