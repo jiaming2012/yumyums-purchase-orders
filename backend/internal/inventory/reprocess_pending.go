@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -66,11 +67,11 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 		var pendingRows []receipt.PendingRowForReprocess
 		for dbRows.Next() {
 			var (
-				bankTxID    string
-				bankTotal   float64
-				vendor      string
-				eventDate   string
-				urlsJSON    string
+				bankTxID  string
+				bankTotal float64
+				vendor    string
+				eventDate string
+				urlsJSON  string
 			)
 			if scanErr := dbRows.Scan(&bankTxID, &bankTotal, &vendor, &eventDate, &urlsJSON); scanErr != nil {
 				dbRows.Close()
@@ -142,25 +143,30 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 // the result map into counts, and writes the final tally to receipt_sync_runs.
 // recover() guarantees no orphan running rows.
 func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id int64, rows []receipt.PendingRowForReprocess) {
-	ctx := context.Background()
+	// Cancellable and registered — this is the long one (a download plus a
+	// model call per receipt), so it is the run the operator most often wants
+	// to stop. release MUST fire on every exit path.
+	ctx, release := registerSyncCancel(id)
+	defer release()
+	// Terminal writes take a context the cancel cannot reach.
+	wctx := context.Background()
 	defer func() {
 		if rec := recover(); rec != nil {
 			msg := "panic in reprocess goroutine"
-			_, _ = pool.Exec(ctx,
-				`UPDATE receipt_sync_runs
-				 SET status='failed', finished_at=now(), error=$1
-				 WHERE id=$2`, msg, id)
+			finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 			slog.Info(fmt.Sprintf("ReprocessAllPending goroutine panic for run %d: %v", id, rec))
 		}
 	}()
 
 	results, runErr := runner(ctx, rows)
 	if runErr != nil {
+		if errors.Is(runErr, context.Canceled) {
+			slog.Info(fmt.Sprintf("ReprocessAllPending: run %d cancelled", id))
+			return
+		}
 		slog.Info(fmt.Sprintf("ReprocessAllPending: batch runner error for run %d: %v", id, runErr))
-		_, _ = pool.Exec(ctx,
-			`UPDATE receipt_sync_runs
-			 SET status='failed', finished_at=now(), error=$1
-			 WHERE id=$2`, runErr.Error(), id)
+		msg := runErr.Error()
+		finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 		return
 	}
 
@@ -181,13 +187,8 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id i
 	slog.Info(fmt.Sprintf("ReprocessAllPending: run %d done — auto_created=%d pending_review=%d no_attachments=%d errored=%d",
 		id, autoCreated, pendingReview, noAttachments, errored))
 
-	_, updErr := pool.Exec(ctx,
-		`UPDATE receipt_sync_runs
-		 SET status='done', finished_at=now(),
-		     processed=$1, auto_created=$2, pending_review=$3, cached=$4
-		 WHERE id=$5`,
-		len(rows), autoCreated, pendingReview, errored, id)
-	if updErr != nil {
-		slog.Info(fmt.Sprintf("ReprocessAllPending done-update for run %d: %v", id, updErr))
-	}
+	finishSyncRun(wctx, pool, id, "done", nil, &syncCounts{
+		Processed: len(rows), AutoCreated: autoCreated,
+		PendingReview: pendingReview, Cached: errored,
+	})
 }

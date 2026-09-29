@@ -672,6 +672,10 @@ func main() {
 						return receipt.RunIngestCycle(ctx, receiptCfg)
 					}))
 					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
+					// Stop an in-flight run. Sits beside /sync-receipts because
+					// it cancels whichever kind is running — manual, deep, or
+					// reprocess-all all share the single-flight row.
+					r.Post("/sync-receipts/cancel", inventory.CancelSyncHandler(pool))
 					// Deep re-sync over an explicit date range — re-pulls older
 					// transactions so mercury_category on existing rows is refreshed
 					// (the rolling lookback can't reach months-old charges).

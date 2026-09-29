@@ -162,38 +162,40 @@ func DeepSyncReceiptsHandler(pool *pgxpool.Pool, runner DeepIngestRunner) http.H
 // receipt_sync_runs row identified by id. defer recover() guarantees no
 // orphan running rows are left behind on panic.
 func runSyncGoroutine(pool *pgxpool.Pool, runner IngestRunner, id int64) {
-	ctx := context.Background()
+	// Cancellable, and registered so CancelSyncHandler can reach this run.
+	// release MUST run on every exit path or a stale CancelFunc outlives the
+	// run it belonged to.
+	ctx, release := registerSyncCancel(id)
+	defer release()
+	// Terminal writes use a context the cancel does NOT reach: cancelling the
+	// run must not also cancel the UPDATE that records it.
+	wctx := context.Background()
 	defer func() {
 		if rec := recover(); rec != nil {
 			msg := fmt.Sprintf("panic: %v", rec)
-			_, _ = pool.Exec(ctx,
-				`UPDATE receipt_sync_runs
-				 SET status='failed', finished_at=now(), error=$1
-				 WHERE id=$2`, msg, id)
+			finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 			slog.Error("SyncReceipts goroutine panic", "run_id", id, "panic", rec)
 		}
 	}()
 
 	result, err := runner(ctx)
 	if err != nil {
-		_, updErr := pool.Exec(ctx,
-			`UPDATE receipt_sync_runs
-			 SET status='failed', finished_at=now(), error=$1
-			 WHERE id=$2`, err.Error(), id)
-		if updErr != nil {
-			slog.Error("SyncReceipts failed-update", "run_id", id, "error", updErr)
+		// A cancelled run surfaces here as "context canceled". That is not a
+		// failure the operator should read as one — and finishSyncRun's
+		// status='running' guard means the row CancelSyncHandler already moved
+		// is left alone regardless.
+		if errors.Is(err, context.Canceled) {
+			slog.Info("SyncReceipts run cancelled", "run_id", id)
+			return
 		}
+		msg := err.Error()
+		finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 		return
 	}
-	_, updErr := pool.Exec(ctx,
-		`UPDATE receipt_sync_runs
-		 SET status='done', finished_at=now(),
-		     processed=$1, auto_created=$2, pending_review=$3, cached=$4
-		 WHERE id=$5`,
-		result.Processed, result.AutoCreated, result.PendingReview, result.Cached, id)
-	if updErr != nil {
-		slog.Error("SyncReceipts done-update failed", "run_id", id, "error", updErr)
-	}
+	finishSyncRun(wctx, pool, id, "done", nil, &syncCounts{
+		Processed: result.Processed, AutoCreated: result.AutoCreated,
+		PendingReview: result.PendingReview, Cached: result.Cached,
+	})
 }
 
 // SyncReceiptsStatusHandler returns the latest receipt_sync_runs row as JSON,

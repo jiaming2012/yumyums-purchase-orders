@@ -44,6 +44,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-btn{width:100%;padding:11px 14px;background:#dcfce7;color:#14532d;border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
 @media(prefers-color-scheme:dark){.sync-btn{background:#14532d;color:#86efac}}
 .sync-btn:disabled{opacity:0.6;cursor:default}
+/* The primary button while a run is in flight: this is a stop control, so it
+   reads as one rather than as a greyed-out copy of the start button. */
+.sync-btn.sync-btn-cancel{background:#fee2e2;color:#991b1b}
+@media(prefers-color-scheme:dark){.sync-btn.sync-btn-cancel{background:#7f1d1d;color:#fca5a5}}
 /* Sync Receipts takes the base .sync-btn green. Retry Parse (All Receipts) is
    the admin batch action: blue, so the two never read as the same button. */
 #reprocess-all-btn{background:var(--info-bg);color:var(--info-tx)}
@@ -411,6 +415,16 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
         </div>
       </div>
     </div>
+    <div id="cancel-sync-overlay" class="ds-overlay">
+      <div class="ds-card">
+        <h3>Stop this sync?</h3>
+        <div class="ds-hint" id="cancel-sync-hint">Receipts already re-read keep their results. The one being read right now is abandoned and stays in the review queue, and the rest are not attempted. You can start another sync straight away.</div>
+        <div class="ds-actions">
+          <button id="cancel-sync-back" class="sync-btn" type="button">Keep syncing</button>
+          <button id="cancel-sync-confirm" class="sync-btn sync-btn-cancel" type="button">Stop sync</button>
+        </div>
+      </div>
+    </div>
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
     </select>
@@ -593,9 +607,13 @@ function renderSyncUI(){
   if(!btn||!chip)return;
   var s=SYNC_STATE;
   var running=s&&s.status==='running';
-  btn.disabled=!!running;
+  // While a run is in flight the primary button stops being "start a sync" and
+  // becomes the way out of one: red, labelled Cancel, and ENABLED (it was
+  // disabled here, which is what left the operator with nothing to press).
+  btn.disabled=false;
+  btn.classList.toggle('sync-btn-cancel',!!running);
   if(running){
-    btn.innerHTML='Syncing…'+elapsedSpan();
+    btn.innerHTML='Cancel Sync Receipts'+elapsedSpan();
   }else{
     var deepChk=document.getElementById('deep-sync-toggle');
     btn.textContent=(deepChk&&deepChk.checked)?'Deep Sync Receipts…':'Sync Receipts';
@@ -606,7 +624,8 @@ function renderSyncUI(){
   //    only signal, which reads as hung the moment a run takes more than a few
   //    seconds — and a reprocess is a download plus a model call per receipt.
   //  - failed: red chip, not dismissable until user retries
-  //  - done: green chip with summary + ×; hide if user already dismissed this run id
+  //  - cancelled: amber chip reporting what the run DID finish before stopping
+  //  - done: amber chip with summary + ×; hide if user already dismissed this run id
   if(!s){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
   if(running){
     chip.style.display='';
@@ -614,6 +633,18 @@ function renderSyncUI(){
     // No count: `processed` is written once, at the end, so any X-of-N here
     // would be a fabrication. Elapsed time is what we actually know.
     chip.innerHTML='<span>Working…'+elapsedSpan()+' · this runs one receipt at a time, so give it a minute.</span>';
+    return;
+  }
+  if(s.status==='cancelled'){
+    // Counts on a cancelled row are real — each receipt is parsed and persisted
+    // independently, so the ones finished before the stop kept their results.
+    // Saying "cancelled" alone would imply the run left nothing behind.
+    chip.style.display='';
+    chip.className='sync-chip ok';
+    var cDone=Number(s.auto_created||0)+Number(s.pending_review||0);
+    chip.innerHTML='<span>Sync stopped'+(cDone>0?' after '+cDone+' receipt'+(cDone===1?'':'s'):' before any receipt was read')+'. Nothing was undone.</span>'+
+      '<button class="sync-chip-dismiss" data-action="dismiss-sync-chip" aria-label="Dismiss">&times;</button>';
+    if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';}
     return;
   }
   if(s.status==='failed'){
@@ -718,9 +749,33 @@ document.addEventListener('visibilitychange',function(){
   else if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();refreshSyncStatus();}
 });
 
+// Set by the cancel modal during the optimistic window — the moment between
+// pressing Sync and the server returning a run id. Cancelling then has nothing
+// to cancel yet, so the request is remembered and fired as soon as the run
+// exists; otherwise the run would start immediately after being stopped.
+var SYNC_CANCEL_REQUESTED=false;
+
+// Paint the running state NOW, before the POST. The button is the control the
+// operator is looking straight at when they press it, and a round-trip of dead
+// time there reads as "did that register?".
+function optimisticSyncStart(triggeredBy){
+  SYNC_CANCEL_REQUESTED=false;
+  SYNC_STATE={id:null,status:'running',started_at:new Date().toISOString(),
+    processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:triggeredBy};
+  SYNC_CHIP_DISMISSED_ID=null;
+  renderSyncUI();
+  startSyncTick();
+}
+// Undo the optimistic paint when the request never became a run.
+function rollbackSyncStart(){
+  SYNC_CANCEL_REQUESTED=false;
+  SYNC_STATE=null;
+  stopSyncTick();
+  renderSyncUI();
+}
+
 async function triggerSync(){
-  var btn=document.getElementById('sync-receipts-btn');
-  if(btn)btn.disabled=true;
+  optimisticSyncStart('manual');
   try{
     var res=await fetch('/api/v1/inventory/sync-receipts',{method:'POST',credentials:'include'});
     if(res.status===409){
@@ -730,12 +785,13 @@ async function triggerSync(){
     }
     if(!res.ok)throw new Error('HTTP '+res.status);
     var body=await res.json();
-    SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
-    SYNC_CHIP_DISMISSED_ID=null;
+    SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'manual'};
     renderSyncUI();
     startSyncPoll();
+    // Cancelled before the run existed — honour it now that it does.
+    if(SYNC_CANCEL_REQUESTED){SYNC_CANCEL_REQUESTED=false;await triggerCancelSync(true);}
   }catch(e){
-    if(btn)btn.disabled=false;
+    rollbackSyncStart();
     alert('Could not start sync: '+e.message);
   }
 }
@@ -767,6 +823,46 @@ function openDeepSyncModal(){
   if(from)from.value=prior.toISOString().slice(0,10);
   ov.classList.add('on');
 }
+// Cancel confirmation. A sync can be minutes of model calls, so stopping one
+// is worth a question — but the question has to say what survives, or the
+// operator cannot tell "stop" from "undo".
+function openCancelSyncModal(){
+  var ov=document.getElementById('cancel-sync-overlay');
+  if(!ov)return;
+  var hint=document.getElementById('cancel-sync-hint');
+  if(hint&&SYNC_STATE&&SYNC_STATE.triggered_by!=='reprocess_all'){
+    hint.textContent='Transactions already pulled keep their results. The rest are not attempted. You can start another sync straight away.';
+  }
+  ov.classList.add('on');
+}
+function closeCancelSyncModal(){
+  var ov=document.getElementById('cancel-sync-overlay');
+  if(ov)ov.classList.remove('on');
+}
+async function triggerCancelSync(skipDefer){
+  closeCancelSyncModal();
+  // Pressed during the optimistic window: no run exists to cancel yet.
+  // Remember it; triggerSync fires this again once it has a run id. Without
+  // this the cancel is a no-op and the sync starts anyway, right after the
+  // operator said stop.
+  if(!skipDefer&&SYNC_STATE&&!SYNC_STATE.id){
+    SYNC_CANCEL_REQUESTED=true;
+    showToastMessage('Stopping as soon as the sync starts…');
+    return;
+  }
+  try{
+    var res=await fetch('/api/v1/inventory/sync-receipts/cancel',{method:'POST',credentials:'include'});
+    if(!res.ok){showToastMessage('Could not stop the sync: HTTP '+res.status);return;}
+    var body=await res.json();
+    // cancelled:false means the run finished between render and tap — not a
+    // failure, and saying "couldn't stop it" would be a lie.
+    showToastMessage(body&&body.cancelled?'Sync stopped.':'That sync had already finished.');
+  }catch(err){
+    showToastMessage('Could not stop the sync: '+err.message);
+  }
+  await refreshSyncStatus();
+}
+
 function closeDeepSyncModal(){
   var ov=document.getElementById('deep-sync-overlay');
   if(ov)ov.classList.remove('on');
@@ -780,6 +876,7 @@ async function triggerDeepSync(){
   if(from>to){alert('From date must be on or before To date.');return;}
   var runBtn=document.getElementById('deep-sync-run');
   if(runBtn)runBtn.disabled=true;
+  optimisticSyncStart('deep');
   try{
     var res=await fetch('/api/v1/inventory/purchases/deep-sync',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:from,to:to})});
     if(res.status===409){await refreshSyncStatus();showToastMessage('Another sync is already running.');return;}
@@ -797,6 +894,7 @@ async function triggerDeepSync(){
     renderSyncUI();
     startSyncPoll();
   }catch(e){
+    rollbackSyncStart();
     alert('Could not start deep sync: '+e.message);
   }finally{
     if(runBtn)runBtn.disabled=false;
@@ -808,17 +906,19 @@ async function triggerReprocessAll(){
   var pendingCount=PENDING_PURCHASES.length;
   if(!confirm('Reset and re-process all '+pendingCount+' pending receipts? This will overwrite any partial edits. Continue?'))return;
   if(btn)btn.disabled=true;
+  optimisticSyncStart('reprocess_all');
   try{
     var res=await fetch('/api/v1/inventory/purchases/reprocess-all',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}});
     var j=await res.json();
-    if(j.error){showToastMessage('Reprocess failed: '+j.error);if(btn)btn.disabled=false;return;}
+    if(j.error){rollbackSyncStart();showToastMessage('Reprocess failed: '+j.error);if(btn)btn.disabled=false;return;}
     showToastMessage('Reset '+j.reset_count+' rows. Sync running…');
-    SYNC_STATE={id:j.sync_id,status:'running',started_at:j.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
-    SYNC_CHIP_DISMISSED_ID=null;
+    SYNC_STATE={id:j.sync_id,status:'running',started_at:j.started_at,processed:0,auto_created:0,pending_review:0,cached:0,triggered_by:'reprocess_all'};
     renderSyncUI();
     startSyncPoll();
+    if(SYNC_CANCEL_REQUESTED){SYNC_CANCEL_REQUESTED=false;await triggerCancelSync(true);}
   }catch(e){
     if(btn)btn.disabled=false;
+    rollbackSyncStart();
     showToastMessage('Reprocess failed: '+e.message);
   }
 }
@@ -833,10 +933,13 @@ document.addEventListener('click',function(e){
   var t=e.target;
   if(!t)return;
   if(t.id==='sync-receipts-btn'){
+    if(SYNC_STATE&&SYNC_STATE.status==='running'){openCancelSyncModal();return;}
     var deep=document.getElementById('deep-sync-toggle');
     if(deep&&deep.checked){openDeepSyncModal();}else{triggerSync();}
     return;
   }
+  if(t.id==='cancel-sync-confirm'){triggerCancelSync();return;}
+  if(t.id==='cancel-sync-back'||t.id==='cancel-sync-overlay'){closeCancelSyncModal();return;}
   if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
   if(t.id==='deep-sync-run'){triggerDeepSync();return;}
   if(t.id==='deep-sync-cancel'||t.id==='deep-sync-overlay'){closeDeepSyncModal();return;}

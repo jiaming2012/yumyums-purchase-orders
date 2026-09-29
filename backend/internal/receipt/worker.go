@@ -45,7 +45,7 @@ var (
 // MercuryTransaction.CreatedAt, and the receipt URL list to download.
 type PendingRowForReprocess struct {
 	BankTxID    string
-	BankTotal   float64  // negative for debit, matches Mercury convention
+	BankTotal   float64 // negative for debit, matches Mercury convention
 	Vendor      string
 	EventDate   string   // YYYY-MM-DD
 	ReceiptURLs []string // may be one URL (legacy) or many (multi-attachment)
@@ -89,6 +89,13 @@ func ReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, row PendingRowFo
 func BatchReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, rows []PendingRowForReprocess) (map[string]string, error) {
 	out := make(map[string]string, len(rows))
 	for _, row := range rows {
+		// Hard stop on cancel. Without this the loop keeps going and every
+		// remaining row fails its (already-cancelled) HTTP call, reporting a
+		// dozen "errored" receipts for what was a deliberate stop.
+		if err := ctx.Err(); err != nil {
+			slog.Info(fmt.Sprintf("receipt worker: batch reprocess cancelled after %d/%d", len(out), len(rows)))
+			return out, err
+		}
 		status, err := ReprocessFromSpaces(ctx, cfg, row)
 		if err != nil {
 			slog.Info(fmt.Sprintf("receipt worker: tx %s reprocess error: %v", row.BankTxID, err))
@@ -197,6 +204,12 @@ func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endD
 	cards := loadCards(ctx, cfg.MercuryAPIKey)
 
 	for _, tx := range txns {
+		// Same hard stop as the batch reprocess above: a cancelled run should
+		// stop, not grind through the remaining transactions failing each one.
+		if err := ctx.Err(); err != nil {
+			slog.Info(fmt.Sprintf("receipt worker: ingest cycle cancelled after %d/%d", autoCreated+pendingReview+skippedCached, len(txns)))
+			return IngestResult{Processed: autoCreated + pendingReview + skippedCached, AutoCreated: autoCreated, PendingReview: pendingReview, Cached: skippedCached}, err
+		}
 		// Who swiped: resolve BEFORE the refresh + insert paths so both the
 		// new-row writes and the backfill of rows that pre-date the column
 		// see the same values. tx is this iteration's copy.
@@ -289,6 +302,7 @@ func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endD
 //     parse_error, or items (the caller has already confirmed we want a fresh
 //     attempt, and the dup-key handler in createPurchaseEvent will clean up any
 //     residual pending row if the event INSERT fails with a duplicate key).
+//
 // blobWithAttachment pairs a successfully-downloaded receipt blob with the
 // Attachment it came from. Keeping them together (rather than a parallel
 // []FileBlob indexed by position) is what prevents the B-175 misindex: when a
@@ -666,24 +680,24 @@ func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction
 // Return contract:
 //   - kind "none"    → not seen yet; runIngestCycle should ingest normally.
 //   - kind "event"   → already in purchase_events OR a confirmed pending row.
-//                      Idempotency win: a confirmed pending row represents a
-//                      real, locked purchase, so it behaves like an event.
-//                      reason is "" for this kind.
+//     Idempotency win: a confirmed pending row represents a
+//     real, locked purchase, so it behaves like an event.
+//     reason is "" for this kind.
 //   - kind "pending" → still-open pending_purchases row
-//                      (confirmed_at IS NULL AND discarded_at IS NULL).
-//                      reason carries pending_purchases.reason so the caller
-//                      can decide if this is the upgrade-eligible
-//                      "no_attachment_on_bank_tx" case.
+//     (confirmed_at IS NULL AND discarded_at IS NULL).
+//     reason carries pending_purchases.reason so the caller
+//     can decide if this is the upgrade-eligible
+//     "no_attachment_on_bank_tx" case.
 //
 // hasParseError / hasItems are ONLY meaningful for kind="pending":
 //   - hasParseError = true when pending_purchases.parse_error IS NOT NULL.
-//                     Phase 260607-fxl uses this to gate parse-failed retries
-//                     so we never re-call the parser on a row where BOTH Haiku
-//                     and Sonnet already failed (parse_error populated).
+//     Phase 260607-fxl uses this to gate parse-failed retries
+//     so we never re-call the parser on a row where BOTH Haiku
+//     and Sonnet already failed (parse_error populated).
 //   - hasItems      = true when pending_purchases.items is a non-empty JSONB
-//                     array. Phase 260607-fxl uses this so a user-edited row
-//                     (operator added line items already) is never clobbered
-//                     by a worker re-parse.
+//     array. Phase 260607-fxl uses this so a user-edited row
+//     (operator added line items already) is never clobbered
+//     by a worker re-parse.
 //
 // For kind="event", kind="discarded", and kind="none", hasParseError and
 // hasItems are always false — callers should not branch on them in those cases.
@@ -1048,7 +1062,7 @@ func refreshCardOnRows(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransa
 
 // backfillPendingVendor sets pending_purchases.vendor to Mercury's
 // bankDescription for the given tx when the row exists with a missing
-// vendor. The IS NULL OR = '' guard means a receipt-parsed pending whose
+// vendor. The IS NULL OR = ” guard means a receipt-parsed pending whose
 // vendor Claude already set is never overwritten. Idempotent on re-poll.
 // Empty bankDescription is a no-op.
 func backfillPendingVendor(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction) error {

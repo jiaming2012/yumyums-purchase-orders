@@ -1109,6 +1109,118 @@ test.describe('Inventory', () => {
     await expect(page.locator('#deep-sync-toggle')).not.toBeChecked();
   });
 
+  // ── Cancelling a run in flight (260929) ─────────────────────────────────
+
+  async function runningSync(page, extra) {
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/status/, async (r) => {
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(Object.assign({
+        id: 55, status: 'running', started_at: new Date(Date.now() - 8000).toISOString(),
+        processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'reprocess_all',
+      }, extra)) });
+    });
+    await page.goto('/inventory.html');
+    await expect(page.locator('#sync-receipts-btn')).toContainText('Cancel Sync');
+  }
+
+  test('the button paints Cancel before the server answers', async ({ page }) => {
+    // The whole point of the optimistic paint: the operator is looking at the
+    // button when they press it, and a round-trip of dead time there reads as
+    // "did that register?". Hold the POST open and assert the button has
+    // already flipped.
+    let release;
+    const held = new Promise((r) => { release = r; });
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/status/, async (r) => {
+      await r.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+    });
+    await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      await held;
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 3, status: 'running', started_at: new Date().toISOString() }) });
+    });
+    await page.goto('/inventory.html');
+    const btn = page.locator('#sync-receipts-btn');
+    await expect(btn).toHaveText('Sync Receipts');
+    await btn.click();
+    // Server has NOT answered yet.
+    await expect(btn).toContainText('Cancel Sync Receipts');
+    await expect(btn).toHaveClass(/sync-btn-cancel/);
+    release();
+    await expect(btn).toContainText('Cancel Sync Receipts');
+  });
+
+  test('a failed start rolls the button back instead of leaving a fake Cancel', async ({ page }) => {
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/status/, async (r) => {
+      await r.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+    });
+    await page.route(/\/api\/v1\/inventory\/sync-receipts$/, async (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      await r.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
+    });
+    page.on('dialog', (d) => d.accept());
+    await page.goto('/inventory.html');
+    await page.locator('#sync-receipts-btn').click();
+    // Optimism has to be undone, or the button offers to cancel a run that
+    // never started.
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Sync Receipts');
+    await expect(page.locator('#sync-receipts-btn')).not.toHaveClass(/sync-btn-cancel/);
+  });
+
+  test('a run in flight turns the primary button into a red, ENABLED Cancel', async ({ page }) => {
+    await runningSync(page);
+    const btn = page.locator('#sync-receipts-btn');
+    // It used to be disabled while running, which left nothing to press.
+    await expect(btn).toBeEnabled();
+    await expect(btn).toHaveClass(/sync-btn-cancel/);
+  });
+
+  test('cancelling asks first, and backing out does not cancel', async ({ page }) => {
+    let cancelCalls = 0;
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/cancel/, async (r) => {
+      cancelCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{"cancelled":true}' });
+    });
+    await runningSync(page);
+    await page.locator('#sync-receipts-btn').click();
+    const modal = page.locator('#cancel-sync-overlay');
+    await expect(modal).toHaveClass(/on/);
+    // The question has to say what survives, or "stop" is indistinguishable
+    // from "undo".
+    await expect(modal).toContainText('keep their results');
+    await page.locator('#cancel-sync-back').click();
+    await expect(modal).not.toHaveClass(/on/);
+    expect(cancelCalls, 'backing out must not cancel').toBe(0);
+  });
+
+  test('confirming posts the cancel', async ({ page }) => {
+    let cancelCalls = 0;
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/cancel/, async (r) => {
+      cancelCalls++; await r.fulfill({ status: 200, contentType: 'application/json', body: '{"cancelled":true,"id":55}' });
+    });
+    await runningSync(page);
+    await page.locator('#sync-receipts-btn').click();
+    await page.locator('#cancel-sync-confirm').click();
+    await expect(page.locator('#cancel-sync-overlay')).not.toHaveClass(/on/);
+    await expect.poll(() => cancelCalls).toBe(1);
+  });
+
+  test('a cancelled run reports what it finished, not just that it stopped', async ({ page }) => {
+    await page.route(/\/api\/v1\/inventory\/sync-receipts\/status/, async (r) => {
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        id: 56, status: 'cancelled', started_at: new Date(Date.now() - 60000).toISOString(),
+        finished_at: new Date().toISOString(),
+        processed: 12, auto_created: 1, pending_review: 3, cached: 0, triggered_by: 'reprocess_all',
+      }) });
+    });
+    await page.goto('/inventory.html');
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    // 1 auto-added + 3 still pending = 4 receipts actually read before the stop.
+    await expect(chip).toContainText('Sync stopped after 4 receipts');
+    await expect(chip).toContainText('Nothing was undone');
+    // Terminal: the button is a start button again, not a cancel.
+    await expect(page.locator('#sync-receipts-btn')).toHaveText('Sync Receipts');
+    await expect(page.locator('#sync-receipts-btn')).not.toHaveClass(/sync-btn-cancel/);
+  });
+
   // ── Back link and PWA boilerplate ────────────────────────────────────────
 
   test('back link navigates to HQ', async ({ page }) => {
@@ -3469,7 +3581,12 @@ test.describe('Receipt sync button', () => {
     await login(page);
   });
 
-  test('clicking Sync Receipts disables button and shows Syncing…', async ({ page }) => {
+  // Inverted 2026-09-29: the running button used to read "Syncing…" and be
+  // DISABLED, which left the operator with nothing to press through a run that
+  // can last minutes. It is now the way out of the run — red, enabled, and
+  // labelled Cancel Sync Receipts — and it paints that state immediately on
+  // press rather than after the POST round-trip.
+  test('clicking Sync Receipts turns the button into Cancel immediately', async ({ page }) => {
     // Status endpoint returns null on first load — no prior run.
     await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
@@ -3490,11 +3607,12 @@ test.describe('Receipt sync button', () => {
     const btn = page.locator('#sync-receipts-btn');
     await expect(btn).toHaveText('Sync Receipts');
     await btn.click();
-    await expect(btn).toHaveText(/Syncing/);
-    await expect(btn).toBeDisabled();
+    await expect(btn).toContainText('Cancel Sync Receipts');
+    await expect(btn).toBeEnabled();
+    await expect(btn).toHaveClass(/sync-btn-cancel/);
   });
 
-  test('reload mid-run shows Syncing… (state survives via GET /status)', async ({ page }) => {
+  test('reload mid-run shows the Cancel state (survives via GET /status)', async ({ page }) => {
     // Status endpoint returns a running row — simulates a sync started in
     // a previous session that has not yet completed.
     await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
@@ -3516,8 +3634,8 @@ test.describe('Receipt sync button', () => {
     // pick up the running state from /status without any user action.
     const btn = page.locator('#sync-receipts-btn');
     await expect(btn).toBeVisible();
-    await expect(btn).toHaveText(/Syncing/);
-    await expect(btn).toBeDisabled();
+    await expect(btn).toContainText('Cancel Sync Receipts');
+    await expect(btn).toBeEnabled();
   });
 
   test('completed run shows summary chip with counts', async ({ page }) => {
