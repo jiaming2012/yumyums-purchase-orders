@@ -100,6 +100,11 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .view-receipt-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:8px;text-align:center}
 .retry-parse-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:6px;text-align:center}
+/* While its re-read runs, the card's button is the same control as the one at
+   the top of the page — same words, same red — so the way out is where the
+   operator is looking, not a scroll away. */
+.retry-parse-btn.sync-btn-cancel{background:#fee2e2;color:#991b1b;border-color:transparent}
+@media(prefers-color-scheme:dark){.retry-parse-btn.sync-btn-cancel{background:#7f1d1d;color:#fca5a5}}
 .receipt-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
 .receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px;color-scheme:light}
@@ -1199,12 +1204,13 @@ function renderPendingCard(p){
   // do NOT introduce a new constant.
   var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
   // Phase 260702-l67: when a retry has just been queued and SYNC_STATE is
-  // running, the row shows a "Reparsing…" pill + disabled button. The
-  // p.retryQueued flag is set in the click handler and is naturally cleared
-  // on the next loadHistory() call (fresh server payload has no such flag).
-  // While reparsing, force the button to render (as disabled Reparsing…)
-  // even if we optimistically cleared parse_error in the click handler —
-  // the operator needs to see per-row state throughout the sync run.
+  // running, the row shows a "Reparsing…" pill, and its button becomes the
+  // same "Cancel Sync Receipts" control the page header shows — the run is
+  // the single-flight sync, so stopping it from here and from the top are
+  // the same act, and the operator should not have to scroll to find it.
+  // The p.retryQueued flag is set in the click handler and is naturally
+  // cleared on the next loadHistory() call (fresh server payload has no
+  // such flag).
   var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && (p.retryQueued||retryQueued));
   var showRetry=!isNoAttachment || reparsing;
   if(reparsing){
@@ -1234,7 +1240,11 @@ function renderPendingCard(p){
     parseErrHtml+='<div class="event-meta" style="margin-top:2px;color:var(--warn-tx)">Re-parse requested — runs on the next sync if Mercury still has the receipt.</div>';
   }
   if(showRetry){
-    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
+    if(reparsing){
+      parseErrHtml+='<button class="retry-parse-btn sync-btn-cancel" data-action="cancel-reparse" data-id="'+p.id+'">Cancel Sync Receipts</button>';
+    } else {
+      parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
+    }
   }
   // Surface Mercury's own category so the operator can see why a charge is (or
   // isn't) auto-hidden: a non-food category outside the COGS allowlist would be
@@ -2526,6 +2536,11 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='discard-receipt'){
     captureReviewFormInputs(id);
     discardReceipt(id);
+  } else if(action==='cancel-reparse'){
+    // The card's in-flight button is the header's Cancel Sync Receipts, so it
+    // opens the same Stop-sync question (whose hint, for a one-row run, names
+    // this receipt). Nothing is cancelled until the operator confirms there.
+    openCancelSyncModal();
   } else if(action==='retry-parse'){
     // Phase 260607-s6r: items-mismatch path goes through confirm() first
     // because the re-read replaces the parsed line items. parse_error-only

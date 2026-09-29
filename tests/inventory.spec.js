@@ -4192,12 +4192,14 @@ test.describe('Retry parse auto-sync (260702-l67)', () => {
       window.SYNC_STATE && window.SYNC_STATE.status === 'running');
     await page.evaluate(() => window.renderHistoryList && window.renderHistoryList());
 
-    // The row now shows Reparsing… on both the pill and the button, and
-    // the button is disabled.
+    // The row now shows Reparsing… on the pill, and its button has become
+    // the header's Cancel Sync Receipts control (260929) — the same run,
+    // the same way out, without scrolling to the top.
     await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
-    const reparsingBtn = card.locator('[data-action="retry-parse"]');
-    await expect(reparsingBtn).toContainText('Reparsing…');
-    await expect(reparsingBtn).toBeDisabled();
+    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+    const cancelBtn = card.locator('[data-action="cancel-reparse"]');
+    await expect(cancelBtn).toHaveText('Cancel Sync Receipts');
+    await expect(cancelBtn).toBeEnabled();
   });
 });
 
@@ -4286,12 +4288,25 @@ test.describe('Inline reparse (260929)', () => {
     expect(st.calls.retryParse).toBe(0);
     expect(st.calls.syncReceipts).toBe(0);
 
-    // The card itself is the visual: pill + button read Reparsing…, button
-    // disabled, and nothing sends the operator to the admin sweep.
+    // The card itself is the visual: the pill reads Reparsing…, and the
+    // button becomes the SAME control the page header shows during a run —
+    // "Cancel Sync Receipts", red, enabled — so the way out is on the card,
+    // not a scroll away. Nothing sends the operator to the admin sweep.
     await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
-    await expect(btn).toContainText('Reparsing…');
-    await expect(btn).toBeDisabled();
+    const cancelBtn = card.locator('[data-action="cancel-reparse"]');
+    await expect(cancelBtn).toHaveText('Cancel Sync Receipts');
+    await expect(cancelBtn).toBeEnabled();
+    await expect(cancelBtn).toHaveClass(/sync-btn-cancel/);
+    await expect(page.locator('#sync-receipts-btn')).toContainText('Cancel Sync Receipts');
     await expect(card).not.toContainText('Retry Parse (All Receipts)');
+    // It opens the same Stop-sync question the header button does, and that
+    // question names this receipt rather than "transactions".
+    await cancelBtn.click();
+    await expect(page.locator('#cancel-sync-overlay')).toHaveClass(/on/);
+    await expect(page.locator('#cancel-sync-hint')).toContainText('This receipt is abandoned');
+    await page.locator('#cancel-sync-back').click();
+    await expect(page.locator('#cancel-sync-overlay')).not.toHaveClass(/on/);
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
     // The partial parse stays on screen while the re-read runs — it is not
     // thrown away up front the way the old mismatch path did.
     await expect(card).toContainText('attempt 1: score=29.19');
@@ -4342,7 +4357,7 @@ test.describe('Inline reparse (260929)', () => {
     await expect(page.getByText('Reparse queued — sync already running')).toBeVisible();
     // The page picks up the other tab's run and the row rides it.
     await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
-    await expect(card.locator('[data-action="retry-parse"]')).toBeDisabled();
+    await expect(card.locator('[data-action="cancel-reparse"]')).toHaveText('Cancel Sync Receipts');
     expect(st.calls.syncReceipts).toBe(0);
   });
 });
