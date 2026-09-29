@@ -386,6 +386,9 @@ func main() {
 	// dead store is an explicit startup error, and keep probing (30s cache) so
 	// /api/v1/health reports "storage": ok|unreachable|unconfigured live.
 	storageHealth := photos.NewStorageHealth(spacesClient, spacesBucket, 30*time.Second)
+	// Same TTL as storage: the launcher re-checks on a 60s timer, so a shorter
+	// one buys nothing and a longer one hides a substrate that just died.
+	substrateHealth := opsync.NewSubstrateHealth(os.Getenv(opsync.ProxyRESTURLEnv), 30*time.Second)
 	go func() {
 		if status := storageHealth.Status(ctx); status == photos.StorageOK {
 			slog.Info("object storage reachable", "bucket", spacesBucket)
@@ -500,6 +503,10 @@ func main() {
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
 				"storage":          storageHealth.Status(r.Context()),
+				// Substrate behind Marketing scan/redeem. "unconfigured" (the
+				// normal state outside a sync deploy) is NOT a warning — see
+				// sync.SubstrateHealth.
+				"sync_substrate": substrateHealth.Status(r.Context()),
 				// B-146 fail-loud: Toast sync last-run status. A dead SFTP
 				// transport surfaces here as {"status":"failing", ...} instead
 				// of silently landing no data.

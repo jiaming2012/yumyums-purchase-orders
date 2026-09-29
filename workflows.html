@@ -304,6 +304,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sc-err p b{color:var(--txt)}
 .sc-err button{width:100%;padding:11px;min-height:44px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit}
 .cn-more{font-size:11px;color:var(--mut);text-align:center;padding:6px 0 2px;line-height:1.5}
+.warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
+.warnbanner-admin{max-width:480px;margin:8px auto 0;padding:9px 14px;border-radius:10px;border:0.5px solid var(--warn-tx);color:var(--warn-tx);font-size:12px;font-weight:500;text-align:center;line-height:1.4}
+.warnbanner-diag{margin:6px 0 0;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.18);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:400;text-align:left;white-space:pre-wrap;user-select:all;-webkit-user-select:all}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 <script src="sync.js"></script>
@@ -337,6 +340,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <script type="module" src="sync-rxdb/bootstrap.js"></script>
 </head>
 <body>
+<!-- Checklists capture fail-evidence photos; dead storage means the crew’s evidence is lost. Rendered by health-banner.js. -->
+<div id="health-banners" hidden></div>
+
 <div class="app">
 <a class="back" href="index.html" id="hq-back">HQ &nbsp;&#183;&nbsp; Operations</a>
 <div id="save-status" style="display:none"></div>
@@ -3937,6 +3943,8 @@ store.on('templates', function() {
 document.addEventListener('dblclick', e => e.preventDefault());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
+<script src="health-banner.js"></script>
+<script>initHealthBanners('health-banners',["server", "storage"]);</script>
 <script src="log.js"></script><script src="ptr.js"></script>
 <!-- ══ OVERWRITTEN ANSWERS — mount ═══════════════════════════════════════════
      Card `sync-rxdb-conflict-notice-ui` (overnight-20260801, C2).

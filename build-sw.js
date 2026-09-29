@@ -309,6 +309,11 @@ async function build() {
       '*.html',
       'ptr.js',
       'sync.js',
+      // Shared server-health banners (server unreachable / storage / Toast /
+      // sync substrate) on the launcher and the four tool pages that can act
+      // on one. Added WITH its globPattern, unlike log.js and tab.js below —
+      // that is the whole point of the reachability guard above.
+      'health-banner.js',
 
       // ═══ FOUND BY THE REACHABILITY GUARD ABOVE, NOT BY A HUMAN. B-37. ═════
       //
