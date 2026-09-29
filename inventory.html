@@ -25,7 +25,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 /* Pending count rides in the tab's corner instead of inside the label —
    "Purchases (10)" is what wrapped the seven-tab bar (B-455). */
 .tabs button{position:relative}
-.tab-badge{position:absolute;top:3px;right:3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-size:10px;font-weight:700;line-height:16px;text-align:center}
+.tab-badge{position:absolute;top:-5px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-size:10px;font-weight:700;line-height:15px;text-align:center;pointer-events:none}
+/* Hangs above the label's line box (button padding-top 12px), never over it. */
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
 .event-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
 .event-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -414,7 +416,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
       </div>
       <div id="sync-receipts-chip" style="display:none"></div>
     </div>
-    <div id="sync-more-overlay" class="ds-overlay" role="dialog" aria-labelledby="sync-more-title">
+    <div id="sync-more-overlay" class="ds-overlay" role="dialog" aria-modal="true" aria-labelledby="sync-more-title">
       <div class="ds-card">
         <h3 id="sync-more-title">More sync tools</h3>
         <div class="ds-hint">Admin tools. The normal sync only reaches the last 14 days.</div>
@@ -825,8 +827,8 @@ async function triggerSync(){
 }
 
 // showAdminSyncTools shows the "More" button (deep sync + retry-parse-all)
-// only for admins/superadmins. Called after CURRENT_USER is loaded and after
-// each renderHistoryList so visibility stays in sync with the user's role.
+// only for admins/superadmins. Called once at boot, after CURRENT_USER and
+// the app grants are loaded.
 function showAdminSyncTools(){
   var admin=isAdmin();
   var more=document.getElementById('sync-more-btn');
@@ -835,12 +837,21 @@ function showAdminSyncTools(){
 }
 function openSyncMoreSheet(){
   var ov=document.getElementById('sync-more-overlay');
-  if(ov)ov.classList.add('on');
+  if(!ov)return;
+  ov.classList.add('on');
+  var first=document.getElementById('deep-sync-open');
+  if(first)first.focus();
 }
 function closeSyncMoreSheet(){
   var ov=document.getElementById('sync-more-overlay');
-  if(ov)ov.classList.remove('on');
+  if(!ov||!ov.classList.contains('on'))return;
+  ov.classList.remove('on');
+  var more=document.getElementById('sync-more-btn');
+  if(more&&more.style.display!=='none')more.focus();
 }
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape')closeSyncMoreSheet();
+});
 
 // Deep Sync — re-pull Mercury over an explicit date range so months-old charges
 // get their category refreshed (the rolling sync only reaches 14 days).
@@ -1487,7 +1498,7 @@ function updateHistoryTabLabel(){
   var btn=document.getElementById('t1');
   if(!btn)return;
   var n=PENDING_PURCHASES.length;
-  btn.innerHTML='Receipts'+(n>0?'<span class="tab-badge" aria-label="'+n+' to review">'+n+'</span>':'');
+  btn.innerHTML='Receipts'+(n>0?'<span class="tab-badge" aria-hidden="true">'+n+'</span><span class="vh">, '+n+' to review</span>':'');
   btn.style.color=n>0?'var(--warn-tx)':'';
 }
 
@@ -3681,7 +3692,9 @@ function setRecipesView(v){
   RECIPES_VIEW=v==='dish'?'dish':'ingredient';
   if(ACTIVE_TAB===4)location.hash=recipesHash(4);
   renderRecipes();
-  if(RECIPES_VIEW==='dish')loadMenu();
+  // Fetch the dish list once per tab visit (show(4) refreshes it on entry).
+  // A dish tap or a view flip must not wipe a loaded list to a skeleton.
+  if(RECIPES_VIEW==='dish'&&MENU_STATE!=='ready'&&MENU_STATE!=='loading')loadMenu();
 }
 
 async function loadRecipes(){

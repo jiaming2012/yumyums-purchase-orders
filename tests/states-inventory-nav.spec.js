@@ -280,3 +280,54 @@ test.describe('Inventory navigation — dark scheme', () => {
     await shot(page, 'receipts-admin-dark');
   });
 });
+
+test.describe('Inventory navigation — verifier follow-ups', () => {
+  test('the count badge never covers the Receipts label', async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
+    const { badge, text } = await page.locator('#t1').evaluate(b => {
+      const r = document.createRange(); r.selectNode(b.firstChild);
+      const t = r.getBoundingClientRect(); const g = b.querySelector('.tab-badge').getBoundingClientRect();
+      return { badge: { top: g.top, bottom: g.bottom, left: g.left }, text: { top: t.top, right: t.right } };
+    });
+    // Either the badge sits entirely above the label's line box, or entirely to its right.
+    const clear = badge.bottom <= text.top + 0.5 || badge.left >= text.right - 0.5;
+    expect(clear, `badge ${JSON.stringify(badge)} overlaps label ${JSON.stringify(text)}`).toBe(true);
+    // The button's accessible name carries the count without a bare aria-label on a span.
+    await expect(page.locator('#t1')).toHaveAccessibleName(/Receipts.*10 to review/);
+    await shot(page, 'tab-bar-badge-clear');
+  });
+
+  test('tapping a dish does not refetch or skeleton-flash the dish list', async ({ page }) => {
+    await login(page);
+    let fetches = 0;
+    await page.route('**/api/v1/inventory/menu-items*', async (route) => {
+      fetches++;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DISHES) });
+    });
+    await page.goto('/inventory.html#tab=4&view=dish');
+    await page.waitForSelector('#s4:visible');
+    await expect(page.locator('#menu-list')).toContainText('Sorrel Iced Tea');
+    const before = fetches;
+    await page.locator('[data-menu-item-id="mi-0000-0002"]').click();
+    await expect(page.locator('.menu-dish.selected')).toHaveAttribute('data-menu-item-id', 'mi-0000-0002');
+    await page.locator('#rv-ingredient').click();
+    await page.locator('#rv-dish').click();
+    await expect(page.locator('#menu-list')).toContainText('Sorrel Iced Tea');
+    expect(fetches, 'a tap and a view flip reuse the loaded list').toBe(before);
+  });
+
+  test('Escape closes the More sheet and focus returns to More', async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#sync-more-btn').click();
+    await expect(page.locator('#sync-more-overlay')).toHaveClass(/on/);
+    await expect(page.locator('#deep-sync-open')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#sync-more-overlay')).not.toHaveClass(/on/);
+    await expect(page.locator('#sync-more-btn')).toBeFocused();
+  });
+});
