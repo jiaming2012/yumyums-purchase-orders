@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- UX experiment, 2026-09-29: four ways to organise the Inventory sub-app's seven tabs. Option A is the approved direction (B-455). Published copy: https://claude.ai/artifact/7cw1GUe5BL5c2aTcdsYyKv -->
+<title>Inventory Navigation Experiment</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<style>
+:root{
+  --pg-bg:#f3f3f0;--pg-card:#ffffff;--pg-txt:#1c1d1b;--pg-mut:#66695f;--pg-brd:rgba(20,25,15,.12);
+  --pg-acc:#0c447c;--pg-acc-bg:#e6f1fb;
+  --keep-bg:#e3f4e6;--keep-tx:#1d5a2a;--move-bg:#e6f1fb;--move-tx:#0c447c;--fold-bg:#faeeda;--fold-tx:#854f0b;--hide-bg:#ecebe7;--hide-tx:#5a5b55;
+  /* HQ app tokens — copied verbatim from inventory.html so the phones look like the app */
+  --bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;
+  --sync-bg:#dcfce7;--sync-tx:#14532d;--ok-tx:#1d5a2a;--bad-tx:#a3311f;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg-bg:#161715;--pg-card:#1f201d;--pg-txt:#ecece8;--pg-mut:#9d9f96;--pg-brd:rgba(255,255,255,.12);
+    --pg-acc:#b5d4f4;--pg-acc-bg:#0c447c;
+    --keep-bg:#173d21;--keep-tx:#9fe0ad;--move-bg:#0c447c;--move-tx:#b5d4f4;--fold-bg:#633806;--fold-tx:#fac775;--hide-bg:#2b2c28;--hide-tx:#b3b4ac;
+    --bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;
+    --sync-bg:#14532d;--sync-tx:#86efac;--ok-tx:#9fe0ad;--bad-tx:#f4a08f;
+  }
+}
+:root[data-theme="dark"]{
+  --pg-bg:#161715;--pg-card:#1f201d;--pg-txt:#ecece8;--pg-mut:#9d9f96;--pg-brd:rgba(255,255,255,.12);
+  --pg-acc:#b5d4f4;--pg-acc-bg:#0c447c;
+  --keep-bg:#173d21;--keep-tx:#9fe0ad;--move-bg:#0c447c;--move-tx:#b5d4f4;--fold-bg:#633806;--fold-tx:#fac775;--hide-bg:#2b2c28;--hide-tx:#b3b4ac;
+  --bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;
+  --sync-bg:#14532d;--sync-tx:#86efac;--ok-tx:#9fe0ad;--bad-tx:#f4a08f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg-bg);color:var(--pg-txt);font-family:"Source Sans 3",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-block:32px 64px;padding-inline:20px}
+h1{font-family:"Source Serif 4",Georgia,serif;font-weight:600;font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 8px;text-wrap:balance}
+h2{font-size:20px;font-weight:700;margin:0 0 6px}
+.lede{max-width:62ch;color:var(--pg-mut);margin:0 0 28px;font-size:17px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pg-mut);margin:0 0 6px}
+section{margin-bottom:44px}
+p{max-width:65ch}
+
+/* audit table */
+.tbl{overflow-x:auto;border:0.5px solid var(--pg-brd);border-radius:10px;background:var(--pg-card)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:0.5px solid var(--pg-brd);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--pg-mut);font-weight:700}
+tr:last-child td{border-bottom:none}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
+.tag.keep{background:var(--keep-bg);color:var(--keep-tx)}
+.tag.move{background:var(--move-bg);color:var(--move-tx)}
+.tag.fold{background:var(--fold-bg);color:var(--fold-tx)}
+.tag.hide{background:var(--hide-bg);color:var(--hide-tx)}
+
+/* option grid */
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;align-items:start}
+.opt{display:flex;flex-direction:column;gap:12px}
+.opt-head{min-height:88px}
+.opt-head h2{display:flex;align-items:baseline;gap:8px}
+.opt-head h2 small{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pg-mut)}
+.opt-head p{margin:0;color:var(--pg-mut);font-size:14px}
+.opt.rec .opt-head h2 small{color:var(--pg-acc)}
+.notes{font-size:14px;color:var(--pg-mut);margin:0;padding-left:18px}
+.notes li{margin-bottom:4px}
+.notes b{color:var(--pg-txt)}
+
+/* phone */
+.phone{width:100%;max-width:330px;margin:0 auto;border-radius:34px;padding:10px;background:#0b0b0b;box-shadow:0 12px 30px rgba(0,0,0,.28)}
+.scr{background:var(--bg);color:var(--txt);border-radius:26px;height:600px;overflow:hidden;display:flex;flex-direction:column;font-family:-apple-system,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.35;position:relative}
+.status{display:flex;justify-content:space-between;padding:10px 20px 0;font-size:12px;font-weight:600;color:var(--txt)}
+.app{padding:8px 14px 14px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.app::-webkit-scrollbar{width:0}
+.back{color:var(--info-tx);font-weight:500;font-size:15px}
+.back .crumb{color:var(--mut)}
+.tabs{display:flex;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);gap:0}
+.tabs button{flex:1;border:none;background:transparent;padding:10px 0;font-size:13px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer;font-family:inherit;line-height:1.2}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.tabs.wrapped button{font-size:12.5px;padding:8px 0}
+.seg{display:flex;background:var(--card);border-radius:8px;padding:2px;border:0.5px solid var(--brd);align-self:flex-start}
+.seg span{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;color:var(--mut)}
+.seg span.on{background:var(--info-bg);color:var(--info-tx)}
+.btn{width:100%;padding:11px;border-radius:8px;font-weight:600;font-size:14px;text-align:center;border:0.5px solid var(--brd)}
+.btn.green{background:var(--sync-bg);color:var(--sync-tx)}
+.btn.blue{background:var(--info-bg);color:var(--info-tx)}
+.chk{display:flex;gap:10px;align-items:center;color:var(--txt);font-size:13px}
+.chk i{width:18px;height:18px;border-radius:5px;background:#fff;border:0.5px solid var(--brd);display:inline-block}
+.sel{background:var(--card);border:0.5px solid var(--brd);border-radius:8px;padding:10px 12px;color:var(--txt)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:5px 11px;border-radius:16px;border:0.5px solid var(--brd);background:var(--card);color:var(--mut);font-size:12px;font-weight:500}
+.chip.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent}
+.card{background:var(--card);border-radius:12px;padding:12px 14px;border:0.5px solid var(--brd)}
+.rc{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.rc .t{font-weight:600;font-size:15px}
+.rc .s{color:var(--mut);font-size:12px;margin-top:2px}
+.rc .amt{color:var(--info-tx);font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:0.5px solid var(--brd)}
+.row:last-child{border-bottom:none}
+.row .t{font-weight:500}
+.row .s{font-size:12px;color:var(--mut);margin-top:1px}
+.row .v{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.row .v small{display:block;font-weight:400;font-size:11px;color:var(--mut)}
+.low{color:var(--bad-tx)}
+.ok{color:var(--ok-tx)}
+.warnb{background:var(--warn-bg);color:var(--warn-tx);border-radius:10px;padding:10px 12px;font-size:13px}
+.h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:4px 0 -4px}
+.slider{display:flex;align-items:center;gap:10px;font-size:13px}
+.slider .tr{flex:1;height:4px;border-radius:2px;background:var(--brd);position:relative}
+.slider .tr i{position:absolute;left:0;top:0;height:100%;background:var(--info-tx);border-radius:2px}
+.slider .tr b{position:absolute;top:-6px;width:16px;height:16px;border-radius:50%;background:var(--info-tx);margin-left:-8px}
+.pct{width:34px;text-align:right;font-variant-numeric:tabular-nums;color:var(--mut)}
+.hrow{display:flex;justify-content:space-between;align-items:center}
+.icon-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:var(--card);border:0.5px solid var(--brd);color:var(--info-tx);font-weight:600;font-size:13px}
+.icon-btn.ghost{color:var(--mut)}
+.hub{display:flex;align-items:center;gap:12px;background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:12px 14px;cursor:pointer}
+.hub .ic{font-size:22px;width:30px;text-align:center}
+.hub .t{font-weight:600;font-size:15px}
+.hub .s{font-size:12px;color:var(--mut)}
+.hub .b{margin-left:auto;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.hub .b.ok{background:var(--keep-bg);color:var(--keep-tx)}
+.hub .b.mut{background:transparent;color:var(--mut);font-weight:500}
+.hub .chev{color:var(--mut);margin-left:6px}
+.hub.dim{opacity:.55}
+.bnav{display:flex;border-top:0.5px solid var(--brd);background:var(--card);padding:6px 4px 12px}
+.bnav button{flex:1;background:none;border:none;color:var(--mut);font-size:10.5px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:inherit;position:relative;padding:4px 0}
+.bnav button .ic{font-size:20px;line-height:1}
+.bnav button.on{color:var(--info-tx)}
+.bnav button .bd{position:absolute;top:-2px;right:calc(50% - 22px);background:#c0392b;color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:0 5px;line-height:15px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:18px 18px 0 0;padding:8px 14px 20px;box-shadow:0 -8px 30px rgba(0,0,0,.35);border-top:0.5px solid var(--brd)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--brd);margin:0 auto 10px}
+.tile-inset{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:12px}
+.tile-inset .tt{font-size:13px;font-weight:600}
+.tile-inset .td{font-size:12px;color:var(--mut)}
+.tile-inset .ti{font-size:22px;margin-bottom:4px}
+.new{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--info-tx);background:var(--info-bg);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+.hint{font-size:12px;color:var(--pg-mut);text-align:center;margin:0}
+
+/* recommendation */
+.reco{background:var(--pg-card);border:0.5px solid var(--pg-brd);border-left:4px solid var(--pg-acc);border-radius:10px;padding:20px 24px;max-width:820px}
+.reco ol{margin:8px 0 0;padding-left:20px}
+.reco li{margin-bottom:6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px}
+.mini{background:var(--pg-card);border:0.5px solid var(--pg-brd);border-radius:10px;padding:14px 16px;font-size:14px}
+.mini h3{margin:0 0 6px;font-size:14px;font-weight:700}
+.mini p{margin:0;color:var(--pg-mut)}
+button:focus-visible{outline:2px solid var(--pg-acc);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.hub:active,.tabs button:active{opacity:.7}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Yumyums HQ · UX experiment · 2026-09-29</p>
+  <h1>Inventory Navigation Experiment</h1>
+  <p class="lede">Seven tabs is past what a 480px pill bar can carry: on the phone the first label already wraps to two lines and the bar reads as a wall of words. The question is not "how do we fit seven" but "which of these are really peers". Tap the tabs in each phone below; they are live.</p>
+
+  <section>
+    <p class="eyebrow">What the seven tabs actually are</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Tab</th><th>What it really is</th><th>Who</th><th>How often</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td><b>Purchases</b></td><td>Receipt review queue, plus three sync/admin controls stacked on top of it</td><td>Reviewer (Jamal, Latanya)</td><td class="n">Daily</td><td><span class="tag keep">Keep</span> rename to Receipts, demote sync controls</td></tr>
+        <tr><td><b>Stock</b></td><td>Levels, counts, reorder suggestions</td><td>Whole crew</td><td class="n">Daily</td><td><span class="tag keep">Keep</span></td></tr>
+        <tr><td><b>Menu</b></td><td>Read-only Toast list whose only action is "jump to Recipes for this dish"</td><td>Owner</td><td class="n">Occasional</td><td><span class="tag fold">Fold</span> into Recipes as the "by dish" view</td></tr>
+        <tr><td><b>Recipes</b></td><td>Ingredient-to-dish allocation sliders, drift banner</td><td>Owner</td><td class="n">Weekly</td><td><span class="tag keep">Keep</span> absorbs Menu</td></tr>
+        <tr><td><b>Trends</b></td><td>Gated report: weekly spend by item group</td><td>Owner only (grant)</td><td class="n">Weekly</td><td><span class="tag move">Move</span> to the empty BI tile on HQ</td></tr>
+        <tr><td><b>Cost</b></td><td>Gated report: food cost and margin per dish</td><td>Owner only (grant)</td><td class="n">Weekly</td><td><span class="tag move">Move</span> to the BI tile, same as Trends</td></tr>
+        <tr><td><b>Setup</b></td><td>Item catalog, nicknames, vendors, plus a stray link to Purchase Orders</td><td>Owner</td><td class="n">Rare</td><td><span class="tag hide">Demote</span> keep, but it is configuration, not a workflow</td></tr>
+      </tbody>
+    </table></div>
+    <div class="grid2">
+      <div class="mini"><h3>Two audiences, one bar</h3><p>Stock and Receipts are the crew's daily loop. Recipes, Trends and Cost are the owner's weekly analysis. Setup is configuration. The bar treats all three as equals, so the crew scrolls past five tabs they never use.</p></div>
+      <div class="mini"><h3>BI already exists, empty</h3><p>The HQ launcher has a "Business Intelligence: Sales and cost trends" tile marked Soon. Trends and Cost are literally that description, and they are already permission-gated the way an owner-only tool should be.</p></div>
+      <div class="mini"><h3>Menu is a view, not a tool</h3><p>Every Menu card taps through to Recipes, and Recipes already ends with a read-only "Menu item summary". Those are the same thing seen from two ends.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Four layouts, same data</p>
+    <div class="options">
+
+      <!-- CURRENT -->
+      <div class="opt">
+        <div class="opt-head"><h2><small>Now</small> Seven tabs</h2><p>What shipped. The label wrap and the three full-width admin buttons above the queue are the symptoms.</p></div>
+        <div class="phone"><div class="scr" data-phone="now">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div class="back">‹ HQ <span class="crumb">·</span> Inventory</div>
+            <div class="tabs wrapped">
+              <button class="on" data-tab="p">Purchases<br>(10)</button><button data-tab="s">Stock</button><button data-tab="m">Menu</button><button data-tab="r">Recipes</button><button data-tab="t">Trends</button><button data-tab="c">Cost</button><button data-tab="x">Setup</button>
+            </div>
+            <div data-screen="p" class="app" style="padding:0">
+              <div class="btn green">Sync Receipts</div>
+              <div class="chk"><i></i>Deep sync (reach further back than 14 days)</div>
+              <div class="btn blue">Retry Parse (All Receipts)</div>
+              <div class="sel">All Vendors</div>
+              <div class="chips"><span class="chip on">All</span><span class="chip">Needs review (10)</span><span class="chip">Recently added (8)</span></div>
+              <div class="card rc"><div><div class="t">Restaurant Depot</div><div class="s">Sep 27, 2026 · Jamal · 8478</div></div><div class="amt">$113.97</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 26, 2026 · Latanya · 0994</div></div><div class="amt">$12.99</div></div>
+              <div class="card rc"><div><div class="t">Shoppers</div><div class="s">Sep 25, 2026 · Latanya · 0994</div></div><div class="amt">$39.57</div></div>
+            </div>
+            <div data-screen="s" class="app" style="padding:0" hidden>
+              <div class="card"><div class="h">Reorder suggestions</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="v low">4 lb<small>par 20</small></div></div><div class="row"><div><div class="t">Canola Oil</div><div class="s">Dry goods</div></div><div class="v low">1 jug<small>par 3</small></div></div></div>
+              <div class="card"><div class="row"><div><div class="t">Buns, Brioche</div><div class="s">Bread</div></div><div class="v ok">96<small>counted Sep 28</small></div></div><div class="row"><div><div class="t">Cheddar, Sliced</div><div class="s">Dairy</div></div><div class="v ok">3 lb</div></div></div>
+            </div>
+            <div data-screen="m" class="app" style="padding:0" hidden>
+              <div class="card"><div class="row"><div><div class="t">Smash Burger</div><div class="s">Mains · last sold Sep 28</div></div><div class="v">142<small>this week</small></div></div><div class="row"><div><div class="t">Loaded Fries</div><div class="s">Sides · last sold Sep 28</div></div><div class="v">88<small>this week</small></div></div><div class="row"><div><div class="t">Sweet Tea</div><div class="s">Drinks · last sold Sep 28</div></div><div class="v">201<small>this week</small></div></div></div>
+            </div>
+            <div data-screen="r" class="app" style="padding:0" hidden>
+              <div class="warnb">Drift detected: 3 ingredients over 60% unallocated last week.</div>
+              <div class="card"><div class="rc"><div><div class="t">Chicken Thighs</div><div class="s">$212 last week · 35% unallocated</div></div><span class="chip">Expand</span></div></div>
+              <div class="card"><div class="rc"><div><div class="t">Buns, Brioche</div><div class="s">$96 last week · 0% unallocated</div></div><span class="chip">Expand</span></div></div>
+            </div>
+            <div data-screen="t" class="app" style="padding:0" hidden><div class="card"><div class="h">Spend by group · last 8 weeks</div><div class="row"><div class="t">Proteins</div><div class="v">$1,842</div></div><div class="row"><div class="t">Produce</div><div class="v">$610</div></div><div class="row"><div class="t">Dry goods</div><div class="v">$388</div></div></div></div>
+            <div data-screen="c" class="app" style="padding:0" hidden><div class="card"><div class="h">Food cost · Sep 21–27</div><div class="row"><div class="t">Smash Burger</div><div class="v">31%<small>margin $6.20</small></div></div><div class="row"><div class="t">Loaded Fries</div><div class="v">24%<small>margin $4.10</small></div></div></div></div>
+            <div data-screen="x" class="app" style="padding:0" hidden>
+              <div class="back" style="font-size:14px">Purchase Orders ›</div>
+              <div class="seg"><span class="on">Items</span><span>Vendors</span></div>
+              <div class="sel">Search items...</div>
+              <div class="card"><div class="row"><div class="t">Buns, Brioche</div><div class="s">Bread</div></div><div class="row"><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <ul class="notes"><li><b>Wrap:</b> "Purchases (10)" breaks onto two lines at 480px.</li><li><b>Admin above the queue:</b> three full-height controls before the first receipt.</li><li><b>Setup links out</b> to a different app.</li></ul>
+      </div>
+
+      <!-- OPTION A -->
+      <div class="opt rec">
+        <div class="opt-head"><h2><small>A · Recommended</small> Trim to four</h2><p>Same page, fewer peers. Menu folds into Recipes, the two reports move to the BI tile, sync controls collapse into a header row.</p></div>
+        <div class="phone"><div class="scr" data-phone="a">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div class="back">‹ HQ <span class="crumb">·</span> Inventory</div>
+            <div class="tabs">
+              <button class="on" data-tab="p">Receipts (10)</button><button data-tab="s">Stock</button><button data-tab="r">Recipes</button><button data-tab="x">Setup</button>
+            </div>
+            <div data-screen="p" class="app" style="padding:0">
+              <div class="hrow"><div class="chips"><span class="chip on">All</span><span class="chip">Needs review (10)</span></div><span class="icon-btn">⟳ Sync</span></div>
+              <div class="hint" style="text-align:left">Synced 4 min ago · <span style="color:var(--info-tx)">More…</span> <span style="opacity:.7">(deep sync, retry parse)</span></div>
+              <div class="sel">All Vendors</div>
+              <div class="card rc"><div><div class="t">Restaurant Depot</div><div class="s">Sep 27, 2026 · Jamal · 8478</div></div><div class="amt">$113.97</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 26, 2026 · Latanya · 0994</div></div><div class="amt">$12.99</div></div>
+              <div class="card rc"><div><div class="t">Shoppers</div><div class="s">Sep 25, 2026 · Latanya · 0994</div></div><div class="amt">$39.57</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 25, 2026 · Jamal · 8478</div></div><div class="amt">$4.99</div></div>
+            </div>
+            <div data-screen="s" class="app" style="padding:0" hidden>
+              <div class="card"><div class="h">Reorder suggestions</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="v low">4 lb<small>par 20</small></div></div><div class="row"><div><div class="t">Canola Oil</div><div class="s">Dry goods</div></div><div class="v low">1 jug<small>par 3</small></div></div></div>
+              <div class="card"><div class="row"><div><div class="t">Buns, Brioche</div><div class="s">Bread</div></div><div class="v ok">96<small>counted Sep 28</small></div></div><div class="row"><div><div class="t">Cheddar, Sliced</div><div class="s">Dairy</div></div><div class="v ok">3 lb</div></div></div>
+            </div>
+            <div data-screen="r" class="app" style="padding:0" hidden>
+              <div class="seg"><span class="on">By ingredient</span><span>By dish</span></div>
+              <div class="warnb">Drift detected: 3 ingredients over 60% unallocated last week.</div>
+              <div class="card"><div class="rc"><div><div class="t">Chicken Thighs</div><div class="s">$212 last week · 35% unallocated</div></div></div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                  <div class="slider"><span style="width:96px">Smash Burger</span><div class="tr"><i style="width:45%"></i><b style="left:45%"></b></div><span class="pct">45%</span></div>
+                  <div class="slider"><span style="width:96px">Chicken Sando</span><div class="tr"><i style="width:20%"></i><b style="left:20%"></b></div><span class="pct">20%</span></div>
+                </div></div>
+              <div class="card"><div class="rc"><div><div class="t">Buns, Brioche</div><div class="s">$96 last week · 0% unallocated</div></div><span class="chip">Expand</span></div></div>
+              <p class="hint" style="color:var(--mut)">"By dish" is the old Menu tab: units sold this week, tap to see its ingredients.</p>
+            </div>
+            <div data-screen="x" class="app" style="padding:0" hidden>
+              <div class="seg"><span class="on">Items</span><span>Vendors</span><span>Sync</span></div>
+              <div class="sel">Search items...</div>
+              <div class="card"><div class="row"><div class="t">Buns, Brioche</div><div class="s">Bread · ★ Brioche Buns</div></div><div class="row"><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="row"><div class="t">Canola Oil</div><div class="s">Dry goods</div></div></div>
+              <p class="hint" style="color:var(--mut)">Deep sync and Retry-parse-all live under Sync here. No link to Purchase Orders; that is a tile on HQ.</p>
+            </div>
+          </div>
+        </div></div>
+        <div class="tile-inset">
+          <div class="hrow"><div><div class="ti">📊</div><div class="tt">Business Intelligence <span class="new">now active</span></div><div class="td">Spend trends and food cost</div></div><div style="font-size:12px;color:var(--mut);text-align:right">Trends<br>Cost</div></div>
+        </div>
+        <ul class="notes"><li><b>One row, no wrap</b> at 480px with four short labels.</li><li><b>Crew sees crew things first.</b> Receipts and Stock are tabs one and two.</li><li><b>Gating gets simpler:</b> the two grants become one BI app grant, and the tab-removal code in inventory.html goes away.</li><li><b>Deep links survive:</b> tab numbers shift, so #tab=N hashes need a remap.</li></ul>
+      </div>
+
+      <!-- OPTION B -->
+      <div class="opt">
+        <div class="opt-head"><h2><small>B</small> Supply super-app</h2><p>Widen Inventory to absorb Purchase Orders. Bottom bar with five destinations and a More sheet for the rest.</p></div>
+        <div class="phone"><div class="scr" data-phone="b">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div class="back">‹ HQ <span class="crumb">·</span> Supply</div>
+            <div data-screen="p" class="app" style="padding:0">
+              <div class="hrow"><div class="chips"><span class="chip on">All</span><span class="chip">Needs review (10)</span></div><span class="icon-btn">⟳ Sync</span></div>
+              <div class="card rc"><div><div class="t">Restaurant Depot</div><div class="s">Sep 27, 2026 · Jamal · 8478</div></div><div class="amt">$113.97</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 26, 2026 · Latanya · 0994</div></div><div class="amt">$12.99</div></div>
+              <div class="card rc"><div><div class="t">Shoppers</div><div class="s">Sep 25, 2026 · Latanya · 0994</div></div><div class="amt">$39.57</div></div>
+            </div>
+            <div data-screen="s" class="app" style="padding:0" hidden>
+              <div class="card"><div class="h">Reorder suggestions</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="v low">4 lb<small>par 20</small></div></div></div>
+              <div class="card"><div class="row"><div><div class="t">Buns, Brioche</div><div class="s">Bread</div></div><div class="v ok">96</div></div><div class="row"><div><div class="t">Cheddar, Sliced</div><div class="s">Dairy</div></div><div class="v ok">3 lb</div></div></div>
+            </div>
+            <div data-screen="o" class="app" style="padding:0" hidden>
+              <div class="seg"><span class="on">Order</span><span>Shopping</span><span>PO</span><span>History</span></div>
+              <div class="card"><div class="h">Week of Sep 28</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">par 20 · have 4</div></div><div class="v">− 16 lb +</div></div><div class="row"><div><div class="t">Canola Oil</div><div class="s">par 3 · have 1</div></div><div class="v">− 2 +</div></div></div>
+              <div class="btn blue">Lock order</div>
+            </div>
+            <div data-screen="r" class="app" style="padding:0" hidden>
+              <div class="seg"><span class="on">By ingredient</span><span>By dish</span></div>
+              <div class="card"><div class="rc"><div><div class="t">Chicken Thighs</div><div class="s">$212 last week · 35% unallocated</div></div><span class="chip">Expand</span></div></div>
+            </div>
+            <div data-screen="more" class="app" style="padding:0" hidden>
+              <div class="card"><div class="row"><div class="t">Trends</div><div class="s">Spend by group, weekly</div></div><div class="row"><div class="t">Food cost</div><div class="s">Margin per dish</div></div><div class="row"><div class="t">Items</div><div class="s">Catalog and nicknames</div></div><div class="row"><div class="t">Vendors</div><div class="s"></div></div><div class="row"><div class="t">Sync</div><div class="s">Deep sync · Retry parse</div></div></div>
+            </div>
+          </div>
+          <div class="bnav">
+            <button class="on" data-tab="p"><span class="ic">🧾</span>Receipts<span class="bd">10</span></button><button data-tab="s"><span class="ic">📦</span>Stock</button><button data-tab="o"><span class="ic">🛒</span>Order</button><button data-tab="r"><span class="ic">🍔</span>Recipes</button><button data-tab="more"><span class="ic">•••</span>More</button>
+          </div>
+        </div></div>
+        <ul class="notes"><li><b>Stock → Order is one tap.</b> Today it is back to HQ and into a different tile.</li><li><b>Biggest change:</b> two pages become one, and Purchase Orders' own four tabs become a segmented control inside a tab.</li><li><b>New pattern for HQ.</b> No other tool uses a bottom bar; the launcher tile "Purchase Orders" disappears.</li><li><b>Sync and reports</b> hide behind More, which is fine for weekly tasks and wrong if receipt sync is daily.</li></ul>
+      </div>
+
+      <!-- OPTION C -->
+      <div class="opt">
+        <div class="opt-head"><h2><small>C</small> Hub with status</h2><p>Inventory opens on a list of destinations, each carrying its own live status. Every section is a full page with a back link.</p></div>
+        <div class="phone"><div class="scr" data-phone="c">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div data-screen="hub" class="app" style="padding:0">
+              <div class="back">‹ HQ <span class="crumb">·</span> Inventory</div>
+              <div class="hub" data-tab="p"><span class="ic">🧾</span><div><div class="t">Receipts</div><div class="s">Synced 4 min ago</div></div><span class="b">10 to review</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="s"><span class="ic">📦</span><div><div class="t">Stock</div><div class="s">Last count Sep 28</div></div><span class="b">2 below par</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="r"><span class="ic">🍔</span><div><div class="t">Recipes</div><div class="s">Ingredient allocation</div></div><span class="b">Drift</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="t"><span class="ic">📈</span><div><div class="t">Trends</div><div class="s">Spend by group</div></div><span class="b mut">8 wks</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="c"><span class="ic">💵</span><div><div class="t">Food cost</div><div class="s">Margin per dish</div></div><span class="b ok">31% avg</span><span class="chev">›</span></div>
+              <div class="hub dim" data-tab="x"><span class="ic">⚙️</span><div><div class="t">Setup</div><div class="s">Items · Vendors · Sync</div></div><span class="chev">›</span></div>
+            </div>
+            <div data-screen="p" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Receipts</div>
+              <div class="hrow"><div class="chips"><span class="chip on">All</span><span class="chip">Needs review (10)</span></div><span class="icon-btn">⟳ Sync</span></div>
+              <div class="card rc"><div><div class="t">Restaurant Depot</div><div class="s">Sep 27, 2026 · Jamal · 8478</div></div><div class="amt">$113.97</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 26, 2026 · Latanya · 0994</div></div><div class="amt">$12.99</div></div>
+            </div>
+            <div data-screen="s" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Stock</div>
+              <div class="card"><div class="h">Reorder suggestions</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="v low">4 lb<small>par 20</small></div></div><div class="row"><div><div class="t">Canola Oil</div><div class="s">Dry goods</div></div><div class="v low">1 jug<small>par 3</small></div></div></div>
+            </div>
+            <div data-screen="r" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Recipes</div>
+              <div class="warnb">Drift detected: 3 ingredients over 60% unallocated last week.</div>
+              <div class="card"><div class="rc"><div><div class="t">Chicken Thighs</div><div class="s">$212 last week · 35% unallocated</div></div><span class="chip">Expand</span></div></div>
+            </div>
+            <div data-screen="t" class="app" style="padding:0" hidden><div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Trends</div><div class="card"><div class="row"><div class="t">Proteins</div><div class="v">$1,842</div></div><div class="row"><div class="t">Produce</div><div class="v">$610</div></div></div></div>
+            <div data-screen="c" class="app" style="padding:0" hidden><div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Food cost</div><div class="card"><div class="row"><div class="t">Smash Burger</div><div class="v">31%</div></div><div class="row"><div class="t">Loaded Fries</div><div class="v">24%</div></div></div></div>
+            <div data-screen="x" class="app" style="padding:0" hidden><div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Setup</div><div class="seg"><span class="on">Items</span><span>Vendors</span><span>Sync</span></div><div class="card"><div class="row"><div class="t">Buns, Brioche</div><div class="s">Bread</div></div></div></div>
+          </div>
+        </div></div>
+        <ul class="notes"><li><b>Scales forever</b> and each row shows why you would open it.</li><li><b>One extra tap</b> on every daily task, and no lateral move between Stock and Receipts.</li><li><b>Gating is trivial:</b> hide the row.</li><li><b>Same shape as HQ itself,</b> which is either reassuring or one launcher too many.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Recommendation</p>
+    <div class="reco">
+      <h2>Ship A. Keep B on the shelf for when Purchase Orders and Stock start sharing a workflow.</h2>
+      <p>A fixes the reported problem with the least motion: no new navigation pattern, no page merge, and the launcher gains a real BI tile instead of a placeholder. It sorts the seven tabs by the question that was missing: <b>is this a daily crew task, a weekly owner task, or configuration?</b> C is the safest possible IA but taxes the two daily tasks with an extra tap to fix a problem the weekly tasks caused. B is the most useful end state and the most disruptive; it is worth doing only when someone actually walks Stock → Order several times a week.</p>
+      <ol>
+        <li>Rename Purchases to <b>Receipts</b>; it is the receipt queue, and Purchase Orders already owns the word "purchase".</li>
+        <li>Collapse Sync Receipts, Deep sync and Retry Parse into one <b>Sync</b> button with a "More…" sheet. The queue moves up to the first screen.</li>
+        <li>Fold <b>Menu</b> into Recipes as a "By dish" segment; the Menu-card-to-Recipes jump becomes a segment switch.</li>
+        <li>Move <b>Trends</b> and <b>Cost</b> to a new bi.html behind the existing BI tile. The two tab grants become one app grant.</li>
+        <li>Drop the Purchase Orders link from Setup; it belongs on the launcher.</li>
+        <li>Remap <b>#tab=N</b> deep links (4→3, 7→4, 5 and 6 → bi.html) so bookmarks and the Menu-to-Recipes magic link keep working.</li>
+      </ol>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.scr').forEach(function(scr){
+    scr.addEventListener('click',function(e){
+      var t=e.target.closest('[data-tab]'); if(!t||!scr.contains(t))return;
+      var id=t.getAttribute('data-tab');
+      scr.querySelectorAll('[data-screen]').forEach(function(s){s.hidden=s.getAttribute('data-screen')!==id;});
+      scr.querySelectorAll('.tabs button,.bnav button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-tab')===id);});
+    });
+  });
+})();
+</script>
+</body>
+</html>

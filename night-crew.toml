@@ -67,7 +67,7 @@ subset = 'npx playwright test "{tags}"'
 [e2e.seams]
 "backend/internal/inventory"  = ["inventory", "recipes"]
 "backend/internal/recipes"    = ["inventory", "recipes"]
-"inventory.html"              = ["inventory", "recipes"]
+"inventory.html"              = ["inventory", "recipes", "health"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
 # Operations carries two MORE specs than its name suggests. sync.spec.js and
@@ -111,12 +111,27 @@ subset = 'npx playwright test "{tags}"'
 # estimating a confined Operations leg should cost it off the list above, and
 # the token VALUES below are correct as they stand — do not "fix" them.
 # Corrected on card `repo-hygiene-preconditions`, run 20260806.
+# health-banner.js and the pages that mount it. A change to the shared module
+# can break the banner on any of the five, so the footprint fans out to the
+# health spec plus each page's own suite — a narrow entry here is exactly how a
+# regression escapes a green gate.
+"health-banner.js"            = ["health", "inventory", "onboarding", "workflows", "marketing"]
+# item-name.js is the shared "what do we call this item?" resolver, referenced
+# by inventory.html and purchasing.html. Same fan-out reasoning as
+# health-banner.js above: a change to the module can mislabel an item on the
+# Stock, Reorder, Recipes, PO and shopping-list screens at once, so the
+# footprint names every spec that renders one. A narrower entry here is exactly
+# how a mislabelling regression escapes a green gate.
+"item-name.js"                = ["inventory", "recipes", "purchasing"]
+"tests/health-banner.spec.js" = ["health"]
+"index.html"                  = ["health"]
+"backend/internal/sync/health.go" = ["health", "sync"]
 "backend/internal/workflow"   = ["workflows", "persistence", "sync", "repro-cut-task"]
-"workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task"]
+"workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task", "health"]
 "tests/workflows.spec.js"     = ["workflows", "persistence"]
 "tests/persistence.spec.js"   = ["workflows", "persistence"]
 "backend/internal/onboarding" = ["onboarding"]
-"onboarding.html"             = ["onboarding"]
+"onboarding.html"             = ["onboarding", "health"]
 "tests/onboarding.spec.js"    = ["onboarding"]
 "backend/internal/users"      = ["users"]
 "users.html"                  = ["users"]

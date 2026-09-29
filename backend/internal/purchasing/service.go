@@ -179,6 +179,7 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 		SELECT
 			li.id, li.po_id, li.purchase_item_id,
 			pi.description AS item_name,
+			item_display_name(pi.id, pi.description) AS display_name,
 			ig.name AS group_name,
 			pi.photo_url, pi.store_location,
 			v.name AS vendor_name,
@@ -205,6 +206,7 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 		if err := rows.Scan(
 			&li.ID, &li.POID, &li.PurchaseItemID,
 			&li.ItemName,
+			&li.DisplayName,
 			&li.GroupName,
 			&li.PhotoURL, &li.StoreLocation,
 			&li.VendorName,
@@ -369,7 +371,8 @@ func loadShoppingListSections(ctx context.Context, pool *pgxpool.Pool, sl *Shopp
 	// Load items for all sections in one query
 	itemRows, err := pool.Query(ctx, `
 		SELECT sli.id, sli.shopping_list_id, sli.vendor_section_id, sli.purchase_item_id,
-		       sli.item_name, sli.photo_url, sli.store_location, sli.quantity, sli.unit,
+		       sli.item_name, item_display_name(sli.purchase_item_id, sli.item_name) AS display_name,
+		       sli.photo_url, sli.store_location, sli.quantity, sli.unit,
 		       sli.checked, sli.checked_by, COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name, sli.checked_at
 		FROM shopping_list_items sli
 		LEFT JOIN users u ON u.id = sli.checked_by
@@ -387,7 +390,7 @@ func loadShoppingListSections(ctx context.Context, pool *pgxpool.Pool, sl *Shopp
 		var item ShoppingListItem
 		if err := itemRows.Scan(
 			&item.ID, &item.ShoppingListID, &item.VendorSectionID, &item.PurchaseItemID,
-			&item.ItemName, &item.PhotoURL, &item.StoreLocation, &item.Quantity, &item.Unit,
+			&item.ItemName, &item.DisplayName, &item.PhotoURL, &item.StoreLocation, &item.Quantity, &item.Unit,
 			&item.Checked, &item.CheckedBy, &item.CheckedByName, &item.CheckedAt,
 		); err != nil {
 			return err
@@ -616,7 +619,7 @@ func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string
 		unit       string
 	}
 	rows, err := pool.Query(ctx, `
-		SELECT svs.vendor_name, sli.item_name, sli.quantity, sli.unit
+		SELECT svs.vendor_name, item_display_name(sli.purchase_item_id, sli.item_name), sli.quantity, sli.unit
 		FROM shopping_list_items sli
 		JOIN shopping_list_vendor_sections svs ON svs.id = sli.vendor_section_id
 		WHERE sli.shopping_list_id = $1 AND sli.checked = false
@@ -679,6 +682,7 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 		SELECT
 			sub.purchase_item_id,
 			sub.item_name,
+			item_display_name(sub.purchase_item_id, sub.item_name) AS display_name,
 			sub.photo_url,
 			sub.store_location,
 			sub.group_name,
@@ -726,7 +730,7 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 		var s OrderSuggestion
 		var highThreshold int
 		if err := rows.Scan(
-			&s.PurchaseItemID, &s.ItemName,
+			&s.PurchaseItemID, &s.ItemName, &s.DisplayName,
 			&s.PhotoURL, &s.StoreLocation,
 			&s.GroupName, &s.LowThreshold,
 			&highThreshold,

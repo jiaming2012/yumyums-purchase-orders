@@ -31,6 +31,7 @@ import (
 // Mercury / Anthropic / the receipt CDN.
 var (
 	fetchTransactions        = FetchTransactions
+	fetchCards               = FetchCards
 	parseReceipt             = ParseReceipt
 	parseReceiptWithSonnet   = ParseReceiptWithSonnet
 	parseReceiptWithFeedback = ParseReceiptWithFeedback
@@ -44,7 +45,7 @@ var (
 // MercuryTransaction.CreatedAt, and the receipt URL list to download.
 type PendingRowForReprocess struct {
 	BankTxID    string
-	BankTotal   float64  // negative for debit, matches Mercury convention
+	BankTotal   float64 // negative for debit, matches Mercury convention
 	Vendor      string
 	EventDate   string   // YYYY-MM-DD
 	ReceiptURLs []string // may be one URL (legacy) or many (multi-attachment)
@@ -88,6 +89,13 @@ func ReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, row PendingRowFo
 func BatchReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, rows []PendingRowForReprocess) (map[string]string, error) {
 	out := make(map[string]string, len(rows))
 	for _, row := range rows {
+		// Hard stop on cancel. Without this the loop keeps going and every
+		// remaining row fails its (already-cancelled) HTTP call, reporting a
+		// dozen "errored" receipts for what was a deliberate stop.
+		if err := ctx.Err(); err != nil {
+			slog.Info(fmt.Sprintf("receipt worker: batch reprocess cancelled after %d/%d", len(out), len(rows)))
+			return out, err
+		}
 		status, err := ReprocessFromSpaces(ctx, cfg, row)
 		if err != nil {
 			slog.Info(fmt.Sprintf("receipt worker: tx %s reprocess error: %v", row.BankTxID, err))
@@ -191,7 +199,23 @@ func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endD
 
 	var autoCreated, pendingReview, skippedCached int
 
+	// One cards walk per cycle (≈20 account requests); every tx below resolves
+	// its holder/last4 from this map. Non-fatal on failure (empty map).
+	cards := loadCards(ctx, cfg.MercuryAPIKey)
+
 	for _, tx := range txns {
+		// Same hard stop as the batch reprocess above: a cancelled run should
+		// stop, not grind through the remaining transactions failing each one.
+		if err := ctx.Err(); err != nil {
+			slog.Info(fmt.Sprintf("receipt worker: ingest cycle cancelled after %d/%d", autoCreated+pendingReview+skippedCached, len(txns)))
+			return IngestResult{Processed: autoCreated + pendingReview + skippedCached, AutoCreated: autoCreated, PendingReview: pendingReview, Cached: skippedCached}, err
+		}
+		// Who swiped: resolve BEFORE the refresh + insert paths so both the
+		// new-row writes and the backfill of rows that pre-date the column
+		// see the same values. tx is this iteration's copy.
+		resolveCard(&tx, cards)
+		refreshCardOnRows(ctx, cfg.Pool, tx)
+
 		// Refresh mercury_category on existing events so values set by the
 		// sales-processor classify pipeline (async, weekly or nightly) propagate
 		// into HQ without a separate scheduler. Idempotent via IS DISTINCT FROM.
@@ -278,6 +302,7 @@ func runIngestCycleWindow(ctx context.Context, cfg WorkerConfig, startDate, endD
 //     parse_error, or items (the caller has already confirmed we want a fresh
 //     attempt, and the dup-key handler in createPurchaseEvent will clean up any
 //     residual pending row if the event INSERT fails with a duplicate key).
+//
 // blobWithAttachment pairs a successfully-downloaded receipt blob with the
 // Attachment it came from. Keeping them together (rather than a parallel
 // []FileBlob indexed by position) is what prevents the B-175 misindex: when a
@@ -289,7 +314,7 @@ type blobWithAttachment struct {
 }
 
 func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransaction, reprocess bool) (string, error) {
-	kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
+	kind, existingReason, hasParseError, hasItems, retryRequested, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 	if err != nil {
 		slog.Info(fmt.Sprintf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err))
 		return "errored", err
@@ -317,8 +342,15 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		} else {
 			// Normal worker path: only upgrade on the two known upgrade cases.
 			noAttachmentUpgrade := existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0
-			parseFailedRetry := existingReason == "Receipt could not be parsed automatically" &&
-				!hasParseError && !hasItems && len(tx.Attachments) > 0
+			// An explicit operator retry request re-arms ANY open pending row
+			// that still has a receipt to read. It used to be inferred from
+			// `no parse_error AND no items`, which forced the retry handler to
+			// delete both to ask a question — see migration 0079. A transient
+			// row (billing wall, rate limit, outage) stays self-healing: it is
+			// re-parsed on the next poll without anyone asking.
+			transientRetry := hasParseError == false && existingReason == "Receipt could not be parsed automatically" &&
+				!hasItems && len(tx.Attachments) > 0
+			parseFailedRetry := (retryRequested || transientRetry) && len(tx.Attachments) > 0
 			if noAttachmentUpgrade || parseFailedRetry {
 				isUpgrade = true
 			} else {
@@ -431,11 +463,28 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBlobs)
 	if parseErr != nil {
 		primaryErr := parseErr
-		slog.Info(fmt.Sprintf("receipt worker: Sonnet failed for tx %s, retrying: %v", tx.ID, primaryErr))
+		// Whatever the first attempt managed to extract before failing is still
+		// the best data anyone has for this receipt. Hold it: the retry
+		// assignment below overwrites items/summary, and on a double failure we
+		// used to persist the FAILED retry's (usually empty) return values,
+		// throwing the partial parse away before it ever reached the card.
+		primaryItems, primarySummary := items, summary
+		slog.Info(fmt.Sprintf("receipt worker: primary parse failed for tx %s, retrying: %v", tx.ID, primaryErr))
 		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBlobs)
 		if parseErr != nil {
-			combined := fmt.Sprintf("sonnet: %v; sonnet-retry: %v", primaryErr, parseErr)
-			slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
+			if len(items) == 0 && len(primaryItems) > 0 {
+				items, summary = primaryItems, primarySummary
+			}
+			combined := parseFailureCause(primaryErr, parseErr)
+			// A billing wall / rate limit / outage is not a parse failure:
+			// store the transient marker so the row is re-parsed on the next
+			// poll (classifyExistingTx) and the card says why in words.
+			if marker := transientParseMarker(primaryErr, parseErr); marker != "" {
+				slog.Warn("receipt worker: transient Anthropic failure — parking for automatic retry", "tx_id", tx.ID, "reason", marker, "error", parseErr)
+				combined = marker
+			} else {
+				slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
+			}
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
 				slog.Info(fmt.Sprintf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr))
 			}
@@ -631,24 +680,24 @@ func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction
 // Return contract:
 //   - kind "none"    → not seen yet; runIngestCycle should ingest normally.
 //   - kind "event"   → already in purchase_events OR a confirmed pending row.
-//                      Idempotency win: a confirmed pending row represents a
-//                      real, locked purchase, so it behaves like an event.
-//                      reason is "" for this kind.
+//     Idempotency win: a confirmed pending row represents a
+//     real, locked purchase, so it behaves like an event.
+//     reason is "" for this kind.
 //   - kind "pending" → still-open pending_purchases row
-//                      (confirmed_at IS NULL AND discarded_at IS NULL).
-//                      reason carries pending_purchases.reason so the caller
-//                      can decide if this is the upgrade-eligible
-//                      "no_attachment_on_bank_tx" case.
+//     (confirmed_at IS NULL AND discarded_at IS NULL).
+//     reason carries pending_purchases.reason so the caller
+//     can decide if this is the upgrade-eligible
+//     "no_attachment_on_bank_tx" case.
 //
 // hasParseError / hasItems are ONLY meaningful for kind="pending":
 //   - hasParseError = true when pending_purchases.parse_error IS NOT NULL.
-//                     Phase 260607-fxl uses this to gate parse-failed retries
-//                     so we never re-call the parser on a row where BOTH Haiku
-//                     and Sonnet already failed (parse_error populated).
+//     Phase 260607-fxl uses this to gate parse-failed retries
+//     so we never re-call the parser on a row where BOTH Haiku
+//     and Sonnet already failed (parse_error populated).
 //   - hasItems      = true when pending_purchases.items is a non-empty JSONB
-//                     array. Phase 260607-fxl uses this so a user-edited row
-//                     (operator added line items already) is never clobbered
-//                     by a worker re-parse.
+//     array. Phase 260607-fxl uses this so a user-edited row
+//     (operator added line items already) is never clobbered
+//     by a worker re-parse.
 //
 // For kind="event", kind="discarded", and kind="none", hasParseError and
 // hasItems are always false — callers should not branch on them in those cases.
@@ -662,40 +711,43 @@ func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction
 // which resurrected any discarded charge on the next sync — the operator
 // discarded a non-COGS charge and it kept reappearing. Un-discarding is now an
 // explicit action, not a side effect of syncing.
-func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, hasParseError, hasItems bool, err error) {
+func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, hasParseError, hasItems, retryRequested bool, err error) {
 	// Priority-ordered so a bank_tx_id that (from pre-fix data) has BOTH a
 	// discarded row and an active one still resolves to the actionable kind:
 	// event > confirmed > active-pending > discarded.
 	err = pool.QueryRow(ctx, `
-		SELECT kind, reason, has_parse_error, has_items FROM (
-			SELECT 1 AS pri, 'event' AS kind, '' AS reason, false AS has_parse_error, false AS has_items
+		SELECT kind, reason, has_parse_error, has_items, retry_requested FROM (
+			SELECT 1 AS pri, 'event' AS kind, '' AS reason, false AS has_parse_error, false AS has_items, false AS retry_requested
 			  FROM purchase_events WHERE bank_tx_id = $1
 			UNION ALL
-			SELECT 2, 'event', COALESCE(reason,''), false, false
+			SELECT 2, 'event', COALESCE(reason,''), false, false, false
 			  FROM pending_purchases
 			 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
 			UNION ALL
 			SELECT 3, 'pending', COALESCE(reason,''),
-			       (parse_error IS NOT NULL),
-			       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0)
+			       -- a 'transient: ...' marker (billing wall, rate limit, outage)
+			       -- is NOT a parse failure: the row stays retryable.
+			       (parse_error IS NOT NULL AND parse_error NOT LIKE 'transient: %'),
+			       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0),
+			       (retry_requested_at IS NOT NULL)
 			  FROM pending_purchases
 			 WHERE bank_tx_id = $1
 			   AND confirmed_at IS NULL
 			   AND discarded_at IS NULL
 			UNION ALL
-			SELECT 4, 'discarded', '', false, false
+			SELECT 4, 'discarded', '', false, false, false
 			  FROM pending_purchases
 			 WHERE bank_tx_id = $1 AND discarded_at IS NOT NULL
 		) t
 		ORDER BY pri
-		LIMIT 1`, bankTxID).Scan(&kind, &reason, &hasParseError, &hasItems)
+		LIMIT 1`, bankTxID).Scan(&kind, &reason, &hasParseError, &hasItems, &retryRequested)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "none", "", false, false, nil
+		return "none", "", false, false, false, nil
 	}
 	if err != nil {
-		return "", "", false, false, fmt.Errorf("classifyExistingTx: %w", err)
+		return "", "", false, false, false, fmt.Errorf("classifyExistingTx: %w", err)
 	}
-	return kind, reason, hasParseError, hasItems, nil
+	return kind, reason, hasParseError, hasItems, retryRequested, nil
 }
 
 // createPurchaseEvent inserts a new purchase_event and its line items within
@@ -753,10 +805,11 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 	// Insert purchase_event
 	var eventID string
 	err = dbTx.QueryRow(ctx,
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, receipt_urls, mercury_category)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, receipt_urls, mercury_category, card_holder, card_last4)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 RETURNING id`,
 		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), receiptURLsJSON(receiptURLs), nullableString(mercuryCategory),
+		nullableString(tx.CardHolder), nullableString(tx.CardLast4),
 	).Scan(&eventID)
 	if err != nil {
 		// Duplicate bank_tx_id: a purchase_event for this tx was already created
@@ -882,8 +935,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 
 	_, err := pool.Exec(ctx,
 		`INSERT INTO pending_purchases
-		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, receipt_urls, mercury_category, parse_error)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, receipt_urls, mercury_category, parse_error, card_holder, card_last4)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
 		tx.ID,
 		tx.Amount,
@@ -897,6 +950,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
+		nullableString(tx.CardHolder),
+		nullableString(tx.CardLast4),
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
@@ -954,7 +1009,12 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		        receipt_url      = $9,
 		        receipt_urls     = $10,
 		        mercury_category = $11,
-		        parse_error      = $12
+		        parse_error      = $12,
+		        card_holder      = $13,
+		        card_last4       = $14,
+		        -- The retry has now happened; clear the request so the row is
+		        -- not re-parsed on every subsequent poll (migration 0079).
+		        retry_requested_at = NULL
 		  WHERE bank_tx_id = $1`,
 		tx.ID,
 		tx.Amount,
@@ -968,6 +1028,8 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
+		nullableString(tx.CardHolder),
+		nullableString(tx.CardLast4),
 	)
 	if err != nil {
 		return fmt.Errorf("updatePendingPurchase: %w", err)
@@ -975,9 +1037,32 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 	return nil
 }
 
+// refreshCardOnRows backfills card_holder / card_last4 on the pending and
+// event rows for this tx — the rows that pre-date the column, and any row
+// written while a cards lookup was failing. Same IS DISTINCT FROM pattern as
+// the mercury_category refresh; runs before the `already` short-circuit so
+// cached transactions inside the lookback window heal on the next poll. A
+// tx with no resolved card is a no-op: NULL is never written over a value.
+func refreshCardOnRows(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction) {
+	if tx.CardHolder == "" && tx.CardLast4 == "" {
+		return
+	}
+	for _, table := range []string{"purchase_events", "pending_purchases"} {
+		_, err := pool.Exec(ctx,
+			`UPDATE `+table+`
+			    SET card_holder = $1, card_last4 = $2
+			  WHERE bank_tx_id = $3
+			    AND (card_holder IS DISTINCT FROM $1 OR card_last4 IS DISTINCT FROM $2)`,
+			nullableString(tx.CardHolder), nullableString(tx.CardLast4), tx.ID)
+		if err != nil {
+			slog.Warn("receipt worker: refresh card holder failed", "table", table, "tx_id", tx.ID, "error", err)
+		}
+	}
+}
+
 // backfillPendingVendor sets pending_purchases.vendor to Mercury's
 // bankDescription for the given tx when the row exists with a missing
-// vendor. The IS NULL OR = '' guard means a receipt-parsed pending whose
+// vendor. The IS NULL OR = ” guard means a receipt-parsed pending whose
 // vendor Claude already set is never overwritten. Idempotent on re-poll.
 // Empty bankDescription is a no-op.
 func backfillPendingVendor(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction) error {

@@ -21,6 +21,9 @@ type POLineItem struct {
 	POID           string    `json:"po_id"`
 	PurchaseItemID string    `json:"purchase_item_id"`
 	ItemName       string    `json:"item_name"`
+	// DisplayName is the promoted alias if the crew set one, else ItemName.
+	// Render this; ItemName stays the catalog/snapshot identity.
+	DisplayName    string    `json:"display_name"`
 	GroupName      *string   `json:"group_name,omitempty"`
 	PhotoURL       *string   `json:"photo_url,omitempty"`
 	StoreLocation  *string   `json:"store_location,omitempty"`
@@ -37,6 +40,9 @@ type POLineItem struct {
 type OrderSuggestion struct {
 	PurchaseItemID string  `json:"purchase_item_id"`
 	ItemName       string  `json:"item_name"`
+	// DisplayName is the promoted alias if the crew set one, else ItemName.
+	// Render this; ItemName stays the catalog/snapshot identity.
+	DisplayName    string  `json:"display_name"`
 	PhotoURL       *string `json:"photo_url,omitempty"`
 	StoreLocation  *string `json:"store_location,omitempty"`
 	GroupName      *string `json:"group_name,omitempty"`
@@ -111,6 +117,9 @@ type ShoppingListItem struct {
 	VendorSectionID string     `json:"vendor_section_id"`
 	PurchaseItemID  string     `json:"purchase_item_id"`
 	ItemName        string     `json:"item_name"`
+	// DisplayName is the promoted alias if the crew set one, else ItemName.
+	// Render this; ItemName stays the catalog/snapshot identity.
+	DisplayName     string     `json:"display_name"`
 	PhotoURL        *string    `json:"photo_url,omitempty"`
 	StoreLocation   *string    `json:"store_location,omitempty"`
 	Quantity        int        `json:"quantity"`

@@ -40,6 +40,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .verline{max-width:480px;margin:22px auto 0;padding:0 0 8px;font-size:11px;color:var(--mut);text-align:center;letter-spacing:0.2px}
 .verline .stale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-weight:500}
 .warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
+.warnbanner-admin{max-width:480px;margin:8px auto 0;padding:9px 14px;border-radius:10px;border:0.5px solid var(--warn-tx);color:var(--warn-tx);font-size:12px;font-weight:500;text-align:center;line-height:1.4}
+.warnbanner-diag{margin:6px 0 0;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.18);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:400;text-align:left;white-space:pre-wrap;user-select:all;-webkit-user-select:all}
 </style>
 </head>
 <body>
@@ -48,9 +50,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <div class="wordmark">Yumyums HQ</div>
   <div class="tagline">&#x1f354; Great <i>Food</i> begins with <i>Great Operations.</i></div>
 
-  <!-- B-172: shown only when /api/v1/health reports storage 'unreachable' —
-       see the IIFE at the bottom of this file. -->
-  <div class="warnbanner" id="storage-banner" hidden>⚠️ Photo storage unreachable — photo &amp; video uploads will fail and saved photos won't display</div>
+  <!-- Server-side failures the crew can see but not fix. Rendered by
+       health-banner.js; the launcher carries every check because it is the one
+       page that stands for the whole app. -->
+  <div id="health-banners" hidden></div>
 
   <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
@@ -448,24 +451,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
   serverEl.className='stale';
   serverEl.textContent='server v'+server+' — close and reopen to update';
 })();
-// ═══ STORAGE BANNER — B-172 ═══════════════════════════════════════════════
-// A dead object-storage account must be explicit at app start, not discovered
-// one failed upload at a time. 'unreachable' is the only state worth
-// interrupting the crew for: 'unconfigured' is a deliberate dev/test state
-// (upload endpoints already 503 with a named error) and 'ok' is silence.
-// Deliberately its own fetch, not a rider on the version-line IIFE above —
-// that one early-returns when version.json is unreadable, and this banner
-// must not disappear with it.
-(async function(){
-  var el=document.getElementById('storage-banner');
-  if(!el)return;
-  try{
-    var r=await fetch('/api/v1/health');
-    if(!r.ok)return;
-    var h=await r.json();
-    if(h&&h.storage==='unreachable')el.hidden=false;
-  }catch(e){}
-})();
+</script>
+<script src="health-banner.js"></script>
+<script>
+// The launcher stands for the whole app, so it carries every check. Tool pages
+// take only the ones they can act on (see health-banner.js).
+initHealthBanners('health-banners',['server','storage','toast','substrate']);
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
 </body>

@@ -2,12 +2,15 @@ package inventory
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/receipt"
 )
@@ -66,11 +69,11 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 		var pendingRows []receipt.PendingRowForReprocess
 		for dbRows.Next() {
 			var (
-				bankTxID    string
-				bankTotal   float64
-				vendor      string
-				eventDate   string
-				urlsJSON    string
+				bankTxID  string
+				bankTotal float64
+				vendor    string
+				eventDate string
+				urlsJSON  string
 			)
 			if scanErr := dbRows.Scan(&bankTxID, &bankTotal, &vendor, &eventDate, &urlsJSON); scanErr != nil {
 				dbRows.Close()
@@ -142,25 +145,30 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 // the result map into counts, and writes the final tally to receipt_sync_runs.
 // recover() guarantees no orphan running rows.
 func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id int64, rows []receipt.PendingRowForReprocess) {
-	ctx := context.Background()
+	// Cancellable and registered — this is the long one (a download plus a
+	// model call per receipt), so it is the run the operator most often wants
+	// to stop. release MUST fire on every exit path.
+	ctx, release := registerSyncCancel(id)
+	defer release()
+	// Terminal writes take a context the cancel cannot reach.
+	wctx := context.Background()
 	defer func() {
 		if rec := recover(); rec != nil {
 			msg := "panic in reprocess goroutine"
-			_, _ = pool.Exec(ctx,
-				`UPDATE receipt_sync_runs
-				 SET status='failed', finished_at=now(), error=$1
-				 WHERE id=$2`, msg, id)
+			finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 			slog.Info(fmt.Sprintf("ReprocessAllPending goroutine panic for run %d: %v", id, rec))
 		}
 	}()
 
 	results, runErr := runner(ctx, rows)
 	if runErr != nil {
+		if errors.Is(runErr, context.Canceled) {
+			slog.Info(fmt.Sprintf("ReprocessAllPending: run %d cancelled", id))
+			return
+		}
 		slog.Info(fmt.Sprintf("ReprocessAllPending: batch runner error for run %d: %v", id, runErr))
-		_, _ = pool.Exec(ctx,
-			`UPDATE receipt_sync_runs
-			 SET status='failed', finished_at=now(), error=$1
-			 WHERE id=$2`, runErr.Error(), id)
+		msg := runErr.Error()
+		finishSyncRun(wctx, pool, id, "failed", &msg, nil)
 		return
 	}
 
@@ -181,13 +189,109 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id i
 	slog.Info(fmt.Sprintf("ReprocessAllPending: run %d done — auto_created=%d pending_review=%d no_attachments=%d errored=%d",
 		id, autoCreated, pendingReview, noAttachments, errored))
 
-	_, updErr := pool.Exec(ctx,
-		`UPDATE receipt_sync_runs
-		 SET status='done', finished_at=now(),
-		     processed=$1, auto_created=$2, pending_review=$3, cached=$4
-		 WHERE id=$5`,
-		len(rows), autoCreated, pendingReview, errored, id)
-	if updErr != nil {
-		slog.Info(fmt.Sprintf("ReprocessAllPending done-update for run %d: %v", id, updErr))
+	finishSyncRun(wctx, pool, id, "done", nil, &syncCounts{
+		Processed: len(rows), AutoCreated: autoCreated,
+		PendingReview: pendingReview, Cached: errored,
+	})
+}
+
+// ReprocessOnePendingHandler re-reads ONE pending row's stored receipt and
+// runs the same parse/validate/persist pipeline the sweep above uses — the
+// per-card "Retry parse" without the per-card limitation.
+//
+// The card used to POST /retry-parse (a flag) and then start a full Mercury
+// sync to honour it. That sync only walks the rolling 14-day lookback, so a
+// charge older than that was never revisited: the flag sat there and the card
+// could only tell the operator to run the admin sweep. Storage has no such
+// window; this is the sweep narrowed to the row that was tapped.
+//
+// Endpoint:  POST /api/v1/inventory/purchases/pending/{id}/reprocess
+// Response:  200 { "id", "sync_id", "started_at", "status": "running" }
+//
+//	404 pending_purchase_not_found — id does not exist
+//	422 row_not_pending            — already confirmed or discarded
+//	422 no_stored_receipt          — nothing in storage to re-read; the card
+//	                                 falls back to the Mercury path for these
+//	409 sync_already_running       — the single-flight slot is taken
+//
+// It claims the same receipt_sync_runs slot as every other run kind on
+// purpose: it writes the same rows, and Stop sync + the status poll are keyed
+// off that table. A single receipt is one download and one model call, so the
+// slot is held for seconds.
+func ReprocessOnePendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+
+		var (
+			confirmedAt sql.NullTime
+			discardedAt sql.NullTime
+			row         receipt.PendingRowForReprocess
+			urlsJSON    sql.NullString
+		)
+		// Same projection as the sweep: COALESCE unifies legacy single-URL rows
+		// and multi-attachment rows. A row with neither yields NULL here.
+		err := pool.QueryRow(r.Context(),
+			`SELECT confirmed_at, discarded_at,
+			        bank_tx_id, bank_total, vendor, COALESCE(event_date::text, ''),
+			        CASE WHEN receipt_urls IS NULL AND receipt_url IS NULL THEN NULL
+			             ELSE COALESCE(receipt_urls, jsonb_build_array(receipt_url))::text END
+			   FROM pending_purchases WHERE id = $1`,
+			id,
+		).Scan(&confirmedAt, &discardedAt, &row.BankTxID, &row.BankTotal, &row.Vendor, &row.EventDate, &urlsJSON)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
+			return
+		}
+		if confirmedAt.Valid || discardedAt.Valid {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "row_not_pending",
+				"reason": "row is already confirmed or discarded",
+			})
+			return
+		}
+		if urlsJSON.Valid {
+			if jerr := json.Unmarshal([]byte(urlsJSON.String), &row.ReceiptURLs); jerr != nil {
+				slog.Info(fmt.Sprintf("ReprocessOnePending parse receipt_urls for %s: %v", id, jerr))
+				row.ReceiptURLs = nil
+			}
+		}
+		if len(row.ReceiptURLs) == 0 {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "no_stored_receipt",
+				"reason": "no receipt is stored for this row; only a Mercury sync can fetch it",
+			})
+			return
+		}
+
+		var runID int64
+		var startedAt time.Time
+		err = pool.QueryRow(r.Context(),
+			`INSERT INTO receipt_sync_runs (status, triggered_by)
+			 VALUES ('running', 'reprocess_one')
+			 RETURNING id, started_at`,
+		).Scan(&runID, &startedAt)
+		if err != nil {
+			if isUniqueViolation(err) {
+				writeJSON(w, http.StatusConflict, map[string]any{"error": "sync_already_running"})
+				return
+			}
+			slog.Info(fmt.Sprintf("ReprocessOnePending insert sync run: %v", err))
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		slog.Info("ReprocessOnePending: run started", "id", id, "bank_tx_id", row.BankTxID, "run_id", runID, "urls", len(row.ReceiptURLs))
+		go runReprocessGoroutine(pool, runner, runID, []receipt.PendingRowForReprocess{row})
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":         id,
+			"sync_id":    runID,
+			"started_at": startedAt,
+			"status":     "running",
+		})
 	}
 }

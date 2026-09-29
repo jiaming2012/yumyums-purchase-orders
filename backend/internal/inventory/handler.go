@@ -243,6 +243,17 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Carry the source's aliases over, and learn the source's own name as
 		// an alias of the target — receipts that used to match the source keep
 		// matching after the merge.
+		// Demote the source's promoted alias first: at most one alias per item
+		// may carry is_display (item_aliases_one_display_per_item), so moving a
+		// second promoted row onto the target would abort the whole merge. The
+		// target keeps the name it already had; the source's survives as an
+		// ordinary matching alias and can be re-promoted by hand.
+		_, err = tx.Exec(r.Context(), `UPDATE item_aliases SET is_display = false WHERE purchase_item_id = $1 AND is_display`, input.SourceID)
+		if err != nil {
+			slog.Error("MergeItems demote source display alias failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
 		_, err = tx.Exec(r.Context(), `UPDATE item_aliases SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
 			slog.Error("MergeItems re-point aliases failed", "error", err)
@@ -336,7 +347,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 		if vendorID != "" {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at,
+				       pe.card_holder, pe.card_last4
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
@@ -348,7 +360,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 		} else {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at,
+				       pe.card_holder, pe.card_last4
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE (pe.mercury_category IS NULL OR pe.mercury_category = ANY($1))
@@ -369,7 +382,8 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			var pe PurchaseEvent
 			var receiptURLsJSON []byte
 			if err := rows.Scan(&pe.ID, &pe.VendorID, &pe.VendorName, &pe.BankTxID,
-				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt); err != nil {
+				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt,
+				&pe.CardHolder, &pe.CardLast4); err != nil {
 				slog.Error("ListPurchaseEvents scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -388,10 +402,14 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 		// Load line items for each event
 		for i := range events {
 			liRows, err := pool.Query(r.Context(), `
-				SELECT id, purchase_event_id, purchase_item_id,
-				       description, quantity, price, is_case
-				FROM purchase_line_items
-				WHERE purchase_event_id = $1`,
+				SELECT li.id, li.purchase_event_id, li.purchase_item_id,
+				       COALESCE(pi.description, ''),
+				       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = li.purchase_item_id), '{}'),
+				       item_display_name(li.purchase_item_id, COALESCE(pi.description, li.description)),
+				       li.description, li.quantity, li.price, li.is_case
+				FROM purchase_line_items li
+				LEFT JOIN purchase_items pi ON pi.id = li.purchase_item_id
+				WHERE li.purchase_event_id = $1`,
 				events[i].ID,
 			)
 			if err != nil {
@@ -404,7 +422,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			for liRows.Next() {
 				var li LineItem
 				if err := liRows.Scan(&li.ID, &li.PurchaseEventID, &li.PurchaseItemID,
-					&li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
+					&li.ItemName, &li.ItemAliases, &li.ItemDisplayName, &li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
 					slog.Error("ListPurchaseEvents line_item scan failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return
@@ -432,6 +450,12 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(r.Context(), `
 			SELECT
 				sub.description,
+				-- The label. sub.description stays the row's identity (it keys
+				-- stock_count_overrides and the UI's expanded-row map), so the
+				-- promoted alias is resolved into a SEPARATE column rather than
+				-- swapped in over it — renaming what the crew calls an item must
+				-- not orphan its manual stock count.
+				item_display_name(sub.purchase_item_id, sub.description) AS display_name,
 				sub.group_name,
 				COALESCE(sco.quantity, sub.total_quantity) AS total_quantity,
 				sub.total_spend,
@@ -474,7 +498,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var rawRows []stockRow
 		for rows.Next() {
 			var row stockRow
-			if err := rows.Scan(&row.s.Description, &row.s.GroupName,
+			if err := rows.Scan(&row.s.Description, &row.s.DisplayName, &row.s.GroupName,
 				&row.s.TotalQuantity, &row.s.TotalSpend, &row.s.AvgPrice, &row.s.LastPurchaseDate,
 				&row.s.LowThreshold, &row.s.HighThreshold, &row.purchaseItemID); err != nil {
 				slog.Error("GetStock scan failed", "error", err)
@@ -666,8 +690,9 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
-			       reason, parse_error, mercury_category, items,
-			       confirmed_at, confirmed_by, discarded_at, created_at
+			       reason, parse_error, retry_requested_at, mercury_category, items,
+			       confirmed_at, confirmed_by, discarded_at, created_at,
+			       card_holder, card_last4
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
 			  AND (mercury_category IS NULL OR mercury_category = ANY($1))
@@ -688,8 +713,9 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool, cogsAllowlist []string) htt
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
-				&p.Reason, &p.ParseError, &p.MercuryCategory, &p.Items,
+				&p.Reason, &p.ParseError, &p.RetryRequestedAt, &p.MercuryCategory, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+				&p.CardHolder, &p.CardLast4,
 			); err != nil {
 				slog.Error("ListPendingPurchases scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
@@ -746,11 +772,11 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// 260605-pk1 flow). Parse-failed rows must be itemized or discarded.
 		var bankTxID string
 		var bankTotal float64
-		var pendingReason sql.NullString
+		var pendingReason, cardHolder, cardLast4 sql.NullString
 		err = tx.QueryRow(r.Context(),
-			`SELECT bank_tx_id, bank_total, reason FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			`SELECT bank_tx_id, bank_total, reason, card_holder, card_last4 FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 			input.ID,
-		).Scan(&bankTxID, &bankTotal, &pendingReason)
+		).Scan(&bankTxID, &bankTotal, &pendingReason, &cardHolder, &cardLast4)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
 			return
@@ -810,10 +836,10 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Create the real purchase event
 		var eventID string
 		err = tx.QueryRow(r.Context(), `
-			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, card_holder, card_last4)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id`,
-			vendorID, bankTxID, input.EventDate, eventTax, eventTotal,
+			vendorID, bankTxID, input.EventDate, eventTax, eventTotal, cardHolder, cardLast4,
 		).Scan(&eventID)
 		if err != nil {
 			slog.Error("ConfirmPendingPurchase insert event failed", "error", err)
@@ -996,41 +1022,37 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		hasParseError := parseError.Valid && parseError.String != ""
 
-		switch {
-		case hasParseError || itemsMismatch:
-			// Unified retry reset: clear items + reason + parse_error so the
-			// row matches the worker's parseFailedRetry upgrade gate, which
-			// requires reason='Receipt could not be parsed automatically'
-			// AND items=[] AND parse_error IS NULL. Previously the two
-			// branches were mutually exclusive — a row with BOTH
-			// parse_error set AND items populated (the state c43ff15's
-			// retry-loop persistence creates on validate-fail) would only
-			// clear parse_error, leaving items + the validate-fail reason
-			// in place; the worker would then skip on the next sync.
-			if _, err := pool.Exec(r.Context(),
-				`UPDATE pending_purchases
-				    SET items = '[]'::jsonb,
-				        reason = 'Receipt could not be parsed automatically',
-				        parse_error = NULL
-				  WHERE id = $1`,
-				id,
-			); err != nil {
-				slog.Error("RetryParsePendingPurchase update failed", "error", err)
-				writeError(w, http.StatusInternalServerError, "internal_error")
-				return
-			}
-			slog.Info("RetryParse: row re-queued",
-				"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
-				"line_total", lineTotal, "bank_total", absBank)
-		default:
-			// parse_error NULL AND items match totals (or items empty) —
-			// nothing to retry.
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
-				"error":  "nothing_to_retry",
-				"reason": "row has no parse_error to clear and items match bank_total",
-			})
+		// Re-arming is now a flag, not a demolition. This used to run
+		//
+		//     SET items = '[]'::jsonb,
+		//         reason = 'Receipt could not be parsed automatically',
+		//         parse_error = NULL
+		//
+		// because the worker's upgrade gate recognised an eligible row by
+		// "no parse_error AND no items" — so asking for a retry meant deleting
+		// the cause the operator wanted explained and the line items they
+		// wanted pre-filled, and (since inventory.html gates the button on
+		// those same fields) removing the button. retry_requested_at carries
+		// the request instead; parse_error and items survive untouched.
+		//
+		// Eligibility is no longer decided here. Whether a receipt can actually
+		// be re-read depends on Mercury still holding the attachment, which this
+		// handler cannot see — the worker checks len(tx.Attachments) and skips
+		// otherwise, so an unfulfillable request costs one nulled column. The
+		// old branch refused every row whose parse produced a clean-looking but
+		// wrong result, and refused a second attempt on any already-retried row;
+		// the operator's point stands, they should all be retryable.
+		if _, err := pool.Exec(r.Context(),
+			`UPDATE pending_purchases SET retry_requested_at = now() WHERE id = $1`,
+			id,
+		); err != nil {
+			slog.Error("RetryParsePendingPurchase update failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		slog.Info("RetryParse: row re-queued",
+			"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
+			"line_total", lineTotal, "bank_total", absBank)
 
 		// Re-fetch and return the updated row using the same projection
 		// ListPendingPurchasesHandler uses, so the FE response shape matches.
@@ -1053,15 +1075,17 @@ func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string
 	err := pool.QueryRow(ctx, `
 		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 		       tax, total, total_units, total_cases, receipt_url, receipt_urls,
-		       reason, parse_error, items,
-		       confirmed_at, confirmed_by, discarded_at, created_at
+		       reason, parse_error, retry_requested_at, items,
+		       confirmed_at, confirmed_by, discarded_at, created_at,
+		       card_holder, card_last4
 		FROM pending_purchases
 		WHERE id = $1`, id,
 	).Scan(
 		&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
-		&p.Reason, &p.ParseError, &p.Items,
+		&p.Reason, &p.ParseError, &p.RetryRequestedAt, &p.Items,
 		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+		&p.CardHolder, &p.CardLast4,
 	)
 	if err == nil && len(receiptURLsJSON) > 0 {
 		_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
@@ -1080,6 +1104,8 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Reason     string          `json:"reason"`
 			Items      json.RawMessage `json:"items"`
 			ReceiptURL *string         `json:"receipt_url,omitempty"`
+			CardHolder *string         `json:"card_holder,omitempty"`
+			CardLast4  *string         `json:"card_last4,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -1090,10 +1116,10 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		var id string
 		err := pool.QueryRow(r.Context(), `
-			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, event_date, reason, items, receipt_url)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, event_date, reason, items, receipt_url, card_holder, card_last4)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id`,
-			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL,
+			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL, input.CardHolder, input.CardLast4,
 		).Scan(&id)
 		if err != nil {
 			slog.Error("SeedPendingPurchase insert failed", "error", err)
@@ -1109,7 +1135,9 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
 			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location, pi.location_in_store, pi.photo_url,
-			       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = pi.id), '{}')
+			       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = pi.id), '{}'),
+			       item_display_name(pi.id, pi.description),
+			       COALESCE((SELECT ia.alias FROM item_aliases ia WHERE ia.purchase_item_id = pi.id AND ia.is_display LIMIT 1), '')
 			FROM purchase_items pi
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
@@ -1123,7 +1151,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := []PurchaseItem{}
 		for rows.Next() {
 			var item PurchaseItem
-			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL, &item.Aliases); err != nil {
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL, &item.Aliases, &item.DisplayName, &item.DisplayAlias); err != nil {
 				slog.Error("ListItems scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -1137,10 +1165,16 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // CreateItemHandler creates a new purchase item.
 func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// LocationInStore and Aliases were editable ONLY in the Setup editor,
+		// so an item created from the receipt picker came out half-filled and
+		// had to be found and edited again later. Create now takes the same
+		// field set the editor does, in one round trip.
 		var input struct {
-			Description   string  `json:"description"`
-			GroupID       *string `json:"group_id,omitempty"`
-			StoreLocation *string `json:"store_location,omitempty"`
+			Description     string   `json:"description"`
+			GroupID         *string  `json:"group_id,omitempty"`
+			StoreLocation   *string  `json:"store_location,omitempty"`
+			LocationInStore *string  `json:"location_in_store,omitempty"`
+			Aliases         []string `json:"aliases,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -1155,16 +1189,57 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		input.Description = normalizeItemName(input.Description)
+
+		// One transaction: an item whose nicknames failed to save is worse than
+		// no item, because the next receipt silently fails to auto-match and
+		// nothing says why.
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			slog.Error("CreateItem begin tx failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context()) //nolint:errcheck
+
 		var id string
-		err := pool.QueryRow(r.Context(), `
-			INSERT INTO purchase_items (description, group_id, store_location)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description, store_location = COALESCE(EXCLUDED.store_location, purchase_items.store_location)
+		err = tx.QueryRow(r.Context(), `
+			INSERT INTO purchase_items (description, group_id, store_location, location_in_store)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (description) DO UPDATE SET
+				description       = EXCLUDED.description,
+				store_location    = COALESCE(EXCLUDED.store_location, purchase_items.store_location),
+				location_in_store = COALESCE(EXCLUDED.location_in_store, purchase_items.location_in_store)
 			RETURNING id`,
-			input.Description, input.GroupID, input.StoreLocation,
+			input.Description, input.GroupID, input.StoreLocation, input.LocationInStore,
 		).Scan(&id)
 		if err != nil {
 			slog.Error("CreateItem insert failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Same upsert-on-LOWER(alias) rule the alias endpoint and merge use:
+		// latest link wins, and an alias equal to the description is dropped
+		// because description already beats alias at match time.
+		for _, alias := range input.Aliases {
+			alias = strings.TrimSpace(alias)
+			if alias == "" || strings.EqualFold(alias, input.Description) {
+				continue
+			}
+			if _, aErr := tx.Exec(r.Context(), `
+				INSERT INTO item_aliases (purchase_item_id, alias)
+				VALUES ($1, $2)
+				ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id`,
+				id, alias,
+			); aErr != nil {
+				slog.Error("CreateItem alias insert failed", "error", aErr)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+		}
+
+		if cErr := tx.Commit(r.Context()); cErr != nil {
+			slog.Error("CreateItem commit failed", "error", cErr)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1249,7 +1324,13 @@ func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		err = pool.QueryRow(r.Context(), `
 			INSERT INTO item_aliases (purchase_item_id, alias)
 			VALUES ($1, $2)
-			ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id
+			ON CONFLICT (LOWER(alias)) DO UPDATE
+			  SET purchase_item_id = EXCLUDED.purchase_item_id,
+			      -- An alias re-pointed to a different item arrives unpromoted:
+			      -- it was chosen as a label for the item it is LEAVING, and
+			      -- the item it joins may already have a promoted alias (only
+			      -- one is allowed, so keeping the flag would 500 the request).
+			      is_display = false
 			RETURNING id`,
 			input.PurchaseItemID, input.Alias,
 		).Scan(&id)
@@ -1291,6 +1372,90 @@ func DeleteItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// SetItemAliasDisplayHandler promotes one of an item's aliases to be the name
+// every screen shows for it, or clears the promotion when Alias is empty.
+//
+// This is the write half of item_display_name(): the crew taps a chip in the
+// Setup editor and that alias becomes the label on Stock, Reorder, Recipes,
+// the shopping list and the receipt lines, while purchase_items.description
+// stays exactly as it was. The description is still the catalog identity —
+// it keys stock counts and wins every auto-match — so promoting a nickname is
+// a display act with no data consequence, and clearing it restores the
+// description without losing the alias itself.
+func SetItemAliasDisplayHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			PurchaseItemID string `json:"purchase_item_id"`
+			Alias          string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.PurchaseItemID == "" {
+			writeError(w, http.StatusBadRequest, "purchase_item_id_required")
+			return
+		}
+		input.Alias = strings.TrimSpace(input.Alias)
+
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			slog.Error("SetItemAliasDisplay begin failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context())
+
+		// Demote first, unconditionally. Promotion is a radio button, not a
+		// checkbox, and doing it in two statements inside one transaction is
+		// what keeps the partial unique index from seeing two promoted rows.
+		if _, err := tx.Exec(r.Context(),
+			`UPDATE item_aliases SET is_display = false WHERE purchase_item_id = $1 AND is_display`,
+			input.PurchaseItemID,
+		); err != nil {
+			slog.Error("SetItemAliasDisplay demote failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Empty alias = "go back to the catalog description". Nothing else to do.
+		if input.Alias != "" {
+			tag, err := tx.Exec(r.Context(),
+				`UPDATE item_aliases SET is_display = true WHERE purchase_item_id = $1 AND LOWER(alias) = LOWER($2)`,
+				input.PurchaseItemID, input.Alias,
+			)
+			if err != nil {
+				slog.Error("SetItemAliasDisplay promote failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			if tag.RowsAffected() == 0 {
+				writeError(w, http.StatusNotFound, "alias_not_found")
+				return
+			}
+		}
+
+		var displayName string
+		if err := tx.QueryRow(r.Context(),
+			`SELECT item_display_name(id, description) FROM purchase_items WHERE id = $1`,
+			input.PurchaseItemID,
+		).Scan(&displayName); err != nil {
+			writeError(w, http.StatusNotFound, "item_not_found")
+			return
+		}
+
+		if err := tx.Commit(r.Context()); err != nil {
+			slog.Error("SetItemAliasDisplay commit failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"display_name":  displayName,
+			"display_alias": input.Alias,
+		})
 	}
 }
 

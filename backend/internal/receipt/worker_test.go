@@ -421,6 +421,8 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 // must NOT call parseReceipt).
 type workerStubs struct {
 	txns            []MercuryTransaction
+	cards           map[string]MercuryCard // who-swiped seam; nil → empty map
+	cardsErr        error                  // non-nil → the lookup fails (must be non-fatal)
 	parseItems      []ReceiptItem
 	parseSummary    ReceiptSummary
 	parseErr        error
@@ -447,6 +449,18 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 		return s.txns, nil
 	}
 	t.Cleanup(func() { fetchTransactions = origFetch })
+
+	origCards := fetchCards
+	fetchCards = func(_ context.Context, _ string) (map[string]MercuryCard, error) {
+		if s.cardsErr != nil {
+			return nil, s.cardsErr
+		}
+		if s.cards == nil {
+			return map[string]MercuryCard{}, nil
+		}
+		return s.cards, nil
+	}
+	t.Cleanup(func() { fetchCards = origCards })
 
 	origParse := parseReceipt
 	parseReceipt = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
@@ -1051,7 +1065,7 @@ func TestClassifyExistingTx(t *testing.T) {
 
 	t.Run("empty DB returns none", func(t *testing.T) {
 		resetReceiptFixtures(t)
-		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "no-such-tx")
+		kind, reason, _, _, _, err := classifyExistingTx(t.Context(), testPool, "no-such-tx")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -1072,7 +1086,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-pending")
+		kind, reason, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-pending")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -1097,7 +1111,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-discarded")
+		kind, _, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-discarded")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -1117,7 +1131,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-confirmed")
+		kind, _, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-confirmed")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -1141,7 +1155,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed event: %v", err)
 		}
-		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-event")
+		kind, reason, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-event")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -1165,7 +1179,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, reason, _, hasItems, err := classifyExistingTx(t.Context(), testPool, "T-cls-legacy-null")
+		kind, reason, _, hasItems, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-legacy-null")
 		if err != nil {
 			t.Fatalf("classify must not error on legacy items='null' rows: %v", err)
 		}
@@ -1437,10 +1451,11 @@ func TestRunIngestCycle_FallsBackToSonnet(t *testing.T) {
 }
 
 // TestRunIngestCycle_BothModelsFail_StoresParseError covers the double-fail
-// path: pending row created with parse_error containing both error strings
-// concatenated as "sonnet: <primary>; sonnet-retry: <retry>" (Sonnet is the
-// primary model now — see parser.go; the stub error text here happens to spell
-// "haiku"/"sonnet" so the substring checks still exercise both attempts).
+// path: pending row created with parse_error carrying the CAUSE of the failure
+// and nothing else. The stored string used to be
+// "sonnet: <primary>; sonnet-retry: <retry>" — the operator reads this text on
+// the pending card, and which model ran is a log concern, so the model names
+// and the seams' wrapper prefixes are stripped (see parseFailureCause).
 func TestRunIngestCycle_BothModelsFail_StoresParseError(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -1589,6 +1604,9 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		wantPendingReview int
 		wantPendingReason string   // substring match
 		wantParseErrParts []string // substrings that MUST appear in pending.parse_error (empty list = column should be NULL)
+		// substrings that must NOT appear: the card shows this text to the
+		// operator, so model names and internal wrapper prefixes are leaks.
+		wantParseErrAbsent []string
 		wantSonnetCalled  bool
 		wantDLCallCount   int // expected number of downloadReceiptFileFn calls; 0 means "don't check"
 	}{
@@ -1618,7 +1636,8 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			amount:            -42.50,
 			wantPendingReview: 1,
 			wantPendingReason: "Receipt could not be parsed automatically",
-			wantParseErrParts: []string{"sonnet:", "sonnet-retry:", "529 overloaded", "invalid character"},
+			wantParseErrParts: []string{"529 overloaded", "invalid character"},
+			wantParseErrAbsent: []string{"sonnet", "haiku", "ParseReceipt"},
 			wantSonnetCalled:  true,
 		},
 		{
@@ -1630,7 +1649,8 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantPendingReview: 1,
 			wantPendingReason: "Receipt could not be parsed automatically",
 			// Locks in that today's exact error substring is preserved end-to-end.
-			wantParseErrParts: []string{"sonnet:", "sonnet-retry:", "40.0", "type int"},
+			wantParseErrParts: []string{"40.0", "type int"},
+			wantParseErrAbsent: []string{"sonnet", "haiku", "ParseReceipt"},
 			wantSonnetCalled:  true,
 		},
 		{
@@ -2053,6 +2073,11 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 					for _, part := range tc.wantParseErrParts {
 						if !strings.Contains(parseError.String, part) {
 							t.Errorf("parse_error %q missing substring %q", parseError.String, part)
+						}
+					}
+					for _, banned := range tc.wantParseErrAbsent {
+						if strings.Contains(strings.ToLower(parseError.String), strings.ToLower(banned)) {
+							t.Errorf("parse_error %q leaks %q to the operator", parseError.String, banned)
 						}
 					}
 				}

@@ -223,6 +223,7 @@ WITH window_spend AS (
 SELECT
   pi.id::text                                            AS purchase_item_id,
   pi.description                                         AS description,
+  item_display_name(pi.id, pi.description)               AS display_name,
   ROUND(COALESCE(ws.spend_incl_tax, 0)::numeric, 2)      AS last_week_spend,
   COALESCE((SELECT SUM(r2.usage_pct) FROM recipes r2 WHERE r2.purchase_item_id = pi.id), 0) AS sum_pct
 FROM purchase_items pi
@@ -238,7 +239,7 @@ ORDER BY COALESCE(ws.spend_incl_tax, 0) DESC, pi.description ASC`, from, to)
 	indexByID := map[string]int{}
 	for rows.Next() {
 		var ing IngredientWithSpend
-		if err := rows.Scan(&ing.PurchaseItemID, &ing.Description, &ing.LastWeekSpend, &ing.SumPct); err != nil {
+		if err := rows.Scan(&ing.PurchaseItemID, &ing.Description, &ing.DisplayName, &ing.LastWeekSpend, &ing.SumPct); err != nil {
 			return nil, err
 		}
 		ing.Recipes = []RecipeWithMenu{}

@@ -386,6 +386,9 @@ func main() {
 	// dead store is an explicit startup error, and keep probing (30s cache) so
 	// /api/v1/health reports "storage": ok|unreachable|unconfigured live.
 	storageHealth := photos.NewStorageHealth(spacesClient, spacesBucket, 30*time.Second)
+	// Same TTL as storage: the launcher re-checks on a 60s timer, so a shorter
+	// one buys nothing and a longer one hides a substrate that just died.
+	substrateHealth := opsync.NewSubstrateHealth(os.Getenv(opsync.ProxyRESTURLEnv), 30*time.Second)
 	go func() {
 		if status := storageHealth.Status(ctx); status == photos.StorageOK {
 			slog.Info("object storage reachable", "bucket", spacesBucket)
@@ -500,6 +503,10 @@ func main() {
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
 				"storage":          storageHealth.Status(r.Context()),
+				// Substrate behind Marketing scan/redeem. "unconfigured" (the
+				// normal state outside a sync deploy) is NOT a warning — see
+				// sync.SubstrateHealth.
+				"sync_substrate": substrateHealth.Status(r.Context()),
 				// B-146 fail-loud: Toast sync last-run status. A dead SFTP
 				// transport surfaces here as {"status":"failing", ...} instead
 				// of silently landing no data.
@@ -672,6 +679,10 @@ func main() {
 						return receipt.RunIngestCycle(ctx, receiptCfg)
 					}))
 					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
+					// Stop an in-flight run. Sits beside /sync-receipts because
+					// it cancels whichever kind is running — manual, deep, or
+					// reprocess-all all share the single-flight row.
+					r.Post("/sync-receipts/cancel", inventory.CancelSyncHandler(pool))
 					// Deep re-sync over an explicit date range — re-pulls older
 					// transactions so mercury_category on existing rows is refreshed
 					// (the rolling lookback can't reach months-old charges).
@@ -690,6 +701,19 @@ func main() {
 					r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 					r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
 					r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
+					// The per-card re-read: the sweep above narrowed to one row, so a
+					// charge older than the Mercury lookback can still be re-parsed
+					// from its stored receipt without touching every other pending row.
+					r.Post("/purchases/pending/{id}/reprocess", inventory.ReprocessOnePendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
+					}))
+					// "Re-download from source": go back to Mercury for THIS charge's
+					// attachments as they are now (the operator replaced the file, or
+					// paired a purchase with its refund), store them over the old
+					// download, and parse. Offered on Missing Receipt rows too.
+					r.Post("/purchases/pending/{id}/redownload", inventory.RedownloadPendingHandler(pool, func(ctx context.Context, bankTxID string, since time.Time) (string, error) {
+						return receipt.RedownloadFromMercury(ctx, receiptCfg, bankTxID, since)
+					}))
 					r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
 					r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 					r.Get("/stock", inventory.GetStockHandler(pool))
@@ -699,6 +723,7 @@ func main() {
 					r.Post("/items/merge", inventory.MergeItemsHandler(pool))
 					r.Post("/items/aliases", inventory.AddItemAliasHandler(pool))
 					r.Delete("/items/aliases", inventory.DeleteItemAliasHandler(pool))
+					r.Put("/items/aliases/display", inventory.SetItemAliasDisplayHandler(pool))
 					r.Get("/groups", inventory.ListGroupsHandler(pool))
 					r.Post("/groups", inventory.CreateGroupHandler(pool))
 					r.Put("/groups", inventory.UpdateGroupHandler(pool))

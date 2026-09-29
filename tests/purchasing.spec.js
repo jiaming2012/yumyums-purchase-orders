@@ -1061,7 +1061,6 @@ test.describe('Item card Setup deep link', () => {
     // Wait for order to render with at least one item
     const itemInfo = page.locator('.item-info[data-action="goto-setup"]').first();
     await expect(itemInfo).toBeVisible({ timeout: 10000 });
-    const itemName = await itemInfo.locator('.nm').textContent();
     // Click the item info area
     await itemInfo.click();
     // Should navigate to inventory.html
@@ -1071,10 +1070,18 @@ test.describe('Item card Setup deep link', () => {
     const hash = await page.evaluate(() => location.hash);
     expect(hash).toContain('tab=7');
     expect(hash).toContain('item=');
-    // Setup tab should be visible with the item edit form
+    // Setup tab should be visible with the item edit form — and it must be THIS
+    // item's form. Asserted by id, not by comparing the PO card's label to the
+    // Setup Name box: those are two different strings by design once an item
+    // has a promoted nickname (item_aliases.is_display — the card shows the
+    // nickname, the Name box shows the catalog description). This assertion
+    // used to be string equality and went red the moment any item in the
+    // catalog carried a nickname, which said nothing about the navigation.
     await page.waitForSelector('.item-edit-form', { timeout: 10000 });
-    const editName = await page.locator('.item-edit-name').inputValue();
-    expect(editName.toLowerCase()).toBe(itemName.toLowerCase());
+    await expect(page.locator('.item-edit-form[data-item-id="' + items[0].id + '"]')).toBeVisible();
+    // And the Name box holds the CATALOG description, which is the identity.
+    const editName = await page.locator('.item-edit-form[data-item-id="' + items[0].id + '"] .item-edit-name').inputValue();
+    expect(editName.toLowerCase()).toBe(items[0].description.toLowerCase());
   });
 });
 
