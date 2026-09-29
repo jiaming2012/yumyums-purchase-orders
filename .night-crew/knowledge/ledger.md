@@ -4253,3 +4253,71 @@ between a redemption and its audit record, plus the boot-offline no-submit postu
 as intended). Test data (LEG3-ATTEST campaigns/codes, the attempt row) left in the spike
 substrate; the codes were reset once mid-sitting after an online redeem burned the $10 code
 before the offline branch completed — retried cleanly.
+
+- **2026-09-29 — Re-arming a parse retry → a dedicated `retry_requested_at` column, not two overloaded ones.**
+  "Retry parse" signalled the worker by making a row LOOK unparsed: `items='[]'`,
+  `parse_error=NULL`. The worker's upgrade gate recognised eligibility by their absence, so
+  asking WHY a receipt failed deleted the answer, deleted the partial line items the operator
+  wanted pre-filled, and (since `renderPendingCard` gated the button on the same two fields)
+  removed the button. A row was retryable exactly once, and doing so made it strictly less
+  reviewable. Resolution: migration 0079 adds `retry_requested_at`; the worker gates on it and
+  clears it on reprocess, and the data survives. Rejected: (a) keep the gate and add a
+  `last_parse_error` shadow column — two columns for one fact, and the items problem remains;
+  (b) infer "retry wanted" from a timestamp comparison — same overloading, less legible.
+  *Rationale: a signal and the data it is about must not be the same field.*
+
+- **2026-09-29 — Cancel semantics for a sync in flight → hard stop, keep completed work.**
+  Operator chose: stop immediately, abandon the receipt mid-parse (it stays pending), keep the
+  results of receipts already finished. Rejected: (a) finish the in-flight receipt first — the
+  model call is already paid for, but the operator pressed stop and should get one; (b) roll
+  the whole run back — needs a per-run undo log that does not exist, and throws away good work.
+  `cancelled` is a TERMINAL status distinct from `failed` (migration 0080): nothing went wrong,
+  a person decided, and the chip says "stopped after N. Nothing was undone."
+  *Rationale: each receipt is independently parsed and persisted, so partial completion is a
+  real outcome, not a broken state.*
+
+- **2026-09-29 — Cancel race → the UPDATE wins, guarded by `status='running'`.**
+  A goroutine noticing its dead context a moment after the handler moved the row would write
+  `failed: context canceled` over the cancel, showing the operator an error for something they
+  chose. Every terminal write goes through `finishSyncRun`, which carries a `status='running'`
+  guard, so whichever lands first wins and the loser is a no-op. Terminal writes also take a
+  context the cancel cannot reach — cancelling the run must not cancel the UPDATE recording it.
+  *Rationale: the loud-failure posture is for real failures; a chosen stop is not one.*
+
+- **2026-09-29 — Health-warning freshness → bypass the service worker, re-check on a timer.**
+  Same account showed the storage banner on desktop and not on a phone. Two causes: `/api/`
+  matches `build-sw.js`'s NetworkFirst rule (a stale `storage: ok` served from `api-cache` after
+  the 10s timeout), and the check ran once at load. Resolution: `cache:'no-store'` AND a unique
+  query string (either alone observed insufficient on iOS), re-checked every 60s and on focus.
+  A failed fetch is now itself a warning — it used to be swallowed by a bare `catch(e){}`, so
+  the most important failure was the one guaranteed to be silent. Rejected: re-check on focus
+  only (misses a phone left in the foreground).
+
+- **2026-09-29 — `unconfigured` is silence, not a warning.**
+  `storage` and `sync_substrate` both report `unconfigured` outside a deploy that sets them.
+  Warning about it on every launcher load is how a crew learns to ignore the banner that
+  matters. Only `unreachable` / `failing` raise a bubble.
+  *Rationale: a warning that is always on is not a warning.*
+
+- **2026-09-29 — Warning scope → the launcher plus the tool the failure affects.**
+  Launcher carries all four checks (it stands for the whole app); Inventory takes Toast (reads
+  sales for COGS), Onboarding and Operations take storage (they capture photos), Marketing takes
+  the substrate. Rejected: (a) launcher only — someone deep-linked into a tool from their home
+  screen never sees it; (b) every page, same block — shows Onboarding a Toast warning that means
+  nothing to the person reading it. *Rationale: a warning shown where it cannot be acted on is
+  the same noise as no warning.*
+
+- **2026-09-29 — Bulk re-parse button renamed to "Retry Parse (All Receipts)".**
+  "Reprocess All Pending" named neither what it reprocesses nor its one distinguishing property
+  (it re-reads STORED receipts, so it is the only path that reaches a charge older than the
+  14-day Mercury window). It also over-promised: the "Needs review (N)" chip counts every open
+  pending row including Missing Receipt ones, which it skips (`receipt_url IS NOT NULL`).
+  Rejected "Reprocess All Needs Review" for exactly that reason. The new name matches the
+  per-row "Retry parse" verb so the card button reads as its single-row version.
+
+- **2026-09-29 — Deep Sync → a checkbox that redirects the primary button, not a second button.**
+  Ticking it still opens the date modal (the only place the 200/400-day range lives, so running
+  straight from the checkbox would make the range unreachable); the button relabels to "Deep Sync
+  Receipts…" on tick so it states which run it will start before it is pressed; and it unticks
+  itself once a deep run starts, because a checkbox that silently survives turns the next
+  ordinary press into another months-wide re-pull.
