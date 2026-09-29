@@ -1813,19 +1813,25 @@ test.describe('Inventory', () => {
     }, txId);
     await page.reload();
     await waitForHistoryContent(page);
-    // Find a pending card and open it
+    // Find a pending card and open it — via the vendor line, never the card
+    // centre: every pending card carries Retry parse + Re-download buttons
+    // mid-card, and a centre click lands on one of them (bugs.md, "A UI
+    // change that moves a tap target under existing tests").
     const pendingCards = page.locator('[data-action="review-pending"]');
     const count = await pendingCards.count();
+    let found = false;
     for (let i = 0; i < count; i++) {
-      await pendingCards.nth(i).click();
+      await pendingCards.nth(i).locator('.event-vendor').click();
       const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]');
       if (await receiptBtn.count() > 0) {
         await expect(receiptBtn.first()).toContainText('View Original Receipt');
+        found = true;
         break;
       }
       // Close and try next
-      await pendingCards.nth(i).click();
+      await page.locator('.review-form-title').first().click();
     }
+    expect(found).toBe(true);
   });
 
   test('view receipt button opens fullscreen overlay', async ({ page }) => {
@@ -3996,7 +4002,7 @@ test.describe('PDF receipt iframe (260607-e1c)', () => {
     // Open the pending row's review form (tap the card).
     const card = page.locator('[data-action="review-pending"][data-id="pdf-1"]');
     await expect(card).toBeVisible();
-    await card.click();
+    await card.locator('.event-vendor').click(); // vendor line, never the card centre — buttons live mid-card (bugs.md)
 
     // The review form exposes the view-receipt button.
     const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]').first();
@@ -4067,7 +4073,7 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-empty-parsefail"]');
     await expect(card).toBeVisible();
-    await card.click();
+    await card.locator('.event-vendor').click(); // vendor line, never the card centre — buttons live mid-card (bugs.md)
     const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-empty-parsefail"]');
     await expect(btn).toBeVisible();
     await expect(btn).toBeDisabled();
@@ -4091,7 +4097,7 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-match"]');
     await expect(card).toBeVisible();
-    await card.click();
+    await card.locator('.event-vendor').click(); // vendor line, never the card centre — buttons live mid-card (bugs.md)
     const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-match"]');
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();

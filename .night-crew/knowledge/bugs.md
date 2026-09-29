@@ -56,6 +56,37 @@ parse-error cards; the change made it universal.
 *Handling:* tests open a pending review form via `.event-vendor`, never the card
 centre. A mass timeout in one screen's suite after a UI change is this shape.
 
+**A test that reads a UI label as proof of identity.** purchasing.spec.js
+"Item card Setup deep link" asserted the PO card's label equals the Setup Name
+box, as a proxy for "the right item opened". That equality only ever held
+because no item had a nickname; the first feature to give an item a display
+name distinct from its description (promoted aliases, 2026-09-29) tripped it,
+and the test picked `items[0]` from a description-sorted list, so the seeded
+row landed first. Found by a peer session; fixed by asserting the edit form's
+`data-item-id` and checking the Name box separately.
+*Handling:* identity is an id. A test that needs "the right record opened"
+asserts the id (or a seeded unique tag), and asserts the label as a second,
+separate fact. Any change that splits what a thing is CALLED from what it IS
+should grep the specs for label-equality assertions before it lands.
+
+**Assertions against a database nobody resets.** `playwright.config.js` runs
+`workers: 1`, and the E2E DB is reset once per RUN (`scripts/reset-e2e-db.js` in
+`webServer.command`), never between tests — so every test inherits everything
+the tests before it seeded. Assertions written against global counts are
+therefore order-dependent: FR-11 does `toHaveCount(1)` on cards matching the
+substring `$10.00`, and "page 2 excludes a page-1 event" reasons about a 50-row
+page. On 2026-09-29 four full runs at the same commit produced four different
+failing sets (view-receipt, PDF-iframe, Confirm-disabled ×2, FR-11, No-photo-
+badge, Setup-deep-link, alias-chips — every one green when run alone), and the
+set shifts whenever anyone adds a test that seeds. Found by a peer session's
+attribution runs while two sessions were also racing on the same DB (see the
+shared-tree memory) — the two effects look identical from one run's output.
+*Handling:* a test that asserts a count must scope it to what IT seeded (a
+unique vendor/tag in the locator, or a filter that only its rows satisfy), never
+to the whole list. Before blaming a change for a multi-spec red, run each red
+alone: a test that passes in isolation and fails in the suite is this class,
+not a regression — but it is still a defect in the test, not weather.
+
 ## Not regressions — do not chase
 
 **`internal/sync` failing with "THE SYNC SUBSTRATE COULD NOT BE RESOLVED".**
