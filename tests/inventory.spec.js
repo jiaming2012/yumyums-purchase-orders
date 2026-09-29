@@ -4701,8 +4701,9 @@ test.describe('Inventory prove sweep — Purchases', () => {
   // vendors + confirmed events. Observable:
   //  (a) GET /purchases?vendor_id=A returns ONLY vendor A's events;
   //  (b) the UI #vendor-filter narrows the rendered event-cards to vendor A;
-  //  (c) GET /purchases?page=2 uses LIMIT 50 OFFSET 50 (page 2 excludes a
-  //      just-created page-1 event).
+  //  (c) GET /purchases?vendor_id=C&page=N pages a 51-row vendor as 50 + 1,
+  //      splits the same way on every read, and orders same-date rows
+  //      newest-created first (event_date DESC, created_at DESC, id DESC).
   test('FR-11: vendor filter + pagination work against a real seed', async ({ page }) => {
     const stamp = Date.now();
     const vA = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Alpha ' + stamp });
@@ -4747,24 +4748,58 @@ test.describe('Inventory prove sweep — Purchases', () => {
       return sel && Array.from(sel.options).some(o => o.value === vid);
     }, vA.id, { timeout: 5000 });
     await select.selectOption(vA.id);
-    await waitForHistoryContent(page);
+    // The change handler calls loadHistory(), which clears #history-list and
+    // re-renders from the vendor-scoped payload. waitForHistoryContent resolves
+    // on the OLD cards (still in the DOM until the reload lands), and a snapshot
+    // cards.count() taken in that window read 0 mid-render — B-156's shape.
+    // Retrying expectations only; no snapshots.
     const cards = page.locator('.event-card:not([data-action="review-pending"])');
-    const cardCount = await cards.count();
     // Exactly vendor A's single seeded event is shown (its $10.00 total),
     // and vendor B's $20.00 event is filtered out.
-    expect(cardCount).toBeGreaterThanOrEqual(1);
-    await expect(cards.filter({ hasText: '$10.00' })).toHaveCount(1);
-    await expect(page.locator('.event-card:not([data-action="review-pending"])').filter({ hasText: '$20.00' })).toHaveCount(0);
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText('$10.00');
+    await expect(cards.filter({ hasText: '$20.00' })).toHaveCount(0);
 
-    // (c) Pagination: page 2 (OFFSET 50) excludes a fresh page-1 event.
-    const page1 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=1')).json());
-    const page2 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=2')).json());
-    expect(Array.isArray(page1)).toBe(true);
-    expect(Array.isArray(page2)).toBe(true);
-    expect(page1.length).toBeLessThanOrEqual(50); // LIMIT 50 enforced
-    // The just-seeded vendor-A event is on page 1 and must NOT also be on page 2.
-    expect(page1.some(ev => ev.id === evA.id)).toBe(true);
-    expect(page2.some(ev => ev.id === evA.id)).toBe(false);
+    // (c) Pagination, scoped to a THIRD fresh vendor so every assertion reads
+    // only rows this test seeded. The previous version asserted that evA sat
+    // on UNFILTERED page 1 and not on page 2 — true only while fewer than 50
+    // events dated >= 2026-04-15 existed in the shared, never-truncated E2E
+    // database at that point in the run (bugs.md, "Assertions against a
+    // database nobody resets"). 51 rows dated 2020-01-01 sort BELOW every
+    // other test's 2026 rows in the global list, so they displace nobody.
+    // All 51 share one event_date on purpose: same-date rows are exactly the
+    // case where ORDER BY event_date alone is not a total order, and where a
+    // page boundary can show a row on both pages or on neither. The contract
+    // is event_date DESC, created_at DESC, id DESC — a same-day batch lists
+    // newest-created first and the page split is stable across reads.
+    const vC = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Charlie ' + stamp });
+    expect(vC && vC.id).toBeTruthy();
+    const seededIds = [];
+    for (let i = 0; i < 51; i++) {
+      const ev = await seedPurchaseEvent(page, {
+        vendorId: vC.id, bankTxId: 'fr11-c-' + stamp + '-' + i, eventDate: '2020-01-01',
+        total: 1, lineItems: [{ description: 'C item', quantity: 1, price: 1 }],
+      });
+      expect(ev && ev.id).toBeTruthy();
+      seededIds.push(ev.id);
+    }
+    const listPage = (n) => page.evaluate(async ([vid, pg]) => {
+      const r = await fetch('/api/v1/inventory/purchases?vendor_id=' + vid + '&page=' + pg);
+      return r.json();
+    }, [vC.id, n]);
+    const p1 = await listPage(1);
+    const p2 = await listPage(2);
+    const p3 = await listPage(3);
+    expect(p1.length).toBe(50); // LIMIT 50
+    expect(p2.length).toBe(1);  // OFFSET 50
+    expect(p3.length).toBe(0);
+    // Newest-created first within the same date: page 1 is seeds 50..1,
+    // page 2 is seed 0. This is also what proves no row is on both pages or
+    // on neither.
+    expect(p1.map(ev => ev.id)).toEqual(seededIds.slice(1).reverse());
+    expect(p2.map(ev => ev.id)).toEqual([seededIds[0]]);
+    // A second read splits identically — the boundary is stable, not luck.
+    expect((await listPage(1)).map(ev => ev.id)).toEqual(p1.map(ev => ev.id));
   });
 });
 
