@@ -5533,10 +5533,16 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
             { id: 'li-orphan', purchase_event_id: 'ev-1', description: 'Mystery Line', quantity: 1, price: 12.10, is_case: false },
             // Auto-added by the receipt worker: the catalog item is named with the
             // receipt text itself, and the crew typed "Shrimp" as its nickname.
-            { id: 'li-nick', purchase_event_id: 'ev-1', purchase_item_id: 'it-shr', item_name: 'Shr 21/25 Rpdt/Off 2 Lbs', item_aliases: ['Shrimp'], description: 'Shr 21/25 Rpdt/Off 2 Lbs', quantity: 5, price: 12.10, is_case: true },
+            // 'Shrimp' is the PROMOTED alias (item_aliases.is_display), so the
+            // server resolves the label to it. Before migration 0081 the page
+            // guessed it out of the alias bag; the assertions below are
+            // unchanged, which is the point — the contract moved, not the UI.
+            { id: 'li-nick', purchase_event_id: 'ev-1', purchase_item_id: 'it-shr', item_name: 'Shr 21/25 Rpdt/Off 2 Lbs', item_aliases: ['Shrimp'], item_display_name: 'Shrimp', description: 'Shr 21/25 Rpdt/Off 2 Lbs', quantity: 5, price: 12.10, is_case: true },
             // Renamed in Setup: the receipt text was auto-learned as the nickname,
             // which must not win over the real name.
-            { id: 'li-renamed', purchase_event_id: 'ev-1', purchase_item_id: 'it-sam', item_name: 'Samosa Jumbo', item_aliases: ['Fz Jumbo Samosa 6/25'], description: 'Fz Jumbo Samosa 6/25', quantity: 1, price: 18.69, is_case: false },
+            // Nothing promoted here — the only alias is the auto-learned receipt
+            // text — so the label is just the catalog name.
+            { id: 'li-renamed', purchase_event_id: 'ev-1', purchase_item_id: 'it-sam', item_name: 'Samosa Jumbo', item_aliases: ['Fz Jumbo Samosa 6/25'], item_display_name: 'Samosa Jumbo', description: 'Fz Jumbo Samosa 6/25', quantity: 1, price: 18.69, is_case: false },
           ] },
       ]) });
     });
@@ -5603,5 +5609,184 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
     await orphan.click();
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(card.locator('.line-item')).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Promoted nicknames — the app-wide display name (migration 0081)
+//
+// An item auto-created by the receipt worker is named with the raw receipt
+// string, so the Stock and Reorder lists read "100% Cl Hny 24Z Bram". The crew
+// promotes one of the item's aliases (★ in the Setup editor) and every screen
+// switches to it, WITHOUT the catalog description changing — the description
+// keys stock_count_overrides, the expanded-row map and the Setup jump, so a
+// display change that moved it would orphan a manual stock count.
+//
+// The two things these tests exist to catch:
+//   1. showing *an* alias rather than the *promoted* one (renders raw receipt
+//      text, which is worse than the catalog name it replaced);
+//   2. letting the label leak into an identity — the failure the feature is
+//      one refactor away from at all times.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Item display name — promoted nicknames', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  async function seedNamedStockItem(page, { stamp, itemDesc, qty = 2, lowT = 5, highT = 20 }) {
+    const vendor = await invApiCall(page, 'POST', 'vendors', { name: 'Name Vendor ' + stamp });
+    const group = await invApiCall(page, 'POST', 'groups', { name: 'Name Group ' + stamp });
+    await invApiCall(page, 'PUT', 'groups', { id: group.id, low_threshold: lowT, high_threshold: highT });
+    const item = await invApiCall(page, 'POST', 'items', { description: itemDesc, group_id: group.id });
+    expect(item && item.id, 'item create must return an id').toBeTruthy();
+    await seedPurchaseEvent(page, {
+      vendorId: vendor.id, bankTxId: 'name-' + stamp, eventDate: '2026-04-15',
+      total: qty * 4,
+      lineItems: [{ description: itemDesc, quantity: qty, price: 4, purchase_item_id: item.id }],
+    });
+    // CreateItem normalises the description (Go's cases.Title), and THAT
+    // string is the /stock join key and every data-* identity below. Read it
+    // back rather than re-deriving the rule in JS: the two disagree on
+    // digit-leading tokens ("24z" -> "24Z" in Go, "24z" in a \b\w regex).
+    const stored = (await invApiCall(page, 'GET', 'items') || []).find(i => i.id === item.id);
+    expect(stored, 'created item must come back from GET /items').toBeTruthy();
+    return { itemId: item.id, description: stored.description, groupName: 'Name Group ' + stamp };
+  }
+
+  async function addAlias(page, itemId, alias) {
+    const status = await page.evaluate(async ([id, a]) => {
+      const r = await fetch('/api/v1/inventory/items/aliases', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase_item_id: id, alias: a }),
+      });
+      return r.status;
+    }, [itemId, alias]);
+    expect(status, 'alias add must 201').toBe(201);
+  }
+
+  async function promote(page, itemId, alias) {
+    return page.evaluate(async ([id, a]) => {
+      const r = await fetch('/api/v1/inventory/items/aliases/display', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase_item_id: id, alias: a }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [itemId, alias]);
+  }
+
+  // The screenshot that started this: a Reorder row reading "100% Cl Hny 24Z
+  // Bram". After promoting "Honey" it must read Honey — and the row's
+  // data-stock-id must STILL be the catalog description, or scroll-to-item and
+  // the stock-count override both stop finding their row.
+  test('Reorder + Stock rows show the promoted nickname, keyed by the description', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedNamedStockItem(page, { stamp, itemDesc: '100% cl hny 24z bram ' + stamp });
+    await addAlias(page, seed.itemId, 'Honey ' + stamp);
+    const res = await promote(page, seed.itemId, 'Honey ' + stamp);
+    expect(res.status, 'promote must 200').toBe(200);
+    expect(res.body.display_name).toBe('Honey ' + stamp);
+
+    await page.goto('/inventory.html#tab=2');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t2').click();
+    await waitForStockContent(page);
+
+    // IDENTITY unchanged — the selector is the catalog description.
+    const reorderRow = page.locator('[data-action="scroll-to-stock-item"][data-stock-id="' + seed.description + '"]');
+    await expect(reorderRow).toBeVisible();
+    // LABEL changed — and the raw catalog string is gone from the row.
+    await expect(reorderRow.locator('.reorder-item-name')).toHaveText('Honey ' + stamp);
+    await expect(reorderRow.locator('.reorder-item-name')).not.toContainText('Hny 24Z Bram');
+
+    const stockRow = page.locator('.stock-item[data-group-id="' + seed.description + '"]');
+    await expect(stockRow).toBeVisible();
+    await expect(stockRow.locator('.stock-item-name')).toHaveText('Honey ' + stamp);
+  });
+
+  // The regression the promoted flag exists to prevent. An item whose only
+  // aliases are machine-learned receipt strings must keep showing its catalog
+  // name — "render any alias" would put the ugliest string on the phone.
+  test('an unpromoted alias never becomes the label', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedNamedStockItem(page, { stamp, itemDesc: 'Readable Name ' + stamp });
+    await addAlias(page, seed.itemId, 'RDBL NM 24Z XX ' + stamp);
+
+    await page.goto('/inventory.html#tab=2');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t2').click();
+    await waitForStockContent(page);
+
+    const stockRow = page.locator('.stock-item[data-group-id="' + seed.description + '"]');
+    await expect(stockRow).toBeVisible();
+    await expect(stockRow.locator('.stock-item-name')).toHaveText(seed.description);
+    await expect(stockRow.locator('.stock-item-name')).not.toContainText('RDBL NM');
+  });
+
+  // The star in the Setup editor is the only way a human sets this, so drive it
+  // through the UI rather than the endpoint: chip styling, the persisted flag,
+  // and the round trip back to the catalog name on a second tap.
+  test('the Setup star promotes an alias and a second tap clears it', async ({ page }) => {
+    const stamp = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const desc = 'Star Catalog ' + stamp;
+    const item = await invApiCall(page, 'POST', 'items', { description: desc, group_id: gid });
+    expect(item && item.id).toBeTruthy();
+    const nickname = 'Starred Nick ' + stamp;
+    await addAlias(page, item.id, nickname);
+
+    await page.goto('/inventory.html#tab=7');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t7').click();
+    await page.fill('#item-search', desc);
+    await page.locator('.item-row[data-id="' + item.id + '"]').click();
+    const form = page.locator('.item-edit-form[data-item-id="' + item.id + '"]');
+    await expect(form).toBeVisible();
+
+    const star = form.locator('[data-action="toggle-alias-display"][data-alias="' + nickname + '"]');
+    await expect(star).toHaveAttribute('aria-pressed', 'false');
+    await star.click();
+
+    // Persisted, not just restyled.
+    await expect.poll(async () => {
+      const items = await invApiCall(page, 'GET', 'items');
+      const it = (items || []).find(i => i.id === item.id);
+      return it ? it.display_name : null;
+    }, { timeout: 5000 }).toBe(nickname);
+
+    // The list re-renders after the write but the editor stays open
+    // (ITEM_EDIT_ID is untouched), so re-find the star in place and clear it.
+    const star2 = page.locator('.item-edit-form[data-item-id="' + item.id + '"] [data-action="toggle-alias-display"][data-alias="' + nickname + '"]');
+    await expect(star2).toHaveAttribute('aria-pressed', 'true');
+    await star2.click();
+
+    await expect.poll(async () => {
+      const items = await invApiCall(page, 'GET', 'items');
+      const it = (items || []).find(i => i.id === item.id);
+      return it ? [it.display_name, (it.aliases || []).length] : null;
+    }, { timeout: 5000 }).toEqual([desc, 1]); // description back, alias kept
+  });
+
+  // The identity trap, asserted end to end: a manual stock count taken BEFORE
+  // the rename must still be the count shown AFTER it. If any layer starts
+  // keying on the label, this row's override goes missing.
+  test('a stock-count override survives promoting a nickname', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedNamedStockItem(page, { stamp, itemDesc: 'Override Item ' + stamp, qty: 9 });
+    const status = await page.evaluate(async (desc) => {
+      const r = await fetch('/api/v1/inventory/stock/count', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_description: desc, quantity: 3, reason: 'Counted shelf' }),
+      });
+      return r.status;
+    }, seed.description);
+    expect(status).toBe(204);
+
+    await addAlias(page, seed.itemId, 'Ovr ' + stamp);
+    expect((await promote(page, seed.itemId, 'Ovr ' + stamp)).status).toBe(200);
+
+    const stock = await invApiCall(page, 'GET', 'stock');
+    const row = (stock || []).find(s => s.description === seed.description);
+    expect(row, 'the row must still be found by its description').toBeTruthy();
+    expect(row.display_name).toBe('Ovr ' + stamp);
+    expect(row.total_quantity, 'the override must still apply after the rename').toBe(3);
   });
 });

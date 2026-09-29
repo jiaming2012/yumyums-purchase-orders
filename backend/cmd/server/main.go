@@ -723,6 +723,7 @@ func main() {
 					r.Post("/items/merge", inventory.MergeItemsHandler(pool))
 					r.Post("/items/aliases", inventory.AddItemAliasHandler(pool))
 					r.Delete("/items/aliases", inventory.DeleteItemAliasHandler(pool))
+					r.Put("/items/aliases/display", inventory.SetItemAliasDisplayHandler(pool))
 					r.Get("/groups", inventory.ListGroupsHandler(pool))
 					r.Post("/groups", inventory.CreateGroupHandler(pool))
 					r.Put("/groups", inventory.UpdateGroupHandler(pool))

@@ -278,6 +278,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.T
 	// Uses the same approach as GetSuggestions: purchase_line_items → purchase_items → item_groups.
 	type stockRow struct {
 		description   string
+		displayName   string
 		currentStock  int
 		lowThreshold  int
 		highThreshold int
@@ -286,6 +287,10 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.T
 	rows, err := pool.Query(ctx, `
 		SELECT
 			COALESCE(pi.description, pli.description) AS item_description,
+			-- Two different jobs, deliberately two columns: the description
+			-- keys low_stock_alert_log (change it and every item re-alerts),
+			-- the display name is what the Cliq message says out loud.
+			item_display_name(pi.id, COALESCE(pi.description, pli.description)) AS display_name,
 			COALESCE(sco.quantity, SUM(pli.quantity)::int) AS current_stock,
 			COALESCE(ig.low_threshold, 3) AS low_threshold,
 			COALESCE(ig.high_threshold, 10) AS high_threshold
@@ -295,7 +300,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.T
 		LEFT JOIN item_groups ig ON ig.id = pi.group_id
 		LEFT JOIN stock_count_overrides sco ON sco.item_description = COALESCE(pi.description, pli.description)
 		WHERE pi.id IS NOT NULL
-		GROUP BY COALESCE(pi.description, pli.description), sco.quantity, ig.low_threshold, ig.high_threshold
+		GROUP BY pi.id, COALESCE(pi.description, pli.description), sco.quantity, ig.low_threshold, ig.high_threshold
 	`)
 	if err != nil {
 		slog.Error("low-stock check query stock error", "error", err)
@@ -306,7 +311,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.T
 	var lowItems []string
 	for rows.Next() {
 		var sr stockRow
-		if err := rows.Scan(&sr.description, &sr.currentStock, &sr.lowThreshold, &sr.highThreshold); err != nil {
+		if err := rows.Scan(&sr.description, &sr.displayName, &sr.currentStock, &sr.lowThreshold, &sr.highThreshold); err != nil {
 			slog.Error("low-stock check scan row error", "error", err)
 			continue
 		}
@@ -327,7 +332,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.T
 		}
 		if tag.RowsAffected() > 0 {
 			// This item was not yet alerted this week — include it in the batch alert
-			lowItems = append(lowItems, sr.description)
+			lowItems = append(lowItems, sr.displayName)
 		}
 	}
 	if err := rows.Err(); err != nil {

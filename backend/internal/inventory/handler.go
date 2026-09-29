@@ -243,6 +243,17 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Carry the source's aliases over, and learn the source's own name as
 		// an alias of the target — receipts that used to match the source keep
 		// matching after the merge.
+		// Demote the source's promoted alias first: at most one alias per item
+		// may carry is_display (item_aliases_one_display_per_item), so moving a
+		// second promoted row onto the target would abort the whole merge. The
+		// target keeps the name it already had; the source's survives as an
+		// ordinary matching alias and can be re-promoted by hand.
+		_, err = tx.Exec(r.Context(), `UPDATE item_aliases SET is_display = false WHERE purchase_item_id = $1 AND is_display`, input.SourceID)
+		if err != nil {
+			slog.Error("MergeItems demote source display alias failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
 		_, err = tx.Exec(r.Context(), `UPDATE item_aliases SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
 			slog.Error("MergeItems re-point aliases failed", "error", err)
@@ -394,6 +405,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 				SELECT li.id, li.purchase_event_id, li.purchase_item_id,
 				       COALESCE(pi.description, ''),
 				       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = li.purchase_item_id), '{}'),
+				       item_display_name(li.purchase_item_id, COALESCE(pi.description, li.description)),
 				       li.description, li.quantity, li.price, li.is_case
 				FROM purchase_line_items li
 				LEFT JOIN purchase_items pi ON pi.id = li.purchase_item_id
@@ -410,7 +422,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 			for liRows.Next() {
 				var li LineItem
 				if err := liRows.Scan(&li.ID, &li.PurchaseEventID, &li.PurchaseItemID,
-					&li.ItemName, &li.ItemAliases, &li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
+					&li.ItemName, &li.ItemAliases, &li.ItemDisplayName, &li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
 					slog.Error("ListPurchaseEvents line_item scan failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return
@@ -438,6 +450,12 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(r.Context(), `
 			SELECT
 				sub.description,
+				-- The label. sub.description stays the row's identity (it keys
+				-- stock_count_overrides and the UI's expanded-row map), so the
+				-- promoted alias is resolved into a SEPARATE column rather than
+				-- swapped in over it — renaming what the crew calls an item must
+				-- not orphan its manual stock count.
+				item_display_name(sub.purchase_item_id, sub.description) AS display_name,
 				sub.group_name,
 				COALESCE(sco.quantity, sub.total_quantity) AS total_quantity,
 				sub.total_spend,
@@ -480,7 +498,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var rawRows []stockRow
 		for rows.Next() {
 			var row stockRow
-			if err := rows.Scan(&row.s.Description, &row.s.GroupName,
+			if err := rows.Scan(&row.s.Description, &row.s.DisplayName, &row.s.GroupName,
 				&row.s.TotalQuantity, &row.s.TotalSpend, &row.s.AvgPrice, &row.s.LastPurchaseDate,
 				&row.s.LowThreshold, &row.s.HighThreshold, &row.purchaseItemID); err != nil {
 				slog.Error("GetStock scan failed", "error", err)
@@ -1117,7 +1135,9 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
 			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location, pi.location_in_store, pi.photo_url,
-			       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = pi.id), '{}')
+			       COALESCE((SELECT array_agg(ia.alias ORDER BY ia.created_at) FROM item_aliases ia WHERE ia.purchase_item_id = pi.id), '{}'),
+			       item_display_name(pi.id, pi.description),
+			       COALESCE((SELECT ia.alias FROM item_aliases ia WHERE ia.purchase_item_id = pi.id AND ia.is_display LIMIT 1), '')
 			FROM purchase_items pi
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
@@ -1131,7 +1151,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := []PurchaseItem{}
 		for rows.Next() {
 			var item PurchaseItem
-			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL, &item.Aliases); err != nil {
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL, &item.Aliases, &item.DisplayName, &item.DisplayAlias); err != nil {
 				slog.Error("ListItems scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -1304,7 +1324,13 @@ func AddItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		err = pool.QueryRow(r.Context(), `
 			INSERT INTO item_aliases (purchase_item_id, alias)
 			VALUES ($1, $2)
-			ON CONFLICT (LOWER(alias)) DO UPDATE SET purchase_item_id = EXCLUDED.purchase_item_id
+			ON CONFLICT (LOWER(alias)) DO UPDATE
+			  SET purchase_item_id = EXCLUDED.purchase_item_id,
+			      -- An alias re-pointed to a different item arrives unpromoted:
+			      -- it was chosen as a label for the item it is LEAVING, and
+			      -- the item it joins may already have a promoted alias (only
+			      -- one is allowed, so keeping the flag would 500 the request).
+			      is_display = false
 			RETURNING id`,
 			input.PurchaseItemID, input.Alias,
 		).Scan(&id)
@@ -1346,6 +1372,90 @@ func DeleteItemAliasHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// SetItemAliasDisplayHandler promotes one of an item's aliases to be the name
+// every screen shows for it, or clears the promotion when Alias is empty.
+//
+// This is the write half of item_display_name(): the crew taps a chip in the
+// Setup editor and that alias becomes the label on Stock, Reorder, Recipes,
+// the shopping list and the receipt lines, while purchase_items.description
+// stays exactly as it was. The description is still the catalog identity —
+// it keys stock counts and wins every auto-match — so promoting a nickname is
+// a display act with no data consequence, and clearing it restores the
+// description without losing the alias itself.
+func SetItemAliasDisplayHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			PurchaseItemID string `json:"purchase_item_id"`
+			Alias          string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.PurchaseItemID == "" {
+			writeError(w, http.StatusBadRequest, "purchase_item_id_required")
+			return
+		}
+		input.Alias = strings.TrimSpace(input.Alias)
+
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			slog.Error("SetItemAliasDisplay begin failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context())
+
+		// Demote first, unconditionally. Promotion is a radio button, not a
+		// checkbox, and doing it in two statements inside one transaction is
+		// what keeps the partial unique index from seeing two promoted rows.
+		if _, err := tx.Exec(r.Context(),
+			`UPDATE item_aliases SET is_display = false WHERE purchase_item_id = $1 AND is_display`,
+			input.PurchaseItemID,
+		); err != nil {
+			slog.Error("SetItemAliasDisplay demote failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Empty alias = "go back to the catalog description". Nothing else to do.
+		if input.Alias != "" {
+			tag, err := tx.Exec(r.Context(),
+				`UPDATE item_aliases SET is_display = true WHERE purchase_item_id = $1 AND LOWER(alias) = LOWER($2)`,
+				input.PurchaseItemID, input.Alias,
+			)
+			if err != nil {
+				slog.Error("SetItemAliasDisplay promote failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			if tag.RowsAffected() == 0 {
+				writeError(w, http.StatusNotFound, "alias_not_found")
+				return
+			}
+		}
+
+		var displayName string
+		if err := tx.QueryRow(r.Context(),
+			`SELECT item_display_name(id, description) FROM purchase_items WHERE id = $1`,
+			input.PurchaseItemID,
+		).Scan(&displayName); err != nil {
+			writeError(w, http.StatusNotFound, "item_not_found")
+			return
+		}
+
+		if err := tx.Commit(r.Context()); err != nil {
+			slog.Error("SetItemAliasDisplay commit failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"display_name":  displayName,
+			"display_alias": input.Alias,
+		})
 	}
 }
 

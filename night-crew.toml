@@ -116,6 +116,13 @@ subset = 'npx playwright test "{tags}"'
 # health spec plus each page's own suite — a narrow entry here is exactly how a
 # regression escapes a green gate.
 "health-banner.js"            = ["health", "inventory", "onboarding", "workflows", "marketing"]
+# item-name.js is the shared "what do we call this item?" resolver, referenced
+# by inventory.html and purchasing.html. Same fan-out reasoning as
+# health-banner.js above: a change to the module can mislabel an item on the
+# Stock, Reorder, Recipes, PO and shopping-list screens at once, so the
+# footprint names every spec that renders one. A narrower entry here is exactly
+# how a mislabelling regression escapes a green gate.
+"item-name.js"                = ["inventory", "recipes", "purchasing"]
 "tests/health-banner.spec.js" = ["health"]
 "index.html"                  = ["health"]
 "backend/internal/sync/health.go" = ["health", "sync"]
