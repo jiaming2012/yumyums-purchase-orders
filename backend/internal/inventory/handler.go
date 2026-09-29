@@ -324,6 +324,15 @@ func UpdatePendingItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // ListPurchaseEventsHandler returns purchase events with nested line items.
 // Accepts optional ?vendor_id and ?page query params (LIMIT 50 per page).
+//
+// Ordering is event_date DESC, created_at DESC, id DESC. The two tiebreakers
+// are load-bearing: event_date alone is not a total order (a same-day batch of
+// purchases is the normal case), and Postgres gives no stable order among
+// equal keys across two separate LIMIT/OFFSET queries — so a page boundary
+// that fell inside a same-date group could show a row on both pages or on
+// neither. created_at lists a same-day batch newest-first; id makes the sort
+// total even if two rows share a created_at. tests/inventory.spec.js FR-11
+// pins this with 51 same-date rows.
 func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vendorID := r.URL.Query().Get("vendor_id")
@@ -353,7 +362,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
 				  AND (pe.mercury_category IS NULL OR pe.mercury_category = ANY($2))
-				ORDER BY pe.event_date DESC
+				ORDER BY pe.event_date DESC, pe.created_at DESC, pe.id DESC
 				LIMIT 50 OFFSET $3`,
 				vendorID, cogsAllowlist, offset,
 			)
@@ -365,7 +374,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE (pe.mercury_category IS NULL OR pe.mercury_category = ANY($1))
-				ORDER BY pe.event_date DESC
+				ORDER BY pe.event_date DESC, pe.created_at DESC, pe.id DESC
 				LIMIT 50 OFFSET $2`,
 				cogsAllowlist, offset,
 			)
