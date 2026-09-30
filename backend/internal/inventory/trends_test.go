@@ -21,7 +21,8 @@ import (
 //   B1 unitemized delivery fee   — event E_FEE
 //   B2 non-COGS-category event   — event E_SOFTWARE ('Software')
 //   B3 NULL-category event       — event E_NULLCAT
-//   B4 eligible pending row      — pending PP_ELIGIBLE
+//   B4 open pending rows         — pending PP_ELIGIBLE + PP_BLOCKING (a
+//                                  completeness figure, never an addend)
 //   B5 linked-but-groupless item — item "Sriracha" → D2 "Ungrouped"
 
 // callTrends invokes TrendsHandler directly with the given allowlist.
@@ -101,10 +102,11 @@ func insertLine(t *testing.T, eventID, purchaseItemID, description string, qty i
 	}
 }
 
-// insertEligiblePending inserts a pending_purchases row matching the
-// period-summary eligible population exactly (handler.go:1345-1351):
-// confirmed_at IS NULL · discarded_at IS NULL · mercury_category = ANY($3) ·
-// reason != 'no_attachment_on_bank_tx'.
+// insertEligiblePending inserts an open pending_purchases row. Whether it
+// lands in the Trends pending figure is decided by the same clauses as
+// period-summary's blocking set (PeriodSummaryHandler step 3):
+// confirmed_at IS NULL · discarded_at IS NULL · mercury_category = ANY($3).
+// reason plays no part since the open-receipts gate (2026-09-30).
 func insertEligiblePending(t *testing.T, bankTxID, eventDate string, bankTotal float64, category, reason string) {
 	t.Helper()
 	var categoryArg interface{}
@@ -226,12 +228,14 @@ func seedTrendsFixture(t *testing.T, win TrendsWindow) trendsFixture {
 	nullEv := insertEvent(t, vendor, "tx-nullcat", nullDate, 0, 250.00, "")
 	insertLine(t, nullEv, chicken, "Uncategorized Charge", 1, 250.00)
 
-	// B4 — eligible pending row (Amendment 2): unreviewed, so it has no linked
-	// line items and cannot be bucketed; it is a completeness figure AND an
-	// addend to the identity, because period-summary counts it.
+	// B4 — open pending rows (Amendment 2): unreviewed, so they have no linked
+	// line items and cannot be bucketed; they are a completeness figure and
+	// NOT an addend to the identity — period-summary no longer folds any
+	// pending row into cogs_excl_tax (open-receipts gate, 2026-09-30). Both
+	// COGS-category rows count regardless of reason.
 	insertEligiblePending(t, "pp-eligible", weekOf(t, win, 9, 1), 240.00, "COGS", "parse_failed")
-	// Ineligible pending rows — each must be excluded by exactly one clause.
 	insertEligiblePending(t, "pp-blocking", weekOf(t, win, 9, 2), 90.00, "COGS", "no_attachment_on_bank_tx")
+	// Excluded pending rows — each must be excluded by exactly one clause.
 	insertEligiblePending(t, "pp-noncogs", weekOf(t, win, 9, 3), 70.00, "Software", "parse_failed")
 	insertEligiblePending(t, "pp-nullcat", weekOf(t, win, 9, 4), 60.00, "", "parse_failed")
 
@@ -308,7 +312,9 @@ func TestTrends(t *testing.T) {
 	}
 
 	// ── THE IDENTITY ────────────────────────────────────────────────────────
-	// Σcells + Σunlinked + pending_total == period_summary.cogs_excl_tax
+	// Σcells + Σunlinked == period_summary.cogs_excl_tax
+	// (pending_total is NOT an addend: period-summary counts confirmed
+	// purchase_events only since the open-receipts gate, 2026-09-30.)
 	//
 	// The right-hand side is obtained by CALLING period-summary on the exact
 	// window Trends just reported. No constant appears on either side.
@@ -324,15 +330,15 @@ func TestTrends(t *testing.T) {
 	for _, u := range resp.Unlinked {
 		unlinkedSum += u.Spend
 	}
-	lhs := cellSum + unlinkedSum + resp.Completeness.PendingTotal
+	lhs := cellSum + unlinkedSum
 
 	t.Logf("identity on %s..%s: published reconciles=%.4f vs period_summary.cogs_excl_tax=%.4f "+
-		"| display Σcells=%.4f + Σunlinked=%.4f + pending=%.2f = %.4f (drift %.4f over %d cells) "+
-		"| unitemized_remainder=%.2f, excluded by design",
+		"| display Σcells=%.4f + Σunlinked=%.4f = %.4f (drift %.4f over %d cells) "+
+		"| pending=%.2f and unitemized_remainder=%.2f, both excluded by design",
 		resp.Window.From, resp.Window.To,
 		resp.Completeness.ReconcilesToCogsExclTax, ps.COGSExclTax,
-		cellSum, unlinkedSum, resp.Completeness.PendingTotal, lhs, lhs-ps.COGSExclTax,
-		len(resp.Cells), resp.Completeness.UnitemizedRemainder)
+		cellSum, unlinkedSum, lhs, lhs-ps.COGSExclTax,
+		len(resp.Cells), resp.Completeness.PendingTotal, resp.Completeness.UnitemizedRemainder)
 
 	// (1) THE PAYROLL-FACING NUMBER — exact, no tolerance. This is the figure a
 	// consumer compares against period-summary, so it must be rounded the same
@@ -370,20 +376,31 @@ func TestTrends(t *testing.T) {
 	}
 
 	// ── Amendment 2 — pending is a completeness figure, never a cell ────────
-	// Exactly one of the four seeded pending rows is eligible, at 240.00.
-	if resp.Completeness.PendingCount != 1 {
-		t.Errorf("pending_count: got %d, want 1 (only pp-eligible qualifies)", resp.Completeness.PendingCount)
+	// Two of the four seeded pending rows are open COGS-category rows
+	// (pp-eligible 240.00 + pp-blocking 90.00); reason does not matter.
+	// Non-COGS and NULL-category rows stay out.
+	if resp.Completeness.PendingCount != 2 {
+		t.Errorf("pending_count: got %d, want 2 (pp-eligible + pp-blocking)", resp.Completeness.PendingCount)
 	}
-	if cents(resp.Completeness.PendingTotal) != cents(240.00) {
-		t.Errorf("pending_total: got %.2f, want 240.00", resp.Completeness.PendingTotal)
+	if cents(resp.Completeness.PendingTotal) != cents(330.00) {
+		t.Errorf("pending_total: got %.2f, want 330.00", resp.Completeness.PendingTotal)
 	}
-	// And it must agree with period-summary's own eligible population.
-	psLines := ps.COGSExclTax - resp.Completeness.PendingTotal
-	trendsLines := resp.Completeness.ReconcilesToCogsExclTax - resp.Completeness.PendingTotal
-	if cents(psLines) != cents(trendsLines) {
-		t.Errorf("pending population disagrees with period-summary: "+
-			"cogs_excl_tax(%.4f) - pending(%.2f) = %.4f, but reconciles - pending = %.4f",
-			ps.COGSExclTax, resp.Completeness.PendingTotal, psLines, trendsLines)
+	// And the population must be period-summary's own blocking set — the
+	// rows it lists in pending_review_details — clause for clause.
+	var psPending float64
+	for _, d := range ps.Completeness.PendingReviewDetails {
+		psPending += math.Abs(d.BankTotal)
+	}
+	if resp.Completeness.PendingCount != len(ps.Completeness.PendingReviewIDs) ||
+		cents(resp.Completeness.PendingTotal) != cents(psPending) {
+		t.Errorf("pending population disagrees with period-summary's blocking set: "+
+			"trends pending_count=%d pending_total=%.2f, period-summary lists %d rows summing %.2f",
+			resp.Completeness.PendingCount, resp.Completeness.PendingTotal,
+			len(ps.Completeness.PendingReviewIDs), psPending)
+	}
+	// Open COGS rows block payroll — the same fixture must read as not ready.
+	if ps.Completeness.Ready {
+		t.Errorf("period-summary Ready = true, want false (two open COGS rows in window)")
 	}
 	for _, g := range resp.Groups {
 		if g.Name == "Unreviewed" || g.ID == "pending" {

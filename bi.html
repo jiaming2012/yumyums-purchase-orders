@@ -348,11 +348,15 @@ async function refreshHub(){
 //     completeness.reconciles_to_cogs_excl_tax — the exact, payroll-facing
 //     figure computed from ONE window-wide sum rounded once, which matches
 //     period-summary by construction (see trends.go's linesTotal comment). It
-//     is NEVER Σ(display cells) + Σunlinked + pending: display cells are each
+//     is NEVER Σ(display cells) + Σunlinked: display cells are each
 //     penny-rounded, prices are NUMERIC(10,4), and Σ(round) ≠ round(Σ), so that
 //     sum can drift by up to half a cent per emitted cell. When the two do
 //     disagree the chart does not quietly pick one — .tr-drift names the gap
-//     and says which number payroll uses.
+//     and says which number payroll uses. "Awaiting review" money is NOT an
+//     addend at all: since the open-receipts gate (2026-09-30) period-summary
+//     counts confirmed receipts only and is blocked while any open
+//     COGS-category receipt exists, so the row is shown beside the identity,
+//     never inside it.
 //
 // The categorical palette is assigned by FIXED slot order (never cycled) and
 // was validated with the dataviz validator in both modes — see the CSS block.
@@ -640,7 +644,8 @@ function trendsReconciliation(d,chartAttributed,unlinkedTotal){
   var c=d.completeness||{};
   var payroll=Number(c.reconciles_to_cogs_excl_tax)||0;
   var pending=Number(c.pending_total)||0;
-  var displaySum=trRound2(chartAttributed+unlinkedTotal+pending);
+  // pending is deliberately NOT in displaySum — see caveat 3 in the header.
+  var displaySum=trRound2(chartAttributed+unlinkedTotal);
   var drift=trRound2(payroll-displaySum);
 
   var html='<div class="tr-recon">'+
@@ -656,7 +661,8 @@ function trendsReconciliation(d,chartAttributed,unlinkedTotal){
     '<span class="tr-recon-val">'+escHtml(costMoney(unlinkedTotal))+'</span></div>'+
     '<div class="tr-recon-row"><span class="tr-recon-key">Awaiting review '+
     '<span class="tr-recon-sub">&middot; '+(Number(c.pending_count)||0)+' receipts, not yet '+
-    'itemised, so they cannot be charted</span></span>'+
+    'confirmed &mdash; not in the figure above, and payroll waits until they are '+
+    'reviewed</span></span>'+
     '<span class="tr-recon-val">'+escHtml(costMoney(pending))+'</span></div>';
 
   // Caveat 3. Display cells are penny-rounded per cell; the payroll figure comes
@@ -664,7 +670,7 @@ function trendsReconciliation(d,chartAttributed,unlinkedTotal){
   // which one is authoritative — do not silently show whichever is prettier.
   if(Math.abs(drift)>=0.01){
     html+='<div class="tr-drift"><strong>'+escHtml(costMoney(Math.abs(drift)))+
-      '</strong> of rounding difference. The three lines above are each rounded to '+
+      '</strong> of rounding difference. The attributed and unlinked lines above are each rounded to '+
       'the cent and add to '+escHtml(costMoney(displaySum))+'; the headline figure is '+
       'summed once over every line item, which is how payroll computes it. '+
       'Reconcile against the headline, not the sum of the rows.</div>';

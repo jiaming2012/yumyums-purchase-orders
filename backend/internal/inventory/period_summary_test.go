@@ -182,10 +182,10 @@ func insertPendingPurchase(t *testing.T, createdAt string, confirmed, discarded 
 		discardedSQL = "now()"
 	}
 	// items JSONB requires a value — use empty array.
-	// Phase 260606-jvs: default mercury_category='COGS' + reason='no_attachment_on_bank_tx'
-	// so the row is a "blocking" pending under the narrowed gate (the prior call sites
-	// of this helper all asserted the row blocks ready). Tests that need a non-blocking
-	// row use insertPendingPurchaseFull instead.
+	// Default mercury_category='COGS' + reason='no_attachment_on_bank_tx' so the
+	// row is a blocking pending (every call site of this helper asserts the row
+	// blocks ready). Tests that need a non-blocking row use
+	// insertPendingPurchaseFull with a non-COGS or NULL category instead.
 	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, created_at, confirmed_at, discarded_at, mercury_category, reason)
 	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::timestamptz, ` + confirmedSQL + `, ` + discardedSQL + `, 'COGS', 'no_attachment_on_bank_tx')
 	      RETURNING id::text`
@@ -265,10 +265,11 @@ func insertPendingPurchaseWithBankTotal(t *testing.T, bankTxID string, bankTotal
 // default blocking reason ("no_attachment_on_bank_tx").
 // Returns the inserted id::text.
 //
-// Phase 260606-jvs: defaults mercury_category='COGS' so the row passes the
-// narrowed pending-gate allowlist filter. Defaults reason to
-// 'no_attachment_on_bank_tx' (the only blocking reason) when caller passes "".
-// Tests that need a non-blocking row use insertPendingPurchaseFull instead.
+// Defaults mercury_category='COGS' so the row passes the pending-gate
+// allowlist filter, and reason to 'no_attachment_on_bank_tx' when the caller
+// passes "". Under the open-receipts gate (2026-09-30) every open COGS-category
+// row blocks regardless of reason; tests that need a non-blocking row use
+// insertPendingPurchaseFull with a non-COGS or NULL category instead.
 func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, createdAt, reason string) string {
 	t.Helper()
 	var ed *string
@@ -289,13 +290,15 @@ func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, creat
 }
 
 // insertPendingPurchaseFull inserts an unconfirmed/undiscarded pending row with
-// full control over the four fields the narrowed /period-summary contract cares
-// about: reason, mercuryCategory, vendor, bankTotal.
+// full control over the four fields the /period-summary contract cares about:
+// reason, mercuryCategory, vendor, bankTotal.
 //
 // Pass mercuryCategory == "" for SQL NULL (uncategorised — excluded by the
-// allowlist filter). Pass eventDate == "" for SQL NULL (the app-timezone cast
-// of created_at becomes the period-filter input — see pendingPeriodDateExpr). Pass reason == "" for SQL NULL (treated
-// as non-blocking by the narrowed gate since reason != 'no_attachment_on_bank_tx').
+// allowlist filter, so neither blocking nor counted). Pass eventDate == "" for
+// SQL NULL (the app-timezone cast of created_at becomes the period-filter
+// input — see pendingPeriodDateExpr). Pass reason == "" for SQL NULL. Under the
+// open-receipts gate (2026-09-30) reason plays no part in whether a row blocks:
+// only category + open state do.
 func insertPendingPurchaseFull(t *testing.T, bankTxID, eventDate, createdAt, reason, mercuryCategory, vendor string, bankTotal float64) string {
 	t.Helper()
 	var (
@@ -1148,11 +1151,10 @@ func TestPeriodSummary(t *testing.T) {
 	})
 
 	t.Run("pending_review_details populates vendor/event_date/bank_total/reason", func(t *testing.T) {
-		// Phase 260606-jvs: only rows with reason='no_attachment_on_bank_tx' AND
-		// mercury_category in allowlist surface in pending_review_details now.
-		// Previously asserted with reason='tax_mismatch'; updated to the only
-		// blocking reason. The serialisation behaviour the test pins (Reason
-		// pointer non-nil, value = reason text) is unchanged in shape.
+		// Every open COGS-category row surfaces in pending_review_details
+		// (open-receipts gate, 2026-09-30); this one uses the no-attachment
+		// reason. The serialisation behaviour the test pins (Reason pointer
+		// non-nil, value = reason text) is what matters here.
 		resetFixtures(t)
 		var id string
 		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at, mercury_category)
@@ -1250,13 +1252,9 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	// Phase 260606-jvs: the prior `pending_review_details reason=NULL omitted from JSON`
-	// test was removed — under the narrowed gate, only rows with
-	// reason='no_attachment_on_bank_tx' surface in pending_review_details, so a
-	// NULL-reason row can never appear there. The omitempty serialisation
-	// behaviour on `PendingReviewDetail.Reason` remains a structural property
-	// of the struct (json:"reason,omitempty") — not exercised here because the
-	// surface is unreachable post-narrowing.
+	// A NULL-reason open COGS row is reachable again under the open-receipts
+	// gate (2026-09-30) — see null_reason_food_row_blocks below for the
+	// omitempty behaviour on `PendingReviewDetail.Reason`.
 
 	t.Run("pending_review_details serializes as [] when empty period", func(t *testing.T) {
 		resetFixtures(t)
@@ -1272,18 +1270,21 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	// Phase 260606-jvs: 2×2 truth table on (mercury_category in allowlist) ×
-	// (reason == 'no_attachment_on_bank_tx') for the narrowed completeness
-	// gate, plus the rolled-into-COGS + by_vendor merge semantics for the
-	// non-blocking food-category branch. See 260606-jvs-HANDOFF.md §4.
+	// Open-receipts-block gate (sales-processor/docs/cogs-hq-open-receipts-block.md,
+	// 2026-09-30). This REVERSES the Phase 260606-jvs narrowing: every open
+	// (unconfirmed, undiscarded) COGS-category pending_purchases row in the
+	// period now blocks completeness.ready — regardless of reason — and NO
+	// pending row ever folds into cogs_excl_tax / cogs_incl_tax /
+	// purchase_event_count / by_vendor. COGS comes from purchase_events +
+	// purchase_line_items only. Non-COGS and NULL-category rows are unchanged:
+	// they neither block nor count.
 	//
 	// Allowlist sentinel is the default ["COGS"] used by callHandler — keeps
 	// these tests aligned with the existing convention in this file.
 
 	t.Run("case_a_food_no_attachment_blocks", func(t *testing.T) {
-		// Case A: food category + reason='no_attachment_on_bank_tx' → ONLY blocker.
-		// Blocks ready, surfaces in pending_review_ids, does NOT roll into COGS
-		// (blocking rows stay out of the aggregate per the data-model invariant).
+		// Case A: food category + reason='no_attachment_on_bank_tx' → blocks.
+		// Surfaces in pending_review_ids, does NOT roll into COGS.
 		resetFixtures(t)
 		ppID := insertPendingPurchaseFull(t,
 			"jvs-case-a", "2026-05-27", "2026-05-27 10:00:00-05:00",
@@ -1300,13 +1301,15 @@ func TestPeriodSummary(t *testing.T) {
 			t.Errorf("PendingReviewIDs = %v, want [%s]", got.Completeness.PendingReviewIDs, ppID)
 		}
 		if got.COGSExclTax != 0 {
-			t.Errorf("COGSExclTax = %v, want 0 (blocking row stays out of COGS)", got.COGSExclTax)
+			t.Errorf("COGSExclTax = %v, want 0 (open row stays out of COGS)", got.COGSExclTax)
 		}
 	})
 
-	t.Run("case_b_food_parse_failed_rolls_into_cogs", func(t *testing.T) {
-		// Case B: food category + parse-failed reason → non-blocking, rolled
-		// into COGS at ABS(bank_total).
+	t.Run("case_b_food_parse_failed_blocks_and_stays_out_of_cogs", func(t *testing.T) {
+		// Case B: food category + parse-failed reason (receipt attached, could
+		// not be reconciled to the bank charge) → BLOCKS under the open-receipts
+		// gate and does NOT roll into COGS. This is the wrong-receipt scenario
+		// that let payroll run on unreviewed spend under the narrowed gate.
 		resetFixtures(t)
 		ppID := insertPendingPurchaseFull(t,
 			"jvs-case-b", "2026-05-27", "2026-05-27 10:00:00-05:00",
@@ -1316,24 +1319,61 @@ func TestPeriodSummary(t *testing.T) {
 		if code != http.StatusOK {
 			t.Fatalf("status = %d, want 200", code)
 		}
-		if !got.Completeness.Ready {
-			t.Errorf("Ready = false, want true (case B must NOT block). pending=%v unlinked=%v",
-				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (case B must block under open_receipts_block)")
 		}
-		for _, id := range got.Completeness.PendingReviewIDs {
-			if id == ppID {
-				t.Errorf("PendingReviewIDs contains %s, want it excluded (non-blocking)", ppID)
-			}
+		if len(got.Completeness.PendingReviewIDs) != 1 || got.Completeness.PendingReviewIDs[0] != ppID {
+			t.Errorf("PendingReviewIDs = %v, want [%s]", got.Completeness.PendingReviewIDs, ppID)
 		}
-		if got.COGSExclTax != 19.28 {
-			t.Errorf("COGSExclTax = %v, want 19.28 (ABS(bank_total))", got.COGSExclTax)
+		details := got.Completeness.PendingReviewDetails
+		if len(details) != 1 || details[0].ID != ppID {
+			t.Fatalf("PendingReviewDetails = %+v, want one row with id=%s", details, ppID)
 		}
-		// Tax assumption: pending bank_total flows into both excl + incl.
-		if got.COGSInclTax != 19.28 {
-			t.Errorf("COGSInclTax = %v, want 19.28 (pending bank_total flows into both)", got.COGSInclTax)
+		if details[0].Reason == nil {
+			t.Errorf("details[0].Reason = nil, want %q", "Receipt could not be parsed automatically")
+		} else if *details[0].Reason != "Receipt could not be parsed automatically" {
+			t.Errorf("*details[0].Reason = %q, want %q", *details[0].Reason, "Receipt could not be parsed automatically")
 		}
-		if got.PurchaseEventCount != 1 {
-			t.Errorf("PurchaseEventCount = %d, want 1 (eligible pending counts)", got.PurchaseEventCount)
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0 (pending rows never fold into COGS)", got.COGSExclTax)
+		}
+		if got.COGSInclTax != 0 {
+			t.Errorf("COGSInclTax = %v, want 0 (pending rows never fold into COGS)", got.COGSInclTax)
+		}
+		if got.PurchaseEventCount != 0 {
+			t.Errorf("PurchaseEventCount = %d, want 0 (pending rows are not events)", got.PurchaseEventCount)
+		}
+		if len(got.ByVendor) != 0 {
+			t.Errorf("ByVendor = %+v, want [] (pending rows never render as a vendor row)", got.ByVendor)
+		}
+	})
+
+	t.Run("null_reason_food_row_blocks", func(t *testing.T) {
+		// reason is not part of the rule any more: an open COGS-category row
+		// with reason IS NULL blocks too, and its details row omits `reason`.
+		resetFixtures(t)
+		ppID := insertPendingPurchaseFull(t,
+			"jvs-null-reason", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"" /* NULL reason */, "COGS", "Restaurant Depot", -33.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (NULL-reason food row must block)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 1 || got.Completeness.PendingReviewIDs[0] != ppID {
+			t.Errorf("PendingReviewIDs = %v, want [%s]", got.Completeness.PendingReviewIDs, ppID)
+		}
+		if len(got.Completeness.PendingReviewDetails) != 1 {
+			t.Fatalf("PendingReviewDetails = %+v, want one row", got.Completeness.PendingReviewDetails)
+		}
+		if got.Completeness.PendingReviewDetails[0].Reason != nil {
+			t.Errorf("details[0].Reason = %q, want nil (NULL reason omitted)", *got.Completeness.PendingReviewDetails[0].Reason)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
 		}
 	})
 
@@ -1408,8 +1448,31 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
+	t.Run("null_mercury_category_parse_failed_does_not_block", func(t *testing.T) {
+		// NULL mercury_category + parse-failed reason → still NOT blocking under
+		// the widened gate (gating uncategorised rows is out of scope).
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-null-cat-parse", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "" /* NULL */, "Unknown Vendor", -42.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (NULL category must not block)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
+		}
+	})
+
 	t.Run("date_filter_still_applies_to_blocking_row_out_of_period", func(t *testing.T) {
-		// Case-A blocking row whose period anchor (event_date or fallback
+		// Blocking row whose period anchor (event_date or fallback
 		// created_at::app-tz) is outside the window must NOT block, must NOT
 		// surface in pending_review_ids, and must NOT roll into COGS.
 		resetFixtures(t)
@@ -1432,13 +1495,17 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	t.Run("pending_review_details_parity_under_narrowed_gate", func(t *testing.T) {
-		// Single case-A row → pending_review_ids has 1 entry, pending_review_details
-		// has 1 entry, IDs match index-wise.
+	t.Run("pending_review_details_parity_under_open_receipts_gate", func(t *testing.T) {
+		// One no-attachment row + one parse-failed row → pending_review_ids has
+		// 2 entries, pending_review_details has 2 entries, IDs match index-wise
+		// and each carries its own reason.
 		resetFixtures(t)
-		ppID := insertPendingPurchaseFull(t,
-			"jvs-parity", "2026-05-27", "2026-05-27 10:00:00-05:00",
+		aID := insertPendingPurchaseFull(t,
+			"jvs-parity-a", "2026-05-26", "2026-05-26 10:00:00-05:00",
 			"no_attachment_on_bank_tx", "COGS", "Restaurant Depot", -50.00)
+		bID := insertPendingPurchaseFull(t,
+			"jvs-parity-b", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS", "Save A Lot", -19.00)
 
 		code, got := callHandler(t, from, to)
 		if code != http.StatusOK {
@@ -1446,29 +1513,63 @@ func TestPeriodSummary(t *testing.T) {
 		}
 		ids := got.Completeness.PendingReviewIDs
 		details := got.Completeness.PendingReviewDetails
-		if len(ids) != 1 || ids[0] != ppID {
-			t.Fatalf("PendingReviewIDs = %v, want [%s]", ids, ppID)
+		if len(ids) != 2 || ids[0] != aID || ids[1] != bID {
+			t.Fatalf("PendingReviewIDs = %v, want [%s %s]", ids, aID, bID)
 		}
-		if len(details) != 1 || details[0].ID != ppID {
-			t.Fatalf("PendingReviewDetails IDs = %+v, want one row with id=%s", details, ppID)
+		if len(details) != 2 || details[0].ID != aID || details[1].ID != bID {
+			t.Fatalf("PendingReviewDetails IDs = %+v, want [%s %s]", details, aID, bID)
 		}
-		if details[0].BankTxID != "jvs-parity" {
-			t.Errorf("details[0].BankTxID = %q, want %q", details[0].BankTxID, "jvs-parity")
+		wantReasons := []string{"no_attachment_on_bank_tx", "Receipt could not be parsed automatically"}
+		for i, d := range details {
+			if d.Reason == nil || *d.Reason != wantReasons[i] {
+				t.Errorf("details[%d].Reason = %v, want %q", i, d.Reason, wantReasons[i])
+			}
 		}
 	})
 
-	t.Run("case_b_by_vendor_match_merges_into_vendor_row", func(t *testing.T) {
-		// One confirmed RD event ($100) + one case-B Save A Lot pending row ($19).
-		// cogs_excl_tax == 119; by_vendor has BOTH an RD row at $100 and a
-		// Save A Lot row at $19, each with a real (non-empty) vendor_id.
+	t.Run("review_policy_is_open_receipts_block_on_every_response", func(t *testing.T) {
+		// The policy field is a constant assertion to the consumer, present on
+		// ready=true and ready=false alike. sales-processor warns when it is
+		// anything else, so an un-upgraded HQ is visible in its run log.
+		resetFixtures(t)
+		req := httptest.NewRequest(http.MethodGet, "/?from="+from+"&to="+to, nil)
+		rec := httptest.NewRecorder()
+		PeriodSummaryHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), `"review_policy":"open_receipts_block"`) {
+			t.Errorf("JSON missing `\"review_policy\":\"open_receipts_block\"` on a ready=true response.\nbody=%s",
+				rec.Body.String())
+		}
+
+		_ = insertPendingPurchaseFull(t,
+			"jvs-policy-blocked", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS", "Save A Lot", -19.00)
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false")
+		}
+		if got.Completeness.ReviewPolicy != ReviewPolicyOpenReceiptsBlock {
+			t.Errorf("ReviewPolicy = %q, want %q", got.Completeness.ReviewPolicy, ReviewPolicyOpenReceiptsBlock)
+		}
+	})
+
+	t.Run("by_vendor_excludes_pending_rows_next_to_confirmed", func(t *testing.T) {
+		// One confirmed RD event ($100) + one parse-failed Save A Lot pending
+		// row ($19) whose vendor text matches an existing vendors.name.
+		// Regression for the removed fold: cogs_excl_tax == 100 (not 119),
+		// by_vendor has ONLY the RD row, and Save A Lot does not appear even
+		// though its vendor row exists.
 		resetFixtures(t)
 		depotID := insertVendor(t, "Restaurant Depot")
-		salID := insertVendor(t, "Save A Lot")
+		_ = insertVendor(t, "Save A Lot")
 		piID := insertPurchaseItem(t, "Salmon")
-		// Confirmed RD event: 1 * $100 = $100.
 		insertEventAndLineWithCategory(t,
 			depotID, "2026-05-26", 0, 100.00, 100.00, 1, piID, "COGS")
-		// Case-B Save A Lot pending: ABS(-19) = $19.
 		_ = insertPendingPurchaseFull(t,
 			"jvs-byv-match", "2026-05-27", "2026-05-27 10:00:00-05:00",
 			"Receipt could not be parsed automatically", "COGS", "Save A Lot", -19.00)
@@ -1477,98 +1578,59 @@ func TestPeriodSummary(t *testing.T) {
 		if code != http.StatusOK {
 			t.Fatalf("status = %d, want 200", code)
 		}
-		if diff := got.COGSExclTax - 119.00; diff > 0.01 || diff < -0.01 {
-			t.Errorf("COGSExclTax = %v, want 119.00", got.COGSExclTax)
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (open food row blocks)")
 		}
-		// Find each vendor row.
-		var foundDepot, foundSAL bool
-		for _, row := range got.ByVendor {
-			switch row.VendorName {
-			case "Restaurant Depot":
-				foundDepot = true
-				if row.VendorID != depotID {
-					t.Errorf("RD VendorID = %q, want %q (real vendor id)", row.VendorID, depotID)
-				}
-				if diff := row.TotalExclTax - 100.00; diff > 0.01 || diff < -0.01 {
-					t.Errorf("RD TotalExclTax = %v, want 100.00", row.TotalExclTax)
-				}
-			case "Save A Lot":
-				foundSAL = true
-				if row.VendorID != salID {
-					t.Errorf("SAL VendorID = %q, want %q (real vendor id)", row.VendorID, salID)
-				}
-				if diff := row.TotalExclTax - 19.00; diff > 0.01 || diff < -0.01 {
-					t.Errorf("SAL TotalExclTax = %v, want 19.00", row.TotalExclTax)
-				}
-			}
+		if diff := got.COGSExclTax - 100.00; diff > 0.01 || diff < -0.01 {
+			t.Errorf("COGSExclTax = %v, want 100.00 (pending $19 must not fold in)", got.COGSExclTax)
 		}
-		if !foundDepot {
-			t.Errorf("by_vendor missing Restaurant Depot row; got=%+v", got.ByVendor)
+		if got.PurchaseEventCount != 1 {
+			t.Errorf("PurchaseEventCount = %d, want 1 (confirmed events only)", got.PurchaseEventCount)
 		}
-		if !foundSAL {
-			t.Errorf("by_vendor missing Save A Lot row; got=%+v", got.ByVendor)
+		if len(got.ByVendor) != 1 {
+			t.Fatalf("len(ByVendor) = %d, want 1 (RD only); got=%+v", len(got.ByVendor), got.ByVendor)
+		}
+		row := got.ByVendor[0]
+		if row.VendorID != depotID || row.VendorName != "Restaurant Depot" {
+			t.Errorf("ByVendor[0] = %+v, want the Restaurant Depot row (id %s)", row, depotID)
+		}
+		if diff := row.TotalExclTax - 100.00; diff > 0.01 || diff < -0.01 {
+			t.Errorf("RD TotalExclTax = %v, want 100.00", row.TotalExclTax)
+		}
+		if row.TripCount != 1 {
+			t.Errorf("RD TripCount = %d, want 1", row.TripCount)
 		}
 	})
 
-	t.Run("case_b_by_vendor_unmatched_renders_with_empty_vendor_id", func(t *testing.T) {
-		// Case-B pending with vendor text that has no vendors.name match →
-		// surfaces in by_vendor with vendor_id == "" and vendor_name == original text.
+	t.Run("by_vendor_is_empty_when_only_pending_rows_exist", func(t *testing.T) {
+		// Pending-only period: one row with an unmatched vendor text, one whose
+		// text fuzz-matches an existing vendor. Neither renders — there is no
+		// vendor_id="" arm and no LOWER(TRIM()) join any more.
 		resetFixtures(t)
+		_ = insertVendor(t, "Save A Lot")
 		_ = insertPendingPurchaseFull(t,
 			"jvs-byv-unmatched", "2026-05-27", "2026-05-27 10:00:00-05:00",
 			"Receipt could not be parsed automatically", "COGS",
 			"Brand New Vendor not in vendors table", -27.50)
-
-		code, got := callHandler(t, from, to)
-		if code != http.StatusOK {
-			t.Fatalf("status = %d, want 200", code)
-		}
-		var found bool
-		for _, row := range got.ByVendor {
-			if row.VendorName == "Brand New Vendor not in vendors table" {
-				found = true
-				if row.VendorID != "" {
-					t.Errorf("unmatched VendorID = %q, want empty string", row.VendorID)
-				}
-				if diff := row.TotalExclTax - 27.50; diff > 0.01 || diff < -0.01 {
-					t.Errorf("unmatched TotalExclTax = %v, want 27.50", row.TotalExclTax)
-				}
-			}
-		}
-		if !found {
-			t.Errorf("by_vendor missing unmatched row; got=%+v", got.ByVendor)
-		}
-	})
-
-	t.Run("case_b_by_vendor_vendor_name_fuzz_joins_case_and_trim_insensitive", func(t *testing.T) {
-		// Pre-insert vendors.name='Save A Lot'. Case-B pending with vendor=
-		// 'save a lot ' (lowercase + trailing space) must join via LOWER(TRIM())
-		// and merge into the existing Save A Lot row — no duplicate row with
-		// vendor_id == "".
-		resetFixtures(t)
-		salID := insertVendor(t, "Save A Lot")
 		_ = insertPendingPurchaseFull(t,
-			"jvs-byv-fuzz", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"jvs-byv-fuzz", "2026-05-28", "2026-05-28 10:00:00-05:00",
 			"Receipt could not be parsed automatically", "COGS", "save a lot ", -19.00)
 
 		code, got := callHandler(t, from, to)
 		if code != http.StatusOK {
 			t.Fatalf("status = %d, want 200", code)
 		}
-		// Exactly one row, real vendor_id, name canonicalised to "Save A Lot".
-		if len(got.ByVendor) != 1 {
-			t.Fatalf("len(ByVendor) = %d, want 1 (no duplicate unmatched row); got=%+v",
-				len(got.ByVendor), got.ByVendor)
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (two open food rows block)")
 		}
-		row := got.ByVendor[0]
-		if row.VendorID != salID {
-			t.Errorf("VendorID = %q, want %q (real vendor id, not empty)", row.VendorID, salID)
+		if len(got.Completeness.PendingReviewIDs) != 2 {
+			t.Errorf("PendingReviewIDs = %v, want 2 entries", got.Completeness.PendingReviewIDs)
 		}
-		if row.VendorName != "Save A Lot" {
-			t.Errorf("VendorName = %q, want %q (canonicalised)", row.VendorName, "Save A Lot")
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
 		}
-		if diff := row.TotalExclTax - 19.00; diff > 0.01 || diff < -0.01 {
-			t.Errorf("TotalExclTax = %v, want 19.00", row.TotalExclTax)
+		if len(got.ByVendor) != 0 {
+			t.Errorf("ByVendor = %+v, want [] (pending rows never render as vendor rows)", got.ByVendor)
 		}
 	})
 }

@@ -222,14 +222,23 @@ type VendorCOGS struct {
 	TripCount    int     `json:"trip_count"`
 }
 
+// ReviewPolicyOpenReceiptsBlock asserts to service-token consumers that
+// every open (unconfirmed, undiscarded) COGS-category pending_purchases
+// row in the period blocks completeness.ready — not just rows with no
+// receipt attached. See sales-processor/docs/cogs-hq-open-receipts-block.md.
+const ReviewPolicyOpenReceiptsBlock = "open_receipts_block"
+
 // CompletenessBlock reports whether HQ receipts for the period are fully
 // ingested + reviewed + catalog-linked. `ready` is true iff both ID lists are empty.
-// PendingReviewIDs lists pending_purchases.id rows where confirmed_at IS NULL
-// AND discarded_at IS NULL within the period.
+// ReviewPolicy is always ReviewPolicyOpenReceiptsBlock; sales-processor warns
+// when it reads anything else so an un-upgraded HQ is visible in its run log.
+// PendingReviewIDs lists every pending_purchases row where confirmed_at IS NULL
+// AND discarded_at IS NULL AND mercury_category ∈ allowlist within the period.
 // UnlinkedLineItemIDs lists purchase_line_items.id rows where purchase_item_id
 // IS NULL for purchase_events in the period.
 type CompletenessBlock struct {
 	Ready                bool                  `json:"ready"`
+	ReviewPolicy         string                `json:"review_policy"`
 	PendingReviewIDs     []string              `json:"pending_review_ids"`
 	PendingReviewDetails []PendingReviewDetail `json:"pending_review_details"`
 	UnlinkedLineItemIDs  []string              `json:"unlinked_line_item_ids"`

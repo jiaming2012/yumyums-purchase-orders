@@ -126,14 +126,16 @@ function sumCells(cells) { return round2(cells.reduce((a, c) => a + c.spend, 0))
 function sumUnlinked(u) { return round2(u.reduce((a, c) => a + c.spend, 0)); }
 
 // Build a response whose published identity figure is EXACTLY consistent with
-// the display cells — the well-behaved case.
+// the display cells — the well-behaved case. pending_total is NOT an addend:
+// since the open-receipts gate (2026-09-30) period-summary counts confirmed
+// receipts only, so the identity is Σcells + Σunlinked.
 function makeResponse(over = {}) {
   const cells = over.cells || buildCells();
   const unlinked = over.unlinked !== undefined ? over.unlinked : buildUnlinked();
   const pendingTotal = over.pending_total !== undefined ? over.pending_total : 240.00;
   const pendingCount = over.pending_count !== undefined ? over.pending_count : 3;
   const unlinkedTotal = round2(sumUnlinked(unlinked));
-  const consistent = round2(sumCells(cells) + unlinkedTotal + pendingTotal);
+  const consistent = round2(sumCells(cells) + unlinkedTotal);
   return {
     window: WINDOW,
     groups: over.groups || GROUPS,
