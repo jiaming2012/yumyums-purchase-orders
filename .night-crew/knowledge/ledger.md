@@ -4321,3 +4321,42 @@ before the offline branch completed — retried cleanly.
   Receipts…" on tick so it states which run it will start before it is pressed; and it unticks
   itself once a deep run starts, because a checkbox that silently survives turns the next
   ordinary press into another months-wide re-pull.
+
+### T-59 — Attended sitting: BI built attended, off-slate (2026-09-30)
+
+Same day as the Inventory hub walk. The operator invoked `/nc-slate-plan BI card` for B-455
+WO-2b after the hub (WO-2a) and the launcher badge merged to dev (`3223412`, `42c40e5`,
+released as 0.7.1 / 1.9.0 at `8ec1882`, pushed, deploy held). The ritual ran its gates: the
+PRD gate passed (7 PRDs on file); `night-crew next` could not compute a position (the
+roadmap names no current milestone — reported, not substituted); the spike gate could not
+evaluate the card because it sits on no roadmap activity — the "Close the loop" cycle
+(Activities 0, A–G) is marketing attribution, and B-455 is a backlog item whose direction the
+operator approved on 2026-09-29. Backlog promotion into a slate is for architecture-blocking
+items (DESIGN §15k), which a UI consolidation plus a grant migration is not. No slate was
+signed.
+
+**Decision 185 — BI is built attended, not slated.** Put to the operator as a three-way fork
+(attended now / roadmap + goal + spike then a night / slate the attribution cycle's next
+activity and leave BI for the roadmap round); the operator chose attended now, the same path
+WO-1 and WO-2a took. Recorded so the next roadmap round sees that B-455 closed outside the
+cycle's plan and can decide whether that shape (operator-approved backlog work built attended
+between slates) wants a name of its own.
+
+**Decision 186 — the two per-tab grants become one `bi` app grant, and the umbrella is
+retired.** Engineer-level call, stated: migration 0082 copies every `inventory-trends` /
+`inventory-cost` grant (role and user) onto `bi` and disables the two rows rather than
+deleting or renaming them (rollback keeps the grants; Down re-enables the rows). The
+`/inventory/trends` and `/inventory/cost` routes mount `RequirePermission(pool, "bi")` with no
+umbrella, so a user holding only the whole-app `inventory` grant no longer reaches the two
+reports — that is the consolidation the mockup signed ("No BI grant, no tile"), and it is the
+one behaviour change a crew member could notice. Superadmins are unaffected. The client-side
+umbrella table in `sync-rxdb/client.js` is emptied to match; `grant-enforcement-parity` keeps
+`bi` in the enforced set.
+
+Two consequences the verifier gate surfaced, recorded so they are not silent: (a) **grants
+already sitting on `bi` become live** — the row has been seeded (as the placeholder app) and
+toggleable in Users › Access for months, so any role or user grant an admin set on it while the
+tile still said Soon now opens the two reports; the migration preserves those rows on purpose and
+nothing audits them, so the Access list for `bi` is worth one look before deploy. (b) **0082's
+Down is a rollback only together with the pre-WO-2b code**: on current code it re-enables two
+rows that gate nothing.

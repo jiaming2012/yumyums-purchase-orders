@@ -224,12 +224,11 @@ export function makeSyncFetch(fetchImpl) {
 
 /**
  * The go-forward convention is that grants are PER-TAB, not bundled per app.
- * Umbrella slugs are the one live exception, and they are real in shipped code:
- * `backend/cmd/server/main.go` mounts
- *   `RequirePermission("inventory-trends", "inventory")` and
- *   `RequirePermission("inventory-cost",   "inventory")`,
- * so a user holding `inventory` genuinely reaches both tabs. A surface built
- * naively from the narrow claim hides two things the user is entitled to.
+ * Umbrella slugs are the exception this table exists for: an app grant that
+ * `backend/cmd/server/main.go` mounts as a second candidate on a narrower
+ * surface (`RequirePermission(narrow, umbrella)`). There is none today —
+ * Trends and Cost moved to the `bi` app under their own grant (B-455 / WO-2b),
+ * which retired the `inventory` → `inventory-trends` / `inventory-cost` pair.
  *
  * The token's `hq_grants` claim is the NARROW list and is advisory only
  * (`backend/internal/sync/jwtbridge.go` says so, and points the expansion at
@@ -237,7 +236,10 @@ export function makeSyncFetch(fetchImpl) {
  * a rendering aid, never an authorization decision.
  */
 export const UMBRELLA_SLUGS = {
-  inventory: ['inventory-trends', 'inventory-cost'],
+  // Empty since B-455 / WO-2b: Trends and Cost left the Inventory app for the
+  // `bi` app, which is its own grant — an `inventory` grant no longer implies
+  // any narrower surface. The table stays so a future per-tab slug has a home;
+  // main.go's mounts are the source of truth (tests read it).
 };
 
 /**

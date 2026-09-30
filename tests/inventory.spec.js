@@ -126,10 +126,11 @@ test.describe('Inventory', () => {
   // ── Tab navigation ──────────────────────────────────────────────────────
 
   // B-455: Menu folded into Recipes as the "By dish" view (WO-1); the tab bar
-  // replaced by a hub of rows (WO-2a). The slot ids (#t4 Recipes, #t7 Setup,
-  // #t5/#t6 gated) are deliberately unchanged so every #tab= deep link keeps
-  // working. The hub's own state table lives in states-inventory-nav.spec.js.
-  test('the hub lists 6 rows: Receipts, Stock, Recipes, Trends, Cost, Setup — no Menu', async ({ page }) => {
+  // replaced by a hub of rows (WO-2a); Trends and Cost moved to bi.html (WO-2b).
+  // The slot ids (#t4 Recipes, #t7 Setup) are deliberately unchanged so every
+  // #tab= deep link keeps working; #tab=5 / #tab=6 redirect to bi.html. The
+  // hub's own state table lives in states-inventory-nav.spec.js.
+  test('the hub lists 4 rows: Receipts, Stock, Recipes, Setup — no Menu, no Trends, no Cost', async ({ page }) => {
     await page.locator('#back-hub').click(); // beforeEach lands on Receipts; back out to the hub
     await expect(page.locator('#s0')).toBeVisible();
     await expect(page.locator('#t1')).toContainText('Receipts');
@@ -137,10 +138,19 @@ test.describe('Inventory', () => {
     await expect(page.locator('#t3')).toHaveCount(0);
     await expect(page.locator('#s3')).toHaveCount(0);
     await expect(page.locator('#t4')).toContainText('Recipes');
-    await expect(page.locator('#t5')).toContainText('Trends');
-    await expect(page.locator('#t6')).toContainText('Cost');
+    await expect(page.locator('#t5')).toHaveCount(0);
+    await expect(page.locator('#t6')).toHaveCount(0);
     await expect(page.locator('#t7')).toContainText('Setup');
-    await expect(page.locator('.hub-row')).toHaveCount(6);
+    await expect(page.locator('.hub-row')).toHaveCount(4);
+  });
+
+  test('legacy #tab=5 and #tab=6 deep links redirect to the matching bi.html section', async ({ page }) => {
+    await page.goto('/inventory.html#tab=5');
+    await page.waitForURL(/bi\.html#tab=1$/);
+    await expect(page.locator('#s1')).toBeVisible();
+    await page.goto('/inventory.html#tab=6');
+    await page.waitForURL(/bi\.html#tab=2$/);
+    await expect(page.locator('#s2')).toBeVisible();
   });
 
   test('the pending count is the Receipts row badge, and the row stays one line at phone width', async ({ page }) => {
@@ -569,37 +579,24 @@ test.describe('Inventory', () => {
     }
   });
 
-  // ── Trends tab ───────────────────────────────────────────────────────────
-
-  // Retargeted by the F3 trends-tab-frontend card, exactly as F4 retargeted the
-  // Cost stub test below: the 'coming soon' stub this test used to assert no
-  // longer exists — #s5 now renders the real Trends tab (FR-1 / FR-6b). Full
-  // State-Enumeration coverage lives in tests/states-trends.spec.js; this stays
-  // a smoke test that the tab mounts and loads.
-  test('Trends tab renders the spend-by-group surface', async ({ page }) => {
-    await goTab(page, 5);
-    await expect(page.locator('#s5')).toBeVisible();
-    // The test DB has no confirmed COGS purchase events, so the honest empty
-    // card is the expected surface here.
-    await expect(page.locator('#s5 .tr-empty')).toBeVisible();
-    await expect(page.locator('#s5')).toContainText('No confirmed spending yet');
-    await expect(page.locator('#s5')).not.toContainText('coming soon');
+  // ── Trends and Cost — now bi.html (B-455 / WO-2b) ─────────────────────
+  // Smoke tests only; the state tables live in tests/states-trends.spec.js and
+  // tests/states-cost.spec.js. The test DB has no confirmed COGS purchase events
+  // and no daily_menu_sales rows, so the honest empty cards are the surfaces.
+  test('Trends renders the spend-by-group surface on bi.html', async ({ page }) => {
+    await page.goto('/bi.html#tab=1');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#s1 .tr-empty')).toBeVisible();
+    await expect(page.locator('#s1')).toContainText('No confirmed spending yet');
+    await expect(page.locator('#s1')).not.toContainText('coming soon');
   });
 
-  // ── Cost tab ────────────────────────────────────────────────────────────
-
-  // Retargeted by the F4 cost-tab-frontend card: the 'coming soon' stub this
-  // test used to assert no longer exists — #s6 now renders the real Cost tab
-  // (FR-4). Full State-Enumeration coverage lives in tests/states-cost.spec.js;
-  // this stays a smoke test that the tab mounts and loads.
-  test('Cost tab renders the cost surface', async ({ page }) => {
-    await goTab(page, 6);
-    await expect(page.locator('#s6')).toBeVisible();
-    // The test DB has no daily_menu_sales rows, so the honest low-data card is
-    // the expected surface here (accept-sparse-prod).
-    await expect(page.locator('#s6 .cost-empty')).toBeVisible();
-    await expect(page.locator('#s6')).toContainText('No sales data yet');
-    await expect(page.locator('#s6')).not.toContainText('Food Cost Intelligence');
+  test('Food cost renders the cost surface on bi.html', async ({ page }) => {
+    await page.goto('/bi.html#tab=2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2 .cost-empty')).toBeVisible();
+    await expect(page.locator('#s2')).toContainText('No sales data yet');
+    await expect(page.locator('#s2')).not.toContainText('Food Cost Intelligence');
   });
 
   // ── Recipes › By dish, formerly the Menu tab (Phase 22 — Toast ingest; folded by B-455) ──────────────────────────────────
@@ -1363,9 +1360,12 @@ test.describe('Inventory', () => {
     await expect(tile).toContainText('Inventory');
   });
 
-  // ── Trends/Cost container existence for future swap ──────────────────────
+  // ── Trends/Cost containers live on bi.html now ───────────────────────────
 
-  test('Trends and Cost containers exist for future data wiring', async ({ page }) => {
+  test('Trends and Cost containers live on bi.html, not inventory.html', async ({ page }) => {
+    await expect(page.locator('#trends-container')).toHaveCount(0);
+    await expect(page.locator('#cost-container')).toHaveCount(0);
+    await page.goto('/bi.html');
     await expect(page.locator('#trends-container')).toHaveCount(1);
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });

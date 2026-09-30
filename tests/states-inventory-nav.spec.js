@@ -120,14 +120,14 @@ async function openHub(page) {
 
 test.describe('Inventory hub — B-455 WO-2a state table', () => {
 
-  test('Hub, admin: six rows in daily-first order, back link is HQ, no hash', async ({ page }) => {
+  test('Hub, admin: four rows in daily-first order, back link is HQ, no hash', async ({ page }) => {
     await login(page);
     await openHub(page);
-    await expect(page.locator('.hub-row')).toHaveCount(6);
-    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Trends', 'Cost', 'Setup']);
+    await expect(page.locator('.hub-row')).toHaveCount(4);
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Setup']);
     await expect(page.locator('#back-hq')).toBeVisible();
     await expect(page.locator('#back-hub')).toBeHidden();
-    for (const id of ['#s1', '#s2', '#s4', '#s5', '#s6', '#s7']) await expect(page.locator(id)).toBeHidden();
+    for (const id of ['#s1', '#s2', '#s4', '#s7']) await expect(page.locator(id)).toBeHidden();
     expect(await page.evaluate(() => location.hash)).toBe('');
     // UI-R: every row is a ≥44px target and the badge never overlaps the title.
     const rows = await page.locator('.hub-row').evaluateAll(rs => rs.map(r => {
@@ -341,15 +341,17 @@ test.describe('Inventory hub — B-455 WO-2a state table', () => {
     await shot(page, 'deeplink-stock');
   });
 
-  test('Edge: a crew member pasting gated #tab=5 lands on the hub, not a tab shell', async ({ page }) => {
+  // WO-2b: #tab=5 is Trends, which now lives on bi.html. A crew member pasting
+  // it is redirected there and, holding no `bi` grant, sees the honest error
+  // card with a back link — never a blank page, never a tab shell.
+  test('Edge: a crew member pasting legacy #tab=5 is sent to bi.html and sees the error card, not a blank page', async ({ page }) => {
     const crew = await makeCrewUser(page, 'gate');
     await loginAs(page, crew.email, crew.password);
     await page.goto('/inventory.html#tab=5');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('#s5')).toHaveCount(0);
-    await expect(page.locator('#s0')).toBeVisible();
-    await expect(page.locator('#s1')).toBeHidden();
-    expect(await page.evaluate(() => location.hash)).toBe('');
+    await page.waitForURL(/bi\.html#tab=1$/);
+    await page.waitForSelector('#s1:visible');
+    await expect(page.locator('#trends-container')).toContainText('Couldn’t load spending trends');
+    await expect(page.locator('#back-hub')).toBeVisible();
     await shot(page, 'deeplink-gated');
   });
 

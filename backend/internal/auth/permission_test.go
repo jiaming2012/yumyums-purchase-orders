@@ -29,7 +29,7 @@ import (
 // can tell "log in again" from "you lack this grant" (§1.2 rule 3):
 //
 //	401 -> {"error":"unauthorized"}
-//	403 -> {"error":"forbidden","missing_grant":"inventory-trends"}
+//	403 -> {"error":"forbidden","missing_grant":"test-app-alpha"}
 
 var permPool *pgxpool.Pool
 
@@ -73,12 +73,28 @@ func requireDB(t *testing.T) {
 	}
 }
 
-// resetGrants clears app_permissions and the users this file creates.
+// resetGrants clears app_permissions and the users this file creates, and
+// (re)installs the fixture rows the gate tests run against.
+//
+// The fixtures are a synthetic umbrella app `test-app` with two tab rows
+// `test-app-alpha` / `test-app-beta` under the `<app>-<tab>` convention. They
+// used to be the real `inventory` + `inventory-trends` / `inventory-cost`
+// rows; those tabs are retired since B-455 / WO-2b (0082 disables them, the
+// seed no longer creates them), and the gate's semantics are not about any
+// particular app, so the tests now own their rows.
 func resetGrants(t *testing.T) {
 	t.Helper()
 	if _, err := permPool.Exec(t.Context(),
 		`DELETE FROM app_permissions`); err != nil {
 		t.Fatalf("clear app_permissions: %v", err)
+	}
+	if _, err := permPool.Exec(t.Context(),
+		`INSERT INTO hq_apps (slug, name, icon) VALUES
+		   ('test-app', 'Test App', '🧪'),
+		   ('test-app-alpha', 'Test App · Alpha', '🧪'),
+		   ('test-app-beta', 'Test App · Beta', '🧪')
+		 ON CONFLICT (slug) DO UPDATE SET enabled = true`); err != nil {
+		t.Fatalf("install fixture apps: %v", err)
 	}
 	if _, err := permPool.Exec(t.Context(),
 		`DELETE FROM users WHERE email LIKE 'perm-test-%'`); err != nil {
@@ -142,22 +158,115 @@ func callGate(t *testing.T, user *User, tabSlug, umbrellaSlug string) (int, stri
 	return rec.Code, strings.TrimSpace(rec.Body.String()), reached
 }
 
-// ── The two seed rows Option (i) depends on ─────────────────────────────────
+// ── Seed state after B-455 / WO-2b ──────────────────────────────────────────
+//
+// Trends and Cost are the `bi` app; the per-tab rows that used to gate them are
+// retired. The seed must register `bi` enabled and must never (re)create the
+// two tab rows — 0082 disables any that exist, and a seed insert would leave a
+// fresh pair enabled on a new database.
 
-func TestSeedHQApps_RegistersPerTabSlugs(t *testing.T) {
+func TestSeedHQApps_BIRegistered_TabRowsRetired(t *testing.T) {
 	requireDB(t)
+	var n int
+	if err := permPool.QueryRow(t.Context(),
+		`SELECT count(*) FROM hq_apps WHERE slug = 'bi' AND enabled = true`).Scan(&n); err != nil {
+		t.Fatalf("query hq_apps: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("hq_apps slug \"bi\": got %d enabled rows, want 1", n)
+	}
 	for _, slug := range []string{"inventory-trends", "inventory-cost"} {
-		var n int
 		if err := permPool.QueryRow(t.Context(),
 			`SELECT count(*) FROM hq_apps WHERE slug = $1 AND enabled = true`, slug,
 		).Scan(&n); err != nil {
 			t.Fatalf("query hq_apps: %v", err)
 		}
-		if n != 1 {
-			t.Errorf("hq_apps slug %q: got %d enabled rows, want 1 "+
-				"(SeedHQApps must register the per-tab slugs — design §1.4)", slug, n)
+		if n != 0 {
+			t.Errorf("hq_apps slug %q: got %d enabled rows, want 0 (retired by 0082; the seed must not recreate it)", slug, n)
 		}
 	}
+}
+
+// ── Migration 0082 — the grant copy ─────────────────────────────────────────
+//
+// With legacy grants on the two tab rows (a role grant on one, a user grant on
+// the other), running 0082 must leave matching grants on `bi`, disable the tab
+// rows, admit the holders through RequirePermission("bi"), and refuse them
+// through the retired tab gate — a disabled row grants nothing.
+func TestMigration0082_CopiesTabGrantsOntoBI(t *testing.T) {
+	requireDB(t)
+	resetGrants(t)
+	t.Cleanup(func() {
+		// Leave the schema where every other test expects it.
+		if err := db.MigrateTo(permPool, 82); err != nil {
+			t.Errorf("restore schema to 0082: %v", err)
+		}
+	})
+
+	// Roll 0082 back and stage the pre-migration world.
+	if err := db.MigrateTo(permPool, 81); err != nil {
+		t.Fatalf("migrate down to 0081: %v", err)
+	}
+	if _, err := permPool.Exec(t.Context(),
+		`INSERT INTO hq_apps (slug, name, icon) VALUES
+		   ('inventory-trends', 'Inventory · Trends', '📈'),
+		   ('inventory-cost', 'Inventory · Cost', '💵')
+		 ON CONFLICT (slug) DO UPDATE SET enabled = true`); err != nil {
+		t.Fatalf("stage legacy tab rows: %v", err)
+	}
+	mgr := mkUser(t, "m82", []string{"manager"})
+	grantRole(t, "inventory-trends", "manager")
+	usr := mkUser(t, "u82", []string{"team_member"})
+	grantUser(t, "inventory-cost", usr.ID)
+
+	if err := db.MigrateTo(permPool, 82); err != nil {
+		t.Fatalf("migrate up to 0082: %v", err)
+	}
+
+	var n int
+	if err := permPool.QueryRow(t.Context(), `
+		SELECT count(*) FROM app_permissions p JOIN hq_apps a ON a.id = p.app_id
+		WHERE a.slug = 'bi' AND p.role = 'manager'`).Scan(&n); err != nil || n != 1 {
+		t.Errorf("bi role grant for manager: count=%d err=%v, want 1", n, err)
+	}
+	if err := permPool.QueryRow(t.Context(), `
+		SELECT count(*) FROM app_permissions p JOIN hq_apps a ON a.id = p.app_id
+		WHERE a.slug = 'bi' AND p.user_id = $1::uuid`, usr.ID).Scan(&n); err != nil || n != 1 {
+		t.Errorf("bi user grant: count=%d err=%v, want 1", n, err)
+	}
+	if err := permPool.QueryRow(t.Context(), `
+		SELECT count(*) FROM hq_apps WHERE slug IN ('inventory-trends','inventory-cost') AND enabled = false`).Scan(&n); err != nil || n != 2 {
+		t.Errorf("tab rows disabled: count=%d err=%v, want 2", n, err)
+	}
+
+	for _, tc := range []struct {
+		who  *User
+		name string
+	}{{mgr, "manager (role grant copied)"}, {usr, "user (user grant copied)"}} {
+		if code, _, reached := callGateNarrow(t, tc.who, "bi"); code != http.StatusOK || !reached {
+			t.Errorf("%s through bi gate: status=%d reached=%v, want 200/true", tc.name, code, reached)
+		}
+	}
+	if code, body, reached := callGateNarrow(t, mgr, "inventory-trends"); code != http.StatusForbidden || reached {
+		t.Errorf("manager through retired tab gate: status=%d reached=%v body=%s, want 403/false", code, reached, body)
+	}
+}
+
+// callGateNarrow runs RequirePermission(slug) with no umbrella.
+func callGateNarrow(t *testing.T, user *User, slug string) (int, string, bool) {
+	t.Helper()
+	reached := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if user != nil {
+		req = req.WithContext(context.WithValue(req.Context(), CtxKeyUser, user))
+	}
+	rec := httptest.NewRecorder()
+	RequirePermission(permPool, slug)(next).ServeHTTP(rec, req)
+	return rec.Code, strings.TrimSpace(rec.Body.String()), reached
 }
 
 // ── The with/without-grant pair, per tab ────────────────────────────────────
@@ -168,10 +277,10 @@ func TestRequirePermission_WithoutGrant_403(t *testing.T) {
 	u := mkUser(t, "nogrant", []string{"team_member"})
 
 	for _, tc := range []struct{ tab, want string }{
-		{"inventory-trends", "inventory-trends"},
-		{"inventory-cost", "inventory-cost"},
+		{"test-app-alpha", "test-app-alpha"},
+		{"test-app-beta", "test-app-beta"},
 	} {
-		code, body, reached := callGate(t, u, tc.tab, "inventory")
+		code, body, reached := callGate(t, u, tc.tab, "test-app")
 		if code != http.StatusForbidden {
 			t.Errorf("%s ungranted: status = %d, want 403", tc.tab, code)
 		}
@@ -197,15 +306,15 @@ func TestRequirePermission_WithTabGrant_Passes(t *testing.T) {
 
 	// role grant
 	u := mkUser(t, "rolegrant", []string{"manager"})
-	grantRole(t, "inventory-trends", "manager")
-	if code, _, reached := callGate(t, u, "inventory-trends", "inventory"); code != http.StatusOK || !reached {
+	grantRole(t, "test-app-alpha", "manager")
+	if code, _, reached := callGate(t, u, "test-app-alpha", "test-app"); code != http.StatusOK || !reached {
 		t.Errorf("role-granted trends: status=%d reached=%v, want 200/true", code, reached)
 	}
 
 	// individual grant
 	u2 := mkUser(t, "usergrant", []string{"team_member"})
-	grantUser(t, "inventory-cost", u2.ID)
-	if code, _, reached := callGate(t, u2, "inventory-cost", "inventory"); code != http.StatusOK || !reached {
+	grantUser(t, "test-app-beta", u2.ID)
+	if code, _, reached := callGate(t, u2, "test-app-beta", "test-app"); code != http.StatusOK || !reached {
 		t.Errorf("user-granted cost: status=%d reached=%v, want 200/true", code, reached)
 	}
 }
@@ -215,10 +324,10 @@ func TestRequirePermission_UmbrellaAppGrant_Passes(t *testing.T) {
 	requireDB(t)
 	resetGrants(t)
 	u := mkUser(t, "umbrella", []string{"team_member"})
-	grantUser(t, "inventory", u.ID)
+	grantUser(t, "test-app", u.ID)
 
-	for _, tab := range []string{"inventory-trends", "inventory-cost"} {
-		code, body, reached := callGate(t, u, tab, "inventory")
+	for _, tab := range []string{"test-app-alpha", "test-app-beta"} {
+		code, body, reached := callGate(t, u, tab, "test-app")
 		if code != http.StatusOK || !reached {
 			t.Errorf("umbrella grant, %s: status=%d body=%s reached=%v, want 200/true "+
 				"(design §8 amendment 1 — app grant = all tabs granted)", tab, code, body, reached)
@@ -231,16 +340,16 @@ func TestRequirePermission_MixedGrant_TrendsOnly(t *testing.T) {
 	requireDB(t)
 	resetGrants(t)
 	u := mkUser(t, "mixed", []string{"team_member"})
-	grantUser(t, "inventory-trends", u.ID)
+	grantUser(t, "test-app-alpha", u.ID)
 
-	if code, _, reached := callGate(t, u, "inventory-trends", "inventory"); code != http.StatusOK || !reached {
+	if code, _, reached := callGate(t, u, "test-app-alpha", "test-app"); code != http.StatusOK || !reached {
 		t.Errorf("mixed user, trends: status=%d reached=%v, want 200/true", code, reached)
 	}
-	code, body, reached := callGate(t, u, "inventory-cost", "inventory")
+	code, body, reached := callGate(t, u, "test-app-beta", "test-app")
 	if code != http.StatusForbidden || reached {
 		t.Errorf("mixed user, cost: status=%d reached=%v, want 403/false", code, reached)
 	}
-	if !strings.Contains(body, `"missing_grant":"inventory-cost"`) {
+	if !strings.Contains(body, `"missing_grant":"test-app-beta"`) {
 		t.Errorf("mixed user, cost: body = %s, want missing_grant inventory-cost", body)
 	}
 }
@@ -253,8 +362,8 @@ func TestRequirePermission_UnrelatedGrant_DoesNotLeak(t *testing.T) {
 	grantUser(t, "purchasing", u.ID)
 	grantRole(t, "operations", "team_member")
 
-	for _, tab := range []string{"inventory-trends", "inventory-cost"} {
-		if code, _, reached := callGate(t, u, tab, "inventory"); code != http.StatusForbidden || reached {
+	for _, tab := range []string{"test-app-alpha", "test-app-beta"} {
+		if code, _, reached := callGate(t, u, tab, "test-app"); code != http.StatusForbidden || reached {
 			t.Errorf("unrelated grants, %s: status=%d reached=%v, want 403/false", tab, code, reached)
 		}
 	}
@@ -268,8 +377,8 @@ func TestRequirePermission_Superadmin_Passes(t *testing.T) {
 	u := mkUser(t, "super", []string{"admin"})
 	u.IsSuperadmin = true
 
-	for _, tab := range []string{"inventory-trends", "inventory-cost"} {
-		if code, _, reached := callGate(t, u, tab, "inventory"); code != http.StatusOK || !reached {
+	for _, tab := range []string{"test-app-alpha", "test-app-beta"} {
+		if code, _, reached := callGate(t, u, tab, "test-app"); code != http.StatusOK || !reached {
 			t.Errorf("superadmin, %s: status=%d reached=%v, want 200/true", tab, code, reached)
 		}
 	}
@@ -283,11 +392,11 @@ func TestRequirePermission_AdminRoleAlone_IsNotAGrant(t *testing.T) {
 	resetGrants(t)
 	u := mkUser(t, "adminrole", []string{"admin"})
 
-	if code, _, reached := callGate(t, u, "inventory-trends", "inventory"); code != http.StatusForbidden || reached {
+	if code, _, reached := callGate(t, u, "test-app-alpha", "test-app"); code != http.StatusForbidden || reached {
 		t.Errorf("admin role without grant: status=%d reached=%v, want 403/false", code, reached)
 	}
-	grantRole(t, "inventory", "admin")
-	if code, _, reached := callGate(t, u, "inventory-trends", "inventory"); code != http.StatusOK || !reached {
+	grantRole(t, "test-app", "admin")
+	if code, _, reached := callGate(t, u, "test-app-alpha", "test-app"); code != http.StatusOK || !reached {
 		t.Errorf("admin role WITH umbrella grant: status=%d reached=%v, want 200/true", code, reached)
 	}
 }
@@ -296,7 +405,7 @@ func TestRequirePermission_AdminRoleAlone_IsNotAGrant(t *testing.T) {
 // fall through to the handler.
 func TestRequirePermission_NoUser_401(t *testing.T) {
 	requireDB(t)
-	code, body, reached := callGate(t, nil, "inventory-trends", "inventory")
+	code, body, reached := callGate(t, nil, "test-app-alpha", "test-app")
 	if code != http.StatusUnauthorized || reached {
 		t.Errorf("no user: status=%d reached=%v, want 401/false", code, reached)
 	}
@@ -311,18 +420,18 @@ func TestRequirePermission_DisabledApp_DoesNotGrant(t *testing.T) {
 	requireDB(t)
 	resetGrants(t)
 	u := mkUser(t, "disabled", []string{"team_member"})
-	grantUser(t, "inventory-trends", u.ID)
+	grantUser(t, "test-app-alpha", u.ID)
 
 	if _, err := permPool.Exec(t.Context(),
-		`UPDATE hq_apps SET enabled = false WHERE slug = 'inventory-trends'`); err != nil {
+		`UPDATE hq_apps SET enabled = false WHERE slug = 'test-app-alpha'`); err != nil {
 		t.Fatalf("disable app: %v", err)
 	}
 	t.Cleanup(func() {
 		permPool.Exec(context.Background(),
-			`UPDATE hq_apps SET enabled = true WHERE slug = 'inventory-trends'`)
+			`UPDATE hq_apps SET enabled = true WHERE slug = 'test-app-alpha'`)
 	})
 
-	if code, _, reached := callGate(t, u, "inventory-trends", "inventory"); code != http.StatusForbidden || reached {
+	if code, _, reached := callGate(t, u, "test-app-alpha", "test-app"); code != http.StatusForbidden || reached {
 		t.Errorf("disabled app: status=%d reached=%v, want 403/false", code, reached)
 	}
 }
@@ -361,7 +470,7 @@ func TestRequirePermission_DBError_FailsClosed(t *testing.T) {
 		&User{ID: "00000000-0000-0000-0000-000000000001", Roles: []string{"team_member"}}))
 	rec := httptest.NewRecorder()
 
-	RequirePermission(brokenPool, "inventory-trends", "inventory")(next).ServeHTTP(rec, req)
+	RequirePermission(brokenPool, "test-app-alpha", "test-app")(next).ServeHTTP(rec, req)
 
 	if reached {
 		t.Error("DB error FAILED OPEN — the wrapped handler ran without a grant check")
@@ -394,7 +503,7 @@ func TestRequirePermission_DBError_SuperadminStillPasses(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req = req.WithContext(context.WithValue(req.Context(), CtxKeyUser,
 		&User{ID: "00000000-0000-0000-0000-000000000002", IsSuperadmin: true}))
-	RequirePermission(brokenPool, "inventory-trends", "inventory")(next).
+	RequirePermission(brokenPool, "test-app-alpha", "test-app")(next).
 		ServeHTTP(httptest.NewRecorder(), req)
 
 	if !reached {

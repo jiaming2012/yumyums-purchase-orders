@@ -156,12 +156,15 @@ type Claims struct {
 	// this comment claimed that and it was wrong. RequirePermission is
 	// RequirePermission(pool, grantSlug, umbrellaSlugs...) and matches
 	// `a.slug = ANY(candidate_set)` — the umbrella position is REAL and in use
-	// (main.go:628, 642, 652). A user holding `inventory` gets
-	// hq_grants = [inventory, ...] here, while
-	// RequirePermission("inventory-trends", "inventory") returns TRUE. So this
-	// list is NARROWER than what the user can actually reach: a launcher
-	// rendered naively from it would hide `inventory-trends` and
-	// `inventory-cost`, two surfaces the user does reach.
+	// (main.go: the /items read mounted as RequirePermission("inventory",
+	// "purchasing")). A user holding `purchasing` gets
+	// hq_grants = [purchasing, ...] here, while
+	// RequirePermission("inventory", "purchasing") returns TRUE for /items. So
+	// this list is NARROWER than what the user can actually reach: a client
+	// rendered naively from it would hide a surface the user does reach.
+	// (Until B-455 / WO-2b the example was the `inventory-trends` /
+	// `inventory-cost` tab pair under the `inventory` umbrella; those rows are
+	// retired — Trends and Cost are the `bi` app, gated with no umbrella.)
 	//
 	// It errs CLOSED, so there is no security consequence — but a client must
 	// expand umbrellas itself rather than treat this as the reachable set.
@@ -236,7 +239,7 @@ func Sign(c Claims, secret string) (string, error) {
 // what RequirePermission would admit. RequirePermission takes
 // (grantSlug, umbrellaSlugs...) and a caller holding the umbrella passes the
 // narrow gate; this function is asked about one slug at a time with no
-// umbrella context, so `inventory` here does not imply `inventory-trends`
+// umbrella context, so `purchasing` here does not imply the /items read
 // even though the mounted gate says it does. Errs closed. See the HQGrants
 // field comment and D-6.
 //
