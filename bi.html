@@ -19,10 +19,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .app{max-width:480px;margin:0 auto;padding-top:20px}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
-/* Hub (B-455 / WO-2a): Inventory opens on a list of destinations, each row
+/* Hub (B-455 / WO-2a, reused by WO-2b): the page opens on a list of destinations, each row
    carrying its own live status, in place of the tab bar. Every section is a
-   full page with a back link to the hub (#back-hub). Rows keep the slot ids
-   t1/t2/t4/t5/t6/t7 so applyTabGates() and the #tab=N deep links are unchanged. */
+   full page with a back link to the hub (#back-hub). Copied from inventory.html; here the rows are
+   #t1 Trends and #t2 Food cost. */
 .hub{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
 .hub-row{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:12px 14px;background:var(--card);border:0.5px solid var(--brd);border-radius:12px;color:var(--txt);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .hub-row:active{opacity:.7}
@@ -41,10 +41,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
 /* BI hub badges are READINGS (latest week's spend, average food cost), not
    warnings, so they take the muted variant rather than Inventory's warn tone. */
-.hub-b.mut{background:var(--brd);color:var(--mut)}
+.hub-b.mut{background:var(--brd);color:var(--txt)}
 .inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .chart-wrap{position:relative;width:100%;height:220px}
-/* ── Cost tab (#s6) — FR-4. Inline CSS bars only, no charting dependency. ── */
+/* ── Food cost (#s2, formerly Inventory's #s6) — FR-4. Inline CSS bars only, no charting dependency. ── */
 .cost-window{font-size:12px;color:var(--mut);margin:0 0 12px}
 .cost-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:32px 20px;text-align:center}
 .cost-empty h3{font-size:16px;font-weight:600;color:var(--txt);margin:0 0 8px}
@@ -85,7 +85,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cost-neg{color:#b91c1c}
 @media(prefers-color-scheme:dark){.cost-neg{color:#f87171}}
 .cost-unalloc{display:inline-block;font-size:10px;font-weight:600;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-top:3px}
-/* ── Trends tab (#s5) ──────────────────────────────────────────────────────
+/* ── Trends (#s1, formerly Inventory's #s5) ──────────────────────────────────────────────────────
    Categorical palette in FIXED slot order, never cycled. Both modes were run
    through the dataviz validator (adjacent pairlist, the correct list for a
    stacked column chart) and pass every hard gate:
@@ -264,8 +264,11 @@ function hubMoney(n){return '$'+Math.round(n).toLocaleString('en-US');}
 // belongs in a textContent subtitle.
 function hubDateRange(w){
   if(!w||!w.from||!w.to)return '';
-  var f=function(s){return parseLocalDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});};
-  return f(w.from)+' \u2013 '+f(w.to);
+  var a=parseLocalDate(w.from),b=parseLocalDate(w.to);
+  var f=function(d){return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+  // Same month reads "Sep 21\u201327" (the mockup's form); across months, "Sep 28 \u2013 Oct 4".
+  if(a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear())return f(a)+'\u2013'+b.getDate();
+  return f(a)+' \u2013 '+f(b);
 }
 
 // The latest week's spend: cells plus the unlinked remainder for the newest
@@ -274,7 +277,8 @@ function trendsLatestWeek(d){
   if(!d)return null;
   var cells=d.cells||[],unlinked=d.unlinked||[];
   var weeks=cells.map(function(c){return c.week_start;}).concat(unlinked.map(function(u){return u.week_start;}));
-  if(!weeks.length)return null;
+  // A known window with no money yet: no badge, but the subtitle keeps the count.
+  if(!weeks.length)return {week:null,spend:null,weeks:d.window?d.window.weeks:null};
   var latest=weeks.sort().pop();
   var sum=0;
   cells.forEach(function(c){if(c.week_start===latest)sum+=Number(c.spend)||0;});
@@ -285,7 +289,8 @@ function trendsLatestWeek(d){
 function costAverage(d){
   if(!d||!d.rows)return null;
   var vals=d.rows.map(function(r){return r.food_cost_pct;}).filter(function(v){return v!==null&&v!==undefined&&isFinite(v);});
-  if(!vals.length)return null;
+  // Dishes without a % yet: no badge, but the subtitle keeps the window.
+  if(!vals.length)return {avg:null,window:d.window||null};
   return {avg:vals.reduce(function(a,b){return a+Number(b);},0)/vals.length,window:d.window||null};
 }
 
@@ -294,22 +299,30 @@ function renderHub(){
   var t=HUB.trends;
   if(t==='error'){hubBadge('hub-b1','');hubSub('hub-s1','Status unavailable');}
   else if(t===undefined){hubBadge('hub-b1','','skel');hubSub('hub-s1','Loading…');}
-  else{hubBadge('hub-b1',t?hubMoney(t.spend)+' this wk':'','mut');hubSub('hub-s1','Spend by group'+(t&&t.weeks?' · '+t.weeks+' weeks':', weekly'));}
+  else{hubBadge('hub-b1',t&&t.spend?hubMoney(t.spend)+' this wk':'','mut');hubSub('hub-s1','Spend by group'+(t&&t.weeks?' \u00b7 '+t.weeks+' weeks':', weekly'));}
   var c=HUB.cost;
   if(c==='error'){hubBadge('hub-b2','');hubSub('hub-s2','Status unavailable');}
   else if(c===undefined){hubBadge('hub-b2','','skel');hubSub('hub-s2','Loading…');}
-  else{hubBadge('hub-b2',c?Math.round(c.avg)+'% avg':'','mut');hubSub('hub-s2','Margin per dish'+(c&&c.window&&hubDateRange(c.window)?' \u00b7 '+hubDateRange(c.window):''));}
+  else{hubBadge('hub-b2',c&&c.avg!==null?Math.round(c.avg)+'% avg':'','mut');hubSub('hub-s2','Margin per dish'+(c&&c.window&&hubDateRange(c.window)?' \u00b7 '+hubDateRange(c.window):''));}
 }
 
+// The hub reads whatever the two loaders last fetched, so it is refreshed by
+// EVERY load — boot, a section opening after an error, or the Retry button
+// inside a report — never only by boot. hookHubLoaders() wraps the lifted
+// loaders once the region below has declared them; the region's own Retry
+// strings ('loadTrends()' / 'loadCost()') resolve the wrapped name at click
+// time, so a Retry that succeeds un-sticks "Status unavailable" on the hub.
+function hookHubLoaders(){
+  var lt=loadTrends,lc=loadCost;
+  loadTrends=async function(){await lt();hubSet('trends',TRENDS_STATE==='ready'?trendsLatestWeek(TRENDS_DATA):'error');};
+  loadCost=async function(){await lc();hubSet('cost',COST_STATE==='ready'?costAverage(COST_DATA):'error');};
+}
 async function refreshHub(){
-  await Promise.all([
-    loadTrends().then(function(){hubSet('trends',TRENDS_STATE==='ready'?trendsLatestWeek(TRENDS_DATA):'error');}),
-    loadCost().then(function(){hubSet('cost',COST_STATE==='ready'?costAverage(COST_DATA):'error');})
-  ]);
+  await Promise.all([loadTrends(),loadCost()]);
 }
 
 
-// ── Trends tab (#s5) — FR-1 / FR-6b ─────────────────────────────────────────
+// ── Trends (#s1, formerly Inventory's #s5) — FR-1 / FR-6b ─────────────────────────────────────────
 //
 // Renders GET /api/v1/inventory/trends (design §2.2 AS AMENDED 2026-07-20 —
 // decisions 29/30/31). Three things this render path is deliberately careful
@@ -746,7 +759,7 @@ function renderTrends(){
 // Trends interactions.
 //
 // Bound on `document`, NOT on #trends-container, deliberately — the hazard F4's
-// review carried forward. F5 (tab gating) removes the Trends markup for
+// review carried forward. On inventory.html, F5 (tab gating) removed the Trends markup for
 // un-granted users; a top-level
 // getElementById('trends-container').addEventListener would then throw a
 // TypeError at PARSE time and take down the ENTIRE inventory page — every tab,
@@ -784,7 +797,7 @@ document.addEventListener('keydown',function(e){
   renderTrends();
 });
 
-// ── Cost tab (#s6) — FR-4 / AC-4 ────────────────────────────────────────────
+// ── Food cost (#s2, formerly Inventory's #s6) — FR-4 / AC-4 ────────────────────────────────────────────
 //
 // Renders GET /api/v1/inventory/cost (design §2.3). Three things this render
 // path is deliberately careful about, all of them contract, not taste:
@@ -1051,7 +1064,7 @@ function renderCost(){
 
 // Sort on header tap.
 //
-// Bound on `document`, NOT on #cost-container, deliberately. F5 (tab gating)
+// Bound on `document`, NOT on #cost-container, deliberately (kept as lifted; on inventory.html F5 tab gating)
 // removes the Cost tab's markup for un-granted users; a top-level
 // getElementById('cost-container').addEventListener would then throw a
 // TypeError at parse time and take down the ENTIRE inventory page — every tab,
@@ -1077,6 +1090,7 @@ document.addEventListener('click',function(e){
 
 document.addEventListener('DOMContentLoaded',async function(){
   try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
+  hookHubLoaders();
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   refreshHub();
   show(hashTab?+hashTab:0);

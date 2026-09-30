@@ -16,6 +16,9 @@ const path = require('path');
 //   Edge: deep link    -> #tab=2 opens Food cost with the "BI · Food cost" back
 //                         link; the phone back gesture returns to the hub
 //   Edge: 393px        -> every row ≥44px, the badge never overlaps the title
+//   Edge: retry        -> a Retry that succeeds inside a section refreshes the hub
+//                         row it came from (no stale "Status unavailable")
+//   Edge: contrast     -> the muted badge keeps ≥4.5:1 in dark mode
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -98,11 +101,11 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await expect(page.locator('#hub-b1')).toBeHidden();
     await expect(page.locator('#hub-b2')).toBeHidden();
     await expect(page.locator('#hub-b1')).toHaveText('');
-    await expect(page.locator('#hub-s1')).toContainText('Spend by group');
-    await expect(page.locator('#hub-s2')).toContainText('Margin per dish');
+    await expect(page.locator('#hub-s1')).toHaveText('Spend by group · 12 weeks');
+    await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21–27');
+    await shot(page, 'empty');
     await page.locator('#t1').click();
     await expect(page.locator('#s1 .tr-empty')).toBeVisible();
-    await shot(page, 'empty');
   });
 
   test('Populated: latest-week spend and average food cost as muted readings; subtitles are plain text', async ({ page }) => {
@@ -117,7 +120,7 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await expect(page.locator('#hub-s1')).toHaveText('Spend by group · 12 weeks');
     // The window label is TEXT: no entity source leaks ("&middot;", "&ndash;"), and
     // it names the dates, not a "1 weeks" count.
-    await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21 – Sep 27');
+    await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21–27');
     await expect(page.locator('#hub-s2')).not.toContainText('&');
     await shot(page, 'populated');
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -133,10 +136,10 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await expect(page.locator('#hub-s2')).toHaveText('Status unavailable');
     await expect(page.locator('#hub-b1')).toBeHidden();
     await expect(page.locator('#hub-b2')).toBeHidden();
+    await shot(page, 'error');
     await page.locator('#t2').click();
     await expect(page.locator('#s2')).toBeVisible();
     await expect(page.locator('#cost-container')).toContainText('Couldn’t load food cost');
-    await shot(page, 'error');
   });
 
   test('Edge: one call fails — that row says so, the other keeps its reading', async ({ page }) => {
@@ -185,5 +188,47 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     await expect(page.locator('#s0')).toHaveAttribute('aria-label', 'Business Intelligence');
+    await shot(page, 'edge-393');
+  });
+
+  test('Edge: retry — a Retry that succeeds inside a section refreshes its hub row', async ({ page }) => {
+    await login(page);
+    let costCalls = 0;
+    await page.route('**/api/v1/inventory/trends', json(TRENDS));
+    // Boot fails; opening the section re-fetches and fails again; the Retry
+    // inside the report is the call that succeeds.
+    await page.route('**/api/v1/inventory/cost', route => (++costCalls <= 2 ? fail(route) : json(COST)(route)));
+    await openHub(page);
+    await settled(page);
+    await expect(page.locator('#hub-s2')).toHaveText('Status unavailable');
+    await page.locator('#t2').click();
+    await expect(page.locator('#cost-container')).toContainText('Couldn’t load food cost');
+    await page.locator('#cost-container button', { hasText: 'Retry' }).click();
+    await expect(page.locator('#s2 .cost-table')).toBeVisible();
+    await page.locator('#back-hub').click();
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#hub-b2')).toHaveText('32% avg');
+    await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21–27');
+    await shot(page, 'edge-retry');
+  });
+
+  test('Edge: contrast — the muted badge reads at ≥4.5:1 in dark mode', async ({ page }) => {
+    await login(page);
+    await mock(page, TRENDS, COST);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await openHub(page);
+    await settled(page);
+    const ratio = await page.locator('#hub-b1').evaluate(el => {
+      const rgb = s => s.match(/[\d.]+/g).map(Number);
+      const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+      // Composite the translucent badge background over the row card behind it.
+      const card = rgb(getComputedStyle(el.closest('.hub-row')).backgroundColor);
+      const bg = rgb(getComputedStyle(el).backgroundColor); const a = bg[3] === undefined ? 1 : bg[3];
+      const over = [0, 1, 2].map(i => bg[i] * a + card[i] * (1 - a));
+      const fg = rgb(getComputedStyle(el).color);
+      const [l1, l2] = [lum(fg), lum(over)];
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });
