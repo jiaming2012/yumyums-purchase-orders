@@ -123,7 +123,7 @@ subset = 'npx playwright test "{tags}"'
 # can break the banner on any of the five, so the footprint fans out to the
 # health spec plus each page's own suite — a narrow entry here is exactly how a
 # regression escapes a green gate.
-"health-banner.js"            = ["health", "inventory", "onboarding", "workflows", "marketing"]
+"health-banner.js"            = ["health", "storage-banner", "inventory", "onboarding", "workflows", "marketing"]
 # item-name.js is the shared "what do we call this item?" resolver, referenced
 # by inventory.html and purchasing.html. Same fan-out reasoning as
 # health-banner.js above: a change to the module can mislabel an item on the
