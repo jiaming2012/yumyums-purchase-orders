@@ -9,7 +9,7 @@ Each class below is stated as what the QA/E2E stage should DO about it.
 
 ## Regressions — must be caught before they ship
 
-**Sixteen Receipts-section tests fail on `dev` today, and did on yesterday's hub
+**Seventeen inventory.spec tests fail on `dev` today, and did on yesterday's hub
 commit too.** Found 2026-09-30 by the BI card's footprint (WO-2b, branch
 `wo-bi-hub`), then reproduced by title on `dev` at `8ec1882` AND on the hub
 commit `538c1ba` in fresh `:5434` databases — so it is not the BI card, and it
@@ -17,8 +17,9 @@ is not new code since the hub either. The set: every `stubPending(...)` test
 (parse-failure cause, Retry parse offered, stale re-parse flag, queued
 re-parse, pre-filled line items, transient failure), the four sync/cancel
 tests, "a running sync shows elapsed time", "back link navigates to HQ", "the
-amount is centred on the card", "navigating with newItem hash prefills", and
-"user can set store_location" (flaky). The saved page snapshot for the pre-fill
+amount is centred on the card", "navigating with newItem hash prefills", "create
+new item via Items tab" (the auto-opened edit form never appears; reproduced on
+`dev` alone), and "user can set store_location" (flaky). The saved page snapshot for the pre-fill
 test shows the Receipts page fully rendered with **"Needs review (0)"** and
 **"No purchases yet"** — the stubbed pending row never reaches the page, though
 the route regex matches the URL the page fetches. The sync-chip test sees
