@@ -36,7 +36,7 @@ import (
 // grant" — the former is recoverable by the user, the latter only by an admin:
 //
 //	401 {"error":"unauthorized"}
-//	403 {"error":"forbidden","missing_grant":"inventory-trends"}
+//	403 {"error":"forbidden","missing_grant":"marketing-offline-override"}
 //
 // missing_grant always names the NARROW slug, never the umbrella: it is the
 // grant an admin would go issue, and naming the umbrella would advise a wider
