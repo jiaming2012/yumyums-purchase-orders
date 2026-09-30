@@ -633,7 +633,7 @@ test('the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]'
 // ═══ Launcher tile status — the Inventory tile repeats its hub's badges ═══════
 // inventory.html opens on a hub whose rows carry live facts (B-455 / WO-2a:
 // "10 to review", "67 below par", "Drift"). The launcher tile shows the same
-// facts so the crew sees them one screen earlier: the strongest one as the
+// facts so the crew sees them one screen earlier: a fixed "Needs Attention"
 // corner badge, all of them in the description line. The sources are mocked
 // here so each row of the contract is forced, not found.
 const INVENTORY_TILE_DESC = 'Receipts, stock levels and recipes';
@@ -660,7 +660,7 @@ const stockRows = (below, ok) => [
   ...Array.from({ length: ok }, (_, i) => ({ description: 'Fine ' + i, needs_reorder: false })),
 ];
 
-test('inventory tile badge carries the strongest hub fact and the description lists every fact', async ({ page }) => {
+test('inventory tile shows a Needs Attention badge and the description lists every hub fact', async ({ page }) => {
   await login(page);
   await mockInventoryStatus(page, {
     pending: Array.from({ length: 10 }, (_, i) => ({ id: i + 1, vendor_name: 'V' })),
@@ -669,7 +669,7 @@ test('inventory tile badge carries the strongest hub fact and the description li
   });
   await openLauncher(page);
   const tile = page.locator('#tile-inventory');
-  await expect(tile.locator('.badge-warn')).toHaveText('10 to review');
+  await expect(tile.locator('.badge-warn')).toHaveText('Needs Attention');
   await expect(tile.locator('.tile-desc')).toHaveText('10 to review · 67 below par · Drift');
 });
 
@@ -684,12 +684,12 @@ test('inventory tile shows no badge and its own description when nothing needs a
   await expect(tile.locator('.tile-desc')).toHaveText(INVENTORY_TILE_DESC);
 });
 
-test('inventory tile badge falls through to the next fact when the strongest is zero', async ({ page }) => {
+test('inventory tile badge appears for any single hub fact, and the description lists only those present', async ({ page }) => {
   await login(page);
   await mockInventoryStatus(page, { pending: [], stock: stockRows(2, 4), drift: { sections: [{ menu_item: 'Fries' }] } });
   await openLauncher(page);
   const tile = page.locator('#tile-inventory');
-  await expect(tile.locator('.badge-warn')).toHaveText('2 below par');
+  await expect(tile.locator('.badge-warn')).toHaveText('Needs Attention');
   await expect(tile.locator('.tile-desc')).toHaveText('2 below par · Drift');
 });
 
@@ -698,7 +698,7 @@ test('a failed status call drops only its own fact from the inventory tile', asy
   await mockInventoryStatus(page, { pending: 'fail', stock: stockRows(2, 1), drift: 'fail' });
   await openLauncher(page);
   const tile = page.locator('#tile-inventory');
-  await expect(tile.locator('.badge-warn')).toHaveText('2 below par');
+  await expect(tile.locator('.badge-warn')).toHaveText('Needs Attention');
   await expect(tile.locator('.tile-desc')).toHaveText('2 below par');
 });
 

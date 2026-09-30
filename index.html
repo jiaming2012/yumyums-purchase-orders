@@ -410,8 +410,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 //
 // inventory.html opens on a hub of rows carrying live facts (B-455 / WO-2a):
 // "10 to review" on Receipts, "67 below par" on Stock, "Drift" on Recipes. The
-// launcher shows the same facts one screen earlier: the strongest as the corner
-// badge, every one in the description line, in the hub's own row order. The
+// launcher shows the same facts one screen earlier: a fixed "Needs Attention"
+// corner badge (the same label the Onboarding tile uses -- with several facts
+// behind it, one count would misdescribe the rest), and every fact in the
+// description line, in the hub's own row order. The
 // sources are the calls the hub makes at boot — nothing here adds an endpoint;
 // a one-call summary is the optimisation B-455 already names. Zero facts → no
 // badge and the tile's own description (never "0 to review"). A call that fails
@@ -458,7 +460,7 @@ function renderTileStatus(slug,facts){
   if(!facts.length){if(desc)desc.textContent=desc.dataset.rest;return;}
   var badge=document.createElement('div');
   badge.className='badge badge-warn';
-  badge.textContent=facts[0];
+  badge.textContent='Needs Attention';
   tile.appendChild(badge);
   // Each fact is one unbreakable phrase, so a narrow tile wraps at the dots
   // ("67 below par · Drift"), never inside a fact ("67 below / par").
