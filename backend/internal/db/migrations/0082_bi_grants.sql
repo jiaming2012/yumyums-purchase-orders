@@ -60,6 +60,9 @@ COMMIT;
 BEGIN;
 -- Re-open the tab rows; the copied `bi` grants are left in place (a grant an
 -- operator may since have edited is not a migration's to take back).
+-- NOTE: Down is only a rollback together with the code that mounted these two
+-- slugs (pre-WO-2b main.go and seed). On current code the re-enabled rows gate
+-- nothing and merely reappear in Users › Access; the `bi` grants keep working.
 UPDATE hq_apps SET enabled = true
 WHERE slug IN ('inventory-trends', 'inventory-cost');
 COMMIT;

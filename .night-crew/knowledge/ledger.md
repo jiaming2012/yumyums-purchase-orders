@@ -4352,3 +4352,11 @@ reports — that is the consolidation the mockup signed ("No BI grant, no tile")
 one behaviour change a crew member could notice. Superadmins are unaffected. The client-side
 umbrella table in `sync-rxdb/client.js` is emptied to match; `grant-enforcement-parity` keeps
 `bi` in the enforced set.
+
+Two consequences the verifier gate surfaced, recorded so they are not silent: (a) **grants
+already sitting on `bi` become live** — the row has been seeded (as the placeholder app) and
+toggleable in Users › Access for months, so any role or user grant an admin set on it while the
+tile still said Soon now opens the two reports; the migration preserves those rows on purpose and
+nothing audits them, so the Access list for `bi` is worth one look before deploy. (b) **0082's
+Down is a rollback only together with the pre-WO-2b code**: on current code it re-enables two
+rows that gate nothing.

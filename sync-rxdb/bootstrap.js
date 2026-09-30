@@ -87,9 +87,11 @@ import {
 import { createHQConflictHandler, resolveConflict } from './conflict-handler.js';
 
 // The launcher's cached grant list (`index.html` writes it). The claim is
-// NARROW — obligation 4 / decision 56: a user holding `inventory` genuinely
-// reaches `inventory-trends` and `inventory-cost`, so the reachable set is the
-// expansion, not the claim.
+// NARROW — obligation 4 / decision 56: where main.go mounts an app grant as the
+// umbrella over a narrower surface, the reachable set is the expansion, not
+// the claim. (No such pair exists since B-455 / WO-2b retired
+// `inventory-trends` / `inventory-cost` for the `bi` app; UMBRELLA_SLUGS is
+// empty and the expansion is the identity until one returns.)
 //
 // Mirrors `index.html:150-179`'s `readIdentityToken()` — the identity token
 // lives in the origin-scoped `hq-identity` CacheStorage bucket (`/__hq_identity`),
