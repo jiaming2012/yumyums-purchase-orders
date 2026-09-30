@@ -629,3 +629,86 @@ test('the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]'
   const visibility = await page.evaluate(() => document.querySelector('.grid').style.visibility);
   expect(visibility).toBe('hidden');
 });
+
+// ═══ Launcher tile status — the Inventory tile repeats its hub's badges ═══════
+// inventory.html opens on a hub whose rows carry live facts (B-455 / WO-2a:
+// "10 to review", "67 below par", "Drift"). The launcher tile shows the same
+// facts so the crew sees them one screen earlier: the strongest one as the
+// corner badge, all of them in the description line. The sources are mocked
+// here so each row of the contract is forced, not found.
+const INVENTORY_TILE_DESC = 'Receipts, stock levels and recipes';
+
+async function mockInventoryStatus(page, { pending, stock, drift }) {
+  const reply = (route, body) => body === 'fail'
+    ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' })
+    : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/v1/inventory/purchases/pending**', r => reply(r, pending));
+  await page.route('**/api/v1/inventory/stock**', r => reply(r, stock));
+  await page.route('**/api/v1/inventory/recipes/drift**', r => reply(r, drift));
+}
+
+async function openLauncher(page) {
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    var g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 5000 });
+}
+
+const stockRows = (below, ok) => [
+  ...Array.from({ length: below }, (_, i) => ({ description: 'Low ' + i, needs_reorder: true })),
+  ...Array.from({ length: ok }, (_, i) => ({ description: 'Fine ' + i, needs_reorder: false })),
+];
+
+test('inventory tile badge carries the strongest hub fact and the description lists every fact', async ({ page }) => {
+  await login(page);
+  await mockInventoryStatus(page, {
+    pending: Array.from({ length: 10 }, (_, i) => ({ id: i + 1, vendor_name: 'V' })),
+    stock: stockRows(67, 3),
+    drift: { sections: [{ menu_item: 'Smash Burger' }] },
+  });
+  await openLauncher(page);
+  const tile = page.locator('#tile-inventory');
+  await expect(tile.locator('.badge-warn')).toHaveText('10 to review');
+  await expect(tile.locator('.tile-desc')).toHaveText('10 to review · 67 below par · Drift');
+});
+
+test('inventory tile shows no badge and its own description when nothing needs attention', async ({ page }) => {
+  await login(page);
+  await mockInventoryStatus(page, { pending: [], stock: stockRows(0, 4), drift: {} });
+  await openLauncher(page);
+  // Give the status calls time to land — a late badge is the defect this guards.
+  await page.waitForTimeout(800);
+  const tile = page.locator('#tile-inventory');
+  await expect(tile.locator('.badge-warn')).toHaveCount(0);
+  await expect(tile.locator('.tile-desc')).toHaveText(INVENTORY_TILE_DESC);
+});
+
+test('inventory tile badge falls through to the next fact when the strongest is zero', async ({ page }) => {
+  await login(page);
+  await mockInventoryStatus(page, { pending: [], stock: stockRows(2, 4), drift: { sections: [{ menu_item: 'Fries' }] } });
+  await openLauncher(page);
+  const tile = page.locator('#tile-inventory');
+  await expect(tile.locator('.badge-warn')).toHaveText('2 below par');
+  await expect(tile.locator('.tile-desc')).toHaveText('2 below par · Drift');
+});
+
+test('a failed status call drops only its own fact from the inventory tile', async ({ page }) => {
+  await login(page);
+  await mockInventoryStatus(page, { pending: 'fail', stock: stockRows(2, 1), drift: 'fail' });
+  await openLauncher(page);
+  const tile = page.locator('#tile-inventory');
+  await expect(tile.locator('.badge-warn')).toHaveText('2 below par');
+  await expect(tile.locator('.tile-desc')).toHaveText('2 below par');
+});
+
+test('no inventory status call is made for a user without the inventory grant', async ({ page }) => {
+  await login(page);
+  const hits = [];
+  await page.route('**/api/v1/inventory/**', r => { hits.push(new URL(r.request().url()).pathname); r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }); });
+  await page.route('**/api/v1/me/apps**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ slug: 'operations', name: 'Operations', icon: '📋' }]) }));
+  await openLauncher(page);
+  await page.waitForTimeout(800);
+  await expect(page.locator('#tile-inventory')).toBeHidden();
+  expect(hits).toEqual([]);
+});

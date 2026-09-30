@@ -109,7 +109,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <div class="tile-desc">Team and permissions</div>
     </a>
 
-    <a class="tile active" href="inventory.html">
+    <a class="tile active" href="inventory.html" id="tile-inventory">
       <div class="tile-icon">📦</div>
       <div class="tile-title">Inventory</div>
       <div class="tile-desc">Receipts, stock levels and recipes</div>
@@ -165,6 +165,7 @@ function filterTilesByPermissions(apps){
   });
   remaining.forEach(function(tile){grid.appendChild(tile);});
   grid.style.visibility='';
+  startTileStatus(allowed);
 }
 const API_CACHE_NAME='api-cache';
 const IDENTITY_CACHE_NAME='hq-identity';
@@ -405,6 +406,64 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
     }
   }catch(e){}
 })();
+// ═══ TILE STATUS — a tile repeats the badges of the hub behind it ════════════
+//
+// inventory.html opens on a hub of rows carrying live facts (B-455 / WO-2a):
+// "10 to review" on Receipts, "67 below par" on Stock, "Drift" on Recipes. The
+// launcher shows the same facts one screen earlier: the strongest as the corner
+// badge, every one in the description line, in the hub's own row order. The
+// sources are the calls the hub makes at boot — nothing here adds an endpoint;
+// a one-call summary is the optimisation B-455 already names. Zero facts → no
+// badge and the tile's own description (never "0 to review"). A call that fails
+// drops only its own fact, silently, the same as a tool page offline. Offline
+// the service worker's api-cache answers with the last-known lists, so the badge
+// is last-known too. Nothing runs for a user the grant list does not give the
+// tool to; the tile is hidden for them anyway.
+//
+// bi.html (WO-2b) plugs in as a second TILE_STATUS_SOURCES entry once its hub
+// carries a row worth pulling forward. Its two planned rows (latest trends
+// week, average food cost %) are readings, not calls to action, so they are
+// not badged here until one of them is.
+var TILE_STATUS_STARTED={};
+var TILE_STATUS_SOURCES={inventory:{tile:'tile-inventory',load:loadInventoryTileStatus}};
+function startTileStatus(allowed){
+  Object.keys(TILE_STATUS_SOURCES).forEach(function(slug){
+    if(TILE_STATUS_STARTED[slug]||!allowed.has(slug))return;
+    TILE_STATUS_STARTED[slug]=true;
+    TILE_STATUS_SOURCES[slug].load().then(function(facts){renderTileStatus(slug,facts);}).catch(function(){});
+  });
+}
+async function statusJson(path){
+  var r=await fetch(path);
+  if(!r.ok)throw new Error(String(r.status));
+  return r.json();
+}
+async function loadInventoryTileStatus(){
+  var got=await Promise.allSettled([
+    statusJson('/api/v1/inventory/purchases/pending'),
+    statusJson('/api/v1/inventory/stock'),
+    statusJson('/api/v1/inventory/recipes/drift')
+  ]);
+  var facts=[];
+  if(got[0].status==='fulfilled'){var n=(got[0].value||[]).length;if(n>0)facts.push(n+' to review');}
+  if(got[1].status==='fulfilled'){var m=(got[1].value||[]).filter(function(s){return s&&s.needs_reorder;}).length;if(m>0)facts.push(m+' below par');}
+  if(got[2].status==='fulfilled'){var d=got[2].value;if(d&&d.sections&&d.sections.length>0)facts.push('Drift');}
+  return facts;
+}
+function renderTileStatus(slug,facts){
+  var tile=document.getElementById(TILE_STATUS_SOURCES[slug].tile);if(!tile)return;
+  var old=tile.querySelector('.badge-warn');if(old)old.remove();
+  var desc=tile.querySelector('.tile-desc');
+  if(desc&&desc.dataset.rest===undefined)desc.dataset.rest=desc.textContent;
+  if(!facts.length){if(desc)desc.textContent=desc.dataset.rest;return;}
+  var badge=document.createElement('div');
+  badge.className='badge badge-warn';
+  badge.textContent=facts[0];
+  tile.appendChild(badge);
+  // Each fact is one unbreakable phrase, so a narrow tile wraps at the dots
+  // ("67 below par · Drift"), never inside a fact ("67 below / par").
+  if(desc)desc.textContent=facts.map(function(f){return f.replace(/ /g,'\u00a0');}).join(' \u00b7 ');
+}
 // ═══ APP VERSION LINE — ledger T-33 decision 133, OKR D-KR2b ══════════════
 //
 // 🛑 THE SOURCE IS version.json. NEVER /api/v1/health.
