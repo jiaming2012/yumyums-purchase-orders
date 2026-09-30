@@ -18,9 +18,12 @@ const path = require('path');
 //   Hub, crew (four rows; data 403s)      -> hub-crew                 (edge: real server 403 → "Status unavailable", rows still open)
 //   Hub badges populated                  -> hub-badges               (10 to review · 2 below par · Drift · Synced 4 min ago)
 //   Hub badges zero                       -> hub-zero                 (no badge, never "0 to review")
-//   Hub row loading                       -> hub-loading              (skeleton badge + "Loading…")
+//   Hub row loading                       -> hub-loading              (skeleton badge VISIBLE + "Loading…")
 //   Hub row error (forced 500)            -> hub-error                (edge: "Status unavailable", row opens)
 //   Sync subtitle: never / running        -> hub-sync-never, hub-sync-running
+//   Sync failed / cancelled / no stamp    -> hub-sync-failed           (edge: never "Synced N min ago" for a failed run; no epoch arithmetic)
+//   Phone back gesture → hub              -> (no shot)                 (edge: hashchange follows the hash; forward reopens the section)
+//   #tab=0 on a page without a hub        -> (no shot)                 (edge: tab.js still falls back to tab 1 elsewhere)
 //   Pre-paint: hub before boot            -> hub-prepaint             (edge: no Receipts flash while /me hangs)
 //   Section page + back to hub            -> section-receipts, back-to-hub
 //   Deep link #tab=2 opens Stock directly -> deeplink-stock
@@ -133,6 +136,15 @@ test.describe('Inventory hub — B-455 WO-2a state table', () => {
     }));
     for (const r of rows) { expect(r.h).toBeGreaterThanOrEqual(44); expect(r.badgeLeft).toBeGreaterThanOrEqual(r.titleRight - 0.5); }
     await expect(page.locator('#t7')).toHaveClass(/dim/);
+    // The hub is a nav of buttons, not a list with non-listitem children.
+    await expect(page.locator('#s0')).toHaveAttribute('aria-label', 'Inventory');
+    expect(await page.locator('#s0').getAttribute('role')).not.toBe('list');
+    // Dimming Setup must not push its text below readable contrast: the title
+    // and subtitle keep full opacity; only the icon and chevron fade.
+    const dim = await page.locator('#t7').evaluate(r => ({
+      row: getComputedStyle(r).opacity, title: getComputedStyle(r.querySelector('.hub-t')).opacity,
+      icon: getComputedStyle(r.querySelector('.hub-ic')).opacity }));
+    expect(+dim.row).toBe(1); expect(+dim.title).toBe(1); expect(+dim.icon).toBeLessThan(1);
     await shot(page, 'hub-admin');
   });
 
@@ -165,7 +177,7 @@ test.describe('Inventory hub — B-455 WO-2a state table', () => {
     await page.route('**/api/v1/inventory/recipes/drift', json({ sections: [{ kind: 'unallocated', heading: '3 unallocated', items: [] }] }));
     await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow()));
     await openHub(page);
-    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updatePendingBadge(); });
     await expect(page.locator('#hub-b1')).toHaveText('10 to review');
     await expect(page.locator('#hub-s1')).toHaveText('Synced 4 min ago');
     await expect(page.locator('#hub-b2')).toHaveText('2 below par');
@@ -198,14 +210,18 @@ test.describe('Inventory hub — B-455 WO-2a state table', () => {
     let release;
     const gate = new Promise(r => { release = r; });
     await page.route('**/api/v1/inventory/stock', async (route) => { await gate; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STOCK) }); });
+    await page.route('**/api/v1/inventory/recipes/drift', async (route) => { await gate; await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
     await page.goto('/inventory.html');
     await expect(page.locator('#s0')).toBeVisible();
     await expect(page.locator('#hub-b2')).toHaveClass(/skel/);
+    await expect(page.locator('#hub-b2'), 'the skeleton badge is painted, not hidden by :empty').toBeVisible();
     await expect(page.locator('#hub-s2')).toHaveText('Loading…');
+    await expect(page.locator('#hub-s4')).toHaveText('Loading…');
     await shot(page, 'hub-loading');
     release();
     await expect(page.locator('#hub-b2')).toHaveText('2 below par');
     await expect(page.locator('#hub-b2')).not.toHaveClass(/skel/);
+    await expect(page.locator('#hub-s4')).toHaveText('By ingredient · By dish');
   });
 
   test('Edge: a status call that fails reads "Status unavailable" and the row still opens', async ({ page }) => {
@@ -235,6 +251,47 @@ test.describe('Inventory hub — B-455 WO-2a state table', () => {
     await expect(page.locator('#hub-s1')).toHaveText('Syncing now…');
     await shot(page, 'hub-sync-running');
     await page.evaluate(() => stopSyncPoll());
+  });
+
+  test('Edge: a failed or cancelled sync is named, never "Synced N min ago"', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ status: 'failed', error: 'Mercury 502' })));
+    await openHub(page);
+    await expect(page.locator('#hub-s1')).toHaveText('Last sync failed');
+    await shot(page, 'hub-sync-failed');
+    await page.unroute('**/api/v1/inventory/sync-receipts/status');
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ status: 'cancelled' })));
+    await page.evaluate(() => refreshSyncStatus());
+    await expect(page.locator('#hub-s1')).toHaveText('Last sync cancelled');
+    // A done row with no usable timestamp must not print epoch arithmetic.
+    await page.unroute('**/api/v1/inventory/sync-receipts/status');
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ started_at: null, finished_at: null })));
+    await page.evaluate(() => refreshSyncStatus());
+    await expect(page.locator('#hub-s1')).toHaveText('Synced');
+    await page.evaluate(() => stopSyncPoll());
+  });
+
+  test('Edge: the phone back gesture returns from a section to the hub', async ({ page }) => {
+    await login(page);
+    await openHub(page);
+    await page.locator('#t2').click();
+    await expect(page.locator('#s2')).toBeVisible();
+    await page.goBack();
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s2')).toBeHidden();
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    await page.goForward();
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#back-hub')).toContainText('Stock');
+  });
+
+  test('Edge: #tab=0 on a page without a hub still paints its first tab', async ({ page }) => {
+    // tab.js gained a home slot for the hub; every other tabbed page must keep
+    // falling back to tab 1 for an out-of-range hash instead of hiding all.
+    await login(page);
+    await page.goto('/purchasing.html#tab=0');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#t1')).toHaveClass(/on/);
   });
 
   test('Edge: the hub is painted before boot — no Receipts flash while /me hangs', async ({ page }) => {

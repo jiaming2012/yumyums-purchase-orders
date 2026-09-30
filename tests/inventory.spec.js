@@ -148,7 +148,7 @@ test.describe('Inventory', () => {
     // hub row carries the count as a badge beside the title instead.
     await page.setViewportSize({ width: 393, height: 852 });
     await page.locator('#back-hub').click();
-    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updatePendingBadge(); });
     await expect(page.locator('#t1 .hub-t')).toHaveText('Receipts');
     await expect(page.locator('#hub-b1')).toHaveText('10 to review');
     const { title, badge } = await page.locator('#t1').evaluate(r => {

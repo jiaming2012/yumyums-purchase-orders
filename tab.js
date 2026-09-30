@@ -13,7 +13,9 @@
   var home = script && script.dataset.home != null ? +script.dataset.home : 1;
   var m = location.hash.match(/tab=(\d+)/);
   var active = m ? +m[1] : home;
-  if (active < 0 || active > count) active = home;
+  // Slot 0 is only valid on a page that declares it as home; elsewhere an
+  // out-of-range hash (including #tab=0) still falls back to the first tab.
+  if (active < (home === 0 ? 0 : 1) || active > count) active = home;
   for (var i = 0; i <= count; i++) {
     var btn = document.getElementById('t' + i);
     // Toggle, don't assign: the Inventory hub rows carry classes of their own

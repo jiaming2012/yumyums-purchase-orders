@@ -26,17 +26,18 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .hub{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
 .hub-row{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:12px 14px;background:var(--card);border:0.5px solid var(--brd);border-radius:12px;color:var(--txt);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .hub-row:active{opacity:.7}
-.hub-row.dim{opacity:.6}
+.hub-row.dim .hub-ic,.hub-row.dim .hub-chev{opacity:.5}
+.hub-row.dim .hub-t{color:var(--mut)}
 .hub-ic{font-size:22px;width:30px;text-align:center;flex:none}
 .hub-body{flex:1;min-width:0}
 .hub-t{display:block;font-weight:600;font-size:15px}
 .hub-s{display:block;font-size:12px;color:var(--mut);margin-top:2px}
 .hub-b{flex:none;max-width:45%;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hub-b:empty{display:none}
-.hub-b.ok{background:var(--ok-bg,#dcfce7);color:var(--ok-tx,#14532d)}
-.hub-b.skel{width:64px;height:18px;padding:0;background:var(--brd);animation:pulse 1.2s infinite}
+/* :empty hides a badge with nothing to say; the loading skeleton is empty on
+   purpose and must still paint, hence the :not. */
+.hub-b:empty:not(.skel){display:none}
+.hub-b.skel{display:inline-block;width:64px;height:18px;padding:0;background:var(--brd);animation:pulse 1.2s infinite}
 .hub-chev{flex:none;color:var(--mut);font-size:18px;line-height:1}
-.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
 .event-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
 .event-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -423,14 +424,14 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
        #tab=3 is remapped in show() to Recipes › By dish. Trends and Cost stay
        here as rows 5 and 6 for granted owners until WO-2b moves them to bi.html.
        Subtitles and badges are filled by renderHub() from HUB status. -->
-  <div id="s0" class="hub" style="display:none" role="list" aria-label="Inventory">
+  <nav id="s0" class="hub" style="display:none" aria-label="Inventory">
     <button id="t1" class="hub-row" type="button" onclick="show(1)"><span class="hub-ic" aria-hidden="true">&#x1F9FE;</span><span class="hub-body"><span class="hub-t">Receipts</span><span class="hub-s" id="hub-s1">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b1"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t2" class="hub-row" type="button" onclick="show(2)"><span class="hub-ic" aria-hidden="true">&#x1F4E6;</span><span class="hub-body"><span class="hub-t">Stock</span><span class="hub-s" id="hub-s2">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b2"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t4" class="hub-row" type="button" onclick="show(4)"><span class="hub-ic" aria-hidden="true">&#x1F354;</span><span class="hub-body"><span class="hub-t">Recipes</span><span class="hub-s" id="hub-s4">By ingredient &middot; By dish</span></span><span class="hub-b skel" id="hub-b4"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t5" class="hub-row" type="button" onclick="show(5)"><span class="hub-ic" aria-hidden="true">&#x1F4C8;</span><span class="hub-body"><span class="hub-t">Trends</span><span class="hub-s">Spend by group, weekly</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t6" class="hub-row" type="button" onclick="show(6)"><span class="hub-ic" aria-hidden="true">&#x1F4B5;</span><span class="hub-body"><span class="hub-t">Cost</span><span class="hub-s">Food cost and margin per dish</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t7" class="hub-row dim" type="button" onclick="show(7)"><span class="hub-ic" aria-hidden="true">&#x2699;&#xFE0F;</span><span class="hub-body"><span class="hub-t">Setup</span><span class="hub-s">Items &middot; Vendors</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
-  </div>
+  </nav>
   <div id="s1" style="display:none">
     <div class="sync-bar">
       <div class="sync-row">
@@ -1108,7 +1109,9 @@ var HUB={pending:undefined,sync:undefined,stock:undefined,drift:undefined};
 function hubSet(key,val){HUB[key]=val;renderHub();}
 
 function hubMinutesAgo(iso){
-  var mins=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/60000));
+  var t=iso?new Date(iso).getTime():NaN;
+  if(isNaN(t))return '';
+  var mins=Math.max(0,Math.floor((Date.now()-t)/60000));
   if(mins<1)return 'just now';
   if(mins<60)return mins+' min ago';
   var h=Math.floor(mins/60);
@@ -1134,16 +1137,28 @@ function renderHub(){
   else if(HUB.sync===undefined)hubSub('hub-s1','Loading\u2026');
   else if(!HUB.sync)hubSub('hub-s1','Not synced yet');
   else if(HUB.sync.status==='running')hubSub('hub-s1','Syncing now\u2026');
-  else hubSub('hub-s1','Synced '+hubMinutesAgo(HUB.sync.finished_at||HUB.sync.started_at));
+  else if(HUB.sync.status==='failed')hubSub('hub-s1','Last sync failed');
+  else if(HUB.sync.status==='cancelled')hubSub('hub-s1','Last sync cancelled');
+  else{var ago=hubMinutesAgo(HUB.sync.finished_at||HUB.sync.started_at);hubSub('hub-s1','Synced'+(ago?' '+ago:''));}
   // Stock: badge = items needing reorder, subtitle = what the page holds.
   if(HUB.stock==='error'){hubBadge('hub-b2','');hubSub('hub-s2','Status unavailable');}
   else if(HUB.stock===undefined){hubBadge('hub-b2','','skel');hubSub('hub-s2','Loading\u2026');}
   else{hubBadge('hub-b2',HUB.stock>0?HUB.stock+' below par':'');hubSub('hub-s2',HUB.stock>0?'Reorder suggestions waiting':'Levels and reorder suggestions');}
   // Recipes: badge = drift, subtitle stays descriptive (both views are named).
   if(HUB.drift==='error'){hubBadge('hub-b4','');hubSub('hub-s4','Status unavailable');}
-  else if(HUB.drift===undefined)hubBadge('hub-b4','','skel');
+  else if(HUB.drift===undefined){hubBadge('hub-b4','','skel');hubSub('hub-s4','Loading\u2026');}
   else{hubBadge('hub-b4',HUB.drift?'Drift':'');hubSub('hub-s4','By ingredient \u00b7 By dish');}
 }
+
+// With full-page sections the phone's back gesture is how the crew returns to
+// the hub: show() pushes #tab=N, so popping it must show what the hash names.
+window.addEventListener('hashchange',function(){
+  var m=location.hash.match(/tab=(\d+)/);
+  var n=m?+m[1]:0;
+  if(n===ACTIVE_TAB)return;
+  if(/[#&]view=dish(&|$)/.test(location.hash))RECIPES_VIEW='dish';
+  show(n);
+});
 
 async function loadHubDrift(){
   try{
@@ -1596,12 +1611,12 @@ function renderHistoryList(){
     :merged;
   if(!merged.length){
     list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No purchases yet</h3><p>Purchase events will appear here once the receipt pipeline syncs.</p></div>';
-    updateHistoryTabLabel();
+    updatePendingBadge();
     return;
   }
   if(HISTORY_FILTER==='recent'&&!allItems.length){
     list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">Nothing added in the last '+RECENT_DAYS+' days</h3><p>Receipts the pipeline parses (or you confirm) show here for a week.</p></div>';
-    updateHistoryTabLabel();
+    updatePendingBadge();
     return;
   }
   var html='';
@@ -1613,12 +1628,12 @@ function renderHistoryList(){
     html+='<button id="load-more-btn" onclick="loadMore()" style="width:100%;padding:12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;margin-top:4px">Load more</button>';
   }
   list.innerHTML=html;
-  updateHistoryTabLabel();
+  updatePendingBadge();
 }
 
-// Kept under its WO-1 name: the pending count used to be a corner badge on
-// the Receipts tab button; it is now the Receipts hub row's badge.
-function updateHistoryTabLabel(){
+// The pending count is the Receipts hub row's badge (it was a corner badge on
+// the Receipts tab button under WO-1).
+function updatePendingBadge(){
   hubSet('pending',PENDING_PURCHASES.length);
 }
 
