@@ -2,6 +2,19 @@ const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
+// B-455 / WO-2a: Inventory opens on a HUB (#s0) whose rows carry the slot ids
+// t1/t2/t4/t5/t6/t7; every section is a full page with a back link (#back-hub).
+// A bare /inventory.html therefore lands on the hub, so tests that exercise a
+// section load it by hash, and moving between sections goes through the hub.
+async function goTab(page, n) {
+  // Wait for boot: tab.js paints the hashed section before the page script
+  // runs show(), and until then neither the hub nor the back link is visible.
+  await page.waitForSelector('#s0:visible, #back-hub:visible');
+  const back = page.locator('#back-hub');
+  if (await back.isVisible()) await back.click();
+  await page.locator('#t' + n).click();
+}
+
 // states-cost.spec.js — the CLAUDE.md self-verification ritual for the Cost tab
 // (`#s6`, FR-4 / AC-4). Every row of the PRD "State Enumeration — Cost tab (`#s6`)"
 // table (.night-crew/knowledge/prds/PRD-prove-and-surface.md) is FORCED here,
@@ -441,16 +454,16 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
       }, true);
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     // No parse-time or runtime explosion...
     expect(errors).toEqual([]);
     // ...and the rest of the page is fully functional: other tabs still switch.
     await expect(page.locator('#cost-container')).toHaveCount(0);
-    await page.click('#t2');
+    await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
-    await page.click('#t1');
+    await goTab(page, 1);
     await expect(page.locator('#s1')).toBeVisible();
 
     // A stray click must not throw now that the container is gone.
@@ -576,7 +589,7 @@ test.describe('Cost tab — gating', () => {
 
     const user = await makeGatedUser(page, 'cost-ungated', []);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
@@ -594,9 +607,9 @@ test.describe('Cost tab — gating', () => {
     await expect(page.locator('#cost-container')).toHaveCount(0);
 
     // The page still works for exactly the users being gated (F4's carried hazard).
-    await page.click('#t2');
+    await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
-    await page.click('#t1');
+    await goTab(page, 1);
     await expect(page.locator('#s1')).toBeVisible();
     expect(errors).toEqual([]);
 
@@ -610,10 +623,11 @@ test.describe('Cost tab — gating', () => {
     const user = await makeGatedUser(page, 'cost-deeplink', []);
     await loginAs(page, user.email, user.password);
     await page.goto('/inventory.html#tab=6');
-    await page.waitForSelector('#s1');
+    await page.waitForSelector('#s0');
 
     await expect(page.locator('#s6')).toHaveCount(0);
-    await expect(page.locator('#s1')).toBeVisible();
+    // A pasted URL lands on the hub (B-455 / WO-2a), not a blank page.
+    await expect(page.locator('#s0')).toBeVisible();
     expect(errors).toEqual([]);
 
     await shot(page, 'edge-ungated-deeplink');
@@ -623,11 +637,11 @@ test.describe('Cost tab — gating', () => {
   test('Granted user — #t6/#s6 render and GET /inventory/cost returns 200', async ({ page }) => {
     const user = await makeGatedUser(page, 'cost-granted', ['inventory-cost']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     await expect(page.locator('#t6')).toHaveCount(1);
-    await page.click('#t6');
+    await goTab(page, 6);
     await expect(page.locator('#s6')).toBeVisible();
 
     expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
@@ -642,11 +656,11 @@ test.describe('Cost tab — gating', () => {
 
     const user = await makeGatedUser(page, 'mixed-cost-only', ['inventory-cost']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     await expect(page.locator('#t6')).toHaveCount(1);
-    await page.click('#t6');
+    await goTab(page, 6);
     await expect(page.locator('#s6')).toBeVisible();
     expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
 
@@ -666,7 +680,7 @@ test.describe('Cost tab — gating', () => {
   // would 403 — the exact inconsistency flag 5 warns about.
   test('Superadmin with zero explicit grants sees both tabs and gets 200 from both', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     await expect(page.locator('#t5')).toHaveCount(1);

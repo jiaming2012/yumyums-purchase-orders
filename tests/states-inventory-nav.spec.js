@@ -3,29 +3,38 @@ const fs = require('fs');
 const path = require('path');
 
 // states-inventory-nav.spec.js — the CLAUDE.md self-verification ritual for
-// B-455 / WO-1: the Inventory tab bar trimmed from seven tabs to six, Menu
-// folded into Recipes as the "By dish" view, the three stacked sync controls
-// collapsed into one row (Sync Receipts + an admin-only More sheet), and the
-// Purchase Orders link dropped from Setup. Mockup of record:
-// docs/mockups/inventory-nav-trim.html (option A).
+// B-455. WO-1 trimmed the tab bar and folded Menu into Recipes; WO-2a (this
+// table) replaces the bar with a HUB: Inventory opens on a list of
+// destinations, each row carrying its own live status, and every section is
+// a full page with a back link to the hub. Mockup of record:
+// docs/mockups/inventory-nav-trim.html, section "Chosen".
 //
 // Every row of the State Enumeration Table is FORCED here at the 393×852
 // phone viewport, navigated to, and screenshotted so the PNGs can be read
 // back and compared to the visual contract.
 //
-//   Row                              -> screenshot
-//   Receipts, admin (Sync + More)    -> receipts-admin
-//   Receipts, crew (Sync only)       -> receipts-crew            (edge: gated user sees FOUR tabs)
-//   More sheet open                  -> more-sheet
-//   Deep sync modal from the sheet   -> deep-sync-from-sheet     (edge: the range picker is still reachable)
-//   Recipes › By ingredient          -> recipes-by-ingredient
-//   Recipes › By dish, empty         -> recipes-by-dish-empty
-//   Recipes › By dish, populated     -> recipes-by-dish-populated (dish selected, summary above)
-//   Recipes › By dish, error         -> recipes-by-dish-error    (500 route → inline retry)
-//   Setup without the PO link        -> setup
-//   Legacy #tab=3 deep link          -> legacy-tab3              (edge: old Menu bookmark lands on By dish)
-//   Tab bar with a 10-count badge    -> tab-bar-badge            (edge: no label wraps at 393px)
-//   Receipts, admin, dark scheme     -> receipts-admin-dark      (the operator's own screenshot was dark)
+//   Row                                   -> screenshot
+//   Hub, admin (six rows until WO-2b)     -> hub-admin
+//   Hub, crew (four rows; data 403s)      -> hub-crew                 (edge: real server 403 → "Status unavailable", rows still open)
+//   Hub badges populated                  -> hub-badges               (10 to review · 2 below par · Drift · Synced 4 min ago)
+//   Hub badges zero                       -> hub-zero                 (no badge, never "0 to review")
+//   Hub row loading                       -> hub-loading              (skeleton badge VISIBLE + "Loading…")
+//   Hub row error (forced 500)            -> hub-error                (edge: "Status unavailable", row opens)
+//   Sync subtitle: never / running        -> hub-sync-never, hub-sync-running
+//   Sync failed / cancelled / no stamp    -> hub-sync-failed           (edge: never "Synced N min ago" for a failed run; no epoch arithmetic)
+//   Phone back gesture → hub              -> (no shot)                 (edge: hashchange follows the hash; forward reopens the section)
+//   #tab=0 on a page without a hub        -> (no shot)                 (edge: tab.js still falls back to tab 1 elsewhere)
+//   Pre-paint: hub before boot            -> hub-prepaint             (edge: no Receipts flash while /me hangs)
+//   Section page + back to hub            -> section-receipts, back-to-hub
+//   Deep link #tab=2 opens Stock directly -> deeplink-stock
+//   Crew pastes gated #tab=5              -> deeplink-gated           (edge: lands on the hub, not a tab shell)
+//   Legacy #tab=3 deep link               -> legacy-tab3              (edge: old Menu bookmark lands on By dish)
+//   Hub, admin, dark scheme               -> hub-dark
+//   Receipts, admin (Sync + More)         -> receipts-admin           (WO-1 rows that still hold)
+//   More sheet open                       -> more-sheet
+//   Deep sync modal from the sheet        -> deep-sync-from-sheet
+//   Recipes › By ingredient / By dish ×3  -> recipes-*
+//   Setup without the PO link             -> setup
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -82,23 +91,309 @@ const DISHES = [
     last_seen: '2026-09-27', created_at: '2026-09-01T12:00:00Z', units_sold_this_week: 201, gross_this_week: 804.0 },
 ];
 
-async function stubDishes(page, body, status) {
-  await page.route('**/api/v1/inventory/menu-items*', async (route) => {
-    await route.fulfill({ status: status || 200, contentType: 'application/json', body: JSON.stringify(body) });
-  });
+// Two stock rows in the wire shape of inventory.StockRow (types.go), one
+// needing reorder. The hub's "N below par" counts needs_reorder.
+const STOCK = [
+  { id: 'pi-1', description: 'Chicken Thighs', display_name: 'Chicken Thighs', group_name: 'Proteins', total_quantity: 4, total_spend: 212,
+    avg_price: 3.2, last_purchase_date: '2026-09-27', low_threshold: 20, high_threshold: 40, level: 'low', needs_reorder: true },
+  { id: 'pi-2', description: 'Canola Oil', display_name: 'Canola Oil', group_name: 'Dry Goods', total_quantity: 1, total_spend: 38,
+    avg_price: 19, last_purchase_date: '2026-09-20', low_threshold: 3, high_threshold: 6, level: 'low', needs_reorder: true },
+  { id: 'pi-3', description: 'Buns, Brioche', display_name: 'Brioche Buns', group_name: 'Bread', total_quantity: 96, total_spend: 96,
+    avg_price: 0.5, last_purchase_date: '2026-09-28', low_threshold: 24, high_threshold: 120, level: 'medium', needs_reorder: false },
+];
+
+function json(body, status) {
+  return async (route) => route.fulfill({ status: status || 200, contentType: 'application/json', body: JSON.stringify(body) });
+}
+async function stubDishes(page, body, status) { await page.route('**/api/v1/inventory/menu-items*', json(body, status)); }
+function minutesAgoIso(min) { return new Date(Date.now() - min * 60000).toISOString(); }
+function syncRow(over) {
+  return Object.assign({ id: 7, started_at: minutesAgoIso(5), finished_at: minutesAgoIso(4), status: 'done', processed: 3,
+    auto_created: 1, pending_review: 2, cached: 0, error: null, triggered_by: 'manual', lookback_days: 14 }, over || {});
 }
 
-test.describe('Inventory navigation — B-455 WO-1 state table', () => {
+async function openHub(page) {
+  await page.goto('/inventory.html');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('#s0')).toBeVisible();
+}
+
+test.describe('Inventory hub — B-455 WO-2a state table', () => {
+
+  test('Hub, admin: six rows in daily-first order, back link is HQ, no hash', async ({ page }) => {
+    await login(page);
+    await openHub(page);
+    await expect(page.locator('.hub-row')).toHaveCount(6);
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Trends', 'Cost', 'Setup']);
+    await expect(page.locator('#back-hq')).toBeVisible();
+    await expect(page.locator('#back-hub')).toBeHidden();
+    for (const id of ['#s1', '#s2', '#s4', '#s5', '#s6', '#s7']) await expect(page.locator(id)).toBeHidden();
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    // UI-R: every row is a ≥44px target and the badge never overlaps the title.
+    const rows = await page.locator('.hub-row').evaluateAll(rs => rs.map(r => {
+      const t = r.querySelector('.hub-t').getBoundingClientRect(); const b = r.querySelector('.hub-b');
+      return { h: r.getBoundingClientRect().height, titleRight: t.right, badgeLeft: b && b.offsetParent ? b.getBoundingClientRect().left : Infinity };
+    }));
+    for (const r of rows) { expect(r.h).toBeGreaterThanOrEqual(44); expect(r.badgeLeft).toBeGreaterThanOrEqual(r.titleRight - 0.5); }
+    await expect(page.locator('#t7')).toHaveClass(/dim/);
+    // The hub is a nav of buttons, not a list with non-listitem children.
+    await expect(page.locator('#s0')).toHaveAttribute('aria-label', 'Inventory');
+    expect(await page.locator('#s0').getAttribute('role')).not.toBe('list');
+    // Dimming Setup must not push its text below readable contrast: the title
+    // and subtitle keep full opacity; only the icon and chevron fade.
+    const dim = await page.locator('#t7').evaluate(r => ({
+      row: getComputedStyle(r).opacity, title: getComputedStyle(r.querySelector('.hub-t')).opacity,
+      icon: getComputedStyle(r.querySelector('.hub-ic')).opacity }));
+    expect(+dim.row).toBe(1); expect(+dim.title).toBe(1); expect(+dim.icon).toBeLessThan(1);
+    await shot(page, 'hub-admin');
+  });
+
+  test('Hub, crew: four rows; the server 403 reads as "Status unavailable" and rows still open', async ({ page }) => {
+    const crew = await makeCrewUser(page, 'hub');
+    await loginAs(page, crew.email, crew.password);
+    await openHub(page);
+    await expect(page.locator('#t5')).toHaveCount(0);
+    await expect(page.locator('#t6')).toHaveCount(0);
+    await expect(page.locator('#t3')).toHaveCount(0);
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Setup']);
+    // No inventory grant → purchases/stock/drift 403 → the row says so, and no
+    // badge pretends to be a count. The row is still a way in.
+    await expect(page.locator('#hub-s1')).toHaveText('Status unavailable');
+    await expect(page.locator('#hub-s2')).toHaveText('Status unavailable');
+    await expect(page.locator('#hub-s4')).toHaveText('Status unavailable');
+    for (const id of ['#hub-b1', '#hub-b2', '#hub-b4']) {
+      await expect(page.locator(id)).toBeEmpty();
+      await expect(page.locator(id)).not.toHaveClass(/skel/);
+    }
+    await shot(page, 'hub-crew');
+    await page.locator('#t2').click();
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#back-hub')).toContainText('Stock');
+  });
+
+  test('Hub badges populated: 10 to review · 2 below par · Drift · Synced 4 min ago', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/stock', json(STOCK));
+    await page.route('**/api/v1/inventory/recipes/drift', json({ sections: [{ kind: 'unallocated', heading: '3 unallocated', items: [] }] }));
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow()));
+    await openHub(page);
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updatePendingBadge(); });
+    await expect(page.locator('#hub-b1')).toHaveText('10 to review');
+    await expect(page.locator('#hub-s1')).toHaveText('Synced 4 min ago');
+    await expect(page.locator('#hub-b2')).toHaveText('2 below par');
+    await expect(page.locator('#hub-b4')).toHaveText('Drift');
+    // The row's accessible name carries the status so a screen reader hears
+    // "Receipts, Synced 4 min ago, 10 to review".
+    await expect(page.locator('#t1')).toHaveAccessibleName(/Receipts.*Synced 4 min ago.*10 to review/);
+    await shot(page, 'hub-badges');
+  });
+
+  test('Hub badges zero: no badge at all, never "0 to review"', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/stock', json([STOCK[2]]));
+    await page.route('**/api/v1/inventory/recipes/drift', json({}));
+    await page.route('**/api/v1/inventory/purchases/pending', json([]));
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow()));
+    await openHub(page);
+    await expect(page.locator('#hub-s1')).toHaveText('Synced 4 min ago');
+    for (const id of ['#hub-b1', '#hub-b2', '#hub-b4']) {
+      await expect(page.locator(id)).toBeEmpty();
+      await expect(page.locator(id)).toBeHidden();
+    }
+    await expect(page.locator('#hub-s2')).toHaveText('Levels and reorder suggestions');
+    await expect(page.locator('#hub-s4')).toHaveText('By ingredient · By dish');
+    await shot(page, 'hub-zero');
+  });
+
+  test('Hub row loading: skeleton badge and "Loading…" until the call lands', async ({ page }) => {
+    await login(page);
+    let release;
+    const gate = new Promise(r => { release = r; });
+    await page.route('**/api/v1/inventory/stock', async (route) => { await gate; await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STOCK) }); });
+    await page.route('**/api/v1/inventory/recipes/drift', async (route) => { await gate; await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.goto('/inventory.html');
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#hub-b2')).toHaveClass(/skel/);
+    await expect(page.locator('#hub-b2'), 'the skeleton badge is painted, not hidden by :empty').toBeVisible();
+    await expect(page.locator('#hub-s2')).toHaveText('Loading…');
+    await expect(page.locator('#hub-s4')).toHaveText('Loading…');
+    await shot(page, 'hub-loading');
+    release();
+    await expect(page.locator('#hub-b2')).toHaveText('2 below par');
+    await expect(page.locator('#hub-b2')).not.toHaveClass(/skel/);
+    await expect(page.locator('#hub-s4')).toHaveText('By ingredient · By dish');
+  });
+
+  test('Edge: a status call that fails reads "Status unavailable" and the row still opens', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/stock', json({ error: 'boom' }, 500));
+    await page.route('**/api/v1/inventory/recipes/drift', json({ error: 'boom' }, 500));
+    await openHub(page);
+    await expect(page.locator('#hub-s2')).toHaveText('Status unavailable');
+    await expect(page.locator('#hub-b2')).toBeEmpty();
+    await expect(page.locator('#hub-s4')).toHaveText('Status unavailable');
+    await expect(page.locator('#hub-b4')).toBeEmpty();
+    await shot(page, 'hub-error');
+    await page.locator('#t2').click();
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#stock-list')).toContainText('load stock levels');
+  });
+
+  test('Sync subtitle: "Not synced yet" with no run, "Syncing now…" while one runs', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(null));
+    await openHub(page);
+    await expect(page.locator('#hub-s1')).toHaveText('Not synced yet');
+    await shot(page, 'hub-sync-never');
+    await page.unroute('**/api/v1/inventory/sync-receipts/status');
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ status: 'running', finished_at: null })));
+    await page.evaluate(() => refreshSyncStatus());
+    await expect(page.locator('#hub-s1')).toHaveText('Syncing now…');
+    await shot(page, 'hub-sync-running');
+    await page.evaluate(() => stopSyncPoll());
+  });
+
+  test('Edge: a failed or cancelled sync is named, never "Synced N min ago"', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ status: 'failed', error: 'Mercury 502' })));
+    await openHub(page);
+    await expect(page.locator('#hub-s1')).toHaveText('Last sync failed');
+    await shot(page, 'hub-sync-failed');
+    await page.unroute('**/api/v1/inventory/sync-receipts/status');
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ status: 'cancelled' })));
+    await page.evaluate(() => refreshSyncStatus());
+    await expect(page.locator('#hub-s1')).toHaveText('Last sync cancelled');
+    // A done row with no usable timestamp must not print epoch arithmetic.
+    await page.unroute('**/api/v1/inventory/sync-receipts/status');
+    await page.route('**/api/v1/inventory/sync-receipts/status', json(syncRow({ started_at: null, finished_at: null })));
+    await page.evaluate(() => refreshSyncStatus());
+    await expect(page.locator('#hub-s1')).toHaveText('Synced');
+    await page.evaluate(() => stopSyncPoll());
+  });
+
+  test('Edge: the phone back gesture returns from a section to the hub', async ({ page }) => {
+    await login(page);
+    await openHub(page);
+    await page.locator('#t2').click();
+    await expect(page.locator('#s2')).toBeVisible();
+    await page.goBack();
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s2')).toBeHidden();
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    await page.goForward();
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#back-hub')).toContainText('Stock');
+  });
+
+  test('Edge: #tab=0 on a page without a hub still paints its first tab', async ({ page }) => {
+    // tab.js gained a home slot for the hub; every other tabbed page must keep
+    // falling back to tab 1 for an out-of-range hash instead of hiding all.
+    await login(page);
+    await page.goto('/purchasing.html#tab=0');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#t1')).toHaveClass(/on/);
+  });
+
+  test('Edge: the hub is painted before boot — no Receipts flash while /me hangs', async ({ page }) => {
+    await login(page);
+    let release;
+    const gate = new Promise(r => { release = r; });
+    await page.route('**/api/v1/me', async (route) => { await gate; await route.continue(); });
+    await page.goto('/inventory.html');
+    // tab.js (data-home="0") has run; the page script is parked on /me.
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s1')).toBeHidden();
+    await shot(page, 'hub-prepaint');
+    release();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s0')).toBeVisible();
+  });
+
+  test('Section page: tapping Receipts opens it full-page with a back link; back returns to the hub', async ({ page }) => {
+    await login(page);
+    await openHub(page);
+    await page.locator('#t1').click();
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#s0')).toBeHidden();
+    await expect(page.locator('#back-hq')).toBeHidden();
+    await expect(page.locator('#back-hub')).toBeVisible();
+    await expect(page.locator('#back-hub')).toHaveText(/Inventory\s*·\s*Receipts/);
+    await expect(page.locator('#t1')).toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('#tab=1');
+    await shot(page, 'section-receipts');
+    await page.locator('#back-hub').click();
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s1')).toBeHidden();
+    await expect(page.locator('#back-hq')).toBeVisible();
+    await expect(page.locator('#t1')).not.toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    await shot(page, 'back-to-hub');
+  });
+
+  test('Deep link #tab=2 opens Stock directly, hub hidden, back link to Inventory', async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html#tab=2');
+    await page.waitForSelector('#s2:visible');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s0')).toBeHidden();
+    await expect(page.locator('#back-hub')).toContainText('Stock');
+    await expect(page.locator('#t2')).toHaveClass(/on/);
+    await shot(page, 'deeplink-stock');
+  });
+
+  test('Edge: a crew member pasting gated #tab=5 lands on the hub, not a tab shell', async ({ page }) => {
+    const crew = await makeCrewUser(page, 'gate');
+    await loginAs(page, crew.email, crew.password);
+    await page.goto('/inventory.html#tab=5');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s5')).toHaveCount(0);
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s1')).toBeHidden();
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    await shot(page, 'deeplink-gated');
+  });
+
+  test('Edge: a legacy #tab=3 bookmark lands on Recipes › By dish', async ({ page }) => {
+    await login(page);
+    await stubDishes(page, DISHES);
+    await page.goto('/inventory.html#tab=3');
+    await page.waitForSelector('#s4:visible');
+    await expect(page.locator('#t4')).toHaveClass(/on/);
+    await expect(page.locator('#back-hub')).toContainText('Recipes');
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+    await expect(page.locator('#menu-list')).toContainText('Sorrel Iced Tea');
+    expect(await page.evaluate(() => location.hash)).toBe('#tab=4&view=dish');
+    await shot(page, 'legacy-tab3');
+  });
+});
+
+test.describe('Inventory hub — dark scheme', () => {
+  test.use({ colorScheme: 'dark' });
+
+  test('Hub, admin, dark: rows are cards on the dark ground and the badge keeps its warn colour', async ({ page }) => {
+    await login(page);
+    await page.route('**/api/v1/inventory/stock', json(STOCK));
+    await openHub(page);
+    await expect(page.locator('#hub-b2')).toHaveText('2 below par');
+    const c = await page.evaluate(() => {
+      const row = getComputedStyle(document.querySelector('.hub-row')); const body = getComputedStyle(document.body);
+      const b = getComputedStyle(document.getElementById('hub-b2'));
+      return { row: row.backgroundColor, body: body.backgroundColor, badge: b.backgroundColor };
+    });
+    expect(c.row, 'row card must contrast with the page ground').not.toBe(c.body);
+    expect(c.badge, 'badge must be painted, not transparent').not.toBe('rgba(0, 0, 0, 0)');
+    await shot(page, 'hub-dark');
+  });
+});
+
+test.describe('Inventory navigation — WO-1 rows that still hold', () => {
 
   test('Receipts, admin: one control row (Sync + More), queue directly below', async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#sync-receipts-btn')).toBeVisible();
     await expect(page.locator('#sync-more-btn')).toBeVisible();
-    // Contract: nothing but the chip may sit between the control row and the
-    // vendor filter — the deep-sync checkbox and the full-width Retry Parse
-    // button are gone.
     await expect(page.locator('#deep-sync-toggle')).toHaveCount(0);
     await expect(page.locator('#s1 > #reprocess-all-btn')).toHaveCount(0);
     const row = await page.locator('.sync-row').boundingBox();
@@ -107,32 +402,14 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await shot(page, 'receipts-admin');
   });
 
-  test('Receipts, crew: Sync only, and the bar shows exactly four tabs', async ({ page }) => {
-    const crew = await makeCrewUser(page, 'receipts');
-    await loginAs(page, crew.email, crew.password);
-    await page.goto('/inventory.html');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('#sync-receipts-btn')).toBeVisible();
-    await expect(page.locator('#sync-more-btn')).toBeHidden();
-    // The crew never had Trends/Cost; with Menu gone their bar is the four-tab
-    // bar from the mockup: Receipts / Stock / Recipes / Setup.
-    await expect(page.locator('#t5')).toHaveCount(0);
-    await expect(page.locator('#t6')).toHaveCount(0);
-    await expect(page.locator('#t3')).toHaveCount(0);
-    await expect(page.locator('.tabs button')).toHaveCount(4);
-    await expect(page.locator('.tabs button')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Setup']);
-    await shot(page, 'receipts-crew');
-  });
-
   test('More sheet: Deep sync… and Retry parse (all), with a labeled Close', async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await page.locator('#sync-more-btn').click();
     await expect(page.locator('#sync-more-overlay')).toHaveClass(/on/);
     await expect(page.locator('#deep-sync-open')).toBeVisible();
     await expect(page.locator('#reprocess-all-btn')).toBeVisible();
-    // UI-R2: the way out is labeled and ≥44px.
     const close = page.locator('#sync-more-close');
     await expect(close).toHaveText('Close');
     const box = await close.boundingBox();
@@ -146,7 +423,7 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
 
   test('Edge: the deep-sync range picker is still reachable, from the sheet', async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await page.locator('#sync-more-btn').click();
     await page.locator('#deep-sync-open').click();
@@ -171,8 +448,6 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await login(page);
     await stubDishes(page, []);
     await page.goto('/inventory.html#tab=4');
-    // tab.js paints #s4 before the page script has booted; a click that lands
-    // in that gap finds no listener. Wait for boot (its API calls) to settle.
     await page.waitForLoadState('networkidle');
     await page.locator('#rv-dish').click();
     await expect(page.locator('#recipes-by-dish')).toBeVisible();
@@ -190,7 +465,6 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await expect(page.locator('#recipes-by-dish')).toBeVisible();
     await expect(page.locator('#menu-list')).toContainText('Jerk Chicken Bowl');
     await expect(page.locator('#menu-list')).toContainText('142');
-    // Give the bowl two ingredients so the summary has real math to show.
     await page.evaluate(() => {
       RECIPES_DATA = [
         { purchase_item_id: 'pi-a', description: 'Chicken Thighs', last_week_spend: 212.0, sum_pct: 45,
@@ -202,8 +476,8 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await page.locator('[data-menu-item-id="mi-0000-0001"]').click();
     const card = page.locator('#recipes-summary-card');
     await expect(card).toContainText('Jerk Chicken Bowl');
-    await expect(card).toContainText('$95.40'); // 212 × 45%
-    await expect(card).toContainText('$18.00'); // 60 × 30%
+    await expect(card).toContainText('$95.40');
+    await expect(card).toContainText('$18.00');
     await expect(card).toContainText('$113.40');
     await expect(page.locator('.menu-dish.selected')).toHaveCount(1);
     await shot(page, 'recipes-by-dish-populated');
@@ -213,8 +487,6 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await login(page);
     await stubDishes(page, { error: 'boom' }, 500);
     await page.goto('/inventory.html#tab=4');
-    // tab.js paints #s4 before the page script has booted; a click that lands
-    // in that gap finds no listener. Wait for boot (its API calls) to settle.
     await page.waitForLoadState('networkidle');
     await page.locator('#rv-dish').click();
     await expect(page.locator('#menu-list')).toContainText('load menu items');
@@ -229,75 +501,8 @@ test.describe('Inventory navigation — B-455 WO-1 state table', () => {
     await expect(page.locator('#s7 a[href="purchasing.html"]')).toHaveCount(0);
     await expect(page.locator('#st1')).toHaveText('Items');
     await expect(page.locator('#st2')).toHaveText('Vendors');
+    await expect(page.locator('#back-hub')).toContainText('Setup');
     await shot(page, 'setup');
-  });
-
-  test('Edge: a legacy #tab=3 bookmark lands on Recipes › By dish', async ({ page }) => {
-    await login(page);
-    await stubDishes(page, DISHES);
-    await page.goto('/inventory.html#tab=3');
-    await page.waitForSelector('#s4:visible');
-    await expect(page.locator('#t4')).toHaveClass(/on/);
-    await expect(page.locator('#recipes-by-dish')).toBeVisible();
-    await expect(page.locator('#menu-list')).toContainText('Sorrel Iced Tea');
-    expect(await page.evaluate(() => location.hash)).toBe('#tab=4&view=dish');
-    await shot(page, 'legacy-tab3');
-  });
-
-  test('Edge: the tab bar with a 10-count badge stays on one line at 393px', async ({ page }) => {
-    await login(page);
-    await page.goto('/inventory.html');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
-    await expect(page.locator('#t1')).toContainText('Receipts');
-    await expect(page.locator('#t1 .tab-badge')).toHaveText('10');
-    await expect(page.locator('.tabs button')).toHaveCount(6);
-    // Count real line boxes of each label's text node (the corner badge is
-    // absolutely positioned and must not count): one line each, or it wrapped.
-    const lines = await page.locator('.tabs button').evaluateAll(bs => bs.map(b => {
-      const r = document.createRange(); r.selectNode(b.firstChild);
-      return new Set(Array.from(r.getClientRects()).map(x => Math.round(x.top))).size;
-    }));
-    expect(lines, 'every tab label is a single line box').toEqual(lines.map(() => 1));
-    await shot(page, 'tab-bar-badge');
-  });
-});
-
-test.describe('Inventory navigation — dark scheme', () => {
-  test.use({ colorScheme: 'dark' });
-
-  test('Receipts, admin, dark: the More button reads as a secondary control', async ({ page }) => {
-    await login(page);
-    await page.goto('/inventory.html');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('#sync-more-btn')).toBeVisible();
-    const colors = await page.evaluate(() => {
-      const a = getComputedStyle(document.getElementById('sync-receipts-btn'));
-      const b = getComputedStyle(document.getElementById('sync-more-btn'));
-      return { primary: a.backgroundColor, more: b.backgroundColor };
-    });
-    expect(colors.more, 'More must not share the primary green').not.toBe(colors.primary);
-    await shot(page, 'receipts-admin-dark');
-  });
-});
-
-test.describe('Inventory navigation — verifier follow-ups', () => {
-  test('the count badge never covers the Receipts label', async ({ page }) => {
-    await login(page);
-    await page.goto('/inventory.html');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
-    const { badge, text } = await page.locator('#t1').evaluate(b => {
-      const r = document.createRange(); r.selectNode(b.firstChild);
-      const t = r.getBoundingClientRect(); const g = b.querySelector('.tab-badge').getBoundingClientRect();
-      return { badge: { top: g.top, bottom: g.bottom, left: g.left }, text: { top: t.top, right: t.right } };
-    });
-    // Either the badge sits entirely above the label's line box, or entirely to its right.
-    const clear = badge.bottom <= text.top + 0.5 || badge.left >= text.right - 0.5;
-    expect(clear, `badge ${JSON.stringify(badge)} overlaps label ${JSON.stringify(text)}`).toBe(true);
-    // The button's accessible name carries the count without a bare aria-label on a span.
-    await expect(page.locator('#t1')).toHaveAccessibleName(/Receipts.*10 to review/);
-    await shot(page, 'tab-bar-badge-clear');
   });
 
   test('tapping a dish does not refetch or skeleton-flash the dish list', async ({ page }) => {
@@ -321,7 +526,7 @@ test.describe('Inventory navigation — verifier follow-ups', () => {
 
   test('Escape closes the More sheet and focus returns to More', async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await page.locator('#sync-more-btn').click();
     await expect(page.locator('#sync-more-overlay')).toHaveClass(/on/);

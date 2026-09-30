@@ -74,6 +74,10 @@ subset = 'npx playwright test "{tags}"'
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
 "tests/states-inventory-nav.spec.js" = ["states-inventory-nav"]
+# tab.js paints the active slot before every page's own script boots; a change
+# to it is a change to every tabbed page. (Gained data-home for the Inventory
+# hub, B-455 / WO-2a.)
+"tab.js"                      = ["inventory", "recipes", "purchasing", "users", "onboarding", "workflows", "states-inventory-nav"]
 # Operations carries two MORE specs than its name suggests. sync.spec.js and
 # repro-cut-task.spec.js both drive the workflows runner end-to-end, so a change to
 # the workflow package or to workflows.html can break them — and under the old

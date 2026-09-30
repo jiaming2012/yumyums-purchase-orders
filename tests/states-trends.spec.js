@@ -2,6 +2,19 @@ const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
+// B-455 / WO-2a: Inventory opens on a HUB (#s0) whose rows carry the slot ids
+// t1/t2/t4/t5/t6/t7; every section is a full page with a back link (#back-hub).
+// A bare /inventory.html therefore lands on the hub, so tests that exercise a
+// section load it by hash, and moving between sections goes through the hub.
+async function goTab(page, n) {
+  // Wait for boot: tab.js paints the hashed section before the page script
+  // runs show(), and until then neither the hub nor the back link is visible.
+  await page.waitForSelector('#s0:visible, #back-hub:visible');
+  const back = page.locator('#back-hub');
+  if (await back.isVisible()) await back.click();
+  await page.locator('#t' + n).click();
+}
+
 // states-trends.spec.js — the CLAUDE.md self-verification ritual for the Trends
 // tab (`#s5`, FR-1 / FR-6b), rendering GET /api/v1/inventory/trends
 // (design §2.2 AS AMENDED 2026-07-20 — decisions 29/30/31).
@@ -418,9 +431,9 @@ test.describe('Trends tab (#s5) — State Enumeration', () => {
     expect(await page.locator('#s5').count()).toBe(0);
 
     // Other tabs must still work — the whole point of the hazard.
-    await page.click('#t2');
+    await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
-    await page.click('#t6');
+    await goTab(page, 6);
     await expect(page.locator('#s6')).toBeVisible();
     // A stray click where the Trends chart would have been must be inert.
     await page.mouse.click(200, 300);
@@ -528,7 +541,7 @@ test.describe('Trends tab — gating', () => {
 
     const user = await makeGatedUser(page, 'trends-ungated', []);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
@@ -547,9 +560,9 @@ test.describe('Trends tab — gating', () => {
 
     // 3. Null-safety: removing the Trends nodes must not break the page for the
     //    very users being gated. Other tabs still switch; nothing threw.
-    await page.click('#t2');
+    await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
-    await page.click('#t1');
+    await goTab(page, 1);
     await expect(page.locator('#s1')).toBeVisible();
     expect(errors).toEqual([]);
 
@@ -563,11 +576,11 @@ test.describe('Trends tab — gating', () => {
     const user = await makeGatedUser(page, 'trends-deeplink', []);
     await loginAs(page, user.email, user.password);
     await page.goto('/inventory.html#tab=5');
-    await page.waitForSelector('#s1');
+    await page.waitForSelector('#s0');
 
     await expect(page.locator('#s5')).toHaveCount(0);
-    // A pasted URL lands on a real tab, not a blank page.
-    await expect(page.locator('#s1')).toBeVisible();
+    // A pasted URL lands on the hub (B-455 / WO-2a), not a blank page.
+    await expect(page.locator('#s0')).toBeVisible();
     expect(errors).toEqual([]);
 
     await shot(page, 'edge-ungated-deeplink');
@@ -577,11 +590,11 @@ test.describe('Trends tab — gating', () => {
   test('Granted user — #t5/#s5 render and GET /inventory/trends returns 200', async ({ page }) => {
     const user = await makeGatedUser(page, 'trends-granted', ['inventory-trends']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     await expect(page.locator('#t5')).toHaveCount(1);
-    await page.click('#t5');
+    await goTab(page, 5);
     await expect(page.locator('#s5')).toBeVisible();
 
     const res = await probe(page, '/api/v1/inventory/trends');
@@ -594,7 +607,7 @@ test.describe('Trends tab — gating', () => {
   test('Umbrella: a whole-app `inventory` grant alone opens Trends', async ({ page }) => {
     const user = await makeGatedUser(page, 'trends-umbrella', ['inventory']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     await expect(page.locator('#t5')).toHaveCount(1);
@@ -612,12 +625,12 @@ test.describe('Trends tab — gating', () => {
 
     const user = await makeGatedUser(page, 'mixed-trends-only', ['inventory-trends']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForSelector('#s1');
 
     // Trends: visible + served.
     await expect(page.locator('#t5')).toHaveCount(1);
-    await page.click('#t5');
+    await goTab(page, 5);
     await expect(page.locator('#s5')).toBeVisible();
     expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
 
