@@ -19,14 +19,23 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .app{max-width:480px;margin:0 auto;padding-top:20px}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
-.tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
-.tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
-.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
-/* Pending count rides in the tab's corner instead of inside the label —
-   "Purchases (10)" is what wrapped the seven-tab bar (B-455). */
-.tabs button{position:relative}
-.tab-badge{position:absolute;top:-5px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-size:10px;font-weight:700;line-height:15px;text-align:center;pointer-events:none}
-/* Hangs above the label's line box (button padding-top 12px), never over it. */
+/* Hub (B-455 / WO-2a): Inventory opens on a list of destinations, each row
+   carrying its own live status, in place of the tab bar. Every section is a
+   full page with a back link to the hub (#back-hub). Rows keep the slot ids
+   t1/t2/t4/t5/t6/t7 so applyTabGates() and the #tab=N deep links are unchanged. */
+.hub{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.hub-row{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:12px 14px;background:var(--card);border:0.5px solid var(--brd);border-radius:12px;color:var(--txt);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hub-row:active{opacity:.7}
+.hub-row.dim{opacity:.6}
+.hub-ic{font-size:22px;width:30px;text-align:center;flex:none}
+.hub-body{flex:1;min-width:0}
+.hub-t{display:block;font-weight:600;font-size:15px}
+.hub-s{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.hub-b{flex:none;max-width:45%;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hub-b:empty{display:none}
+.hub-b.ok{background:var(--ok-bg,#dcfce7);color:var(--ok-tx,#14532d)}
+.hub-b.skel{width:64px;height:18px;padding:0;background:var(--brd);animation:pulse 1.2s infinite}
+.hub-chev{flex:none;color:var(--mut);font-size:18px;line-height:1}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
 .event-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
@@ -404,18 +413,23 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 <div id="health-banners" hidden></div>
 
 <div class="app">
-  <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Inventory</a>
-  <div class="tabs">
-    <!-- Six tabs (B-455 / WO-1). Menu folded into Recipes as "By dish"; the
-         slot ids t4/t7 (and gated t5/t6) are unchanged so #tab= deep links,
-         purchasing.html's Setup jump and the state specs all keep working.
-         #tab=3 is remapped in show() to Recipes › By dish. -->
-    <button id="t1" class="on" onclick="show(1)">Receipts</button>
-    <button id="t2" onclick="show(2)">Stock</button>
-    <button id="t4" onclick="show(4)">Recipes</button>
-    <button id="t5" onclick="show(5)">Trends</button>
-    <button id="t6" onclick="show(6)">Cost</button>
-    <button id="t7" onclick="show(7)">Setup</button>
+  <!-- Two back links, one visible at a time: on the hub, back is HQ; inside a
+       section, back is the hub and the crumb names the section. -->
+  <a class="back" id="back-hq" href="index.html">HQ &nbsp;&#183;&nbsp; Inventory</a>
+  <a class="back" id="back-hub" href="#" onclick="show(0);return false" style="display:none">Inventory &nbsp;&#183;&nbsp; <span id="back-hub-name"></span></a>
+  <!-- The hub (B-455 / WO-2a). Menu folded into Recipes as "By dish" (WO-1);
+       the slot ids t4/t7 (and gated t5/t6) are unchanged so #tab= deep links,
+       purchasing.html's Setup jump and the state specs all keep working.
+       #tab=3 is remapped in show() to Recipes › By dish. Trends and Cost stay
+       here as rows 5 and 6 for granted owners until WO-2b moves them to bi.html.
+       Subtitles and badges are filled by renderHub() from HUB status. -->
+  <div id="s0" class="hub" style="display:none" role="list" aria-label="Inventory">
+    <button id="t1" class="hub-row" type="button" onclick="show(1)"><span class="hub-ic" aria-hidden="true">&#x1F9FE;</span><span class="hub-body"><span class="hub-t">Receipts</span><span class="hub-s" id="hub-s1">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b1"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <button id="t2" class="hub-row" type="button" onclick="show(2)"><span class="hub-ic" aria-hidden="true">&#x1F4E6;</span><span class="hub-body"><span class="hub-t">Stock</span><span class="hub-s" id="hub-s2">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b2"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <button id="t4" class="hub-row" type="button" onclick="show(4)"><span class="hub-ic" aria-hidden="true">&#x1F354;</span><span class="hub-body"><span class="hub-t">Recipes</span><span class="hub-s" id="hub-s4">By ingredient &middot; By dish</span></span><span class="hub-b skel" id="hub-b4"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <button id="t5" class="hub-row" type="button" onclick="show(5)"><span class="hub-ic" aria-hidden="true">&#x1F4C8;</span><span class="hub-body"><span class="hub-t">Trends</span><span class="hub-s">Spend by group, weekly</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <button id="t6" class="hub-row" type="button" onclick="show(6)"><span class="hub-ic" aria-hidden="true">&#x1F4B5;</span><span class="hub-body"><span class="hub-t">Cost</span><span class="hub-s">Food cost and margin per dish</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <button id="t7" class="hub-row dim" type="button" onclick="show(7)"><span class="hub-ic" aria-hidden="true">&#x2699;&#xFE0F;</span><span class="hub-body"><span class="hub-t">Setup</span><span class="hub-s">Items &middot; Vendors</span></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
   </div>
   <div id="s1" style="display:none">
     <div class="sync-bar">
@@ -520,7 +534,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     </div>
   </div>
 </div>
-<script src="tab.js" data-tabs="7"></script>
+<script src="tab.js" data-tabs="7" data-home="0"></script>
 <script src="item-name.js"></script>
 <script>
 // APP_TIMEZONE — the app's ONE timezone. The operator ruled it is New York
@@ -757,11 +771,12 @@ function renderSyncUI(){
 async function refreshSyncStatus(){
   try{
     var res=await fetch('/api/v1/inventory/sync-receipts/status',{credentials:'include'});
-    if(!res.ok)return;
+    if(!res.ok){hubSet('sync','error');return;}
     var body=await res.json();
     var prev=SYNC_STATE;
     SYNC_STATE=body; // server returns the row object or null
     renderSyncUI();
+    hubSet('sync',SYNC_STATE);
     if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();}
     else{
       stopSyncPoll();
@@ -774,7 +789,7 @@ async function refreshSyncStatus(){
         loadHistory();
       }
     }
-  }catch(e){/* offline / transient; no UI noise */}
+  }catch(e){hubSet('sync','error');/* offline / transient; no other UI noise */}
 }
 
 function startSyncPoll(){
@@ -1045,16 +1060,25 @@ function show(n){
   // Recipes as the "By dish" view. Old bookmarks land there, not on Receipts.
   if(n===3){n=4;RECIPES_VIEW='dish';}
   // Deep-link guard (§1.3 station 5): a pasted #tab=5 must not render a tab
-  // shell that was gated away. Falling back to Receipts keeps the page usable
+  // shell that was gated away. Falling back to the hub keeps the page usable
   // rather than leaving every section hidden.
-  if(!document.getElementById('s'+n))n=1;
-  [1,2,3,4,5,6,7].forEach(i=>{
+  if(!document.getElementById('s'+n))n=0;
+  [0,1,2,3,4,5,6,7].forEach(i=>{
     var el=document.getElementById('s'+i); if(el)el.style.display=i===n?'':'none';
     var btn=document.getElementById('t'+i);
-    if(btn)btn.className=i===n?'on':'';
+    // The hub row of the open section keeps .on (and aria-current) so the
+    // "which section am I in" fact lives in one place even while the hub is
+    // off-screen; on the hub itself no row is current.
+    if(btn){btn.classList.toggle('on',i===n);if(i===n)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');}
   });
   ACTIVE_TAB=n;
-  location.hash=recipesHash(n);
+  var backHq=document.getElementById('back-hq'),backHub=document.getElementById('back-hub');
+  if(backHq)backHq.style.display=n===0?'':'none';
+  if(backHub){backHub.style.display=n===0?'none':'';var nm=document.getElementById('back-hub-name');if(nm)nm.textContent=HUB_NAMES[n]||'';}
+  // No hash is the hub; a section carries #tab=N so reloads and shared links
+  // reopen it directly (with the back link, not the hub).
+  if(n===0){if(location.hash)history.replaceState(null,'',location.pathname+location.search);renderHub();}
+  else location.hash=recipesHash(n);
   // Reload fresh data when switching tabs
   if(n===1){loadHistory();refreshSyncStatus();}
   if(n===2){loadStock();}
@@ -1069,6 +1093,63 @@ function show(n){
 // the same screen. Only tab 4 has a view; every other tab is just its number.
 function recipesHash(n){
   return 'tab='+n+(n===4&&RECIPES_VIEW==='dish'?'&view=dish':'');
+}
+
+// ── Hub status (B-455 / WO-2a) ──────────────────────────────────────────────
+// Each hub row shows one live fact drawn from a call the sections already make
+// at boot: pending count (purchases/pending), last sync (sync-receipts/status),
+// below-par count (stock), drift (recipes/drift). Nothing here adds an endpoint.
+// A key is undefined while loading, 'error' when its call failed, else a value.
+// Contract (state table): zero → no badge, never "0 to review"; error →
+// "Status unavailable" in the subtitle and the row still opens; loading → a
+// badge skeleton. A blank row is a defect.
+var HUB_NAMES={1:'Receipts',2:'Stock',4:'Recipes',5:'Trends',6:'Cost',7:'Setup'};
+var HUB={pending:undefined,sync:undefined,stock:undefined,drift:undefined};
+function hubSet(key,val){HUB[key]=val;renderHub();}
+
+function hubMinutesAgo(iso){
+  var mins=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/60000));
+  if(mins<1)return 'just now';
+  if(mins<60)return mins+' min ago';
+  var h=Math.floor(mins/60);
+  if(h<24)return h+(h===1?' hour ago':' hours ago');
+  var d=Math.floor(h/24);
+  return d+(d===1?' day ago':' days ago');
+}
+
+function hubBadge(id,text,cls){
+  var b=document.getElementById(id);if(!b)return;
+  b.className='hub-b'+(cls?' '+cls:'');
+  b.textContent=text||'';
+}
+function hubSub(id,text){var el=document.getElementById(id);if(el)el.textContent=text;}
+
+function renderHub(){
+  if(!document.getElementById('s0'))return;
+  // Receipts: badge = pending count, subtitle = last sync.
+  if(HUB.pending==='error')hubBadge('hub-b1','');
+  else if(HUB.pending===undefined)hubBadge('hub-b1','','skel');
+  else hubBadge('hub-b1',HUB.pending>0?HUB.pending+' to review':'');
+  if(HUB.sync==='error'||HUB.pending==='error')hubSub('hub-s1','Status unavailable');
+  else if(HUB.sync===undefined)hubSub('hub-s1','Loading\u2026');
+  else if(!HUB.sync)hubSub('hub-s1','Not synced yet');
+  else if(HUB.sync.status==='running')hubSub('hub-s1','Syncing now\u2026');
+  else hubSub('hub-s1','Synced '+hubMinutesAgo(HUB.sync.finished_at||HUB.sync.started_at));
+  // Stock: badge = items needing reorder, subtitle = what the page holds.
+  if(HUB.stock==='error'){hubBadge('hub-b2','');hubSub('hub-s2','Status unavailable');}
+  else if(HUB.stock===undefined){hubBadge('hub-b2','','skel');hubSub('hub-s2','Loading\u2026');}
+  else{hubBadge('hub-b2',HUB.stock>0?HUB.stock+' below par':'');hubSub('hub-s2',HUB.stock>0?'Reorder suggestions waiting':'Levels and reorder suggestions');}
+  // Recipes: badge = drift, subtitle stays descriptive (both views are named).
+  if(HUB.drift==='error'){hubBadge('hub-b4','');hubSub('hub-s4','Status unavailable');}
+  else if(HUB.drift===undefined)hubBadge('hub-b4','','skel');
+  else{hubBadge('hub-b4',HUB.drift?'Drift':'');hubSub('hub-s4','By ingredient \u00b7 By dish');}
+}
+
+async function loadHubDrift(){
+  try{
+    var drift=await api('/api/v1/inventory/recipes/drift');
+    hubSet('drift',!!(drift&&drift.sections&&drift.sections.length>0));
+  }catch(e){if(e.message!=='unauthorized')hubSet('drift','error');}
 }
 
 function render(){
@@ -1471,7 +1552,7 @@ async function loadHistory(append){
     renderHistoryList();
   }catch(e){
     if(e.message==='unauthorized')return;
-    if(!append)showInlineError('history-list','Couldn\u2019t load purchases.','loadHistory()');
+    if(!append){showInlineError('history-list','Couldn\u2019t load purchases.','loadHistory()');hubSet('pending','error');}
   } finally{HISTORY_LOADING=false;}
 }
 
@@ -1535,12 +1616,10 @@ function renderHistoryList(){
   updateHistoryTabLabel();
 }
 
+// Kept under its WO-1 name: the pending count used to be a corner badge on
+// the Receipts tab button; it is now the Receipts hub row's badge.
 function updateHistoryTabLabel(){
-  var btn=document.getElementById('t1');
-  if(!btn)return;
-  var n=PENDING_PURCHASES.length;
-  btn.innerHTML='Receipts'+(n>0?'<span class="tab-badge" aria-hidden="true">'+n+'</span><span class="vh">, '+n+' to review</span>':'');
-  btn.style.color=n>0?'var(--warn-tx)':'';
+  hubSet('pending',PENDING_PURCHASES.length);
 }
 
 function loadMore(){
@@ -1601,9 +1680,11 @@ async function loadStock(){
     var data=await api('/api/v1/inventory/stock');
     STOCK_DATA=data||[];
     renderStock();
+    hubSet('stock',STOCK_DATA.filter(function(s){return s.needs_reorder;}).length);
   }catch(e){
     if(e.message==='unauthorized')return;
     showInlineError('stock-list','Couldn\u2019t load stock levels.','loadStock()');
+    hubSet('stock','error');
   }
 }
 
@@ -3672,7 +3753,7 @@ document.addEventListener('DOMContentLoaded',async function(){
     var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
     if(match)ITEM_EDIT_ID=match.id;
   }
-  show(hashTab?+hashTab:1);
+  show(hashTab?+hashTab:0);
   if(ITEM_EDIT_ID){
     setTimeout(function(){
       var form=document.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');
@@ -3683,6 +3764,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   loadHistory();
   refreshSyncStatus();
   loadStock();
+  loadHubDrift();
 });
 
 // ── Item picker modal for review form ──────────────────────────────────────
