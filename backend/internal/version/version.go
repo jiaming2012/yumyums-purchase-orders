@@ -9,8 +9,8 @@
 package version
 
 const (
-	Backend  = "0.7.1"
-	Frontend = "1.9.0"
+	Backend  = "0.8.0"
+	Frontend = "1.10.0"
 )
 
 var (
