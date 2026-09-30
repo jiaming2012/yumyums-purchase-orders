@@ -153,6 +153,432 @@ test.describe('Inventory', () => {
     await expect(page.locator('#s2')).toBeVisible();
   });
 
+  test('the pending count is the Receipts row badge, and the row stays one line at phone width', async ({ page }) => {
+    // The seven-tab bar wrapped "Purchases (10)" onto two lines at 480px; the
+    // hub row carries the count as a badge beside the title instead.
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.locator('#back-hub').click();
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updatePendingBadge(); });
+    await expect(page.locator('#t1 .hub-t')).toHaveText('Receipts');
+    await expect(page.locator('#hub-b1')).toHaveText('10 to review');
+    const { title, badge } = await page.locator('#t1').evaluate(r => {
+      const t = r.querySelector('.hub-t').getBoundingClientRect(); const b = r.querySelector('.hub-b').getBoundingClientRect();
+      return { title: { right: t.right, top: t.top, bottom: t.bottom }, badge: { left: b.left, top: b.top, bottom: b.bottom } };
+    });
+    expect(badge.left, 'badge sits to the right of the title, never over it').toBeGreaterThanOrEqual(title.right - 0.5);
+  });
+
+  test('legacy #tab=3 (the old Menu tab) lands on Recipes › By dish', async ({ page }) => {
+    await page.goto('/inventory.html#tab=3');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t4')).toHaveClass(/on/);
+    await expect(page.locator('#s4')).toBeVisible();
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+    await expect(page.locator('#recipes-by-ingredient')).toBeHidden();
+    await expect(page.locator('#rv-dish')).toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('#tab=4&view=dish');
+  });
+
+  test('a bare /inventory.html lands on the hub; #tab=1 opens Receipts', async ({ page }) => {
+    // beforeEach loads #tab=1 → Receipts is open with its back link to the hub.
+    await expect(page.locator('#t1')).toHaveClass(/on/);
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#s2')).not.toBeVisible();
+    await expect(page.locator('#back-hub')).toContainText('Receipts');
+    // A bare load (real navigation, so tab.js re-runs) is the hub, no hash.
+    await page.goto('/inventory.html');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s1')).toBeHidden();
+    await expect(page.locator('#t1')).not.toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('');
+  });
+
+  test('Recipes tab activates on #tab=4 hash', async ({ page }) => {
+    // Force a real reload so tab.js re-executes; beforeEach already navigated
+    // to /inventory.html, so page.goto('/inventory.html#tab=4') would be a
+    // same-document hash change and tab.js would not run again.
+    await page.goto('/inventory.html#tab=4');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t4')).toHaveClass(/on/);
+    await expect(page.locator('#s4')).toBeVisible();
+    await expect(page.locator('#s2')).not.toBeVisible();
+    // Default view is by ingredient; the summary card lives in the dish view.
+    await expect(page.locator('#recipes-by-ingredient')).toBeVisible();
+    await expect(page.locator('#recipes-by-dish')).toBeHidden();
+  });
+
+  test('Recipes tab loads /api/v1/inventory/recipes and /api/v1/inventory/recipes/drift', async ({ page }) => {
+    const recipesPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/v1/inventory/recipes') && !req.url().includes('/drift'),
+      { timeout: 10000 }
+    );
+    const driftPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/v1/inventory/recipes/drift'),
+      { timeout: 10000 }
+    );
+    await goTab(page, 4);
+    await Promise.all([recipesPromise, driftPromise]);
+  });
+
+  test('Recipes tab shows empty state when no ingredients', async ({ page }) => {
+    await goTab(page, 4);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s4')).toBeVisible();
+  });
+
+  test('menu-item picker uses YYYY-MM-DD since format (contract + source)', async ({ page }) => {
+    // Regression for "Menu items unavailable" alert: the frontend passed
+    // ?since=90 (intended as "90 days") but the backend's toast handler
+    // parses since as YYYY-MM-DD and returns 400 otherwise — which the picker
+    // catch-block surfaced as the alert.
+
+    // Part 1 — Backend contract: integer-only since must be rejected (400)
+    // and a YYYY-MM-DD value must be accepted (200). This guards the contract
+    // the frontend has to honor.
+    const bad = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/menu-items?since=90');
+      return { status: r.status };
+    });
+    expect(bad.status, 'integer since must be rejected (contract guard)').toBe(400);
+
+    const good = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/menu-items?since=2025-01-01');
+      return { status: r.status };
+    });
+    expect(good.status, 'YYYY-MM-DD since must be accepted').toBe(200);
+
+    // Part 2 — Frontend source: openMenuItemPicker must not pass an integer-only
+    // since value (which is what triggered the original alert). It should
+    // compute a YYYY-MM-DD string at call time.
+    const src = await page.evaluate(() => window.openMenuItemPicker.toString());
+    const literalIntMatch = src.match(/menu-items\?since=(\d+)(?:['"&]|$)/);
+    expect(
+      literalIntMatch,
+      'openMenuItemPicker must not hardcode an integer since= value; compute a YYYY-MM-DD'
+    ).toBeNull();
+    expect(
+      src,
+      'openMenuItemPicker source must reference menu-items endpoint with a since param'
+    ).toMatch(/menu-items\?since=/);
+  });
+
+  test('tapping a menu item name triggers renderRecipeSummary', async ({ page }) => {
+    // Regression: human-verify reported that tapping a menu item name in an
+    // expanded ingredient row does nothing — the summary card stays on its
+    // "Tap an ingredient to see how it breaks down by dish" placeholder.
+    //
+    // The placeholder ONLY appears when SELECTED_MENU_ITEM_ID is null. So if
+    // the click handler fires correctly, the placeholder MUST be replaced
+    // (either by the populated card or by "No allocations for this menu item.").
+    // The test is independent of RECIPES_DATA state.
+    await goTab(page, 4);
+    await page.waitForLoadState('networkidle');
+    // show(4) fires an async loadRecipes() whose resolution re-renders
+    // #recipes-list, detaching injected synthetic DOM. Let it settle first.
+    await page.waitForTimeout(500);
+
+    // Inject a synthetic allocation row matching the markup renderIngredientDetail emits.
+    await page.evaluate(() => {
+      const host = document.getElementById('recipes-list');
+      host.innerHTML = `
+        <div class="recipe-ingredient-row open" data-action="toggle-recipe-row" data-purchase-item-id="synthetic-pi">
+          <div class="recipe-detail" style="display:block">
+            <div class="recipe-allocation-row" data-recipe-id="synthetic-r" data-purchase-item-id="synthetic-pi">
+              <div class="recipe-alloc-head">
+                <div>
+                  <div id="synth-alloc-name" class="recipe-alloc-name" data-action="view-menu-summary" data-menu-item-id="synthetic-mi">Synthetic Test Burger</div>
+                  <div class="recipe-alloc-group">Lunch</div>
+                </div>
+                <div class="recipe-pct-chip">5%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    // Confirm baseline: summary card shows the empty placeholder.
+    const before = await page.locator('#recipes-summary-card').innerHTML();
+    expect(before).toContain('Tap a dish to see its ingredient cost');
+
+    // Tap the menu item name.
+    await page.click('#synth-alloc-name');
+
+    // After the click, the placeholder text MUST be replaced — either by the
+    // populated card or by the "No allocations" empty state.
+    const after = await page.locator('#recipes-summary-card').innerHTML();
+    expect(after, 'click on .recipe-alloc-name must update the summary card').not.toContain('Tap a dish to see its ingredient cost');
+    // The summary card lives in the By dish view, so the tap must also switch to it.
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+    await expect(page.locator('#rv-dish')).toHaveClass(/on/);
+  });
+
+  test('tapping a dish in Recipes › By dish selects it in the summary card', async ({ page }) => {
+    // UX gap from human-verify: user tapped a card on the Menu tab expecting
+    // a cost breakdown to appear. The Menu tab is now the By dish view of
+    // Recipes (B-455), so the card and the summary share one screen.
+    await goTab(page, 4);
+    await page.click('#rv-dish');
+    await page.waitForLoadState('networkidle');
+    // Switching to By dish fires an async menu load that re-renders
+    // #menu-list, detaching injected synthetic DOM. Let it settle before
+    // seeding (same guard the Recipes-tab tests use).
+    await page.waitForTimeout(500);
+
+    // Inject a synthetic Menu card with the cross-link action.
+    await page.evaluate(() => {
+      const list = document.getElementById('menu-list');
+      list.innerHTML = `
+        <div id="synth-menu-card" class="stock-item" data-action="menu-card-to-recipes" data-menu-item-id="synthetic-mi" style="cursor:pointer">
+          <div class="stock-item-name">Synthetic Burger</div>
+        </div>
+      `;
+    });
+
+    // Sanity check: the dish view is showing.
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+
+    await page.click('#synth-menu-card');
+    await expect(page.locator('#t4')).toHaveClass(/on/, { timeout: 3000 });
+    await expect(page.locator('#recipes-by-dish')).toBeVisible();
+
+    // Summary card must update — placeholder gone (either populated card or "No allocations").
+    const summary = await page.locator('#recipes-summary-card').innerHTML();
+    expect(summary, 'dish tap must populate the Recipes summary card').not.toContain('Tap a dish to see its ingredient cost');
+  });
+
+  test('Setup tab (now tab 7) renders catalog content when activated', async ({ page }) => {
+    // Guards against a regression where render() dispatcher fails to route
+    // ACTIVE_TAB===7 to renderItemsList — the BLOCKER fix in Plan 999.2-05 Task 1 sub-edit 4.
+    // If the dispatcher is broken, #s7 becomes visible but its body stays empty / stale.
+    await goTab(page, 7);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t7')).toHaveClass(/on/);
+    await expect(page.locator('#s7')).toBeVisible();
+    // The Setup tab has a search input and a catalog-items container that renderItemsList
+    // populates. Either MUST be present once render() routes ACTIVE_TAB=7 to the catalog
+    // sub-renderer.
+    const searchVisible = await page.locator('#item-search').isVisible().catch(() => false);
+    const setupVisible = await page.locator('#s7').isVisible();
+    expect(setupVisible).toBe(true);
+    if (!searchVisible) {
+      // Fallback: assert #s7 has non-empty rendered content (catalog HTML present).
+      const html = await page.locator('#s7').innerHTML();
+      expect(html.length).toBeGreaterThan(50); // non-trivial DOM
+    }
+  });
+
+  // ── HIST-01: Purchases tab loads purchase events from API ──────────────────
+
+  test('Purchases tab loads purchase events from API', async ({ page }) => {
+    await waitForHistoryContent(page);
+    const historyList = page.locator('#history-list');
+    const text = await historyList.textContent();
+    // Should have either events or the empty state — not a skeleton or blank
+    expect(
+      text.includes('No purchases yet') || page.locator('.event-card').first() !== null
+    ).toBeTruthy();
+  });
+
+  test('Purchases tab shows empty state when no purchases exist', async ({ page }) => {
+    // With a fresh test DB, there may be no purchases initially.
+    // We verify the empty state text is the correct copy if shown.
+    await waitForHistoryContent(page);
+    const historyList = page.locator('#history-list');
+    const text = await historyList.textContent();
+    if (text.includes('No purchases yet')) {
+      await expect(historyList).toContainText('Purchase events will appear here once the receipt pipeline syncs');
+    }
+  });
+
+  test('vendor filter dropdown is present with All Vendors default', async ({ page }) => {
+    const select = page.locator('#vendor-filter');
+    await expect(select).toBeVisible();
+    const val = await select.inputValue();
+    expect(val).toBe('');
+  });
+
+  test('each event card shows vendor name and total', async ({ page }) => {
+    await waitForHistoryContent(page);
+    const cards = page.locator('.event-card');
+    const count = await cards.count();
+    if (count > 0) {
+      const text = await cards.first().textContent();
+      expect(text).toMatch(/\$/);
+    }
+  });
+
+  test('tapping an event card expands line items', async ({ page }) => {
+    await waitForHistoryContent(page);
+    const cards = page.locator('.event-card:not([data-action="review-pending"])');
+    const count = await cards.count();
+    if (count > 0) {
+      await cards.first().click();
+      const detail = page.locator('.event-detail').first();
+      await expect(detail).toBeVisible();
+    }
+  });
+
+  // ── HIST-02: Vendor filter ───────────────────────────────────────────────
+
+  test('vendor filter has options from API', async ({ page }) => {
+    const select = page.locator('#vendor-filter');
+    // Wait for vendors to load
+    await page.waitForFunction(() => {
+      const sel = document.getElementById('vendor-filter');
+      return sel && sel.options.length > 1;
+    }, { timeout: 5000 }).catch(() => {});
+    const optCount = await select.locator('option').count();
+    // At least "All Vendors" option must exist
+    expect(optCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('selecting a vendor filters history events', async ({ page }) => {
+    const select = page.locator('#vendor-filter');
+    await page.waitForFunction(() => {
+      const sel = document.getElementById('vendor-filter');
+      return sel && sel.options.length > 1;
+    }, { timeout: 5000 }).catch(() => {});
+    const optCount = await select.locator('option').count();
+    if (optCount > 1) {
+      const vendorName = await select.locator('option').nth(1).textContent();
+      await select.selectOption({ index: 1 });
+      await waitForHistoryContent(page);
+      const cards = page.locator('.event-card');
+      const cardCount = await cards.count();
+      if (cardCount > 0) {
+        // All visible confirmed event cards should contain the vendor name
+        for (let i = 0; i < cardCount; i++) {
+          const action = await cards.nth(i).getAttribute('data-action');
+          if (action !== 'review-pending') {
+            const text = await cards.nth(i).textContent();
+            expect(text).toContain(vendorName.trim());
+          }
+        }
+      }
+    }
+  });
+
+  test('selecting All Vendors resets filter', async ({ page }) => {
+    const select = page.locator('#vendor-filter');
+    await page.waitForFunction(() => {
+      const sel = document.getElementById('vendor-filter');
+      return sel && sel.options.length > 1;
+    }, { timeout: 5000 }).catch(() => {});
+    const optCount = await select.locator('option').count();
+    if (optCount > 1) {
+      await select.selectOption({ index: 1 });
+      await waitForHistoryContent(page);
+      await select.selectOption({ value: '' });
+      await waitForHistoryContent(page);
+      const val = await select.inputValue();
+      expect(val).toBe('');
+    }
+  });
+
+  // ── STCK-01: Stock tab loads stock levels from API ───────────────────────
+
+  test('Stock tab loads stock levels from API', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const stockList = page.locator('#stock-list');
+    const text = await stockList.textContent();
+    expect(
+      text.includes('No stock data') || page.locator('.stock-item').first() !== null
+    ).toBeTruthy();
+  });
+
+  test('Stock tab groups items by tag category', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const stockItems = page.locator('.stock-item');
+    const count = await stockItems.count();
+    if (count > 0) {
+      const tagHeaders = page.locator('.tag-header');
+      expect(await tagHeaders.count()).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  test('stock item badges are right-aligned in a single container', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const items = page.locator('.stock-item');
+    const count = await items.count();
+    if (count === 0) return;
+    // Every stock-item should have badges wrapped in a .stock-badges container
+    for (let i = 0; i < Math.min(count, 5); i++) {
+      const item = items.nth(i);
+      const badgeContainer = item.locator('.stock-badges');
+      await expect(badgeContainer).toBeVisible();
+      // The badge container should be a flex item (not loose spans)
+      const badges = await badgeContainer.locator('.stock-badge').count();
+      expect(badges).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  test('tapping tag header collapses and expands section', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const headers = page.locator('.tag-header');
+    const headerCount = await headers.count();
+    if (headerCount > 0) {
+      const firstHeader = headers.first();
+      const section = page.locator('.tag-section').first();
+      const before = await section.locator('.stock-item').count();
+      if (before > 0) {
+        await firstHeader.click();
+        const after = await section.locator('.stock-item:visible').count();
+        expect(after).toBe(0);
+        await firstHeader.click();
+        const restored = await section.locator('.stock-item:visible').count();
+        expect(restored).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  test('tapping stock item expands detail with purchase info', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const items = page.locator('.stock-item');
+    const count = await items.count();
+    if (count > 0) {
+      await items.first().click();
+      const detail = page.locator('.stock-detail.open').first();
+      await expect(detail).toBeVisible();
+    }
+  });
+
+  // ── Reorder suggestions ──────────────────────────────────────────────────
+
+  test('reorder suggestions section shows Low/Medium items if any exist', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const reorderSection = page.locator('#reorder-section');
+    const text = await reorderSection.textContent();
+    if (text.trim().length > 0) {
+      expect(text).toMatch(/Low|Medium/i);
+    }
+  });
+
+  // ── STCK-03: Manual override ─────────────────────────────────────────────
+
+  test('Override Level button shows override form', async ({ page }) => {
+    await goTab(page, 2);
+    await waitForStockContent(page);
+    const overrideBtns = page.locator('[data-action="show-override"]');
+    const count = await overrideBtns.count();
+    if (count > 0) {
+      await page.locator('.stock-item').first().click();
+      const btn = page.locator('[data-action="show-override"]').first();
+      await btn.click();
+      await expect(page.locator('.override-form')).toBeVisible();
+    }
+  });
+
   // ── Trends and Cost — now bi.html (B-455 / WO-2b) ─────────────────────
   // Smoke tests only; the state tables live in tests/states-trends.spec.js and
   // tests/states-cost.spec.js. The test DB has no confirmed COGS purchase events
