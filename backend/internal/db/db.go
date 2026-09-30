@@ -46,11 +46,43 @@ func Migrate(pool *pgxpool.Pool) error {
 	return nil
 }
 
+// MigrateTo drives goose to an exact schema version, up or down. It exists for
+// tests that need to observe a migration's effect on data that predates it
+// (0082's grant copy is the first); production only ever calls Migrate.
+func MigrateTo(pool *pgxpool.Pool, version int64) error {
+	sqlDB := stdlib.OpenDBFromPool(pool)
+	defer sqlDB.Close()
+	goose.SetBaseFS(migrationsFS)
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set dialect: %w", err)
+	}
+	current, err := goose.GetDBVersion(sqlDB)
+	if err != nil {
+		return fmt.Errorf("read version: %w", err)
+	}
+	if version < current {
+		if err := goose.DownTo(sqlDB, "migrations", version); err != nil {
+			return fmt.Errorf("migrate down to %d: %w", version, err)
+		}
+		return nil
+	}
+	if err := goose.UpTo(sqlDB, "migrations", version); err != nil {
+		return fmt.Errorf("migrate up to %d: %w", version, err)
+	}
+	return nil
+}
+
 func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 	// Upsert all apps — runs every startup so new apps get added to existing databases
 	//
 	// NAMING CONVENTION — `<app>-<tab>` rows are GATED TABS, not launcher apps
 	// (design `prove-surface-gating-and-endpoints.md` §1.4, Option (i)).
+	//
+	// The convention's first two users, `inventory-trends` and `inventory-cost`,
+	// are RETIRED: Trends and Cost are the BI app now (bi.html, gated by the
+	// `bi` launcher grant with no umbrella — B-455 / WO-2b, migration 0082
+	// copies their grants onto `bi` and disables the tab rows). The convention
+	// itself stays available; `marketing-offline-override` below still rides it.
 	//
 	// Registering a gated tab as an hq_apps row is what lets it reuse every
 	// existing station unchanged: /me/apps reports it, the Users Access list
@@ -99,9 +131,10 @@ func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 			  ('operations', 'Operations', '📋'),
 			  ('onboarding', 'Onboarding', '🎓'),
 			  ('inventory', 'Inventory', '📦'),
-			  -- gated tabs of the inventory app (see convention note above)
-			  ('inventory-trends', 'Inventory · Trends', '📈'),
-			  ('inventory-cost', 'Inventory · Cost', '💵'),
+			  -- Trends and Cost were inventory-trends / inventory-cost tab rows
+			  -- here until 0082 moved them under the bi app (B-455 / WO-2b).
+			  -- Do not re-add them: 0082 disables any existing pair and the
+			  -- upsert's DO NOTHING would leave a fresh insert enabled.
 			  ('marketing', 'Marketing', '📢'),
 			  -- entitlement surface of the marketing app (see note above)
 			  ('marketing-offline-override', 'Marketing · Offline Override', '🔓')

@@ -660,9 +660,10 @@ func main() {
 
 			// Inventory endpoints — behind the whole-app `inventory` grant
 			// (card G1). The base surface is deliberately in its OWN group so
-			// the two per-tab gates below keep their independent umbrella
-			// semantics: a user granted only `inventory-trends` reaches
-			// /trends and NOTHING here; a whole-app grant opens everything.
+			// the two BI-gated report routes below keep their own gate: a user
+			// granted only `bi` reaches /trends and /cost and NOTHING here,
+			// and an `inventory` grant opens everything here and NEITHER of
+			// those (B-455 / WO-2b — see the block below).
 			r.Route("/inventory", func(r chi.Router) {
 				r.Group(func(r chi.Router) {
 					r.Use(auth.RequirePermission(pool, "inventory"))
@@ -746,17 +747,23 @@ func main() {
 					r.Get("/items", inventory.ListItemsHandler(pool))
 				})
 
-				// ── PER-TAB GATED SURFACES (design §1.3 station 1) ──────────
+				// ── BI REPORT SURFACES (B-455 / WO-2b; was design §1.3 station 1) ──
+				//
+				// /trends and /cost are the Business Intelligence app's data.
+				// They keep their /inventory/* paths (the frontend and the
+				// state specs fetch them by name) but are gated by the `bi`
+				// launcher grant with NO umbrella: the per-tab rows
+				// `inventory-trends` / `inventory-cost` are retired (migration
+				// 0082 copied their grants onto `bi` and disabled them), and an
+				// `inventory` grant no longer implies either report. That is
+				// the consolidation the signed mockup calls "no BI grant, no
+				// tile". missing_grant therefore names `bi`.
 				//
 				// Each sits in its own r.Group so RequirePermission applies to
 				// exactly one route: chi middleware is scoped to its group, and
-				// a Use() at this Route's level would gate the whole tab set
-				// behind the tab slug (and break the base group's own gate).
-				//
-				// The umbrella argument is the operator's signed rider (§8
-				// amendment 1) — a whole-app `inventory` grant opens both tabs.
+				// a Use() at this Route's level would gate the base surface too.
 				r.Group(func(r chi.Router) {
-					r.Use(auth.RequirePermission(pool, "inventory-trends", "inventory"))
+					r.Use(auth.RequirePermission(pool, "bi"))
 					// design §2.2 as amended (decisions 29/30/31) — spend by ISO
 					// week × item group. Cookie-auth, but it MUST be filtered by
 					// the same cogsAllowlist the service-token period-summary is
@@ -766,7 +773,7 @@ func main() {
 					r.Get("/trends", inventory.TrendsHandler(pool, cogsAllowlist))
 				})
 				r.Group(func(r chi.Router) {
-					r.Use(auth.RequirePermission(pool, "inventory-cost", "inventory"))
+					r.Use(auth.RequirePermission(pool, "bi"))
 					r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
 				})
 			})

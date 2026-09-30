@@ -1,5 +1,18 @@
 const { test, expect } = require('@playwright/test');
 
+// B-455 / WO-2a: Inventory opens on a HUB (#s0) whose rows carry the slot ids
+// t1/t2/t4/t5/t6/t7; every section is a full page with a back link (#back-hub).
+// A bare /inventory.html therefore lands on the hub, so tests that exercise a
+// section load it by hash, and moving between sections goes through the hub.
+async function goTab(page, n) {
+  // Wait for boot: tab.js paints the hashed section before the page script
+  // runs show(), and until then neither the hub nor the back link is visible.
+  await page.waitForSelector('#s0:visible, #back-hub:visible');
+  const back = page.locator('#back-hub');
+  if (await back.isVisible()) await back.click();
+  await page.locator('#t' + n).click();
+}
+
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
@@ -106,42 +119,53 @@ test.describe('Inventory', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
   // ── Tab navigation ──────────────────────────────────────────────────────
 
-  // B-455 / WO-1: six tabs, not seven. Menu folded into Recipes as the
-  // "By dish" view; the slot ids (#t4 Recipes, #t7 Setup, #t5/#t6 gated)
-  // are deliberately unchanged so every #tab= deep link keeps working.
-  test('shows 6 tabs: Receipts, Stock, Recipes, Trends, Cost, Setup — no Menu', async ({ page }) => {
+  // B-455: Menu folded into Recipes as the "By dish" view (WO-1); the tab bar
+  // replaced by a hub of rows (WO-2a); Trends and Cost moved to bi.html (WO-2b).
+  // The slot ids (#t4 Recipes, #t7 Setup) are deliberately unchanged so every
+  // #tab= deep link keeps working; #tab=5 / #tab=6 redirect to bi.html. The
+  // hub's own state table lives in states-inventory-nav.spec.js.
+  test('the hub lists 4 rows: Receipts, Stock, Recipes, Setup — no Menu, no Trends, no Cost', async ({ page }) => {
+    await page.locator('#back-hub').click(); // beforeEach lands on Receipts; back out to the hub
+    await expect(page.locator('#s0')).toBeVisible();
     await expect(page.locator('#t1')).toContainText('Receipts');
     await expect(page.locator('#t2')).toContainText('Stock');
     await expect(page.locator('#t3')).toHaveCount(0);
     await expect(page.locator('#s3')).toHaveCount(0);
     await expect(page.locator('#t4')).toContainText('Recipes');
-    await expect(page.locator('#t5')).toContainText('Trends');
-    await expect(page.locator('#t6')).toContainText('Cost');
+    await expect(page.locator('#t5')).toHaveCount(0);
+    await expect(page.locator('#t6')).toHaveCount(0);
     await expect(page.locator('#t7')).toContainText('Setup');
-    await expect(page.locator('.tabs button')).toHaveCount(6);
+    await expect(page.locator('.hub-row')).toHaveCount(4);
   });
 
-  test('the tab bar fits one row at phone width — no label wraps', async ({ page }) => {
-    // The seven-tab bar wrapped "Purchases (10)" onto two lines at 480px.
-    // Every button must be the same height as its neighbours and single-line.
+  test('legacy #tab=5 and #tab=6 deep links redirect to the matching bi.html section', async ({ page }) => {
+    await page.goto('/inventory.html#tab=5');
+    await page.waitForURL(/bi\.html#tab=1$/);
+    await expect(page.locator('#s1')).toBeVisible();
+    await page.goto('/inventory.html#tab=6');
+    await page.waitForURL(/bi\.html#tab=2$/);
+    await expect(page.locator('#s2')).toBeVisible();
+  });
+
+  test('the pending count is the Receipts row badge, and the row stays one line at phone width', async ({ page }) => {
+    // The seven-tab bar wrapped "Purchases (10)" onto two lines at 480px; the
+    // hub row carries the count as a badge beside the title instead.
     await page.setViewportSize({ width: 393, height: 852 });
-    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updateHistoryTabLabel(); });
-    await expect(page.locator('#t1')).toContainText('Receipts');
-    await expect(page.locator('#t1 .tab-badge')).toHaveText('10');
-    await expect(page.locator('.tabs button')).toHaveCount(6);
-    // Count real line boxes of each label's text node (the corner badge is
-    // absolutely positioned and must not count): one line each, or it wrapped.
-    const lines = await page.locator('.tabs button').evaluateAll(bs => bs.map(b => {
-      const r = document.createRange(); r.selectNode(b.firstChild);
-      return new Set(Array.from(r.getClientRects()).map(x => Math.round(x.top))).size;
-    }));
-    expect(lines, 'every tab label is a single line box').toEqual(lines.map(() => 1));
+    await page.locator('#back-hub').click();
+    await page.evaluate(() => { PENDING_PURCHASES = new Array(10).fill({}); updatePendingBadge(); });
+    await expect(page.locator('#t1 .hub-t')).toHaveText('Receipts');
+    await expect(page.locator('#hub-b1')).toHaveText('10 to review');
+    const { title, badge } = await page.locator('#t1').evaluate(r => {
+      const t = r.querySelector('.hub-t').getBoundingClientRect(); const b = r.querySelector('.hub-b').getBoundingClientRect();
+      return { title: { right: t.right, top: t.top, bottom: t.bottom }, badge: { left: b.left, top: b.top, bottom: b.bottom } };
+    });
+    expect(badge.left, 'badge sits to the right of the title, never over it').toBeGreaterThanOrEqual(title.right - 0.5);
   });
 
   test('legacy #tab=3 (the old Menu tab) lands on Recipes › By dish', async ({ page }) => {
@@ -156,10 +180,20 @@ test.describe('Inventory', () => {
     expect(await page.evaluate(() => location.hash)).toBe('#tab=4&view=dish');
   });
 
-  test('Receipts tab is active by default', async ({ page }) => {
+  test('a bare /inventory.html lands on the hub; #tab=1 opens Receipts', async ({ page }) => {
+    // beforeEach loads #tab=1 → Receipts is open with its back link to the hub.
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(page.locator('#s1')).toBeVisible();
     await expect(page.locator('#s2')).not.toBeVisible();
+    await expect(page.locator('#back-hub')).toContainText('Receipts');
+    // A bare load (real navigation, so tab.js re-runs) is the hub, no hash.
+    await page.goto('/inventory.html');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s1')).toBeHidden();
+    await expect(page.locator('#t1')).not.toHaveClass(/on/);
+    expect(await page.evaluate(() => location.hash)).toBe('');
   });
 
   test('Recipes tab activates on #tab=4 hash', async ({ page }) => {
@@ -186,12 +220,12 @@ test.describe('Inventory', () => {
       (req) => req.url().includes('/api/v1/inventory/recipes/drift'),
       { timeout: 10000 }
     );
-    await page.click('#t4');
+    await goTab(page, 4);
     await Promise.all([recipesPromise, driftPromise]);
   });
 
   test('Recipes tab shows empty state when no ingredients', async ({ page }) => {
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#s4')).toBeVisible();
   });
@@ -241,7 +275,7 @@ test.describe('Inventory', () => {
     // the click handler fires correctly, the placeholder MUST be replaced
     // (either by the populated card or by "No allocations for this menu item.").
     // The test is independent of RECIPES_DATA state.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     // show(4) fires an async loadRecipes() whose resolution re-renders
     // #recipes-list, detaching injected synthetic DOM. Let it settle first.
@@ -287,7 +321,7 @@ test.describe('Inventory', () => {
     // UX gap from human-verify: user tapped a card on the Menu tab expecting
     // a cost breakdown to appear. The Menu tab is now the By dish view of
     // Recipes (B-455), so the card and the summary share one screen.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.click('#rv-dish');
     await page.waitForLoadState('networkidle');
     // Switching to By dish fires an async menu load that re-renders
@@ -321,7 +355,7 @@ test.describe('Inventory', () => {
     // Guards against a regression where render() dispatcher fails to route
     // ACTIVE_TAB===7 to renderItemsList — the BLOCKER fix in Plan 999.2-05 Task 1 sub-edit 4.
     // If the dispatcher is broken, #s7 becomes visible but its body stays empty / stale.
-    await page.click('#t7');
+    await goTab(page, 7);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#t7')).toHaveClass(/on/);
     await expect(page.locator('#s7')).toBeVisible();
@@ -449,7 +483,7 @@ test.describe('Inventory', () => {
   // ── STCK-01: Stock tab loads stock levels from API ───────────────────────
 
   test('Stock tab loads stock levels from API', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const stockList = page.locator('#stock-list');
     const text = await stockList.textContent();
@@ -459,7 +493,7 @@ test.describe('Inventory', () => {
   });
 
   test('Stock tab groups items by tag category', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const stockItems = page.locator('.stock-item');
     const count = await stockItems.count();
@@ -470,7 +504,7 @@ test.describe('Inventory', () => {
   });
 
   test('stock item badges are right-aligned in a single container', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const items = page.locator('.stock-item');
     const count = await items.count();
@@ -487,7 +521,7 @@ test.describe('Inventory', () => {
   });
 
   test('tapping tag header collapses and expands section', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const headers = page.locator('.tag-header');
     const headerCount = await headers.count();
@@ -507,7 +541,7 @@ test.describe('Inventory', () => {
   });
 
   test('tapping stock item expands detail with purchase info', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const items = page.locator('.stock-item');
     const count = await items.count();
@@ -521,7 +555,7 @@ test.describe('Inventory', () => {
   // ── Reorder suggestions ──────────────────────────────────────────────────
 
   test('reorder suggestions section shows Low/Medium items if any exist', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const reorderSection = page.locator('#reorder-section');
     const text = await reorderSection.textContent();
@@ -533,7 +567,7 @@ test.describe('Inventory', () => {
   // ── STCK-03: Manual override ─────────────────────────────────────────────
 
   test('Override Level button shows override form', async ({ page }) => {
-    await page.click('#t2');
+    await goTab(page, 2);
     await waitForStockContent(page);
     const overrideBtns = page.locator('[data-action="show-override"]');
     const count = await overrideBtns.count();
@@ -545,37 +579,24 @@ test.describe('Inventory', () => {
     }
   });
 
-  // ── Trends tab ───────────────────────────────────────────────────────────
-
-  // Retargeted by the F3 trends-tab-frontend card, exactly as F4 retargeted the
-  // Cost stub test below: the 'coming soon' stub this test used to assert no
-  // longer exists — #s5 now renders the real Trends tab (FR-1 / FR-6b). Full
-  // State-Enumeration coverage lives in tests/states-trends.spec.js; this stays
-  // a smoke test that the tab mounts and loads.
-  test('Trends tab renders the spend-by-group surface', async ({ page }) => {
-    await page.click('#t5');
-    await expect(page.locator('#s5')).toBeVisible();
-    // The test DB has no confirmed COGS purchase events, so the honest empty
-    // card is the expected surface here.
-    await expect(page.locator('#s5 .tr-empty')).toBeVisible();
-    await expect(page.locator('#s5')).toContainText('No confirmed spending yet');
-    await expect(page.locator('#s5')).not.toContainText('coming soon');
+  // ── Trends and Cost — now bi.html (B-455 / WO-2b) ─────────────────────
+  // Smoke tests only; the state tables live in tests/states-trends.spec.js and
+  // tests/states-cost.spec.js. The test DB has no confirmed COGS purchase events
+  // and no daily_menu_sales rows, so the honest empty cards are the surfaces.
+  test('Trends renders the spend-by-group surface on bi.html', async ({ page }) => {
+    await page.goto('/bi.html#tab=1');
+    await expect(page.locator('#s1')).toBeVisible();
+    await expect(page.locator('#s1 .tr-empty')).toBeVisible();
+    await expect(page.locator('#s1')).toContainText('No confirmed spending yet');
+    await expect(page.locator('#s1')).not.toContainText('coming soon');
   });
 
-  // ── Cost tab ────────────────────────────────────────────────────────────
-
-  // Retargeted by the F4 cost-tab-frontend card: the 'coming soon' stub this
-  // test used to assert no longer exists — #s6 now renders the real Cost tab
-  // (FR-4). Full State-Enumeration coverage lives in tests/states-cost.spec.js;
-  // this stays a smoke test that the tab mounts and loads.
-  test('Cost tab renders the cost surface', async ({ page }) => {
-    await page.click('#t6');
-    await expect(page.locator('#s6')).toBeVisible();
-    // The test DB has no daily_menu_sales rows, so the honest low-data card is
-    // the expected surface here (accept-sparse-prod).
-    await expect(page.locator('#s6 .cost-empty')).toBeVisible();
-    await expect(page.locator('#s6')).toContainText('No sales data yet');
-    await expect(page.locator('#s6')).not.toContainText('Food Cost Intelligence');
+  test('Food cost renders the cost surface on bi.html', async ({ page }) => {
+    await page.goto('/bi.html#tab=2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2 .cost-empty')).toBeVisible();
+    await expect(page.locator('#s2')).toContainText('No sales data yet');
+    await expect(page.locator('#s2')).not.toContainText('Food Cost Intelligence');
   });
 
   // ── Recipes › By dish, formerly the Menu tab (Phase 22 — Toast ingest; folded by B-455) ──────────────────────────────────
@@ -590,9 +611,9 @@ test.describe('Inventory', () => {
         body: JSON.stringify([]),
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t4').click();
+    await goTab(page, 4);
     await page.locator('#rv-dish').click();
     await expect(page.locator('#recipes-by-dish')).toBeVisible();
     await expect(page.locator('#menu-list')).toContainText('No menu items');
@@ -619,9 +640,9 @@ test.describe('Inventory', () => {
         ]),
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t4').click();
+    await goTab(page, 4);
     await page.locator('#rv-dish').click();
     const list = page.locator('#menu-list');
     await expect(list).toContainText('Jerk Sliders');
@@ -921,7 +942,7 @@ test.describe('Inventory', () => {
         receipt_url: 'https://example.test/r.pdf',
       }, row)]) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
   }
 
@@ -994,7 +1015,7 @@ test.describe('Inventory', () => {
   // ── Sync liveness: elapsed time (tier B) ────────────────────────────────
 
   test('formatElapsed reads as a duration at every scale', async ({ page }) => {
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const out = await page.evaluate(() => [0, 9000, 59000, 60000, 125000, 3600000, 3780000].map((ms) => formatElapsed(ms)));
     expect(out).toEqual(['0s', '9s', '59s', '1m 00s', '2m 05s', '1h 00m', '1h 03m']);
     // A clock skew that puts started_at in the future must not render "-4s".
@@ -1011,7 +1032,7 @@ test.describe('Inventory', () => {
         processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'manual',
       }) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const chip = page.locator('#sync-receipts-chip');
     await expect(chip).toBeVisible();
     await expect(chip).toContainText('Working…');
@@ -1024,7 +1045,7 @@ test.describe('Inventory', () => {
   });
 
   test('the elapsed ticker stops when no run is in flight', async ({ page }) => {
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     // No running sync -> the chip carries no elapsed text and the button reads
     // its resting label rather than a frozen "Syncing… 0s".
@@ -1089,7 +1110,7 @@ test.describe('Inventory', () => {
     // to-do list, not good news, and blue read as "all fine". .err used to
     // share the same amber, so recolouring the finished chip without moving
     // failure to red would make a failed and a finished run identical.
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const read = async (state) => page.evaluate((s) => {
       SYNC_STATE = s; SYNC_CHIP_DISMISSED_ID = null; renderSyncUI();
       const el = document.getElementById('sync-receipts-chip');
@@ -1115,7 +1136,7 @@ test.describe('Inventory', () => {
   // the More button is simply there; do not fake CURRENT_USER — isAdmin() reads
   // `is_superadmin` / `roles`, and an overwrite hides the real user's tools.
   async function asAdmin(page) {
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#sync-more-btn')).toBeVisible();
   }
@@ -1197,7 +1218,7 @@ test.describe('Inventory', () => {
   });
 
   test('a non-admin gets no More button, so no deep sync and no retry-all', async ({ page }) => {
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.evaluate(() => {
       CURRENT_USER = { role: 'team_member' };
       showAdminSyncTools();
@@ -1217,7 +1238,7 @@ test.describe('Inventory', () => {
         processed: 0, auto_created: 0, pending_review: 0, cached: 0, triggered_by: 'reprocess_all',
       }, extra)) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await expect(page.locator('#sync-receipts-btn')).toContainText('Cancel Sync');
   }
 
@@ -1236,7 +1257,7 @@ test.describe('Inventory', () => {
       await held;
       await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 3, status: 'running', started_at: new Date().toISOString() }) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const btn = page.locator('#sync-receipts-btn');
     await expect(btn).toHaveText('Sync Receipts');
     await btn.click();
@@ -1256,7 +1277,7 @@ test.describe('Inventory', () => {
       await r.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
     });
     page.on('dialog', (d) => d.accept());
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.locator('#sync-receipts-btn').click();
     // Optimism has to be undone, or the button offers to cancel a run that
     // never started.
@@ -1309,7 +1330,7 @@ test.describe('Inventory', () => {
         processed: 12, auto_created: 1, pending_review: 3, cached: 0, triggered_by: 'reprocess_all',
       }) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const chip = page.locator('#sync-receipts-chip');
     await expect(chip).toBeVisible();
     // 1 auto-added + 3 still pending = 4 receipts actually read before the stop.
@@ -1339,9 +1360,12 @@ test.describe('Inventory', () => {
     await expect(tile).toContainText('Inventory');
   });
 
-  // ── Trends/Cost container existence for future swap ──────────────────────
+  // ── Trends/Cost containers live on bi.html now ───────────────────────────
 
-  test('Trends and Cost containers exist for future data wiring', async ({ page }) => {
+  test('Trends and Cost containers live on bi.html, not inventory.html', async ({ page }) => {
+    await expect(page.locator('#trends-container')).toHaveCount(0);
+    await expect(page.locator('#cost-container')).toHaveCount(0);
+    await page.goto('/bi.html');
     await expect(page.locator('#trends-container')).toHaveCount(1);
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
@@ -1353,14 +1377,14 @@ test.describe('Inventory', () => {
   });
 
   test('Setup tab has Items and Vendors sub-tabs', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await expect(page.locator('#st1')).toContainText('Items');
     await expect(page.locator('#st2')).toContainText('Vendors');
     await expect(page.locator('#st1')).toHaveClass(/on/);
   });
 
   test('Vendors sub-tab shows vendor list', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.locator('#st2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('vendors-list');
@@ -1373,14 +1397,14 @@ test.describe('Inventory', () => {
   });
 
   test('Vendors sub-tab has add vendor form', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.locator('#st2').click();
     await expect(page.locator('#new-vendor-name')).toBeVisible();
     await expect(page.locator('#create-vendor-btn')).toBeVisible();
   });
 
   test('tapping vendor expands inline edit form', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.locator('#st2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('vendors-list');
@@ -1393,7 +1417,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items sub-tab shows item list or empty state', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && (list.querySelector('.item-group-section') || list.querySelector('.item-row') || list.querySelector('.empty') || list.querySelector('.add-item-bar'));
@@ -1404,7 +1428,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items tab has search filter', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     const search = page.locator('#item-search');
     await expect(search).toBeVisible();
     await expect(search).toHaveAttribute('placeholder', 'Search items...');
@@ -1420,7 +1444,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: 'Unrelated Gamma ' + ts, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((ts) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes('Filterable Alpha')) return true;
@@ -1435,7 +1459,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items tab has add item form', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     await expect(page.locator('#new-item-name')).toBeVisible();
     await expect(page.locator('#new-item-group')).toBeVisible();
@@ -1443,7 +1467,7 @@ test.describe('Inventory', () => {
   });
 
   test('create new item via Items tab', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const itemName = 'Test Item ' + Date.now();
     await page.fill('#new-item-name', itemName);
@@ -2176,7 +2200,7 @@ test.describe('Inventory', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
     // Open Setup → Items and expand the item's edit form
-    await page.click('#t7');
+    await goTab(page, 7);
     const row = page.locator('.item-row[data-id="' + created.id + '"]');
     await row.click();
     const form = page.locator('.item-edit-form[data-item-id="' + created.id + '"]');
@@ -2380,7 +2404,7 @@ test.describe('Inventory', () => {
   });
 
   test('duplicate group shows toast warning in items tab', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const groups = await invApiCall(page, 'GET', 'groups');
     expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
@@ -2481,7 +2505,7 @@ test.describe('Inventory', () => {
     // Navigate away and come back
     await page.goto('/index.html');
     await page.waitForLoadState('networkidle');
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     await waitForHistoryContent(page);
     // Find and open the specific pending purchase we seeded
@@ -2524,7 +2548,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const el = document.getElementById('reorder-section');
       return el && el.textContent.length > 0;
@@ -2536,7 +2560,7 @@ test.describe('Inventory', () => {
   });
 
   test('collapsing a stock group also collapses expanded items within it', async ({ page }) => {
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -2564,7 +2588,7 @@ test.describe('Inventory', () => {
   });
 
   test('expand all button expands all items in a stock group', async ({ page }) => {
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -2601,13 +2625,13 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 5, price: 5.00 }]
     });
     // Go to Stock tab — verify the item shows up
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
     }, { timeout: 8000 });
     // Now switch to Setup and change thresholds so qty 5 becomes "High" (set high=5)
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && (list.querySelector('.item-group-section') || list.querySelector('.add-item-bar'));
@@ -2620,7 +2644,7 @@ test.describe('Inventory', () => {
       });
     }, [grp.id]);
     // Switch back to Stock — should reload with new thresholds
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -2654,7 +2678,7 @@ test.describe('Inventory', () => {
   });
 
   test('frontend shows error for negative threshold values', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -2674,7 +2698,7 @@ test.describe('Inventory', () => {
   });
 
   test('medium shows n/a when low=0 and high=1 (no medium range)', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -2705,7 +2729,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'PUT', 'items', { id: item2.id, description: 'Loc B Item ' + ts, group_id: gid, store_location: 'Restaurant Depot' });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -2729,7 +2753,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: 'Unassigned Item ' + ts, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -2752,7 +2776,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2776,7 +2800,7 @@ test.describe('Inventory', () => {
     // Reload and verify persistence
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2797,7 +2821,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2817,7 +2841,7 @@ test.describe('Inventory', () => {
   // ── Setup tab back link ─────────────────────────────────────────────
 
   test('Setup tab no longer links out to Purchase Orders (that is an HQ tile)', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await expect(page.locator('#s7')).toBeVisible();
     await expect(page.locator('#s7 a[href="purchasing.html"]')).toHaveCount(0);
     await expect(page.locator('#s7')).not.toContainText('Purchase Orders');
@@ -2853,9 +2877,9 @@ test.describe('Inventory', () => {
       const context = await browser.newContext({ timezoneId: deviceTz });
       const page = await context.newPage();
       await login(page);
-      await page.goto('/inventory.html');
+      await page.goto('/inventory.html#tab=1');
       await page.waitForLoadState('networkidle');
-      await page.locator('#t7').click();
+      await goTab(page, 7);
       await page.waitForSelector('#badge-reset-section', { timeout: 5000 });
 
       // Prove the fixture actually took: if the context timezone were ignored,
@@ -2885,7 +2909,7 @@ test.describe('Inventory', () => {
   // ── Add item group enforcement ──────────────────────────────────────
 
   test('add item bar does not allow No Group selection', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForSelector('#new-item-group', { timeout: 5000 });
     const opts = await page.locator('#new-item-group option').allTextContents();
     expect(opts).not.toContain('No Group');
@@ -2893,7 +2917,7 @@ test.describe('Inventory', () => {
   });
 
   test('create item without group shows alert', async ({ page }) => {
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForSelector('#new-item-name', { timeout: 5000 });
     await page.fill('#new-item-name', 'No Group Item ' + Date.now());
     // Leave group as default "Select group..." (value="")
@@ -2908,7 +2932,7 @@ test.describe('Inventory', () => {
     const groups = await invApiCall(page, 'GET', 'groups');
     const gid = groups && groups.length ? groups[0].id : null;
     if (!gid) return;
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForSelector('#new-item-name', { timeout: 5000 });
     const itemName = 'New Setup Item ' + Date.now();
     await page.fill('#new-item-name', itemName);
@@ -2939,7 +2963,7 @@ test.describe('Inventory', () => {
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2969,7 +2993,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2997,7 +3021,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -3031,7 +3055,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab and expand the item
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -3077,7 +3101,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await page.waitForFunction(() => {
       const el = document.getElementById('reorder-section');
       return el && el.textContent.length > 0;
@@ -3132,7 +3156,7 @@ test.describe('Inventory', () => {
     expect(found).toBeUndefined();
 
     // Also verify: inventory Stock tab reorder suggestions don't show it either
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await waitForStockContent(page);
     const reorderText = await page.locator('#reorder-section').textContent();
     expect(reorderText).not.toContain(itemName);
@@ -3370,8 +3394,8 @@ test.describe('Inventory', () => {
     expect(lowItemInPO, 'Item below low_threshold MUST appear in PO suggestions').toBeDefined();
 
     // Go to inventory Stock tab and count reorder suggestions
-    await page.goto('/inventory.html');
-    await page.click('#t2');
+    await page.goto('/inventory.html#tab=1');
+    await goTab(page, 2);
     await waitForStockContent(page);
 
     const reorderSection = page.locator('#reorder-section');
@@ -3706,7 +3730,7 @@ test.describe('Receipt sync button', () => {
       } else { await route.continue(); }
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const btn = page.locator('#sync-receipts-btn');
@@ -3732,7 +3756,7 @@ test.describe('Receipt sync button', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     // Purchases is the default tab — sync button should mount on load and
@@ -3757,7 +3781,7 @@ test.describe('Receipt sync button', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const chip = page.locator('#sync-receipts-chip');
@@ -3789,7 +3813,7 @@ test.describe('Receipt sync button', () => {
         })
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const chip = page.locator('#sync-receipts-chip');
     await expect(chip).toBeVisible();
@@ -3819,7 +3843,7 @@ test.describe('Receipt sync button', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const chip = page.locator('#sync-receipts-chip');
@@ -3854,7 +3878,7 @@ test.describe('Receipt sync button', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const chip = page.locator('#sync-receipts-chip');
@@ -3892,7 +3916,7 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="pe-1"]');
     await expect(card).toBeVisible();
@@ -3921,7 +3945,7 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="pe-transient"]');
     await expect(card).toBeVisible();
@@ -3954,7 +3978,7 @@ test.describe('Retry parse button (260607-koi)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('[data-action="review-pending"][data-id="koi-1"]');
@@ -3985,7 +4009,7 @@ test.describe('Retry parse button (260607-koi)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('[data-action="review-pending"][data-id="koi-2"]');
@@ -4034,7 +4058,7 @@ test.describe('Retry parse button (260607-koi)', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('[data-action="review-pending"][data-id="koi-3"]');
@@ -4079,7 +4103,7 @@ test.describe('PDF receipt iframe (260607-e1c)', () => {
       await route.fulfill({ status: 200, contentType: 'application/pdf', body: Buffer.from('%PDF-1.4\n%minimal\n') });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     // Open the pending row's review form (tap the card).
@@ -4125,7 +4149,7 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-mismatch"]');
     await expect(card).toBeVisible();
@@ -4152,7 +4176,7 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-empty-parsefail"]');
     await expect(card).toBeVisible();
@@ -4176,7 +4200,7 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
         }])
       });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-match"]');
     await expect(card).toBeVisible();
@@ -4253,7 +4277,7 @@ test.describe('Retry parse auto-sync (260702-l67)', () => {
       });
     });
 
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('[data-action="review-pending"][data-id="pend-1"]');
@@ -4363,7 +4387,7 @@ test.describe('Inline reparse (260929)', () => {
       await route.fulfill({ status: 200, contentType: 'application/json',
         body: JSON.stringify({ id: row.id, sync_id: 42, started_at: NOW, status: 'running' }) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     return st;
   }
@@ -4533,7 +4557,7 @@ test.describe('Inline reparse (260929)', () => {
         { id: 'evt-above', vendor_name: 'Save A Lot', event_date: '2026-09-12', total: 3.29, created_at: NOW },
       ]) });
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     const card = page.locator('[data-action="review-pending"][data-id="pend-inl"]');
     const total = card.locator('.event-total');
@@ -4570,7 +4594,7 @@ test.describe('Inventory prove sweep — Purchases', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -4701,8 +4725,9 @@ test.describe('Inventory prove sweep — Purchases', () => {
   // vendors + confirmed events. Observable:
   //  (a) GET /purchases?vendor_id=A returns ONLY vendor A's events;
   //  (b) the UI #vendor-filter narrows the rendered event-cards to vendor A;
-  //  (c) GET /purchases?page=2 uses LIMIT 50 OFFSET 50 (page 2 excludes a
-  //      just-created page-1 event).
+  //  (c) GET /purchases?vendor_id=C&page=N pages a 51-row vendor as 50 + 1,
+  //      splits the same way on every read, and orders same-date rows
+  //      newest-created first (event_date DESC, created_at DESC, id DESC).
   test('FR-11: vendor filter + pagination work against a real seed', async ({ page }) => {
     const stamp = Date.now();
     const vA = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Alpha ' + stamp });
@@ -4747,24 +4772,58 @@ test.describe('Inventory prove sweep — Purchases', () => {
       return sel && Array.from(sel.options).some(o => o.value === vid);
     }, vA.id, { timeout: 5000 });
     await select.selectOption(vA.id);
-    await waitForHistoryContent(page);
+    // The change handler calls loadHistory(), which clears #history-list and
+    // re-renders from the vendor-scoped payload. waitForHistoryContent resolves
+    // on the OLD cards (still in the DOM until the reload lands), and a snapshot
+    // cards.count() taken in that window read 0 mid-render — B-156's shape.
+    // Retrying expectations only; no snapshots.
     const cards = page.locator('.event-card:not([data-action="review-pending"])');
-    const cardCount = await cards.count();
     // Exactly vendor A's single seeded event is shown (its $10.00 total),
     // and vendor B's $20.00 event is filtered out.
-    expect(cardCount).toBeGreaterThanOrEqual(1);
-    await expect(cards.filter({ hasText: '$10.00' })).toHaveCount(1);
-    await expect(page.locator('.event-card:not([data-action="review-pending"])').filter({ hasText: '$20.00' })).toHaveCount(0);
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText('$10.00');
+    await expect(cards.filter({ hasText: '$20.00' })).toHaveCount(0);
 
-    // (c) Pagination: page 2 (OFFSET 50) excludes a fresh page-1 event.
-    const page1 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=1')).json());
-    const page2 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=2')).json());
-    expect(Array.isArray(page1)).toBe(true);
-    expect(Array.isArray(page2)).toBe(true);
-    expect(page1.length).toBeLessThanOrEqual(50); // LIMIT 50 enforced
-    // The just-seeded vendor-A event is on page 1 and must NOT also be on page 2.
-    expect(page1.some(ev => ev.id === evA.id)).toBe(true);
-    expect(page2.some(ev => ev.id === evA.id)).toBe(false);
+    // (c) Pagination, scoped to a THIRD fresh vendor so every assertion reads
+    // only rows this test seeded. The previous version asserted that evA sat
+    // on UNFILTERED page 1 and not on page 2 — true only while fewer than 50
+    // events dated >= 2026-04-15 existed in the shared, never-truncated E2E
+    // database at that point in the run (bugs.md, "Assertions against a
+    // database nobody resets"). 51 rows dated 2020-01-01 sort BELOW every
+    // other test's 2026 rows in the global list, so they displace nobody.
+    // All 51 share one event_date on purpose: same-date rows are exactly the
+    // case where ORDER BY event_date alone is not a total order, and where a
+    // page boundary can show a row on both pages or on neither. The contract
+    // is event_date DESC, created_at DESC, id DESC — a same-day batch lists
+    // newest-created first and the page split is stable across reads.
+    const vC = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Charlie ' + stamp });
+    expect(vC && vC.id).toBeTruthy();
+    const seededIds = [];
+    for (let i = 0; i < 51; i++) {
+      const ev = await seedPurchaseEvent(page, {
+        vendorId: vC.id, bankTxId: 'fr11-c-' + stamp + '-' + i, eventDate: '2020-01-01',
+        total: 1, lineItems: [{ description: 'C item', quantity: 1, price: 1 }],
+      });
+      expect(ev && ev.id).toBeTruthy();
+      seededIds.push(ev.id);
+    }
+    const listPage = (n) => page.evaluate(async ([vid, pg]) => {
+      const r = await fetch('/api/v1/inventory/purchases?vendor_id=' + vid + '&page=' + pg);
+      return r.json();
+    }, [vC.id, n]);
+    const p1 = await listPage(1);
+    const p2 = await listPage(2);
+    const p3 = await listPage(3);
+    expect(p1.length).toBe(50); // LIMIT 50
+    expect(p2.length).toBe(1);  // OFFSET 50
+    expect(p3.length).toBe(0);
+    // Newest-created first within the same date: page 1 is seeds 50..1,
+    // page 2 is seed 0. This is also what proves no row is on both pages or
+    // on neither.
+    expect(p1.map(ev => ev.id)).toEqual(seededIds.slice(1).reverse());
+    expect(p2.map(ev => ev.id)).toEqual([seededIds[0]]);
+    // A second read splits identically — the boundary is stable, not luck.
+    expect((await listPage(1)).map(ev => ev.id)).toEqual(p1.map(ev => ev.id));
   });
 });
 
@@ -4788,7 +4847,7 @@ test.describe('Inventory prove sweep — Stock', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -4968,7 +5027,7 @@ test.describe('Inventory prove sweep — Stock', () => {
     await page.goto('/inventory.html#tab=2');
     await page.waitForLoadState('networkidle');
     // Click the Stock tab explicitly in case the hash didn't activate it.
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await waitForStockContent(page);
 
     // (a) The reorder-suggestions section renders our low item, and tapping it
@@ -5027,7 +5086,7 @@ test.describe('Inventory prove sweep — Setup', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -5257,7 +5316,7 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -5286,7 +5345,7 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
 
     // 2) Open Recipes › By dish (the former Menu tab); its loadMenu() calls the
     //    same live endpoint (no route interception) and renders into #menu-list.
-    await page.locator('#t4').click();
+    await goTab(page, 4);
     await page.locator('#rv-dish').click();
     await expect(page.locator('#recipes-by-dish')).toBeVisible();
     const list = page.locator('#menu-list');
@@ -5378,7 +5437,7 @@ test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
         return r.status;
       }).catch(() => null);
       // The anon page has no origin yet for a relative fetch; navigate first.
-      await anon.goto('/inventory.html');
+      await anon.goto('/inventory.html#tab=1');
       // The page's own load calls hit the API unauthenticated → api() redirects.
       await anon.waitForURL(url => url.pathname.includes('login'), { timeout: 10000 });
       expect(anon.url(), 'unauthenticated inventory load must land on /login.html').toContain('login');
@@ -5410,7 +5469,7 @@ test.describe('Purchases — card holder label', () => {
       cardHolder: 'Jamal Cole', cardLast4: '8478',
     });
     expect(seeded && seeded.id, 'seed endpoint accepted card fields').toBeTruthy();
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     const card = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     await expect(card).toBeVisible();
@@ -5427,7 +5486,7 @@ test.describe('Purchases — card holder label', () => {
       bankTxId: txId, vendor: 'Restaurant Depot', bankTotal: -5.00,
       eventDate: '2026-09-27', reason: 'no_attachment_on_bank_tx', items: [],
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     const meta = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"] .event-meta`, { hasText: 'Mercury:' });
     await expect(meta).toBeVisible();
@@ -5456,7 +5515,7 @@ test.describe('Purchases — card holder label', () => {
     expect(mine.card_holder).toBe('Latanya Mcgriff');
     expect(mine.card_last4).toBe('0994');
     // … and the history card shows it.
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     const historyCard = page.locator('[data-action="toggle-event"]', { hasText: 'Card Confirm Vendor' }).first();
     await expect(historyCard).toBeVisible();
@@ -5508,7 +5567,7 @@ test.describe('Purchases — date-ordered list + filter chips', () => {
 
   test('default view is one list in event-date order — a fresh auto-added event sits between the queue cards at its date', async ({ page }) => {
     await stubLists(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     await expect.poll(() => cardIds(page)).toEqual(['pend-27', 'ev-new', 'pend-25', 'ev-old']);
     // The just-added event is marked as such; the 10-day-old one is not.
@@ -5518,7 +5577,7 @@ test.describe('Purchases — date-ordered list + filter chips', () => {
 
   test('chips filter the list: Needs review → queue only, Recently added → last-7-day events only, All → everything', async ({ page }) => {
     await stubLists(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     const chips = page.locator('#history-filters .chip');
     await expect(chips).toHaveCount(3);
@@ -5548,7 +5607,7 @@ test.describe('Purchases — date-ordered list + filter chips', () => {
       bankTxId: 'tx-order-pend-' + ts, vendor: 'Date Order Queue', bankTotal: -4.99,
       eventDate: '2026-09-24', reason: 'no_attachment_on_bank_tx', items: [],
     });
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await waitForHistoryContent(page);
     // Poll: the list re-renders once both fetches (events + pending) land.
     await expect.poll(async () => {
@@ -5645,7 +5704,7 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
 
   test('tapping a linked line opens that item in Setup even though the receipt text differs from the catalog name', async ({ page }) => {
     await stub(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const card = page.locator('#history-list .event-card[data-id="ev-1"]');
     await expect(card).toBeVisible();
     await card.click();
@@ -5665,7 +5724,7 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
 
   test('a nickname typed in Setup is the label; a nickname that is just the receipt text is not', async ({ page }) => {
     await stub(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const card = page.locator('#history-list .event-card[data-id="ev-1"]');
     await card.click();
     const nick = card.locator('[data-action="goto-setup-item"][data-item-id="it-shr"]');
@@ -5679,7 +5738,7 @@ test.describe('Purchases — line item links to its catalog item in Setup', () =
 
   test('a line with no linked item is not a link and tapping it only toggles the card', async ({ page }) => {
     await stub(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     const card = page.locator('#history-list .event-card[data-id="ev-1"]');
     await card.click();
     const orphan = card.locator('.line-item').filter({ hasText: 'Mystery Line' });
@@ -5770,7 +5829,7 @@ test.describe('Item display name — promoted nicknames', () => {
 
     await page.goto('/inventory.html#tab=2');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await waitForStockContent(page);
 
     // IDENTITY unchanged — the selector is the catalog description.
@@ -5795,7 +5854,7 @@ test.describe('Item display name — promoted nicknames', () => {
 
     await page.goto('/inventory.html#tab=2');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t2').click();
+    await goTab(page, 2);
     await waitForStockContent(page);
 
     const stockRow = page.locator('.stock-item[data-group-id="' + seed.description + '"]');
@@ -5813,7 +5872,7 @@ test.describe('Item display name — promoted nicknames', () => {
   async function openEditor(page, item, desc) {
     await page.goto('/inventory.html#tab=7');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.fill('#item-search', desc);
     await page.locator('.item-row[data-id="' + item.id + '"]').click();
     const form = page.locator('.item-edit-form[data-item-id="' + item.id + '"]');
@@ -5883,7 +5942,7 @@ test.describe('Item display name — promoted nicknames', () => {
 
     await page.goto('/inventory.html#tab=7');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
+    await goTab(page, 7);
     await page.fill('#item-search', desc);
     await page.locator('.item-row[data-id="' + item.id + '"]').click();
     const form = page.locator('.item-edit-form[data-item-id="' + item.id + '"]');

@@ -1,5 +1,18 @@
 const { test, expect } = require('@playwright/test');
 
+// B-455 / WO-2a: Inventory opens on a HUB (#s0) whose rows carry the slot ids
+// t1/t2/t4/t5/t6/t7; every section is a full page with a back link (#back-hub).
+// A bare /inventory.html therefore lands on the hub, so tests that exercise a
+// section load it by hash, and moving between sections goes through the hub.
+async function goTab(page, n) {
+  // Wait for boot: tab.js paints the hashed section before the page script
+  // runs show(), and until then neither the hub nor the back link is visible.
+  await page.waitForSelector('#s0:visible, #back-hub:visible');
+  const back = page.locator('#back-hub');
+  if (await back.isVisible()) await back.click();
+  await page.locator('#t' + n).click();
+}
+
 // Phase 999.2-06 closeout — E2E tests dedicated to the Recipes tab + menu-cogs
 // endpoint. The 6 Recipes-tab smoke tests from Plan 05 live in inventory.spec.js
 // (7-tab assertion, hash routing, endpoint load on tab activation, empty state,
@@ -23,7 +36,7 @@ test.describe('Recipes tab — E2E', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -206,7 +219,7 @@ test.describe('Recipes tab — E2E', () => {
     // exercise the document-level change listener Plan 05 wired at the body
     // level. We don't need real recipe data to verify the contract; we need
     // the handler chain to fire a PUT with the right body shape.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
 
     // Inject a synthetic slider matching renderIngredientDetail's markup.
@@ -262,7 +275,7 @@ test.describe('Recipes tab — E2E', () => {
     // fires on release (PUT). This guards against a regression where the
     // delegation handler bound both to the same code path and PUT-spammed
     // the backend during a drag.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     // show(4) fires loadRecipes() whose async resolution re-renders
     // #recipes-list, detaching any synthetic DOM we inject. Let that settle
@@ -316,7 +329,7 @@ test.describe('Recipes tab — E2E', () => {
     // with `sections`. The frontend renderDriftBanner reads DRIFT_BANNER state
     // and emits a banner DIV. We verify the render path is wired by injecting
     // a non-empty state directly into the page and calling renderRecipes.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
 
     await page.evaluate(() => {
@@ -350,7 +363,7 @@ test.describe('Recipes tab — E2E', () => {
   // ─── Summary card placeholder + clear-selection ──────────────────────────
 
   test('summary card shows placeholder on first render before any selection', async ({ page }) => {
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     const html = await page.locator('#recipes-summary-card').innerHTML();
     expect(html).toContain('Tap a dish to see its ingredient cost');
@@ -360,7 +373,7 @@ test.describe('Recipes tab — E2E', () => {
     // Pairs with the existing "tapping a menu item name triggers
     // renderRecipeSummary" test in inventory.spec.js — confirms the inverse
     // path (the X / dismiss action) restores the placeholder.
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     // Let the async loadRecipes() re-render settle before injecting synthetic
     // DOM, else #recipes-list is overwritten and the injected node detaches
@@ -423,7 +436,7 @@ test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', (
 
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/inventory.html');
+    await page.goto('/inventory.html#tab=1');
     await page.waitForLoadState('networkidle');
   });
 
@@ -434,7 +447,7 @@ test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', (
   // renderRecipeSummary(), and assert the DOLLAR MATH — not just the placeholder
   // round-trip the old UNPROVEN test asserted.
   test('FR-23: cost summary computes real per-ingredient COGS (spend × pct/100)', async ({ page }) => {
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     // Ensure any late loadRecipes() resolution has settled BEFORE we seed, so it
     // cannot clobber our injected RECIPES_DATA between render and assert.
@@ -482,7 +495,7 @@ test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', (
   // 422 envelope {error:'sum_exceeds_100', conflict_menu_item, conflict_pct}, then
   // drive the slider past its old value and assert the ROLLBACK is observable.
   test('NFR-8: slider past-100 → 422 → slider value + chip roll back and inline error shows', async ({ page }) => {
-    await page.click('#t4');
+    await goTab(page, 4);
     await page.waitForLoadState('networkidle');
     // Let any late loadRecipes() resolution settle BEFORE we inject the synthetic
     // row, so its renderIngredientList() cannot overwrite #recipes-list (and our
@@ -567,9 +580,9 @@ test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', (
 
     // Re-enter the Recipes tab so loadRecipes() runs its live Promise.all fetch
     // (recipes + drift). Go to another tab first to force a fresh load.
-    await page.click('#t1');
+    await goTab(page, 1);
     await page.waitForTimeout(100);
-    await page.click('#t4');
+    await goTab(page, 4);
     // loadRecipes fires GET /recipes and GET /drift; wait for the banner to populate.
     await page.waitForFunction(() => {
       const h = document.getElementById('recipes-drift-banner');

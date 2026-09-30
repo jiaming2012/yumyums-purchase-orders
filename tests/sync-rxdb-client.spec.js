@@ -1535,19 +1535,21 @@ test.describe('[SCOPE-05] concurrent fill scopes, and the fill scope\'s user ide
 // OBLIGATION 4 — umbrella slugs (decision 56).
 // ===========================================================================
 test.describe('expandGrantSlugs — obligation 4', () => {
-  test('inventory expands to the two per-tab surfaces the user can actually reach', async () => {
+  test('inventory expands to itself only — Trends and Cost are the `bi` app now (B-455 / WO-2b)', async () => {
     const { expandGrantSlugs } = await loadClient();
-    expect(expandGrantSlugs(['inventory']))
-      .toEqual(['inventory', 'inventory-cost', 'inventory-trends']);
+    expect(expandGrantSlugs(['inventory'])).toEqual(['inventory']);
+    expect(expandGrantSlugs(['bi'])).toEqual(['bi']);
   });
 
   test('the umbrella table matches what main.go actually mounts', () => {
     // The expansion is only correct because RequirePermission takes the
     // umbrella as a second candidate. Read it out of the Go source rather than
-    // trusting a table that can drift.
+    // trusting a table that can drift: the two reports mount `bi` alone, and
+    // the retired per-tab mounts are gone.
     const go = fs.readFileSync(path.join(REPO_ROOT, 'backend', 'cmd', 'server', 'main.go'), 'utf8');
-    expect(go).toContain('RequirePermission(pool, "inventory-trends", "inventory")');
-    expect(go).toContain('RequirePermission(pool, "inventory-cost", "inventory")');
+    expect(go).toContain('RequirePermission(pool, "bi")');
+    expect(go).not.toContain('RequirePermission(pool, "inventory-trends"');
+    expect(go).not.toContain('RequirePermission(pool, "inventory-cost"');
   });
 
   test('a narrow per-tab grant is NOT widened — expansion is one-way', async () => {
@@ -1559,7 +1561,7 @@ test.describe('expandGrantSlugs — obligation 4', () => {
     const { expandGrantSlugs } = await loadClient();
     const once = expandGrantSlugs(['operations', 'inventory']);
     expect(expandGrantSlugs(once)).toEqual(once);
-    expect(expandGrantSlugs(['inventory', 'inventory', 'inventory-cost'])).toEqual(once.filter((s) => s.startsWith('inventory')));
+    expect(expandGrantSlugs(['inventory', 'inventory', 'bi'])).toEqual(['bi', 'inventory']);
     expect(expandGrantSlugs([])).toEqual([]);
     expect(expandGrantSlugs(undefined)).toEqual([]);
     expect(expandGrantSlugs([null, '', 7, 'operations'])).toEqual(['operations']);
@@ -1635,10 +1637,9 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     expect(state.vendor.rxdb).toBe('17.4.0');
     expect(state.vendor.supabaseJs).toBe('2.109.0');
     // Obligation 4, observed in a real page: the cached claim is
-    // [inventory, operations]; the reachable set is four.
-    expect(state.surfaces).toEqual([
-      'inventory', 'inventory-cost', 'inventory-trends', 'operations',
-    ]);
+    // [inventory, operations]; with no umbrella left (B-455 / WO-2b) the
+    // reachable set is the claim itself.
+    expect(state.surfaces).toEqual(['inventory', 'operations']);
     expect(errors).toEqual([]);
   });
 

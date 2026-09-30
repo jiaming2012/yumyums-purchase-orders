@@ -9,6 +9,32 @@ Each class below is stated as what the QA/E2E stage should DO about it.
 
 ## Regressions — must be caught before they ship
 
+**Seventeen inventory.spec tests fail on `dev` today, and did on yesterday's hub
+commit too.** Found 2026-09-30 by the BI card's footprint (WO-2b, branch
+`wo-bi-hub`), then reproduced by title on `dev` at `8ec1882` AND on the hub
+commit `538c1ba` in fresh `:5434` databases — so it is not the BI card, and it
+is not new code since the hub either. The set: every `stubPending(...)` test
+(parse-failure cause, Retry parse offered, stale re-parse flag, queued
+re-parse, pre-filled line items, transient failure), the four sync/cancel
+tests, "a running sync shows elapsed time", "back link navigates to HQ", "the
+amount is centred on the card", "navigating with newItem hash prefills", "create
+new item via Items tab" (the auto-opened edit form never appears; reproduced on
+`dev` alone), and "user can set store_location" (flaky). The saved page snapshot for the pre-fill
+test shows the Receipts page fully rendered with **"Needs review (0)"** and
+**"No purchases yet"** — the stubbed pending row never reaches the page, though
+the route regex matches the URL the page fetches. The sync-chip test sees
+`#sync-receipts-chip` empty and hidden, i.e. its mocked running status is not
+applied either. Two routes mocked with `page.route(...)` before `page.goto`,
+neither taking effect, is the common shape; a clock-dependent filter (today is
+the first run after 2026-09-29's changes) is the other candidate. NOT
+diagnosed — recorded so the next inventory-touching card does not read these
+sixteen as its own.
+*Handling:* run `npx playwright test tests/inventory.spec.js -g "a running sync
+shows elapsed time|a parse failure states its cause"` on a clean `dev`
+worktree before blaming a card; if they are red there, the card is not the
+cause. Diagnose from the snapshot (route hit count vs. page fetch), not from
+the assertion.
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
@@ -73,9 +99,20 @@ should grep the specs for label-equality assertions before it lands.
 `workers: 1`, and the E2E DB is reset once per RUN (`scripts/reset-e2e-db.js` in
 `webServer.command`), never between tests — so every test inherits everything
 the tests before it seeded. Assertions written against global counts are
-therefore order-dependent: FR-11 does `toHaveCount(1)` on cards matching the
-substring `$10.00`, and "page 2 excludes a page-1 event" reasons about a 50-row
-page. On 2026-09-29 four full runs at the same commit produced four different
+therefore order-dependent: FR-11 asserted that its freshly seeded event sat on
+UNFILTERED page 1 of `/purchases` and not on page 2 — true only while fewer than
+50 events dated on or after its seed date existed at that point in the run (26
+after a full run on 2026-09-29, and `retries: 1` re-seeds on every retry). Its
+`toHaveCount(1)` on `$10.00` was NOT this class — the vendor filter scopes that
+read server-side to a vendor the test created — but two other things in the
+same test were defects: the list query ordered by `event_date` alone, so a page
+boundary inside a same-date group could show a row on both pages or on neither
+(a real pagination bug, not a test one — 51 same-date rows reproduced it red
+first), and a non-retrying `cards.count()` snapshot raced the vendor-filter
+reload and read 0 mid-render, which is the B-156 shape. Both fixed 2026-09-29:
+FR-11 pages 51 same-date rows for its own vendor, and `ListPurchaseEventsHandler`
+orders by `event_date DESC, created_at DESC, id DESC`.
+On 2026-09-29 four full runs at the same commit produced four different
 failing sets (view-receipt, PDF-iframe, Confirm-disabled ×2, FR-11, No-photo-
 badge, Setup-deep-link, alias-chips — every one green when run alone), and the
 set shifts whenever anyone adds a test that seeds. Found by a peer session's
@@ -85,7 +122,9 @@ shared-tree memory) — the two effects look identical from one run's output.
 unique vendor/tag in the locator, or a filter that only its rows satisfy), never
 to the whole list. Before blaming a change for a multi-spec red, run each red
 alone: a test that passes in isolation and fails in the suite is this class,
-not a regression — but it is still a defect in the test, not weather.
+not a regression — but it is still a defect in the test, not weather. And a
+LIMIT/OFFSET query needs a total order: `ORDER BY` a date alone is a flake
+generator in the backend, not in the suite.
 
 ## Not regressions — do not chase
 

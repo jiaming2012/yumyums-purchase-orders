@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<!-- UX experiment, 2026-09-29: four ways to organise the Inventory sub-app's seven tabs. Option A is the approved direction (B-455). Published copy: https://claude.ai/artifact/7cw1GUe5BL5c2aTcdsYyKv -->
+<!-- UX experiment, 2026-09-29: four ways to organise the Inventory sub-app's seven tabs. Morning call was Option A (WO-1 shipped to dev the same day); evening revision (B-455): A's split of content + C's hub-with-status shape, in both Inventory and BI — see the "Chosen" section. Published copy: https://claude.ai/artifact/7cw1GUe5BL5c2aTcdsYyKv -->
 <title>Inventory Navigation Experiment</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
 <style>
@@ -32,6 +32,7 @@
   --sync-bg:#14532d;--sync-tx:#86efac;--ok-tx:#9fe0ad;--bad-tx:#f4a08f;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--pg-bg);color:var(--pg-txt);font-family:"Source Sans 3",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
 .wrap{max-width:1240px;margin:0 auto;padding-block:32px 64px;padding-inline:20px}
 h1{font-family:"Source Serif 4",Georgia,serif;font-weight:600;font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 8px;text-wrap:balance}
@@ -135,6 +136,12 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .tile-inset .ti{font-size:22px;margin-bottom:4px}
 .new{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--info-tx);background:var(--info-bg);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
 .hint{font-size:12px;color:var(--pg-mut);text-align:center;margin:0}
+.options.two{max-width:860px}
+.tile-inset.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile-inset.two>div{padding:10px;border:0.5px solid var(--brd);border-radius:10px}
+.chosen{border:0.5px solid var(--pg-brd);border-left:4px solid var(--pg-acc);border-radius:10px;padding:20px 24px;background:var(--pg-card)}
+.chosen .lede{margin-bottom:20px}
+.strike{text-decoration:line-through;color:var(--pg-mut)}
 
 /* recommendation */
 .reco{background:var(--pg-card);border:0.5px solid var(--pg-brd);border-left:4px solid var(--pg-acc);border-radius:10px;padding:20px 24px;max-width:820px}
@@ -177,12 +184,12 @@ button:focus-visible{outline:2px solid var(--pg-acc);outline-offset:2px}
   </section>
 
   <section>
-    <p class="eyebrow">Four layouts, same data</p>
+    <p class="eyebrow">Four layouts, same data — the morning comparison</p>
     <div class="options">
 
       <!-- CURRENT -->
       <div class="opt">
-        <div class="opt-head"><h2><small>Now</small> Seven tabs</h2><p>What shipped. The label wrap and the three full-width admin buttons above the queue are the symptoms.</p></div>
+        <div class="opt-head"><h2><small>Now · morning</small> Seven tabs</h2><p>What had shipped when the experiment started. The label wrap and the three full-width admin buttons above the queue are the symptoms.</p></div>
         <div class="phone"><div class="scr" data-phone="now">
           <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
           <div class="app">
@@ -227,7 +234,7 @@ button:focus-visible{outline:2px solid var(--pg-acc);outline-offset:2px}
 
       <!-- OPTION A -->
       <div class="opt rec">
-        <div class="opt-head"><h2><small>A · Recommended</small> Trim to four</h2><p>Same page, fewer peers. Menu folds into Recipes, the two reports move to the BI tile, sync controls collapse into a header row.</p></div>
+        <div class="opt-head"><h2><small>A · Morning call · WO-1 shipped</small> Trim to four</h2><p>Same page, fewer peers. Menu folds into Recipes, the two reports move to the BI tile, sync controls collapse into a header row.</p></div>
         <div class="phone"><div class="scr" data-phone="a">
           <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
           <div class="app">
@@ -350,18 +357,116 @@ button:focus-visible{outline:2px solid var(--pg-acc);outline-offset:2px}
     </div>
   </section>
 
+  <section id="chosen">
+    <p class="eyebrow">Chosen · 2026-09-29, evening</p>
+    <div class="chosen">
+    <h2 style="font-size:24px">A decides what goes where. C decides how it is reached. Both apps open on a hub.</h2>
+    <p class="lede">Keep A's split: Menu inside Recipes, Trends and Cost out to the BI tile. Take C's shape: each app opens on a list of destinations that carry their own live status, and every section is a full page with a back link. The same shape in Inventory and in BI means the crew learns one pattern, and BI can grow past two rows without anyone redesigning a bar. Tap the rows; both phones are live.</p>
+    <div class="options two">
+
+      <div class="opt rec">
+        <div class="opt-head"><h2><small>Inventory</small> Four rows, live status</h2><p>Replaces the tab bar. Daily-first order; Setup dimmed because it is configuration.</p></div>
+        <div class="phone"><div class="scr" data-phone="d-inv">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div data-screen="hub" class="app" style="padding:0">
+              <div class="back">‹ HQ <span class="crumb">·</span> Inventory</div>
+              <div class="hub" data-tab="p"><span class="ic">🧾</span><div><div class="t">Receipts</div><div class="s">Synced 4 min ago</div></div><span class="b">10 to review</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="s"><span class="ic">📦</span><div><div class="t">Stock</div><div class="s">Last count Sep 28</div></div><span class="b">2 below par</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="r"><span class="ic">🍔</span><div><div class="t">Recipes</div><div class="s">By ingredient · By dish</div></div><span class="b">Drift</span><span class="chev">›</span></div>
+              <div class="hub dim" data-tab="x"><span class="ic">⚙️</span><div><div class="t">Setup</div><div class="s">Items · Vendors</div></div><span class="chev">›</span></div>
+              <p class="hint" style="color:var(--mut);margin-top:auto">Trends and Food cost now live under <b>BI</b> on the launcher.</p>
+            </div>
+            <div data-screen="p" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Receipts</div>
+              <div class="hrow" style="gap:8px"><div class="btn green" style="flex:1">Sync Receipts</div><span class="icon-btn ghost">More</span></div>
+              <div class="chips"><span class="chip on">All</span><span class="chip">Needs review (10)</span><span class="chip">Recently added (8)</span></div>
+              <div class="sel">All Vendors</div>
+              <div class="card rc"><div><div class="t">Restaurant Depot</div><div class="s">Sep 27, 2026 · Jamal · 8478</div></div><div class="amt">$113.97</div></div>
+              <div class="card rc"><div><div class="t">Save A Lot</div><div class="s">Sep 26, 2026 · Latanya · 0994</div></div><div class="amt">$12.99</div></div>
+              <div class="card rc"><div><div class="t">Shoppers</div><div class="s">Sep 25, 2026 · Latanya · 0994</div></div><div class="amt">$39.57</div></div>
+            </div>
+            <div data-screen="s" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Stock</div>
+              <div class="card"><div class="h">Reorder suggestions</div><div class="row"><div><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="v low">4 lb<small>par 20</small></div></div><div class="row"><div><div class="t">Canola Oil</div><div class="s">Dry goods</div></div><div class="v low">1 jug<small>par 3</small></div></div></div>
+              <div class="card"><div class="row"><div><div class="t">Buns, Brioche</div><div class="s">Bread</div></div><div class="v ok">96<small>counted Sep 28</small></div></div><div class="row"><div><div class="t">Cheddar, Sliced</div><div class="s">Dairy</div></div><div class="v ok">3 lb</div></div></div>
+            </div>
+            <div data-screen="r" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Recipes</div>
+              <div class="seg"><span class="on">By ingredient</span><span>By dish</span></div>
+              <div class="warnb">Drift detected: 3 ingredients over 60% unallocated last week.</div>
+              <div class="card"><div class="rc"><div><div class="t">Chicken Thighs</div><div class="s">$212 last week · 35% unallocated</div></div></div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                  <div class="slider"><span style="width:96px">Smash Burger</span><div class="tr"><i style="width:45%"></i><b style="left:45%"></b></div><span class="pct">45%</span></div>
+                  <div class="slider"><span style="width:96px">Chicken Sando</span><div class="tr"><i style="width:20%"></i><b style="left:20%"></b></div><span class="pct">20%</span></div>
+                </div></div>
+              <div class="card"><div class="rc"><div><div class="t">Buns, Brioche</div><div class="s">$96 last week · 0% unallocated</div></div><span class="chip">Expand</span></div></div>
+            </div>
+            <div data-screen="x" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ Inventory <span class="crumb">·</span> Setup</div>
+              <div class="seg"><span class="on">Items</span><span>Vendors</span></div>
+              <div class="sel">Search items...</div>
+              <div class="card"><div class="row"><div class="t">Buns, Brioche</div><div class="s">Bread · ★ Brioche Buns</div></div><div class="row"><div class="t">Chicken Thighs</div><div class="s">Proteins</div></div><div class="row"><div class="t">Canola Oil</div><div class="s">Dry goods</div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li><b>Badges come from calls the tabs already make.</b> Pending count from the purchases list, "Synced 4 min ago" from sync-receipts/status, below-par from stock levels against the group thresholds, Drift from recipes/drift. Three requests on landing, no new endpoint; a one-call summary endpoint is a later optimisation, not a prerequisite.</li>
+          <li><b>The extra tap buys a glance.</b> "10 to review" and "2 below par" are visible before anyone chooses, which the tab bar never showed. Receipts ↔ Stock becomes back-then-row, two taps instead of one.</li>
+          <li><b>Deep links unchanged.</b> No hash opens the hub; <code>#tab=N</code> still opens that section directly with the back link. Stock → "View in Setup" and Purchase Orders' <code>#tab=7&amp;newItem=</code> jump keep working; the slot ids stay.</li>
+          <li><b>Honest at every step.</b> Until the BI card lands, Trends and Food cost appear as rows 5 and 6 for granted owners. A hub carries six rows without wrapping; that is the whole point of the shape.</li>
+          <li><b>Every row has a status.</b> Zero pending shows no badge, never "0 to review". A failed status call shows "Status unavailable" in the subtitle, never a blank row (UI-R: blank render = defect).</li>
+        </ul>
+      </div>
+
+      <div class="opt rec">
+        <div class="opt-head"><h2><small>BI</small> Two rows today, same shape</h2><p>New bi.html behind the launcher tile. Trends and Food cost lift out of inventory.html as they are.</p></div>
+        <div class="phone"><div class="scr" data-phone="d-bi">
+          <div class="status"><span>10:53</span><span>●●● ᯤ ▮</span></div>
+          <div class="app">
+            <div data-screen="hub" class="app" style="padding:0">
+              <div class="back">‹ HQ <span class="crumb">·</span> BI</div>
+              <div class="hub" data-tab="t"><span class="ic">📈</span><div><div class="t">Trends</div><div class="s">Spend by group · 8 weeks</div></div><span class="b mut">$2,840 this wk</span><span class="chev">›</span></div>
+              <div class="hub" data-tab="c"><span class="ic">💵</span><div><div class="t">Food cost</div><div class="s">Margin per dish · Sep 21–27</div></div><span class="b ok">31% avg</span><span class="chev">›</span></div>
+              <div class="hub dim" style="opacity:.4"><span class="ic">🧾</span><div><div class="t">Sales</div><div class="s">Toast, by day and item</div></div><span class="b mut">Soon</span></div>
+              <p class="hint" style="color:var(--mut);margin-top:auto">The greyed Sales row is illustrative only, to show where the hub grows. It is not part of B-455.</p>
+            </div>
+            <div data-screen="t" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ BI <span class="crumb">·</span> Trends</div>
+              <div class="card"><div class="h">Spend by group · last 8 weeks</div><div class="row"><div class="t">Proteins</div><div class="v">$1,842</div></div><div class="row"><div class="t">Produce</div><div class="v">$610</div></div><div class="row"><div class="t">Dry goods</div><div class="v">$388</div></div></div>
+            </div>
+            <div data-screen="c" class="app" style="padding:0" hidden>
+              <div class="back" data-tab="hub" style="cursor:pointer">‹ BI <span class="crumb">·</span> Food cost</div>
+              <div class="card"><div class="h">Food cost · Sep 21–27</div><div class="row"><div class="t">Smash Burger</div><div class="v">31%<small>margin $6.20</small></div></div><div class="row"><div class="t">Loaded Fries</div><div class="v">24%<small>margin $4.10</small></div></div></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="tile-inset two">
+          <div><div class="ti">📦</div><div class="tt">Inventory</div><div class="td">Receipts · Stock · Recipes · Setup</div></div>
+          <div><div class="ti">📊</div><div class="tt">Business Intelligence <span class="new">active</span></div><div class="td">Sales and cost trends</div></div>
+        </div>
+        <ul class="notes">
+          <li><b>Two rows is thin for a hub.</b> The shape is chosen for consistency with Inventory and for growth: the tile already promises "Sales and cost trends", and the next report lands as a row, not a redesign.</li>
+          <li><b>The lift is mechanical, the gate is not.</b> renderTrends / renderCost move verbatim (26 functions, inventory.html:1713–2420, helpers escHtml / showSkeleton / showInlineError / api). The two tab grants becoming one BI app grant touches the Go seed, RequirePermission and jwtbridge, so this stays its own card.</li>
+          <li><b>Tile gating.</b> No BI grant, no tile: the launcher hides it the same way it hides the other gated tiles. Inside bi.html there is nothing left to gate.</li>
+          <li><b>Badge sources.</b> "$2,840 this wk" is the latest week of the trends payload; "31% avg" is the row average of the cost payload. Both are one call each, the same calls the pages make.</li>
+        </ul>
+      </div>
+    </div>
+    </div>
+  </section>
+
   <section>
     <p class="eyebrow">Recommendation</p>
     <div class="reco">
-      <h2>Ship A. Keep B on the shelf for when Purchase Orders and Stock start sharing a workflow.</h2>
-      <p>A fixes the reported problem with the least motion: no new navigation pattern, no page merge, and the launcher gains a real BI tile instead of a placeholder. It sorts the seven tabs by the question that was missing: <b>is this a daily crew task, a weekly owner task, or configuration?</b> C is the safest possible IA but taxes the two daily tasks with an extra tap to fix a problem the weekly tasks caused. B is the most useful end state and the most disruptive; it is worth doing only when someone actually walks Stock → Order several times a week.</p>
+      <h2>Ship the hybrid: A's split, C's shape, in both Inventory and BI. B stays on the shelf.</h2>
+      <p><span class="strike">Morning: ship A alone.</span> WO-1 (the A trim inside the tab bar) shipped to dev the same day, so what owners see now is a six-tab bar and crew see four. The evening revision replaces that bar with a hub rather than trimming it further: the remaining problem is not width, it is that a bar shows names and a hub shows state. The hub taxes the two daily tasks one tap each, and pays it back with "10 to review" and "2 below par" on the first screen. B is still worth doing only when someone actually walks Stock → Order several times a week.</p>
       <ol>
-        <li>Rename Purchases to <b>Receipts</b>; it is the receipt queue, and Purchase Orders already owns the word "purchase".</li>
-        <li>Collapse Sync Receipts, Deep sync and Retry Parse into one <b>Sync</b> button with a "More…" sheet. The queue moves up to the first screen.</li>
-        <li>Fold <b>Menu</b> into Recipes as a "By dish" segment; the Menu-card-to-Recipes jump becomes a segment switch.</li>
-        <li>Move <b>Trends</b> and <b>Cost</b> to a new bi.html behind the existing BI tile. The two tab grants become one app grant.</li>
-        <li>Drop the Purchase Orders link from Setup; it belongs on the launcher.</li>
-        <li>Remap <b>#tab=N</b> deep links (4→3, 7→4, 5 and 6 → bi.html) so bookmarks and the Menu-to-Recipes magic link keep working.</li>
+        <li><b>Inventory hub (frontend card).</b> inventory.html opens on four rows — Receipts, Stock, Recipes, Setup — each with a live badge; every section becomes a full page with a back link to the hub; the tab bar goes away. No hash opens the hub, <b>#tab=N</b> still opens a section directly, slot ids stay. Granted owners see Trends and Food cost as rows 5 and 6 until the BI card lands.</li>
+        <li><b>BI card (cross-stack, Go seat).</b> New bi.html opens on a hub with Trends and Food cost; renderTrends / renderCost lift verbatim; the BI tile on the launcher goes active; the inventory-trends / inventory-cost grants become one BI app grant (db.go seed, RequirePermission, jwtbridge); states-trends / states-cost specs re-point at bi.html; build-sw.js precache 46 → 47; night-crew.toml gains a bi.html entry.</li>
+        <li><b>Badges use existing calls</b> (purchases list, sync-receipts/status, stock levels, recipes/drift, trends, cost). A single hub-summary endpoint is an optimisation to take later if landing feels slow, not a prerequisite.</li>
+        <li><b>State table rows the hub adds:</b> zero pending → no badge; status call failed → "Status unavailable" subtitle, row still tappable; loading → badge skeleton; offline → last-known badge with the sync subtitle saying so. Blank rows are defects.</li>
+        <li><b>Done already (WO-1, 2026-09-29):</b> Purchases renamed Receipts with the pending count as a corner badge; Sync / Deep sync / Retry parse collapsed into Sync Receipts + More; Menu folded into Recipes › By dish; Purchase Orders link dropped from Setup; legacy #tab=3 remapped.</li>
       </ol>
     </div>
   </section>

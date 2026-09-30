@@ -35,18 +35,22 @@ function stubHealth(page, storage) {
     built_at: 'stub',
   };
   if (storage !== undefined) body.storage = storage;
-  return page.route('**/api/v1/health', route =>
+  // Regex, not a glob: health-banner.js fetches with a cache-busting query.
+  return page.route(/\/api\/v1\/health/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
   );
 }
 
+// The inline #storage-banner became one line of the shared #health-banners
+// (health-banner.js, 073e959); the selectors here follow it. health-banner.spec
+// owns the wording; this file keeps the four storage-field states honest.
 test('banner shows when health reports storage unreachable', async ({ page }) => {
   await login(page);
   await stubHealth(page, 'unreachable');
 
   await page.goto('/index.html');
 
-  const banner = page.locator('#storage-banner');
+  const banner = page.locator('#health-banners');
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(/storage unreachable/i);
 });
@@ -57,7 +61,7 @@ test('banner stays hidden when storage is ok', async ({ page }) => {
 
   await page.goto('/index.html');
 
-  await expect(page.locator('#storage-banner')).toBeHidden();
+  await expect(page.locator('#health-banners')).toBeHidden();
 });
 
 test('banner stays hidden when storage is unconfigured', async ({ page }) => {
@@ -66,7 +70,7 @@ test('banner stays hidden when storage is unconfigured', async ({ page }) => {
 
   await page.goto('/index.html');
 
-  await expect(page.locator('#storage-banner')).toBeHidden();
+  await expect(page.locator('#health-banners')).toBeHidden();
 });
 
 test('banner stays hidden when health omits the storage field (old backend)', async ({ page }) => {
@@ -75,7 +79,7 @@ test('banner stays hidden when health omits the storage field (old backend)', as
 
   await page.goto('/index.html');
 
-  await expect(page.locator('#storage-banner')).toBeHidden();
+  await expect(page.locator('#health-banners')).toBeHidden();
 });
 
 test('live /api/v1/health carries the storage field', async ({ page }) => {

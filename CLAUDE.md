@@ -19,7 +19,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 | Payroll | Placeholder | — |
 | Scheduling | Placeholder | — |
 | Hiring | Placeholder | — |
-| BI | Placeholder | — |
+| BI | Active | bi.html |
 
 ### Architecture
 
@@ -30,7 +30,8 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
-- **Inventory:** `inventory.html` — 6-tab layout (Receipts / Stock / Recipes / Trends / Cost / Setup; Menu folded into Recipes › By dish, B-455), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
+- **Inventory:** `inventory.html` — opens on a hub of four rows with live status (Receipts / Stock / Recipes / Setup; Menu folded into Recipes › By dish, B-455), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
+- **BI:** `bi.html` — hub of two rows behind the `bi` app grant: Trends (spend by group per ISO week, GET /api/v1/inventory/trends) and Food cost (margin + food-cost % per dish, GET /api/v1/inventory/cost). The code is the former Inventory Trends/Cost tabs lifted verbatim (B-455 / WO-2b); `inventory.html#tab=5` / `#tab=6` redirect here
 - **Receipt pipeline:** Mercury banking → receipt download → Backblaze B2 upload → Claude Haiku parse → validate → pending review queue → manual confirm
 - **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See docs/contracts/inventory-period-summary.md.
 - **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See docs/contracts/inventory-menu-cogs.md.
@@ -47,7 +48,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 
 ### inventory.html Key Concepts
 
-- **6-tab layout (B-455 / WO-1):** Receipts (receipt review queue; one control row — Sync Receipts + an admin-only **More** sheet holding Deep sync… and Retry parse (all)), Stock (levels + reorder suggestions), Recipes (two views: **By ingredient** — slider allocation for per-menu-item COGS — and **By dish** — the former Menu tab, Toast menu items with the read-only cost summary above them), Trends (gated), Cost (gated), Setup (items + vendors). Slot ids are stable: `#t4`/`#s4` Recipes, `#t5`/`#s5` Trends, `#t6`/`#s6` Cost, `#t7`/`#s7` Setup; there is no `#t3`, and a legacy `#tab=3` lands on Recipes › By dish (`#tab=4&view=dish`). Trends + Cost moving to a `bi.html` behind the BI tile is WO-2 (see B-455)
+- **Hub layout (B-455 / WO-2a, WO-2b):** inventory.html opens on `<nav id="s0">` of four `.hub-row` buttons — Receipts (receipt review queue; one control row — Sync Receipts + an admin-only **More** sheet holding Deep sync… and Retry parse (all); badge = pending count, subtitle = last sync), Stock (levels + reorder suggestions; badge = below-par count), Recipes (two views: **By ingredient** — slider allocation for per-menu-item COGS — and **By dish** — the former Menu tab, Toast menu items with the read-only cost summary above them; badge = Drift), Setup (items + vendors, dimmed). Every section is a full page with an "Inventory · Section" back link; no hash is the hub; the phone back gesture returns to the hub. Slot ids are stable: `#t1`/`#s1` Receipts, `#t2`/`#s2` Stock, `#t4`/`#s4` Recipes, `#t7`/`#s7` Setup; there is no `#t3`; a legacy `#tab=3` lands on Recipes › By dish (`#tab=4&view=dish`), and `#tab=5` / `#tab=6` (the former Trends / Cost tabs) redirect to `bi.html#tab=1` / `#tab=2`. The per-tab grants `inventory-trends` / `inventory-cost` are retired (migration 0082 copies them onto `bi` and disables the rows); an `inventory` grant no longer implies the reports
 - **Receipt review pipeline:** Pending purchases from Mercury receipt worker → user reviews line items → links each to catalog item via fullscreen picker modal → confirms when total matches bank transaction
 - **Item catalog:** Items are created from actual receipts (not pre-seeded). Each item belongs to a group (Proteins, Beverages, etc.). Groups have configurable stock level thresholds (low/high).
 - **Auto-match:** When review form opens, line item names are matched case-insensitively against catalog — description first, then learned aliases (`item_aliases` table). Matched items show no border; unlinked items show orange warning border. The receipt worker's catalog map (`loadPurchaseItemsMap`) includes aliases too, so server-side pre-fill exact-matches learned names before fuzzy/AI stages.
@@ -123,7 +124,7 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - `task test` auto-runs `task sw` as a dependency. **`task prod:deploy` does NOT** — see "Deploying to prod" below
 - `build-sw.js` also writes `version.json` (frontend semver from `package.json`) which the SW precaches
 - **`sw.js` is a committed artifact.** `build-sw.js` reads **git HEAD**, not the working tree and not the index, so the manifest names only what a fresh clone can serve. Commit `sw.js` in the same change set as whatever you changed under it, or the change does not ship
-- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **46** (45 → 46 on 2026-09-29, `health-banner.js`); if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
+- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **48** (45 → 46 on 2026-09-29, `health-banner.js`; 46 → 47 the same day, `item-name.js`; 47 → 48 on 2026-09-30, `bi.html`); if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
 
 ### Versioning & Deployment
 
