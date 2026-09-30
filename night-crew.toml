@@ -70,10 +70,17 @@ subset = 'npx playwright test "{tags}"'
 # states-inventory-nav is the B-455 / WO-1 state table (tab bar, By dish view,
 # More sheet, Setup). It reads the same page, so it rides every inventory.html
 # change — a narrow entry here is exactly how a regression escapes a green gate.
-"inventory.html"              = ["inventory", "recipes", "health", "states-inventory-nav"]
+"inventory.html"              = ["inventory", "recipes", "health", "states-inventory-nav", "states-trends", "states-cost"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
 "tests/states-inventory-nav.spec.js" = ["states-inventory-nav"]
+# bi.html hosts Trends + Food cost (B-455 / WO-2b), lifted out of inventory.html.
+# Its state tables are the former Inventory tab specs; the launcher tile and
+# inventory.html's #tab=5 / #tab=6 redirect are asserted there too, so a change
+# to bi.html, to the redirect, or to the tile runs all of it.
+"bi.html"                     = ["states-trends", "states-cost", "inventory", "index"]
+"tests/states-trends.spec.js" = ["states-trends"]
+"tests/states-cost.spec.js"   = ["states-cost"]
 # tab.js paints the active slot before every page's own script boots; a change
 # to it is a change to every tabbed page. (Gained data-home for the Inventory
 # hub, B-455 / WO-2a.)
