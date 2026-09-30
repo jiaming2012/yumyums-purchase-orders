@@ -1686,15 +1686,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		}
 
 		// 1) COGS aggregate. event_date is DATE (no TZ cast needed).
-		//    cogs_excl_tax = SUM(confirmed line items) + SUM(ABS(bank_total)) of
-		//    non-blocking eligible pending (COGS-category, receipt attached but
-		//    parse-failed, in period, unconfirmed, undiscarded).
-		//    cogs_incl_tax adds SUM(tax) over confirmed purchase_events only;
-		//    pending rows contribute bank_total to both (≈5% inaccuracy per
-		//    pending row vs. excluding entirely; operator confirming flips it).
-		//    Non-blocking pending excludes reason = 'no_attachment_on_bank_tx'
-		//    so blocking rows (food + no receipt) stay out of COGS — they'd be
-		//    moot since Ready=false anyway, but keeps the data model honest.
+		//    cogs_excl_tax = SUM(quantity * price) over purchase_line_items of
+		//    allowlisted purchase_events in the period; cogs_incl_tax adds
+		//    SUM(tax) over those same events. Confirmed data only: under the
+		//    open-receipts gate (step 3) every open COGS-category pending row
+		//    sets Ready=false, so folding pending bank totals in here would be
+		//    dead code — Ready=true implies there are none. (The fold that used
+		//    to live here was the Phase 260606-jvs narrowing; reversed
+		//    2026-09-30, sales-processor/docs/cogs-hq-open-receipts-block.md.)
 		var cogsExcl float64
 		var cogsIncl float64
 		var eventCount int
@@ -1710,25 +1709,13 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 				FROM purchase_line_items pli
 				WHERE pli.purchase_event_id IN (SELECT id FROM events)
 			),
-			pending AS (
-				SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2) AS total,
-				       COUNT(*)                                              AS event_count
-				FROM pending_purchases
-				WHERE `+pendingPeriodDateExpr+`
-				        BETWEEN $1 AND $2
-				  AND confirmed_at IS NULL
-				  AND discarded_at IS NULL
-				  AND mercury_category = ANY($3)
-				  AND reason != 'no_attachment_on_bank_tx'
-			),
 			event_tax AS (
 				SELECT COALESCE(SUM(tax), 0)::numeric AS total FROM events
 			)
 			SELECT
-				(SELECT total FROM lines) + (SELECT total FROM pending)                       AS cogs_excl_tax,
-				(SELECT total FROM lines) + (SELECT total FROM pending)
-				    + (SELECT total FROM event_tax)                                           AS cogs_incl_tax,
-				(SELECT COUNT(*) FROM events) + (SELECT event_count FROM pending)             AS event_count`,
+				(SELECT total FROM lines)                                   AS cogs_excl_tax,
+				(SELECT total FROM lines) + (SELECT total FROM event_tax)   AS cogs_incl_tax,
+				(SELECT COUNT(*) FROM events)                               AS event_count`,
 			fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
 		if err != nil {
 			slog.Error("PeriodSummary COGS query failed", "error", err)
@@ -1736,20 +1723,12 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
-		// 2) Per-vendor COGS breakdown. Three CTEs:
-		//      - confirmed: existing by-vendor sum over purchase_events +
-		//        purchase_line_items (LEFT JOIN so a vendor with a purchase_event
-		//        but no lines still appears; tax via correlated subquery so it
-		//        isn't multiplied by the line-item join cardinality).
-		//      - pending_matched: non-blocking eligible pending whose vendor
-		//        text matches an existing vendors.name (LOWER(TRIM()) join).
-		//        Their ABS(bank_total) folds into the matched vendor row.
-		//      - pending_unmatched: non-blocking eligible pending whose vendor
-		//        text has no vendors.name match — each goes into its own row
-		//        with vendor_id = ''. Operator can promote via the UI.
-		//    Outer GROUP BY collapses confirmed + matched-pending into one row
-		//    per real vendor. Order: spend desc, name asc for deterministic
-		//    test + PDF output.
+		// 2) Per-vendor COGS breakdown over purchase_events + purchase_line_items
+		//    only (LEFT JOIN so a vendor with a purchase_event but no lines still
+		//    appears; tax via correlated subquery so it isn't multiplied by the
+		//    line-item join cardinality). Pending rows never render here — same
+		//    reasoning as step 1 — so vendor_id is always a real vendors.id.
+		//    Order: spend desc, name asc for deterministic test + PDF output.
 		byVendor := []VendorCOGS{}
 		rowsV, err := pool.Query(r.Context(), `
 			WITH confirmed AS (
@@ -1776,54 +1755,9 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 				WHERE pe.event_date BETWEEN $1 AND $2
 				  AND pe.mercury_category = ANY($3)
 				GROUP BY v.id, v.name
-			),
-			pending_eligible AS (
-				SELECT id, bank_total, vendor
-				FROM pending_purchases
-				WHERE `+pendingPeriodDateExpr+`
-				        BETWEEN $1 AND $2
-				  AND confirmed_at IS NULL
-				  AND discarded_at IS NULL
-				  AND mercury_category = ANY($3)
-				  AND reason != 'no_attachment_on_bank_tx'
-			),
-			pending_matched AS (
-				SELECT
-				    v.id::text                                            AS vendor_id,
-				    v.name                                                AS vendor_name,
-				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_excl_tax,
-				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_incl_tax,
-				    COUNT(*)                                              AS trip_count
-				FROM pending_eligible pe
-				JOIN vendors v ON LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
-				GROUP BY v.id, v.name
-			),
-			pending_unmatched AS (
-				SELECT
-				    ''::text                                                                  AS vendor_id,
-				    COALESCE(NULLIF(TRIM(pe.vendor), ''), '(unknown vendor)')                 AS vendor_name,
-				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_excl_tax,
-				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_incl_tax,
-				    COUNT(*)                                                                  AS trip_count
-				FROM pending_eligible pe
-				WHERE NOT EXISTS (
-				    SELECT 1 FROM vendors v
-				    WHERE LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
-				)
-				GROUP BY pe.vendor
 			)
-			SELECT vendor_id, vendor_name,
-			       SUM(total_excl_tax)  AS total_excl_tax,
-			       SUM(total_incl_tax)  AS total_incl_tax,
-			       SUM(trip_count)::int AS trip_count
-			FROM (
-			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM confirmed
-			    UNION ALL
-			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_matched
-			    UNION ALL
-			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_unmatched
-			) combined
-			GROUP BY vendor_id, vendor_name
+			SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count::int
+			FROM confirmed
 			ORDER BY total_excl_tax DESC, vendor_name ASC`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			slog.Error("PeriodSummary by-vendor query failed", "error", err)
@@ -1846,13 +1780,17 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
-		// 3) Pending review IDs — only *blocking* pending rows: receipts whose
-		//    business date falls in the period, have not been confirmed or
-		//    discarded, are COGS-category (mercury_category in allowlist),
-		//    AND have no attached receipt (reason = 'no_attachment_on_bank_tx').
-		//    Non-blocking pending (food + parse-failed, non-food, NULL category)
-		//    are intentionally excluded — they don't block payroll. They still
-		//    surface in the operator's Inventory UI via ListPendingPurchasesHandler.
+		// 3) Pending review IDs — the blocking set: every OPEN pending row
+		//    (not confirmed, not discarded) whose business date falls in the
+		//    period and whose mercury_category is in the COGS allowlist,
+		//    regardless of reason. A row HQ has parked for a human — no receipt
+		//    attached, receipt could not be parsed, wrong receipt attached —
+		//    blocks payroll until that human confirms or discards it
+		//    (review_policy = open_receipts_block). `reason` is still selected
+		//    so the consumer can render "no receipt attached" vs "receipt
+		//    couldn't be parsed". Non-COGS and NULL-category rows are excluded —
+		//    they don't block payroll and still surface in the operator's
+		//    Inventory UI via ListPendingPurchasesHandler.
 		//    Date filter is pendingPeriodDateExpr: event_date wins because it
 		//    reflects when the purchase actually happened (the receipt worker's
 		//    14-day lookback can ingest May receipts in June); created_at read
@@ -1872,7 +1810,6 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL
 			  AND mercury_category = ANY($3)
-			  AND reason = 'no_attachment_on_bank_tx'
 			ORDER BY `+pendingPeriodDateExpr+`, created_at`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			slog.Error("PeriodSummary pending query failed", "error", err)
@@ -1985,6 +1922,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			TrackedBankTxIDs:   trackedTxIDs,
 			Completeness: CompletenessBlock{
 				Ready:                ready,
+				ReviewPolicy:         ReviewPolicyOpenReceiptsBlock,
 				PendingReviewIDs:     pendingIDs,
 				PendingReviewDetails: pendingDetails,
 				UnlinkedLineItemIDs:  unlinkedIDs,

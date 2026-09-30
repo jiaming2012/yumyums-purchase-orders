@@ -51,6 +51,11 @@ type TrendsUnlinkedWeek struct {
 type TrendsCompleteness struct {
 	// PendingTotal / PendingCount — Amendment 2. Unreviewed receipts have no
 	// linked line items, so they are excluded from `cells` and surfaced here.
+	// The population is period-summary's blocking set — every open
+	// (unconfirmed, undiscarded) COGS-category pending row in the window,
+	// regardless of reason (open-receipts gate, 2026-09-30). NOT an addend to
+	// the reconciliation identity: period-summary counts confirmed
+	// purchase_events only, and payroll is blocked while this is non-zero.
 	PendingTotal float64 `json:"pending_total"`
 	PendingCount int     `json:"pending_count"`
 	// UnitemizedRemainder — Amendment 3, window-summed. NOT an addend to the
@@ -58,9 +63,10 @@ type TrendsCompleteness struct {
 	UnitemizedRemainder float64 `json:"unitemized_remainder"`
 	// ReconcilesToCogsExclTax is the endpoint's own left-hand side of the
 	// reconciliation identity, published so a mismatch with payroll is visible
-	// in the response itself. Computed as round(Σ all window line items) +
-	// pending_total — one rounding, matching period-summary — NOT as the sum
-	// of the penny-rounded display cells. This is the field to reconcile on.
+	// in the response itself. Computed as round(Σ all window line items) —
+	// one rounding, matching period-summary; pending_total is not added —
+	// NOT as the sum of the penny-rounded display cells. This is the field
+	// to reconcile on.
 	ReconcilesToCogsExclTax float64 `json:"reconciles_to_cogs_excl_tax"`
 }
 
@@ -135,8 +141,11 @@ func trendsWindow(now time.Time) TrendsWindow {
 //     excluded, exactly as period-summary excludes them. Do not hardcode.
 //   - Amendment 2 — unreviewed (pending) receipts have no linked line items,
 //     so they cannot be bucketed; they are excluded from `cells` and surfaced
-//     in `completeness.pending_total` / `pending_count`. The eligible
-//     population mirrors period-summary's pending CTE clause-for-clause.
+//     in `completeness.pending_total` / `pending_count`. The population
+//     mirrors period-summary's blocking set (step 3) clause-for-clause:
+//     every open COGS-category row, regardless of reason. It is not an
+//     addend to the identity — period-summary stopped folding pending rows
+//     into cogs_excl_tax under the open-receipts gate (2026-09-30).
 //   - Amendment 3 — NO tax proration. Cell spend is SUM(quantity * price) at
 //     face value, matching period-summary's `lines` term. The per-event
 //     unitemized remainder ((total - tax) - Σlines) is reported separately and
@@ -157,8 +166,7 @@ func trendsWindow(now time.Time) TrendsWindow {
 // sum rounded once, because line prices are NUMERIC(10,4) and Σ(round) ≠
 // round(Σ). See the comment at the linesTotal query. A consumer reconciling
 // against payroll MUST read completeness.reconciles_to_cogs_excl_tax, never
-// Σcells + Σunlinked + pending_total, which can drift by up to half a cent
-// per emitted cell.
+// Σcells + Σunlinked, which can drift by up to half a cent per emitted cell.
 //
 // `cells` is sparse: only non-empty week×group buckets are emitted.
 //
@@ -254,11 +262,13 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 		}
 		cells = out
 
-		// 2) Amendment 2 — eligible pending. Clause-for-clause identical to
-		//    the pending CTE in PeriodSummaryHandler so the two endpoints agree
-		//    on the population by construction — the period-date expression is
-		//    literally the same const (pendingPeriodDateExpr, handler.go), so
-		//    they cannot drift on which day a receipt belongs to.
+		// 2) Amendment 2 — open pending. Clause-for-clause identical to the
+		//    blocking-set query (step 3) in PeriodSummaryHandler so the two
+		//    endpoints agree on the population by construction — the
+		//    period-date expression is literally the same const
+		//    (pendingPeriodDateExpr, handler.go), so they cannot drift on which
+		//    day a receipt belongs to. No reason filter: every open
+		//    COGS-category row awaits a human and blocks payroll.
 		var pendingTotal float64
 		var pendingCount int
 		err = pool.QueryRow(r.Context(), `
@@ -268,8 +278,7 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 			        BETWEEN $1::date AND $2::date
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL
-			  AND mercury_category = ANY($3)
-			  AND reason != 'no_attachment_on_bank_tx'`,
+			  AND mercury_category = ANY($3)`,
 			win.From, win.To, cogsAllowlist).Scan(&pendingTotal, &pendingCount)
 		if err != nil {
 			slog.Error("Trends pending query failed", "error", err)
@@ -343,7 +352,9 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		reconciles := round2(linesTotal + pendingTotal)
+		// Confirmed line items only — pendingTotal is a completeness figure,
+		// not an addend (see TrendsCompleteness).
+		reconciles := round2(linesTotal)
 
 		writeJSON(w, http.StatusOK, TrendsResponse{
 			Window:        win,
