@@ -9,6 +9,31 @@ Each class below is stated as what the QA/E2E stage should DO about it.
 
 ## Regressions — must be caught before they ship
 
+**Sixteen Receipts-section tests fail on `dev` today, and did on yesterday's hub
+commit too.** Found 2026-09-30 by the BI card's footprint (WO-2b, branch
+`wo-bi-hub`), then reproduced by title on `dev` at `8ec1882` AND on the hub
+commit `538c1ba` in fresh `:5434` databases — so it is not the BI card, and it
+is not new code since the hub either. The set: every `stubPending(...)` test
+(parse-failure cause, Retry parse offered, stale re-parse flag, queued
+re-parse, pre-filled line items, transient failure), the four sync/cancel
+tests, "a running sync shows elapsed time", "back link navigates to HQ", "the
+amount is centred on the card", "navigating with newItem hash prefills", and
+"user can set store_location" (flaky). The saved page snapshot for the pre-fill
+test shows the Receipts page fully rendered with **"Needs review (0)"** and
+**"No purchases yet"** — the stubbed pending row never reaches the page, though
+the route regex matches the URL the page fetches. The sync-chip test sees
+`#sync-receipts-chip` empty and hidden, i.e. its mocked running status is not
+applied either. Two routes mocked with `page.route(...)` before `page.goto`,
+neither taking effect, is the common shape; a clock-dependent filter (today is
+the first run after 2026-09-29's changes) is the other candidate. NOT
+diagnosed — recorded so the next inventory-touching card does not read these
+sixteen as its own.
+*Handling:* run `npx playwright test tests/inventory.spec.js -g "a running sync
+shows elapsed time|a parse failure states its cause"` on a clean `dev`
+worktree before blaming a card; if they are red there, the card is not the
+cause. Diagnose from the snapshot (route hit count vs. page fetch), not from
+the assertion.
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
