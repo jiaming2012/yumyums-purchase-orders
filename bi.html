@@ -185,6 +185,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 // Gating: the launcher hides the BI tile for anyone without the `bi` grant, and
 // the two endpoints 403 without it. Inside this page there is nothing left to
 // gate — an un-granted user who pastes the URL sees the honest error cards.
+function parseLocalDate(str){
+  const [y,m,d]=str.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+
 async function api(path,opts){
   const res=await fetch(path,opts);
   if(res.status===401){window.location.href='/login.html';throw new Error('unauthorized');}
