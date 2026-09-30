@@ -78,7 +78,8 @@ subset = 'npx playwright test "{tags}"'
 # Its state tables are the former Inventory tab specs; the launcher tile and
 # inventory.html's #tab=5 / #tab=6 redirect are asserted there too, so a change
 # to bi.html, to the redirect, or to the tile runs all of it.
-"bi.html"                     = ["states-trends", "states-cost", "inventory", "index"]
+"bi.html"                     = ["states-bi-hub", "states-trends", "states-cost", "inventory", "index"]
+"tests/states-bi-hub.spec.js" = ["states-bi-hub"]
 "tests/states-trends.spec.js" = ["states-trends"]
 "tests/states-cost.spec.js"   = ["states-cost"]
 # tab.js paints the active slot before every page's own script boots; a change
