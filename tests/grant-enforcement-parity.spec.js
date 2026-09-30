@@ -5,8 +5,8 @@
 // WHY THIS FILE EXISTS (card G1, run 2026-07-24)
 //
 // The Users tab offers a grant toggle for every hq_apps row (11 slugs), but
-// before this card the backend enforced exactly 2 of them (inventory-trends,
-// inventory-cost — both F5). The operator ruling (T-20 decision 36, verbatim):
+// before this card the backend enforced exactly 2 of them (the per-tab
+// inventory-trends / inventory-cost pair, both F5 — since retired for `bi`). The operator ruling (T-20 decision 36, verbatim):
 //
 //     "If an employee does not have access to the app (or access to the
 //      app's tab), then they should NOT be able to access the view / tab /
@@ -56,7 +56,7 @@
 //     onboarding.html. Which grant governs it is an operator question; until
 //     answered it stays authenticated-only, and this note is the record.
 //
-// The four placeholder slugs (payroll, scheduling, hiring, bi) are N/A below,
+// The three placeholder slugs (payroll, scheduling, hiring) are N/A below,
 // each with a reason and a stale-N/A tripwire — never silently skipped.
 
 const { test, expect } = require('@playwright/test');
@@ -127,7 +127,9 @@ const NA_WITH_REASON = {
   payroll: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   scheduling: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
   hiring: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
-  bi: 'placeholder — no backend endpoints exist; index.html tile is a static "Soon" badge',
+  // `bi` left this table on B-455 / WO-2b: /api/v1/inventory/trends and
+  // /api/v1/inventory/cost now mount RequirePermission("bi"), and index.html's
+  // tile is live. Covered by PARITY-EQ's enforced set.
   // `marketing` left this table on card gstate-arbitration-machine (run
   // 20260905, fix round): POST /api/v1/marketing/redeem now mounts
   // RequirePermission("marketing") in main.go, exactly as the old entry's

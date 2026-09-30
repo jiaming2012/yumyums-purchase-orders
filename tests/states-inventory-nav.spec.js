@@ -120,14 +120,14 @@ async function openHub(page) {
 
 test.describe('Inventory hub — B-455 WO-2a state table', () => {
 
-  test('Hub, admin: six rows in daily-first order, back link is HQ, no hash', async ({ page }) => {
+  test('Hub, admin: four rows in daily-first order, back link is HQ, no hash', async ({ page }) => {
     await login(page);
     await openHub(page);
-    await expect(page.locator('.hub-row')).toHaveCount(6);
-    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Trends', 'Cost', 'Setup']);
+    await expect(page.locator('.hub-row')).toHaveCount(4);
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Receipts', 'Stock', 'Recipes', 'Setup']);
     await expect(page.locator('#back-hq')).toBeVisible();
     await expect(page.locator('#back-hub')).toBeHidden();
-    for (const id of ['#s1', '#s2', '#s4', '#s5', '#s6', '#s7']) await expect(page.locator(id)).toBeHidden();
+    for (const id of ['#s1', '#s2', '#s4', '#s7']) await expect(page.locator(id)).toBeHidden();
     expect(await page.evaluate(() => location.hash)).toBe('');
     // UI-R: every row is a ≥44px target and the badge never overlaps the title.
     const rows = await page.locator('.hub-row').evaluateAll(rs => rs.map(r => {

@@ -15,8 +15,8 @@ async function goTab(page, n) {
   await page.locator('#t' + n).click();
 }
 
-// states-cost.spec.js — the CLAUDE.md self-verification ritual for the Cost tab
-// (`#s6`, FR-4 / AC-4). Every row of the PRD "State Enumeration — Cost tab (`#s6`)"
+// states-cost.spec.js — the CLAUDE.md self-verification ritual for Food cost
+// (bi.html `#s2`, formerly the Inventory Cost tab, FR-4 / AC-4). Every row of the PRD "State Enumeration — Cost tab (`#s6`)"
 // table (.night-crew/knowledge/prds/PRD-prove-and-surface.md) is FORCED here,
 // navigated to, and screenshotted so the PNGs can be read back and compared to
 // the visual contract.
@@ -36,12 +36,8 @@ async function goTab(page, n) {
 //   Edge: long menu item name      -> layout does not blow out the 480px shell
 //   Edge: known 0% food-cost gap   -> the flattering-number row renders as data says
 //
-// NOTE FOR F5 (`inventory-tab-gating`): the "Edge: ungated user" row belongs to
-// F5, not to this card. It slots in as a new `test.describe('Cost tab — gating')`
-// block at the BOTTOM of this file: log in as a user WITHOUT the `inventory-cost`
-// grant, assert `#t6` / `#s6` are not rendered, assert a direct
-// `GET /api/v1/inventory/cost` returns 403, and screenshot as
-// `edge-ungated.png` via the same `shot()` helper below.
+// GATING (B-455 / WO-2b): Food cost lives on bi.html behind the `bi` app
+// grant, beside Trends. See the gating block at the bottom of this file.
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -63,8 +59,8 @@ async function login(page) {
 
 // Navigate straight to the Cost tab via the shared #tab= hash contract (tab.js).
 async function openCostTab(page) {
-  await page.goto('/inventory.html#tab=6');
-  await page.waitForSelector('#s6:visible');
+  await page.goto('/bi.html#tab=2');
+  await page.waitForSelector('#s2:visible');
 }
 
 const WINDOW = { from: '2026-04-27', to: '2026-07-19', weeks: 12 };
@@ -179,7 +175,7 @@ function mockCost(page, body, opts = {}) {
   });
 }
 
-test.describe('Cost tab (#s6) — State Enumeration', () => {
+test.describe('Food cost (bi.html #s2) — State Enumeration', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -434,40 +430,9 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
     await shot(page, 'edge-long-name');
   });
 
-  // ── F5 forward-compatibility: the tab's markup may be REMOVED ──────────
-  //
-  // F5 (inventory-tab-gating) hides #s6 for un-granted users. If this file's
-  // sort handler were bound via getElementById('cost-container').addEventListener
-  // at top level, that removal would throw a TypeError during script parse and
-  // break the ENTIRE inventory page — every tab — for exactly those users. This
-  // pins the handler as inert-when-absent rather than fatal.
-  test('Page still works when #cost-container is absent from the DOM', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-
-    // Strip the cost tab's markup before any script runs — the shape F5 will
-    // produce server-side for an un-granted user.
-    await page.addInitScript(() => {
-      document.addEventListener('readystatechange', () => {
-        const el = document.getElementById('cost-container');
-        if (el) el.remove();
-      }, true);
-    });
-
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForLoadState('networkidle');
-
-    // No parse-time or runtime explosion...
-    expect(errors).toEqual([]);
-    // ...and the rest of the page is fully functional: other tabs still switch.
-    await expect(page.locator('#cost-container')).toHaveCount(0);
-    await goTab(page, 2);
-    await expect(page.locator('#s2')).toBeVisible();
-    await goTab(page, 1);
-    await expect(page.locator('#s1')).toBeVisible();
-
-    // A stray click must not throw now that the container is gone.
-    await page.click('body', { position: { x: 5, y: 5 } });
+  // The F5 "container removed" test retired with WO-2b: nothing removes the
+  // cost nodes from bi.html (gating is the launcher tile + the endpoint), and
+  // the hub loads both reports at boot, so the container is always present.
     expect(errors).toEqual([]);
   });
 
@@ -580,33 +545,38 @@ async function probe(page, path) {
   }, path);
 }
 
-test.describe('Cost tab — gating', () => {
+test.describe('Food cost — gating (the `bi` grant, B-455 / WO-2b)', () => {
+
+  async function waitForGrid(page) {
+    await page.waitForFunction(() => { const g = document.querySelector('.grid'); return g && g.style.visibility !== 'hidden'; }, { timeout: 5000 });
+  }
 
   // ── WITHOUT the grant ────────────────────────────────────────────────────
-  test('Edge: ungated user — #t6/#s6 absent, GET /inventory/cost returns 403', async ({ page }) => {
+  test('Edge: ungated user — GET /inventory/cost 403s naming `bi`, no BI tile, no Cost row in Inventory', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
     const user = await makeGatedUser(page, 'cost-ungated', []);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
+    await page.goto('/index.html');
+    await waitForGrid(page);
 
-    // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
-    //    is the gate; the hidden tab is only UX. If this assertion is the one
-    //    that fails, the feature is a facade regardless of what the DOM shows.
+    // 1. The endpoint is DENIED — asserted FIRST, deliberately.
     const res = await probe(page, '/api/v1/inventory/cost');
     expect(res.status).toBe(403);
     const env = JSON.parse(res.body);
     expect(env.error).toBe('forbidden');
-    expect(env.missing_grant).toBe('inventory-cost');
+    expect(env.missing_grant).toBe('bi');
 
-    // 2. And the tab does not render — neither the button nor the panel.
+    // 2. The launcher hides the tile.
+    await expect(page.locator('#tile-bi')).toBeHidden();
+
+    // 3. Inventory carries no Cost row for anyone any more, and still works.
+    await page.goto('/inventory.html#tab=1');
+    await page.waitForSelector('#s1');
     await expect(page.locator('#t6')).toHaveCount(0);
     await expect(page.locator('#s6')).toHaveCount(0);
     await expect(page.locator('#cost-container')).toHaveCount(0);
-
-    // The page still works for exactly the users being gated (F4's carried hazard).
     await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
     await goTab(page, 1);
@@ -616,75 +586,51 @@ test.describe('Cost tab — gating', () => {
     await shot(page, 'edge-ungated');
   });
 
-  test('Ungated deep link (#tab=6) falls back instead of rendering a tab shell', async ({ page }) => {
+  test('Ungated deep link (inventory.html#tab=6) redirects to bi.html and shows the error card, not a blank page', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
     const user = await makeGatedUser(page, 'cost-deeplink', []);
     await loginAs(page, user.email, user.password);
     await page.goto('/inventory.html#tab=6');
-    await page.waitForSelector('#s0');
+    await page.waitForURL(/bi\.html#tab=2$/);
+    await page.waitForSelector('#s2:visible');
 
-    await expect(page.locator('#s6')).toHaveCount(0);
-    // A pasted URL lands on the hub (B-455 / WO-2a), not a blank page.
-    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#cost-container')).toContainText('Couldn’t load food cost');
+    await expect(page.locator('#back-hub')).toBeVisible();
     expect(errors).toEqual([]);
 
     await shot(page, 'edge-ungated-deeplink');
   });
 
   // ── WITH the grant ───────────────────────────────────────────────────────
-  test('Granted user — #t6/#s6 render and GET /inventory/cost returns 200', async ({ page }) => {
-    const user = await makeGatedUser(page, 'cost-granted', ['inventory-cost']);
+  test('Granted user — the BI tile shows, bi.html#tab=2 renders, GET /inventory/cost returns 200', async ({ page }) => {
+    const user = await makeGatedUser(page, 'cost-granted', ['bi']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
+    await page.goto('/index.html');
+    await waitForGrid(page);
+    await expect(page.locator('#tile-bi')).toBeVisible();
 
-    await expect(page.locator('#t6')).toHaveCount(1);
-    await goTab(page, 6);
-    await expect(page.locator('#s6')).toBeVisible();
-
+    await page.goto('/bi.html#tab=2');
+    await page.waitForSelector('#s2:visible');
+    await expect(page.locator('#s2 .cost-empty')).toBeVisible();
     expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
 
     await shot(page, 'gated-granted-cost');
   });
 
-  // ── §1.6 mirrored — the other half of the mixed case ─────────────────────
-  test('Mixed: Cost-only grant renders #t6, hides #t5, and 403s /inventory/trends', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-
-    const user = await makeGatedUser(page, 'mixed-cost-only', ['inventory-cost']);
-    await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
-
-    await expect(page.locator('#t6')).toHaveCount(1);
-    await goTab(page, 6);
-    await expect(page.locator('#s6')).toBeVisible();
-    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
-
-    await expect(page.locator('#t5')).toHaveCount(0);
-    await expect(page.locator('#s5')).toHaveCount(0);
-    const tr = await probe(page, '/api/v1/inventory/trends');
-    expect(tr.status).toBe(403);
-    expect(JSON.parse(tr.body).missing_grant).toBe('inventory-trends');
-
-    expect(errors).toEqual([]);
-    await shot(page, 'edge-mixed-cost-only');
-  });
-
   // ── Superadmin (§1.2 rule 4 / §4 flag 5) ─────────────────────────────────
   // A superadmin holds no explicit grants at all. If RequirePermission did not
-  // mirror queryAllApps, the tab would render (via /me/apps) and its endpoint
+  // mirror queryAllApps, the tile would render (via /me/apps) and the endpoints
   // would 403 — the exact inconsistency flag 5 warns about.
-  test('Superadmin with zero explicit grants sees both tabs and gets 200 from both', async ({ page }) => {
+  test('Superadmin with zero explicit grants sees the BI hub and gets 200 from both reports', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
-
-    await expect(page.locator('#t5')).toHaveCount(1);
-    await expect(page.locator('#t6')).toHaveCount(1);
+    await page.goto('/index.html');
+    await waitForGrid(page);
+    await expect(page.locator('#tile-bi')).toBeVisible();
+    await page.goto('/bi.html');
+    await page.waitForSelector('#s0:visible');
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Trends', 'Food cost']);
     expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
     expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
   });

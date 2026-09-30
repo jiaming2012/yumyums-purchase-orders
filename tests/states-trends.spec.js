@@ -16,7 +16,7 @@ async function goTab(page, n) {
 }
 
 // states-trends.spec.js — the CLAUDE.md self-verification ritual for the Trends
-// tab (`#s5`, FR-1 / FR-6b), rendering GET /api/v1/inventory/trends
+// section (bi.html `#s1`, FR-1 / FR-6b), rendering GET /api/v1/inventory/trends
 // (design §2.2 AS AMENDED 2026-07-20 — decisions 29/30/31).
 //
 // Every row of this card's State Enumeration Table is FORCED here, navigated to,
@@ -35,14 +35,11 @@ async function goTab(page, n) {
 //   Edge: long group name      -> 'edge-long-name'       (480px shell holds)
 //   Edge: ungated user         -> OWNED BY F5 — see NOTE below
 //
-// NOTE FOR F5 (`inventory-tab-gating`): the "ungated user" row belongs to F5.
-// It slots in as a new `test.describe('Trends tab — gating')` block at the
-// BOTTOM of this file: log in as a user WITHOUT the `inventory-trends` grant,
-// assert `#t5` / `#s5` are not rendered, assert a direct
-// `GET /api/v1/inventory/trends` returns 403, screenshot as `edge-ungated.png`
-// via the same `shot()` helper. This card additionally asserts (see
-// 'no top-level listener binds to a Trends node') that removing #s5 from the
-// DOM does not throw at parse time — the hazard F4's review carried forward.
+// GATING (B-455 / WO-2b): Trends lives on bi.html behind the `bi` app grant.
+// The launcher hides the BI tile without it and both report endpoints 403
+// naming `bi`; inside bi.html nothing is gated, so an un-granted deep link
+// shows the honest error card. The `inventory` umbrella no longer opens these
+// surfaces. The gating block at the bottom of this file pins all of that.
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -64,8 +61,8 @@ async function login(page) {
 
 // Navigate straight to the Trends tab via the shared #tab= hash contract (tab.js).
 async function openTrendsTab(page) {
-  await page.goto('/inventory.html#tab=5');
-  await page.waitForSelector('#s5:visible');
+  await page.goto('/bi.html#tab=1');
+  await page.waitForSelector('#s1:visible');
 }
 
 const WINDOW = { from: '2026-04-27', to: '2026-07-19', weeks: 12 };
@@ -218,7 +215,7 @@ async function assertNoJunkNumbers(page) {
   await expect(host).not.toContainText('$null');
 }
 
-test.describe('Trends tab (#s5) — State Enumeration', () => {
+test.describe('Trends (bi.html #s1) — State Enumeration', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -408,39 +405,9 @@ test.describe('Trends tab (#s5) — State Enumeration', () => {
     await shot(page, 'edge-long-name');
   });
 
-  // ── Hazard carried from F4's review ─────────────────────────────────────
-  // F5 will remove #s5 / #trends-container for un-granted users. An unguarded
-  // top-level getElementById(...).addEventListener would throw at PARSE time and
-  // break the ENTIRE inventory page — every tab — for exactly those users.
-  test('Hazard: removing the Trends nodes never throws and never breaks other tabs', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-
-    // Strip #s5 and #t5 out of the document before any script runs — the shape
-    // F5's server-side gating will produce.
-    await page.route('**/inventory.html', async route => {
-      const res = await route.fetch();
-      let html = await res.text();
-      html = html.replace(/<div id="s5"[\s\S]*?<\/div>\s*<div id="s6"/, '<div id="s6"');
-      html = html.replace(/<button id="t5"[\s\S]*?<\/button>/, '');
-      await route.fulfill({ response: res, body: html, headers: { ...res.headers(), 'content-type': 'text/html' } });
-    });
-
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
-    expect(await page.locator('#s5').count()).toBe(0);
-
-    // Other tabs must still work — the whole point of the hazard.
-    await goTab(page, 2);
-    await expect(page.locator('#s2')).toBeVisible();
-    await goTab(page, 6);
-    await expect(page.locator('#s6')).toBeVisible();
-    // A stray click where the Trends chart would have been must be inert.
-    await page.mouse.click(200, 300);
-
-    expect(errors).toEqual([]);
-    await shot(page, 'hazard-nodes-removed');
-  });
+  // The F4/F5 "nodes removed" hazard test retired with WO-2b: nothing removes
+  // Trends nodes from bi.html (gating is the launcher tile + the endpoint), and
+  // the hub loads both reports at boot, so the containers are always present.
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -532,34 +499,40 @@ async function probe(page, path) {
   }, path);
 }
 
-test.describe('Trends tab — gating', () => {
+test.describe('Trends — gating (the `bi` grant, B-455 / WO-2b)', () => {
+
+  async function waitForGrid(page) {
+    await page.waitForFunction(() => { const g = document.querySelector('.grid'); return g && g.style.visibility !== 'hidden'; }, { timeout: 5000 });
+  }
 
   // ── WITHOUT the grant ────────────────────────────────────────────────────
-  test('Edge: ungated user — #t5/#s5 absent, GET /inventory/trends returns 403', async ({ page }) => {
+  test('Edge: ungated user — GET /inventory/trends 403s naming `bi`, no BI tile, no Trends row in Inventory', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
     const user = await makeGatedUser(page, 'trends-ungated', []);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
+    await page.goto('/index.html');
+    await waitForGrid(page);
 
     // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
-    //    is the gate; the hidden tab is only UX. If this assertion is the one
+    //    is the gate; the hidden tile is only UX. If this assertion is the one
     //    that fails, the feature is a facade regardless of what the DOM shows.
     const res = await probe(page, '/api/v1/inventory/trends');
     expect(res.status).toBe(403);
     const env = JSON.parse(res.body);
     expect(env.error).toBe('forbidden');
-    expect(env.missing_grant).toBe('inventory-trends');
+    expect(env.missing_grant).toBe('bi');
 
-    // 2. And the tab does not render — neither the button nor the panel.
+    // 2. The launcher hides the tile.
+    await expect(page.locator('#tile-bi')).toBeHidden();
+
+    // 3. Inventory carries no Trends row for anyone any more, and still works.
+    await page.goto('/inventory.html#tab=1');
+    await page.waitForSelector('#s1');
     await expect(page.locator('#t5')).toHaveCount(0);
     await expect(page.locator('#s5')).toHaveCount(0);
     await expect(page.locator('#trends-container')).toHaveCount(0);
-
-    // 3. Null-safety: removing the Trends nodes must not break the page for the
-    //    very users being gated. Other tabs still switch; nothing threw.
     await goTab(page, 2);
     await expect(page.locator('#s2')).toBeVisible();
     await goTab(page, 1);
@@ -569,79 +542,55 @@ test.describe('Trends tab — gating', () => {
     await shot(page, 'edge-ungated');
   });
 
-  test('Ungated deep link (#tab=5) falls back instead of rendering a tab shell', async ({ page }) => {
+  test('Ungated deep link (inventory.html#tab=5) redirects to bi.html and shows the error card, not a blank page', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
     const user = await makeGatedUser(page, 'trends-deeplink', []);
     await loginAs(page, user.email, user.password);
     await page.goto('/inventory.html#tab=5');
-    await page.waitForSelector('#s0');
+    await page.waitForURL(/bi\.html#tab=1$/);
+    await page.waitForSelector('#s1:visible');
 
-    await expect(page.locator('#s5')).toHaveCount(0);
-    // A pasted URL lands on the hub (B-455 / WO-2a), not a blank page.
-    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#trends-container')).toContainText('Couldn’t load spending trends');
+    await expect(page.locator('#back-hub')).toBeVisible();
     expect(errors).toEqual([]);
 
     await shot(page, 'edge-ungated-deeplink');
   });
 
   // ── WITH the grant ───────────────────────────────────────────────────────
-  test('Granted user — #t5/#s5 render and GET /inventory/trends returns 200', async ({ page }) => {
-    const user = await makeGatedUser(page, 'trends-granted', ['inventory-trends']);
+  test('Granted user — the BI tile shows, bi.html#tab=1 renders, GET /inventory/trends returns 200', async ({ page }) => {
+    const user = await makeGatedUser(page, 'trends-granted', ['bi']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
+    await page.goto('/index.html');
+    await waitForGrid(page);
+    await expect(page.locator('#tile-bi')).toBeVisible();
 
-    await expect(page.locator('#t5')).toHaveCount(1);
-    await goTab(page, 5);
-    await expect(page.locator('#s5')).toBeVisible();
-
-    const res = await probe(page, '/api/v1/inventory/trends');
-    expect(res.status).toBe(200);
+    await page.goto('/bi.html#tab=1');
+    await page.waitForSelector('#s1:visible');
+    await expect(page.locator('#s1 .tr-empty')).toBeVisible();
+    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
 
     await shot(page, 'gated-granted-trends');
   });
 
-  // ── The umbrella rider (design §8 amendment 1) ───────────────────────────
-  test('Umbrella: a whole-app `inventory` grant alone opens Trends', async ({ page }) => {
+  // ── The umbrella is retired ──────────────────────────────────────────────
+  // Until WO-2b a whole-app `inventory` grant opened Trends and Cost (design §8
+  // amendment 1). Both now belong to the `bi` app, so it opens neither.
+  test('Retired umbrella: a whole-app `inventory` grant alone no longer opens Trends or Cost', async ({ page }) => {
     const user = await makeGatedUser(page, 'trends-umbrella', ['inventory']);
     await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
+    await page.goto('/index.html');
+    await waitForGrid(page);
 
-    await expect(page.locator('#t5')).toHaveCount(1);
-    await expect(page.locator('#t6')).toHaveCount(1);
-    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
-    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
+    await expect(page.locator('#tile-inventory')).toBeVisible();
+    await expect(page.locator('#tile-bi')).toBeHidden();
+    const tr = await probe(page, '/api/v1/inventory/trends');
+    expect(tr.status).toBe(403);
+    expect(JSON.parse(tr.body).missing_grant).toBe('bi');
+    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(403);
 
-    await shot(page, 'gated-umbrella');
-  });
-
-  // ── §1.6 — the mixed case, testable only because F1/F3 landed first ──────
-  test('Mixed: Trends-only grant renders #t5, hides #t6, and 403s /inventory/cost', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-
-    const user = await makeGatedUser(page, 'mixed-trends-only', ['inventory-trends']);
-    await loginAs(page, user.email, user.password);
-    await page.goto('/inventory.html#tab=1');
-    await page.waitForSelector('#s1');
-
-    // Trends: visible + served.
-    await expect(page.locator('#t5')).toHaveCount(1);
-    await goTab(page, 5);
-    await expect(page.locator('#s5')).toBeVisible();
-    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
-
-    // Cost: absent + denied, independently.
-    await expect(page.locator('#t6')).toHaveCount(0);
-    await expect(page.locator('#s6')).toHaveCount(0);
-    const cost = await probe(page, '/api/v1/inventory/cost');
-    expect(cost.status).toBe(403);
-    expect(JSON.parse(cost.body).missing_grant).toBe('inventory-cost');
-
-    expect(errors).toEqual([]);
-    await shot(page, 'edge-mixed-trends-only');
+    await shot(page, 'gated-umbrella-retired');
   });
 });

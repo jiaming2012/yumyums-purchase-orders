@@ -90,12 +90,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <div class="tile-desc">New hire training checklists</div>
     </a>
 
-    <div class="tile soon" data-slug="bi">
-      <div class="badge">Soon</div>
+    <a class="tile active" href="bi.html" id="tile-bi">
       <div class="tile-icon">📊</div>
       <div class="tile-title">Business Intelligence</div>
-      <div class="tile-desc">Sales and cost trends</div>
-    </div>
+      <div class="tile-desc">Spend trends and food cost</div>
+    </a>
 
     <a class="tile active" href="workflows.html">
       <div class="tile-icon">📋</div>
@@ -129,7 +128,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div class="verline" id="version-line" hidden><span id="version-cached"></span><span id="version-server"></span></div>
 
 <script>
-const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding','marketing.html':'marketing'};
+const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding','marketing.html':'marketing','bi.html':'bi'};
 const APPS_CACHE_KEY='hq_apps';
 function renderUserHeader(name){
   var bar=document.createElement('div');
