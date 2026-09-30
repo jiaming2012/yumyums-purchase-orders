@@ -1320,4 +1320,3 @@ test.describe('Access tab — per-tab (sub-app) grants', () => {
     await expect(page.locator('#access-bi .tab-grant-note')).toHaveCount(0);
   });
 });
-});

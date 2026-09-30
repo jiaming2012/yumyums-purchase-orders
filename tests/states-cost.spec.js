@@ -433,8 +433,6 @@ test.describe('Food cost (bi.html #s2) — State Enumeration', () => {
   // The F5 "container removed" test retired with WO-2b: nothing removes the
   // cost nodes from bi.html (gating is the launcher tile + the endpoint), and
   // the hub loads both reports at boot, so the container is always present.
-    expect(errors).toEqual([]);
-  });
 
   // ── Phase-specific edge: the KNOWN 0%-food-cost gap ────────────────────
   // Recipe exists but no in-window ingredient spend -> the endpoint publishes
