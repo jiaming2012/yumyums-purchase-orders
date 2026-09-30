@@ -204,10 +204,10 @@ test.describe('Food cost (bi.html #s2) — State Enumeration', () => {
   });
 
   // ── PRD row: Loading ────────────────────────────────────────────────────
-  test('Loading — skeleton shown in #s6 while the request is in flight', async ({ page }) => {
+  test('Loading — skeleton shown in #s2 while the request is in flight', async ({ page }) => {
     await mockCost(page, POPULATED, { delayMs: 2500 });
-    await page.goto('/inventory.html#tab=6');
-    await page.waitForSelector('#s6:visible');
+    await page.goto('/bi.html#tab=2');
+    await page.waitForSelector('#s2:visible');
     await expect(page.locator('#cost-container .skeleton').first()).toBeVisible();
     await shot(page, 'loading');
     // and it resolves rather than hanging on the skeleton forever

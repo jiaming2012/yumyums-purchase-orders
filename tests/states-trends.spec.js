@@ -237,10 +237,10 @@ test.describe('Trends (bi.html #s1) — State Enumeration', () => {
   });
 
   // ── Row: Loading ────────────────────────────────────────────────────────
-  test('Loading — skeleton shown in #s5 while the request is in flight', async ({ page }) => {
+  test('Loading — skeleton shown in #s1 while the request is in flight', async ({ page }) => {
     await mockTrends(page, POPULATED, { delayMs: 2500 });
-    await page.goto('/inventory.html#tab=5');
-    await page.waitForSelector('#s5:visible');
+    await page.goto('/bi.html#tab=1');
+    await page.waitForSelector('#s1:visible');
     await expect(page.locator('#trends-container .skeleton').first()).toBeVisible();
     await expect(page.locator('#trends-container svg.tr-svg')).toHaveCount(0);
     await shot(page, 'loading');
