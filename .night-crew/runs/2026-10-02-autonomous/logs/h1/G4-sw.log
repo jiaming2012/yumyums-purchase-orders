@@ -29,3 +29,12 @@ $ git status --short  (after run 2 — must be clean)
 $ grep -c revision sw.js  (precache entry count)
 0
 EXIT=0
+
+# ── RE-RUN at final HEAD (4825a71) ──
+# The commits after the first G4 run touched only Go files, so the precache
+#   manifest must be byte-identical. Re-run rather than assert.
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+RERUN_EXIT=0
+(no sw.js/version.json line above = the committed artifacts already match HEAD)

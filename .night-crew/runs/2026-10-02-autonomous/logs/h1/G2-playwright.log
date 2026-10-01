@@ -3,3 +3,7 @@
 # npx bddgen runs FIRST — without it the bdd project resolves to zero spec files
 #   and the suite reports success (B-09).
 # waiting on /tmp/hq-full-suite.lock (the base-reds leg held it at queue time)
+# lock acquired 2026-10-01T19:13:29-04:00
+## npx bddgen
+EXIT_BDDGEN=0
+## npx playwright test --retries=0

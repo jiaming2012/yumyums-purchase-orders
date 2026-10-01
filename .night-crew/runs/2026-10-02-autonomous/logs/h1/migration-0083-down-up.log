@@ -1,0 +1,16 @@
+# MIGRATION 0083 DOWN/UP ROUND-TRIP — the Down path is claimed, so it is proven.
+# Test cluster :5434 only.
+
+2026/10/01 19:13:26 goose: no migrations to run. current version: 83
+2026/10/01 19:13:26 INFO database migrations applied successfully
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/01 19:13:27 OK   0083_campaigns_admin.sql (501.47ms)
+2026/10/01 19:13:27 goose: no migrations to run. current version: 82
+2026/10/01 19:13:27 OK   0083_campaigns_admin.sql (468.88ms)
+2026/10/01 19:13:27 goose: successfully migrated database to version: 83
+    zz_down_test.go:56: 0083 Down/Up round-trip clean; schema left at version 83
+--- PASS: TestMigration0083DownAndUpRoundTrip (1.31s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	1.349s
+GO_TEST_EXIT=0
+EXIT=0

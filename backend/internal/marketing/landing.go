@@ -172,6 +172,15 @@ func hashIP(remoteAddr, salt string) string {
 // clientIP prefers the proxy headers Cloudflare Tunnel sets, because in prod
 // RemoteAddr is the tunnel, not the customer — one shared RemoteAddr would
 // dedupe every customer in the city down to a single scan.
+//
+// 🛑 THESE HEADERS ARE CLIENT-SUPPLIED AND FORGEABLE, and that is accepted here
+// rather than overlooked. This route is public and unauthenticated, so anyone
+// can vary CF-Connecting-IP and defeat the dedupe to inflate a scan count. The
+// value feeds ONE thing — a 10-minute dedupe on a funnel number — and no
+// authorization, no money and no row visibility. It is not a trust boundary and
+// must never become one: if a later card wants to key anything that MATTERS off
+// the caller's address, it needs a trusted-proxy allowlist first, not this
+// function.
 func clientIP(r *http.Request) string {
 	if v := r.Header.Get("CF-Connecting-IP"); v != "" {
 		return strings.TrimSpace(v)
