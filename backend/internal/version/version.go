@@ -9,7 +9,7 @@
 package version
 
 const (
-	Backend  = "0.9.1"
+	Backend  = "0.9.2"
 	Frontend = "1.10.2"
 )
 
