@@ -4422,3 +4422,31 @@ B-156 (a `lead (as filed):` status token and a missing plain-language lead) and 
 `approved-direction` status from the attended BI work, T-59) — that this sitting did not introduce
 and did not touch; the check ran before and after the B-458 entry and the five status flips and
 the count stayed at 3 (252 → 253 entries).
+
+**T-60 addendum — the slate was attempted and stopped at the spike gate; the spikes were then
+opened, run, reviewed and closed in the same sitting (2026-10-01).** `/nc-slate-plan Activity H
+--night 10h`: PRD gate exit 0 (7 PRDs); `night-crew next` NOT COMPUTABLE (no milestone named —
+reported, not substituted); run id would be `20261002` (no branch collision, no unmerged run
+branch); workflow preflight `openspec: absent`, `gsd: detected`; **spike gate: refused in
+substance** — the verb cannot resolve any product-mode activity by name (the standing wall), and
+Activity H had no goal ledgers at all. No slate was signed. `/nc-spike-open Activity H` then
+authored six goal ledgers (one per card) with twelve spikes under
+`.night-crew/knowledge/spikes/activity-h-designed-tabs/` and ran them by hand: **eleven passed,
+one recorded skip** (`campaigns-tab-ui/web-share-files-enumerated` — webkit/firefox binaries did
+not finish downloading; the card ships the Share fallback regardless; GAP-H2-1). The local
+`spike-supabase` substrate was brought to GREEN in reconcile mode for the PostgREST legs.
+Three agent-reached corrections were batch-reviewed and **signed by the operator** (presented
+as user stories at their request): (1) **decision 190 refined** — the discount is summed PER
+ROW (actual where the order is matched, face value where not) on every slice and the overview,
+`basis` is a label; (2) the **Fluent Forms adapter maps the live form's real keys** (`names.first_name`,
+`email`, `input_text` → phone, `checkbox[]` → consent; `source` nullable and often absent) — side
+finding GAP-H5-1: the website's `count_customers.py` defaults are wrong and it counts zero SMS
+opt-ins today; (3) the **Toast SFTP probe dials with the production libraries**, the OpenSSH CLI
+handshake being closed by AWS Transfer. **Decision 188 CONFIRMED** by read-only listing:
+`OrderDetails.csv` is on the export for 20260928/29/30 (with `PaymentDetails.csv`,
+`ModifiersSelectionDetails.csv`, `TimeEntries.csv` beside it); handoff **#2 answered**: Toast
+`Order #` is digits only, 1–4 long, store as text. Six extraction records written
+(`<goal>.extraction.md`); `night-crew spikes record-check` cannot run here for the same
+activity-name reason, so the records were shape-checked by hand against the skill's five fields.
+Handoff and roadmap updated for the signed corrections. **Next:** `/nc-slate-plan Activity H
+--night 10h` in a fresh session — every gate it reads is now on disk.

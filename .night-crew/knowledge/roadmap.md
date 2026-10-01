@@ -689,9 +689,8 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 - **`toast-orders-and-reconciliation`** · **PLANNED** · (H3, track C — backend) Absorbs
   `reconciliation-view`, supersedes `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync
   fetches `OrderDetails.csv` beside `ItemSelectionDetails.csv` and upserts `toast_orders` keyed
-  `(business_date, order_number)` — the same report WILL arrive twice (§13); **first act: list
-  the remote date dir read-only and record whether the file exists** (fallback: fixture loader,
-  `smtp-toast-ingest` returns to PLANNED). A 5-minute keyset poller mirrors Supabase
+  `(business_date, order_number)` — the same report WILL arrive twice (§13); **the export was listed read-only
+  at the spike (2026-10-01): `OrderDetails.csv` is present on every recent date dir** — no fallback needed. A 5-minute keyset poller mirrors Supabase
   `scan_attempts` into HQ (`scan_attempts_mirror`). The engine buckets attempts matched /
   unmatched (±30 min nearest-order suggestion) / orphan, orders the queue overrides → orphans →
   unmatched, and records `reconciliation_decisions` (match / decline-with-reason+note / reopen /
@@ -717,7 +716,8 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 - **`subscribers-tab`** · **PLANNED** · (H5, track E — full-stack) Migration `0085_subscribers`
   (`subscribers`, `subscriber_events`), three source adapters behind one interface — Fluent
-  Forms reader (`FF_DB_*` env, fixture of the submission JSON committed; live import is an
+  Forms reader (`FF_DB_*` env; maps the live form's REAL keys per spike 2026-10-01 — `names.first_name`,
+  `email`, `input_text` → phone, `checkbox[]` → consent, `source` nullable; fixture committed; live import is an
   **attended** first run), Toast guest CSV upload, QR signup join on `source_short` (first-touch
   attribution) — `GET /subscribers` (masked phone, consent state, visits), `GET /subscribers/{id}`
   (identity-code status, consent trail, timeline), `POST …/resend` recording a
