@@ -15,45 +15,67 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/testdb"
 )
 
-// setupTestDB connects to the test database named by DB_TEST_URL and truncates
-// the three tables migration 0083 adds, so every test in this package starts
-// from an empty campaign admin.
+var testPool *pgxpool.Pool
+
+// TestMain migrates the test database once for the whole package, mirroring
+// internal/redemption's TestMain verbatim (including internal/testdb's
+// asymmetric gate: DB_TEST_URL UNSET skips, DB_TEST_URL SET but unreachable
+// FAILS — both arms used to skip, which is how a DROPped database once read as
+// `ok`, B-16 / decision 90).
 //
-// It applies internal/testdb's asymmetric gate verbatim (the same shape
-// internal/recipes uses): DB_TEST_URL UNSET skips — a contributor without a
-// Postgres must still be able to run the hermetic tests in this package — and
-// DB_TEST_URL SET but unreachable FAILS, because setting it is a statement of
-// intent that a database-backed run was wanted. Both arms used to skip, which
-// is how a DROPped database once read as `ok` (B-16, decision 90).
+// db.Migrate is called HERE rather than relying on some other package having
+// run it: migration 0083 is this card's, and a package whose schema depends on
+// another package's TestMain having gone first is a package that reds when
+// -p 1's ordering changes.
+func TestMain(m *testing.M) {
+	dbURL := os.Getenv(testdb.EnvVar)
+	// Computed BEFORE the fallback: the fallback is the *unset* case, and the
+	// unset case still skips.
+	requested := dbURL != ""
+	if dbURL == "" {
+		dbURL = "postgres://hqtest:hqtest@localhost:5434/hq_test?sslmode=disable"
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		testdb.ExitIfRequested(requested, dbURL, "connect", err)
+		os.Exit(m.Run())
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		testdb.ExitIfRequested(requested, dbURL, "ping", err)
+		os.Exit(m.Run())
+	}
+	if err := db.Migrate(pool); err != nil {
+		pool.Close()
+		panic("db.Migrate failed: " + err.Error())
+	}
+	testPool = pool
+	code := m.Run()
+	pool.Close()
+	os.Exit(code)
+}
+
+// setupTestDB hands back the migrated pool and truncates the three tables
+// migration 0083 adds, so every test starts from an empty campaign admin.
 //
 // It deliberately does NOT truncate `users` or `menu_items`: no other package's
 // TestMain does, and campaigns_admin.created_by / item_id are FKs into them.
 // Fixtures here create their own uniquely-named rows instead.
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := os.Getenv(testdb.EnvVar)
-	if dbURL == "" {
-		t.Skip("DB_TEST_URL not set — skipping integration test")
+	if testPool == nil {
+		t.Skip("no test database (DB_TEST_URL unset and the local fallback is unreachable)")
 	}
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		t.Fatal(testdb.Reason(dbURL, "connect", err))
-	}
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		t.Fatal(testdb.Reason(dbURL, "ping", err))
-	}
-	if _, err := pool.Exec(ctx,
+	if _, err := testPool.Exec(t.Context(),
 		`TRUNCATE qr_scans, qr_codes, campaigns_admin RESTART IDENTITY CASCADE`); err != nil {
-		pool.Close()
 		t.Fatalf("setupTestDB truncate: %v", err)
 	}
-	t.Cleanup(func() { pool.Close() })
-	return pool
+	return testPool
 }
 
 // randSuffix returns 8 random hex chars, used to keep fixture emails and
@@ -75,8 +97,8 @@ func seedUser(t *testing.T, pool *pgxpool.Pool, roles ...string) string {
 	var id string
 	email := fmt.Sprintf("mkt-%s@test.invalid", randSuffix(t))
 	err := pool.QueryRow(context.Background(),
-		`INSERT INTO users (email, display_name, roles, status)
-		 VALUES ($1, 'Marketing Test', $2, 'active') RETURNING id::text`,
+		`INSERT INTO users (email, first_name, last_name, roles, status)
+		 VALUES ($1, 'Marketing', 'Test', $2, 'active') RETURNING id::text`,
 		email, roles).Scan(&id)
 	if err != nil {
 		t.Fatalf("seedUser(%v): %v", roles, err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -71,29 +72,56 @@ func TestProjectionUnconfiguredLeavesProjectedAtNull(t *testing.T) {
 	}
 }
 
-// A projection that is configured but BROKEN takes the same fail-loud path as
+// A projection that is configured but REFUSES takes the same fail-loud path as
 // one that is unset: the campaign saves, projected_at stays NULL, the warning
-// fires. 127.0.0.1:1 is chosen because nothing listens there.
+// fires.
+//
+// The stand-in is an httptest server answering 503 rather than an unreachable
+// port: on this box a connection to a dead local port HANGS rather than being
+// refused, and the handler's own 15s transport backstop then made this one test
+// 18s of the package's 20s. A 503 is also the stricter assertion — it proves a
+// non-2xx response is treated as a failure, not just a dropped connection.
 func TestProjectionFailureLeavesProjectedAtNull(t *testing.T) {
 	pool := setupTestDB(t)
 	mgr := seedUser(t, pool, "manager")
+
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"message":"substrate down"}`))
+	}))
+	defer srv.Close()
+
 	d := testDeps(pool)
-	d.Projection = ProjectionConfig{RESTURL: "http://127.0.0.1:1", ServiceKey: "not-a-key"}
+	d.Projection = ProjectionConfig{RESTURL: srv.URL, ServiceKey: "not-a-key"}
 	if !d.Projection.Configured() {
 		t.Fatal("a REST url plus a key must read as configured")
 	}
 	mux := mountedMux(d)
 
 	out := createCampaign(t, mux, mgr, map[string]any{
-		"name": "Dead Substrate", "offer_text": "$2 off",
+		"name": "Refusing Substrate", "offer_text": "$2 off",
 		"face_value_cents": 200, "runs_days": 7,
 		"channels": []map[string]any{{"channel": "flyer"}},
 	})
 	if out.Campaign.ProjectedAt != nil {
-		t.Errorf("projected_at = %v against a dead substrate, want null", *out.Campaign.ProjectedAt)
+		t.Errorf("projected_at = %v against a refusing substrate, want null", *out.Campaign.ProjectedAt)
 	}
 	if len(out.Warnings) != 1 || out.Warnings[0] != WarningNotProjected {
 		t.Errorf("warnings = %v, want [%q]", out.Warnings, WarningNotProjected)
+	}
+	// Two calls landed: the marketing_settings threshold read and the upsert.
+	// Both refused, and neither cost the manager their campaign.
+	if hits < 2 {
+		t.Errorf("the substrate saw %d requests, want >= 2 (the threshold read and the upsert)", hits)
+	}
+	// The threshold read refusing means the DEFAULT threshold was used, and at
+	// 200 cents that still means requires_online is false — stated here so a
+	// future threshold change cannot make this assertion silently vacuous.
+	if out.Campaign.RequiresOnline {
+		t.Errorf("requires_online = true with face_value 200 and the default threshold %d",
+			DefaultRequiresOnlineThresholdCents)
 	}
 }
 
