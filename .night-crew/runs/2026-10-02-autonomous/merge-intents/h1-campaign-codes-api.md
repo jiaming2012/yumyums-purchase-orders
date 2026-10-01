@@ -90,7 +90,16 @@ gated block. Named here so the orchestrator can see all of them at merge:
   `twitterbot`, `slackbot`, `slack-imgproxy`, `discordbot`, `whatsapp`, `telegrambot`,
   `linkedinbot`, `pinterest`, `skypeuripreview`, `redditbot`, `applebot`, `googlebot`,
   `bingbot`, `yandexbot`, `embedly`, `quora link preview`, `vkshare`, `w3c_validator`,
-  `developers.google.com/+/web/snippet`. Matched case-insensitively as substrings.
+  `developers.google.com/+/web/snippet`, `bitlybot`, `nuzzel`, `outbrain`, `flipboard`,
+  `tumblr`, `viber`, `line/`. Matched case-insensitively as substrings.
+- **A SECOND, wider list — `automationTokens` — is deliberately NOT in that set.** A NAMED
+  preview fetcher is something we know is not a customer, so it is not logged at all. An agent
+  that merely calls itself a bot (`curl/`, `python-requests`, `Go-http-client`, `scrapy`,
+  `SomeUnlistedBot/3.1`, …) is a SUSPICION: §5 defines scans as `qr_scans` rows after the dedupe
+  and says nothing about excluding bots, so dropping them silently would be this card inventing a
+  metric. They are logged with `ua_family='bot'` instead — which is also the only thing that
+  gives §4's own comment ("coarse: ios / android / desktop / bot") a reachable value, and leaves
+  H3b/H4 free to decide whether a slice excludes them.
 - **PNG size ladder:** `{256, 512, 1024, 2048}`, default `1024`. Off-ladder sizes are a
   `400 {"error":"bad_size","allowed":[…]}` rather than a silent snap — a print job that asked
   for 900px and got 1024 is a surprise at the printer.

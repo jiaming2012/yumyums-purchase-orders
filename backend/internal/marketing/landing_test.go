@@ -117,7 +117,7 @@ func TestLandingLogsScanAndRedirectsWithUTM(t *testing.T) {
 		t.Errorf("qr_scans rows = %d after HEAD, want 2 (HEAD is not logged)", n)
 	}
 
-	// Known link-preview UAs are not scans either — one message pasted into a
+	// Named link-preview UAs are not scans either — one message pasted into a
 	// group chat must not read as a customer.
 	for _, bot := range []string{
 		"facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
@@ -143,6 +143,22 @@ func TestLandingLogsScanAndRedirectsWithUTM(t *testing.T) {
 		"203.0.113.200:3333"); r.Code != http.StatusFound {
 		t.Errorf("android scan = %d, want 302", r.Code)
 	}
+	// An agent that merely calls itself a bot but is not a NAMED preview
+	// fetcher is a suspicion, not a certainty: it IS logged, with
+	// ua_family='bot', which is what gives §4's comment a reachable value.
+	if r := landingGet(mux, http.MethodGet, short, "SomeUnlistedBot/3.1 (+http://example.invalid)",
+		"203.0.113.199:4444"); r.Code != http.StatusFound {
+		t.Errorf("unlisted automation UA = %d, want 302", r.Code)
+	}
+	var botRows int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM qr_scans WHERE short = $1 AND ua_family = 'bot'`, short).Scan(&botRows); err != nil {
+		t.Fatalf("count bot rows: %v", err)
+	}
+	if botRows != 1 {
+		t.Errorf("ua_family='bot' rows = %d, want 1 — an unlisted bot is logged as a suspicion, not dropped", botRows)
+	}
+
 	var androidRows int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM qr_scans WHERE short = $1 AND ua_family = 'android'`, short).Scan(&androidRows); err != nil {

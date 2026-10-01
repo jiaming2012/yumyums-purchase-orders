@@ -197,3 +197,34 @@ func TestIsLinkPreview(t *testing.T) {
 		}
 	}
 }
+
+// looksAutomated and isLinkPreview are deliberately DIFFERENT sets: a named
+// preview fetcher is known not to be a customer and is never logged; a generic
+// self-identifying bot is a suspicion, is logged, and lands as ua_family='bot'.
+func TestLooksAutomatedIsWiderThanIsLinkPreview(t *testing.T) {
+	// Named preview fetchers are a subset of "looks automated".
+	for _, ua := range []string{"facebookexternalhit/1.1", "Slackbot-LinkExpanding 1.0", "Twitterbot/1.0"} {
+		if !isLinkPreview(ua) {
+			t.Errorf("isLinkPreview(%q) = false", ua)
+		}
+	}
+	// …and these are automated but NOT named, so they get logged as 'bot'.
+	for _, ua := range []string{
+		"SomeUnlistedBot/3.1", "curl/8.4.0", "python-requests/2.31.0",
+		"Go-http-client/2.0", "Scrapy/2.11", "Mozilla/5.0 HeadlessChrome/120",
+	} {
+		if isLinkPreview(ua) {
+			t.Errorf("isLinkPreview(%q) = true — it is not a NAMED preview fetcher and must be logged", ua)
+		}
+		if !looksAutomated(ua) {
+			t.Errorf("looksAutomated(%q) = false", ua)
+		}
+		if got := uaFamily(ua); got != "bot" {
+			t.Errorf("uaFamily(%q) = %q, want \"bot\"", ua, got)
+		}
+	}
+	// A real phone is neither.
+	if looksAutomated(iphoneUA) || isLinkPreview(iphoneUA) {
+		t.Error("an iPhone UA read as automation")
+	}
+}

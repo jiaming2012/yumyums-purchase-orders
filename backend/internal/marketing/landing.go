@@ -85,10 +85,37 @@ var linkPreviewUAs = []string{
 	"tumblr",
 	"viber",
 	"line/",
-	"bot", "crawler", "spider",
 }
 
-// isLinkPreview reports whether ua is a preview fetcher or crawler.
+// automationTokens are the generic self-identifying-automation substrings. They
+// are NOT in linkPreviewUAs, and the split is deliberate.
+//
+// A named preview fetcher is something we KNOW is not a customer, so it is not
+// logged at all. An unlisted agent that merely calls itself a bot is a
+// SUSPICION: §5 defines scans as qr_scans rows after the dedupe and says
+// nothing about excluding bots, so dropping these silently would be this card
+// inventing a metric. Instead they are logged with ua_family='bot' — which is
+// also the only thing that gives §4's own comment ("coarse: ios / android /
+// desktop / bot") a reachable value, and leaves H3b/H4 free to decide whether
+// a slice wants to exclude them.
+var automationTokens = []string{
+	"bot", "crawler", "spider", "scrapy", "curl/", "wget/",
+	"python-requests", "go-http-client", "okhttp", "headlesschrome",
+	"httpclient", "libwww", "lighthouse", "pingdom", "uptimerobot",
+}
+
+func looksAutomated(ua string) bool {
+	l := strings.ToLower(ua)
+	for _, needle := range automationTokens {
+		if strings.Contains(l, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// isLinkPreview reports whether ua is one of the NAMED preview fetchers above —
+// the set that is forwarded but never logged.
 func isLinkPreview(ua string) bool {
 	l := strings.ToLower(ua)
 	for _, needle := range linkPreviewUAs {
@@ -109,7 +136,7 @@ func isLinkPreview(ua string) bool {
 // crawlers.
 func uaFamily(ua string) string {
 	l := strings.ToLower(ua)
-	if isLinkPreview(ua) {
+	if isLinkPreview(ua) || looksAutomated(ua) {
 		return "bot"
 	}
 	switch {
