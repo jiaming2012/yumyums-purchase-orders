@@ -625,6 +625,62 @@ test.describe('Camera scanner decode (card camera-scanner-decode)', () => {
     // Retry affordance: the same labeled action, still present and clickable.
     await expect(page.locator('[data-action="start-camera"]')).toBeVisible();
   });
+
+  // ── the camera leg's LIVE state (double-start misreported as unavailable) ──
+  // Headless Chromium has no camera, so getUserMedia is faked with a canvas
+  // stream BEFORE the page boots. html5-qrcode then starts for real against
+  // that stream, which is what makes a second start() hit the library's own
+  // "Cannot clear while scan is ongoing" guard — the exact throw the phone
+  // produced on 2026-10-01 (camera visibly live, page saying "unavailable").
+
+  async function fakeCamera(page) {
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const c = document.createElement('canvas');
+        c.width = 320; c.height = 240;
+        const ctx = c.getContext('2d');
+        let n = 0;
+        setInterval(() => { ctx.fillStyle = (n++ % 2) ? '#888' : '#999'; ctx.fillRect(0, 0, 320, 240); }, 100);
+        return c.captureStream(10);
+      };
+    });
+  }
+
+  test('a live camera hides the Start camera control and shows no error', async ({ page }) => {
+    await fakeCamera(page);
+    await openScanner(page);
+    await page.click('[data-action="start-camera"]');
+    await expect(page.locator('#scan-camera-view video')).toBeVisible();
+    await expect(page.locator('#scan-camera-wrap')).toHaveClass(/live/);
+    await expect(page.locator('#scanner-host .cam-error')).toBeHidden();
+    // Nothing left to tap: a running camera has no "start" affordance.
+    await expect(page.locator('[data-action="start-camera"]')).toBeHidden();
+  });
+
+  test('starting the camera twice does not report it unavailable', async ({ page }) => {
+    await fakeCamera(page);
+    await openScanner(page);
+    await page.click('[data-action="start-camera"]');
+    await expect(page.locator('#scan-camera-wrap')).toHaveClass(/live/);
+    // Drive the action directly (the control may be hidden) — the guard must
+    // live in startCamera, not in the button's visibility.
+    await page.evaluate(() => document.querySelector('[data-action="start-camera"]').click());
+    await page.waitForTimeout(300);
+    await expect(page.locator('#scanner-host .cam-error')).toBeHidden();
+    await expect(page.locator('#scan-camera-wrap')).toHaveClass(/live/);
+    await expect(page.locator('#scan-camera-view video')).toBeVisible();
+  });
+
+  test('a camera failure names the real reason, even when the library throws a string', async ({ page }) => {
+    await openScanner(page);
+    // html5-qrcode throws plain strings for state errors; those have no .message.
+    await page.evaluate(() => { Html5Qrcode.prototype.start = async () => { throw 'Camera is busy in another app'; }; });
+    await page.click('[data-action="start-camera"]');
+    const err = page.locator('#scanner-host .cam-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText('Camera is busy in another app');
+    await expect(err).not.toContainText('permission denied or no camera found');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

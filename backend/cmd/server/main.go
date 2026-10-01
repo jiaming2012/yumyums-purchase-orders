@@ -982,6 +982,13 @@ func main() {
 			}
 		}
 	}
+	// PUBLIC_URL is the HTTPS origin a reverse proxy exposes this server
+	// under — in dev, the `tailscale serve` MagicDNS name the Taskfile
+	// resolves (needed for camera/getUserMedia on phones, which require a
+	// secure context). Logged so the operator can copy it from the log.
+	if publicURL := os.Getenv("PUBLIC_URL"); publicURL != "" {
+		slog.Info("reachable at", "url", publicURL, "via", "tailscale serve")
+	}
 	slog.Info("Yumyums HQ ready, accepting connections")
 	if err := http.Serve(ln, r); err != nil {
 		slog.Error("server failed", "error", err)

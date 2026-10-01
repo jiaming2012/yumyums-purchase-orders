@@ -154,6 +154,10 @@ function resultCard(r) {
   }
 }
 
+function startCameraButton() {
+  return document.querySelector('#scanner-host [data-action="start-camera"]');
+}
+
 function render() {
   $('scan-status').textContent = statusLine();
 
@@ -165,6 +169,12 @@ function render() {
     err.hidden = true;
   }
   $('scan-camera-wrap').classList.toggle('live', SCAN_STATE.cameraOn);
+  // A running camera has no "start" affordance. Leaving the button up invited
+  // a second tap, and html5-qrcode's start() refuses to re-enter a live scan
+  // ("Cannot clear while scan is ongoing") — which the catch below then
+  // misreported as "camera unavailable" over a visibly live preview (2026-10-01).
+  const startBtn = startCameraButton();
+  if (startBtn) startBtn.hidden = !!SCAN_STATE.cameraOn;
 
   const box = $('scan-result');
   const r = SCAN_STATE.result;
@@ -352,7 +362,32 @@ async function boot() {
     }
   }
 
+  function cameraLive() {
+    if (!cameraQr || typeof cameraQr.getState !== 'function') return false;
+    const st = cameraQr.getState();
+    return st === Html5QrcodeScannerState.SCANNING || st === Html5QrcodeScannerState.PAUSED;
+  }
+
+  // html5-qrcode throws plain strings for its state errors (no .message), so
+  // reading only e.message discarded the real reason behind a generic
+  // "permission denied" guess.
+  function cameraErrorText(e) {
+    if (typeof e === 'string' && e.trim()) return e.trim().replace(/[.\s]+$/, '');
+    if (e && e.message) return String(e.message).replace(/[.\s]+$/, '');
+    return 'permission denied or no camera found';
+  }
+
   async function startCamera() {
+    // Already running (or paused mid-session)? Re-entering html5-qrcode's
+    // start() throws a string and leaves the stream up; there is nothing to
+    // start. Reconcile state and return — the button is hidden while live,
+    // but the guard lives here, not in the button's visibility.
+    if (cameraLive() && !cameraPaused) {
+      SCAN_STATE.camError = null;
+      SCAN_STATE.cameraOn = true;
+      render();
+      return;
+    }
     SCAN_STATE.camError = null;
     render();
     try {
@@ -379,7 +414,7 @@ async function boot() {
       // of "fix camera access" helps. Name the way out instead.
       SCAN_STATE.camError = window.isSecureContext === false
         ? 'Camera unavailable — this page was opened over a plain http address, and phones only allow the camera on a secure one. Open ' + SECURE_ADDRESS + ' instead, or scan from a photo.'
-        : 'Camera unavailable — ' + (e && e.message ? e.message : 'permission denied or no camera found') + '. Fix camera access and tap Start camera to retry, or scan from a photo.';
+        : 'Camera unavailable — ' + cameraErrorText(e) + '. Fix camera access and tap Start camera to retry, or scan from a photo.';
       render();
     }
   }
