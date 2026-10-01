@@ -213,10 +213,17 @@ Green-after: all five pass in `logs/h1/G2-go.log` — `internal/marketing` 24 to
 | Gate | Command | Result | Log |
 |---|---|---|---|
 | G1 | `go build ./...` + `go vet ./...` from `backend/` | both `EXIT=0` | `G1-build-vet.log` |
-| G2 (Go) | `go test -p 1 -count=1 -v ./...`, `DB_TEST_URL` set to `:5434/hq_test_go_h1`, `HQ_RLS_TEST_DB=hq_rls_h1_20261002` | `GO_TEST_EXIT=0`; 14/14 packages `ok`; **649 RUN / 646 PASS / 0 FAIL / 3 SKIP**; `internal/workflow` 39 top-level tests, `internal/sync` 53 + 111 subtests (so `DB_TEST_URL` was honored, not silently skipped). `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both UNSET — asserted in the log's own env-check line. The 3 skips are the two `internal/sync` `HQ_SYNC_SPIKE_LIVE` proofs and this card's own opt-in projection leg. | `G2-go.log` |
+| G2 (Go) | `go test -p 1 -count=1 -v ./...` from `backend/`, `DB_TEST_URL=…:5434/hq_test_go_h1`, `HQ_RLS_TEST_DB=hq_rls_h1_20261002` | `GO_TEST_EXIT=0`, `EXIT=0`. **14/14 packages `ok`. 651 RUN / 0 FAIL / 3 SKIP.** Counts, not `ok` — `internal/workflow` 39 top-level, `internal/sync` 53 + 111 subtests, `internal/inventory` 53 + 74, `internal/marketing` 26, so `DB_TEST_URL` was honored rather than silently skipped. `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both **UNSET** — the log's own env-check line reads `HQ_SYNC_SUBSTRATE_OPTIONAL=[<unset>] HQ_SYNC_GATE_CHILD=[<unset>] HQ_SYNC_REST_URL=[<unset>] MKT_PROJECTION_LIVE=[<unset>]`. The 3 skips: `TestProxyLive_RealtimeUpgrade` and `TestProxyLive_RESTRequest` (`internal/sync`'s pre-existing `HQ_SYNC_SPIKE_LIVE` gate) and this card's own `TestProjectionConfiguredUpsertsToSubstrate`, which is run separately and recorded below. | `G2-go.log` |
 | G2 (Playwright) | full suite under `flock /tmp/hq-full-suite.lock`, `npx bddgen` first, `--retries=0`, `TEST_PORT=8511`, `TEST_DB_NAME=hq_test_e2e_h1_20261002`, `DB_PORT=5434` | see `G2-playwright.log` | `G2-playwright.log` |
 | G4 | `node build-sw.js` twice, after the implementation commits (it reads git HEAD) | both runs `EXIT=0`, identical output, **48 files precached** — unchanged, as expected for a card that adds no frontend asset. `sw.js` is not even modified in `git status`, so the committed artifact already matches HEAD. | `G4-sw.log` |
 | RF | the structural red above | `VET_EXIT=1`, `TEST_EXIT=1` (`[build failed]`, `undefined: Deps`) | `RF-red-first.log` |
+
+### Migration 0083's Down
+
+`migration-0083-down-up.log` — `TestMigration0083DownAndUpRoundTrip`: migrate to 82, assert
+`campaigns_admin` / `qr_codes` / `qr_scans` are all gone, migrate back to 83, assert they return.
+`GO_TEST_EXIT=0`. The Down is claimed in the migration, so it is exercised rather than asserted
+in prose.
 
 ### The projection CONFIGURED path — proven, not stubbed
 

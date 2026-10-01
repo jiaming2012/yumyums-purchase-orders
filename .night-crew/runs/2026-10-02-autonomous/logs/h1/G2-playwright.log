@@ -7,3 +7,243 @@
 ## npx bddgen
 EXIT_BDDGEN=0
 ## npx playwright test --retries=0
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_h1_20261002" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_h1_20261002 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.065433674-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.066693714-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.095065744-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.202103738-04:00","level":"INFO","msg":"OK   0001_users.sql (67.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.279738991-04:00","level":"INFO","msg":"OK   0002_sessions.sql (77.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.342103439-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (62.25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.407204077-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (64.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.488501103-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (81.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.52777582-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (39.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.567054372-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (39.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.61511809-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (47.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.664824229-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (49.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.710987345-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (46.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.780855128-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (69.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.860177396-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (79.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.91105035-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (50.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:51.961908171-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (50.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.04267392-04:00","level":"INFO","msg":"OK   0015_ops.sql (80.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.062659437-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (19.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.086177004-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (23.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.175377849-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (89.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.265364345-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (89.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.366240968-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (100.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.435779034-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (69.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.507617337-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (71.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.626051981-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (118.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:52.956331226-04:00","level":"INFO","msg":"OK   0024_inventory.sql (330.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.012894187-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (56.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.022764692-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.031459829-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (8.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.053067961-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (21.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.063603269-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (10.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.097760702-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (34.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.108334772-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.127178408-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (18.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.17270392-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (45.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.307089816-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (134.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.324206336-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (17.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.34152595-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (17.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.388392173-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (46.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.410958951-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (22.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.455619492-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (44.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.631708129-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (175.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.648934675-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (17.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.73733012-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (88.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.81961767-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (82.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:53.902136175-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (82.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.007076519-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (104.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.01979979-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (12.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.12918045-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (109.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.140946902-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (11.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.218969371-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (77.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.235519721-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (16.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.245738824-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (10.09ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.27306892-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (27.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.285743326-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (12.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.301446601-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (15.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.318802428-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (17.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.359953155-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (40.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.382058048-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.406280019-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (24.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.419505073-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (13.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.581783123-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (162.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.712169902-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (130.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.791893385-04:00","level":"INFO","msg":"OK   0062_recipes.sql (79.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.843558429-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (51.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.862823554-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (19.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.878777519-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (15.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.906470676-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (27.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:54.98457644-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (77.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.018685963-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (33.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.035961247-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (17.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.052968428-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (16.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.08242596-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (29.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.107213764-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (24.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.134853753-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (27.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.145647322-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.350409762-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (204.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.378915657-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (28.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.445704446-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (66.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.464833928-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (19.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.498299867-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (33.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.517311909-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (18.81ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.55174332-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (34.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.575384797-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (23.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.748565992-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (172.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.748625672-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 83","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.748639102-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.839167219-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.888198444-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"b7465cb2-3d8a-4412-bb35-d421c1f6a143"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.888260143-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.922040232-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"d000e7e9-c575-41f4-a533-3f96507efb20"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:55.954074171-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:56.073517783-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:56.266900683-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.060667389-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.060759813-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.060849711-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.060957993-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.061053245-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.061651019-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.061903846-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.06197536-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.061996471-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.06203031-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.06213344-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.077185061-04:00","level":"INFO","msg":"server listening","port":"8511"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.087539137-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8511"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.087603177-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8511"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.087614692-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8511"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:15:57.087627924-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 995 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:08.578071081-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"00ff69b7-074c-412b-9a4d-03b48ebbac40","device_id":"9d009111-1682-4a63-9645-063e68e0476e","lamport_ts":4}
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:10.052482273-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    1 [chromium] › tests/broadcast-rerender.spec.js:61:3 › editprop broadcast re-render › A) live SAVE_TEMPLATE re-renders open runner: surviving answer kept, new field empty (4.1s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:10.951851825-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8511/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8511/workflows.html:637:24)\n    at applyOp (http://localhost:8511/sync.js:566:7)\n    at _ws.onmessage (http://localhost:8511/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:11.120388365-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    2 [chromium] › tests/broadcast-rerender.spec.js:116:3 › editprop broadcast re-render › B) silent gate: catch-up replay shows no toast, live edit surfaces one (2.5s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:13.51015412-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    3 [chromium] › tests/broadcast-rerender.spec.js:157:3 › editprop broadcast re-render › D) schedule drops today: open runner is removed live from the device (2.2s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:15.811030126-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:16.441785283-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"a29f524e-dd6b-4aaa-9f22-f143cbd9e001","device_id":"f7c1171e-33dd-4964-a0c7-25bdf25b5558","lamport_ts":13}
+  ✓    4 [chromium] › tests/broadcast-rerender.spec.js:232:3 › INV-6 builder discard warning › E) cutting a field with a crew draft warns naming the count, confirm discards (6.0s)
+  ✓    5 [chromium] › tests/broadcast-rerender.spec.js:277:3 › INV-6 builder discard warning › F) cutting a field with NO drafts surfaces no warning (4.0s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:16:26.854494625-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"827fa158-c4c5-4fdf-895e-545a04475d95","device_id":"e7cb704d-f950-487a-88ee-57f6d40fc653","lamport_ts":20}
+  ✓    6 [chromium] › tests/broadcast-rerender.spec.js:307:3 › INV-6 builder discard warning › G) dropping today from the schedule with a crew draft warns naming the count (6.3s)
+  ✓    7 [chromium] › tests/db-isolation.spec.js:43:3 › E2E database isolation (B-76) › the e2e database carries nothing over from the previous invocation (242ms)
+  ✓    8 [chromium] › tests/grant-enforcement-parity.spec.js:270:3 › Grant-enforcement parity › PARITY-EQ: every SeedHQApps slug is enforced by a RequirePermission mount or recorded N/A-with-reason (12ms)
+  ✓    9 [chromium] › tests/grant-enforcement-parity.spec.js:307:3 › Grant-enforcement parity › PARITY-NA-FRESH: N/A placeholder slugs still have no routes in main.go (7ms)
+  ✓   10 [chromium] › tests/grant-enforcement-parity.spec.js:321:5 › Grant-enforcement parity › WITHOUT operations: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe (1.5s)
+  ✓   11 [chromium] › tests/grant-enforcement-parity.spec.js:359:5 › Grant-enforcement parity › WITH operations: the same probes serve 200 once the user holds the operations grant (2.1s)
+  ✓   12 [chromium] › tests/grant-enforcement-parity.spec.js:321:5 › Grant-enforcement parity › WITHOUT inventory: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe (1.6s)
+  ✓   13 [chromium] › tests/grant-enforcement-parity.spec.js:359:5 › Grant-enforcement parity › WITH inventory: the same probes serve 200 once the user holds the inventory grant (1.5s)
+  ✓   14 [chromium] › tests/grant-enforcement-parity.spec.js:321:5 › Grant-enforcement parity › WITHOUT purchasing: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe (1.4s)
+  ✓   15 [chromium] › tests/grant-enforcement-parity.spec.js:359:5 › Grant-enforcement parity › WITH purchasing: the same probes serve 200 once the user holds the purchasing grant (1.4s)
+  ✓   16 [chromium] › tests/grant-enforcement-parity.spec.js:321:5 › Grant-enforcement parity › WITHOUT onboarding: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe (1.3s)
+  ✓   17 [chromium] › tests/grant-enforcement-parity.spec.js:359:5 › Grant-enforcement parity › WITH onboarding: the same probes serve 200 once the user holds the onboarding grant (1.8s)
+  ✓   18 [chromium] › tests/grant-enforcement-parity.spec.js:321:5 › Grant-enforcement parity › WITHOUT users: ungranted admin gets 403 {forbidden, missing_grant} on every data probe (1.4s)
+  ✓   19 [chromium] › tests/grant-enforcement-parity.spec.js:359:5 › Grant-enforcement parity › WITH users: the same probes serve 200 once the user holds the users grant (1.5s)
+  ✓   20 [chromium] › tests/grant-enforcement-parity.spec.js:386:3 › Grant-enforcement parity › AXIS: users grant on a team_member does NOT open the admin-only users list (1.5s)
+  ✓   21 [chromium] › tests/grant-enforcement-parity.spec.js:413:3 › Grant-enforcement parity › EXCEPTION notification-preference: self access needs NO users grant (admin-or-self contract) (1.4s)
+  ✓   22 [chromium] › tests/health-banner.spec.js:28:3 › Server-health banners › a healthy server shows nothing at all (611ms)
+  ✓   23 [chromium] › tests/health-banner.spec.js:34:3 › Server-health banners › an unreachable server is SAID, not swallowed (490ms)
+  ✓   24 [chromium] › tests/health-banner.spec.js:44:3 › Server-health banners › unreachable storage names the consequence, not the subsystem (463ms)
+  ✓   25 [chromium] › tests/health-banner.spec.js:50:3 › Server-health banners › a failing Toast sync is surfaced — it used to be in health and shown nowhere (510ms)
+  ✓   26 [chromium] › tests/health-banner.spec.js:56:3 › Server-health banners › an unreachable sync substrate is surfaced (592ms)
+  ✓   27 [chromium] › tests/health-banner.spec.js:62:3 › Server-health banners › "unconfigured" is silence, not a warning (475ms)
+  ✓   28 [chromium] › tests/health-banner.spec.js:70:3 › Server-health banners › the admin prompt appears ONCE however many warnings, and carries a diagnostic (960ms)
+  ✓   29 [chromium] › tests/health-banner.spec.js:83:3 › Server-health banners › the health fetch bypasses the service-worker cache (498ms)
+  ✓   30 [chromium] › tests/health-banner.spec.js:102:3 › Server-health banners › a banner clears without a reload once the server recovers (667ms)
+  ✓   31 [chromium] › tests/health-banner.spec.js:119:3 › Server-health banners › each tool page warns only about what its user can act on (776ms)
+  ✓   32 [chromium] › tests/index.spec.js:14:1 › index.html shows user display name after login (575ms)
+  ✓   33 [chromium] › tests/index.spec.js:23:1 › logout button redirects to login.html (608ms)
+  ✓   34 [chromium] › tests/index.spec.js:35:1 › superadmin sees all tiles after restricted user logged out (2.1s)
+  ✓   35 [chromium] › tests/index.spec.js:101:1 › onboarding badge only shows when user has incomplete trainings (1.6s)
+  ✓   36 [chromium] › tests/index.spec.js:136:1 › onboarding badge does not reappear after visiting onboarding and returning (3.4s)
+  ✓   37 [chromium] › tests/index.spec.js:169:1 › after logout, visiting index.html redirects to login.html (session cleared) (752ms)
+  ✓   38 [chromium] › tests/index.spec.js:211:1 › logout deletes api-cache so the next user is not served the previous one (671ms)
+  ✓   39 [chromium] › tests/index.spec.js:245:1 › B-10: logout awaits the device purge before redirecting (the await is honored) (3.6s)
+  ✓   40 [chromium] › tests/index.spec.js:297:1 › checkAuth evicts cached /api/v1/me responses instead of trusting them (631ms)
+  ✓   41 [chromium] › tests/index.spec.js:327:1 › the /api/v1/me identity probe is cache-busted so api-cache cannot answer it (505ms)
+  ✓   42 [chromium] › tests/index.spec.js:430:1 › a second user signing in never inherits the previous user cached tile list [B1-XT-03] (1.2s)
+[B1-XT-06] device state after signIn(): {"names":[],"identity":null,"apiKeys":[],"apps":null}
+  ✓   43 [chromium] › tests/index.spec.js:493:1 › login.html signIn() purges the previous user device state before the redirect lands [B1-XT-06] (392ms)
+[B1-XT-07] device state after acceptInvite(): {"names":[],"identity":null,"apiKeys":[],"apps":null}
+  ✓   44 [chromium] › tests/index.spec.js:524:1 › login.html acceptInvite() purges the previous user device state before the redirect lands [B1-XT-07] (1.3s)
+[B1-XT-08] device state after same-user re-login: {"names":["hq-identity","api-cache"],"identity":"e4231364-caab-4d3a-ab44-b538f32f1266","apiKeys":["http://localhost:8511/api/v1/users?__hq_id=e4231364-caab-4d3a-ab44-b538f32f1266"],"apps":"{\"uid\":\"e4231364-caab-4d3a-ab44-b538f32f1266\",\"apps\":[{\"slug\":\"users\",\"name\":\"Users\",\"icon\":\"👥\"}]}"}
+  ✓   45 [chromium] › tests/index.spec.js:564:1 › the same crew member re-authenticating keeps their offline dataset [B1-XT-08] (686ms)
+  ✓   46 [chromium] › tests/index.spec.js:602:1 › the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04] (2.6s)
+  ✓   47 [chromium] › tests/index.spec.js:663:1 › inventory tile shows a Needs Attention badge and the description lists every hub fact (661ms)
+  ✓   48 [chromium] › tests/index.spec.js:676:1 › inventory tile shows no badge and its own description when nothing needs attention (1.4s)
+  ✓   49 [chromium] › tests/index.spec.js:687:1 › inventory tile badge appears for any single hub fact, and the description lists only those present (670ms)
+  ✓   50 [chromium] › tests/index.spec.js:696:1 › a failed status call drops only its own fact from the inventory tile (569ms)
+  ✓   51 [chromium] › tests/index.spec.js:705:1 › no inventory status call is made for a user without the inventory grant (1.4s)
+  ✓   52 [chromium] › tests/inventory.spec.js:133:3 › Inventory › the hub lists 4 rows: Receipts, Stock, Recipes, Setup — no Menu, no Trends, no Cost (1.2s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:25.591638706-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadVendors Failed to fetch\nTypeError: Failed to fetch","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/inventory.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   53 [chromium] › tests/inventory.spec.js:147:3 › Inventory › legacy #tab=5 and #tab=6 deep links redirect to the matching bi.html section (1.6s)
+  ✓   54 [chromium] › tests/inventory.spec.js:156:3 › Inventory › the pending count is the Receipts row badge, and the row stays one line at phone width (1.2s)
+  ✓   55 [chromium] › tests/inventory.spec.js:171:3 › Inventory › legacy #tab=3 (the old Menu tab) lands on Recipes › By dish (1.8s)
+  ✓   56 [chromium] › tests/inventory.spec.js:183:3 › Inventory › a bare /inventory.html lands on the hub; #tab=1 opens Receipts (1.8s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:31.459795507-04:00","level":"ERROR","msg":"ListRecipes","error":"context canceled"}
+  ✓   57 [chromium] › tests/inventory.spec.js:199:3 › Inventory › Recipes tab activates on #tab=4 hash (1.7s)
+  ✓   58 [chromium] › tests/inventory.spec.js:214:3 › Inventory › Recipes tab loads /api/v1/inventory/recipes and /api/v1/inventory/recipes/drift (1.1s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:33.692441188-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"timeout: context already done: context canceled"}
+  ✓   59 [chromium] › tests/inventory.spec.js:227:3 › Inventory › Recipes tab shows empty state when no ingredients (1.4s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:35.451571174-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   60 [chromium] › tests/inventory.spec.js:233:3 › Inventory › menu-item picker uses YYYY-MM-DD since format (contract + source) (1.4s)
+  ✓   61 [chromium] › tests/inventory.spec.js:269:3 › Inventory › tapping a menu item name triggers renderRecipeSummary (1.8s)
+  ✓   62 [chromium] › tests/inventory.spec.js:320:3 › Inventory › tapping a dish in Recipes › By dish selects it in the summary card (1.7s)
+  ✓   63 [chromium] › tests/inventory.spec.js:354:3 › Inventory › Setup tab (now tab 7) renders catalog content when activated (1.3s)
+  ✓   64 [chromium] › tests/inventory.spec.js:377:3 › Inventory › Purchases tab loads purchase events from API (1.1s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:42.65001221-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   65 [chromium] › tests/inventory.spec.js:387:3 › Inventory › Purchases tab shows empty state when no purchases exist (1.2s)
+  ✓   66 [chromium] › tests/inventory.spec.js:398:3 › Inventory › vendor filter dropdown is present with All Vendors default (1.2s)
+  ✓   67 [chromium] › tests/inventory.spec.js:405:3 › Inventory › each event card shows vendor name and total (1.1s)
+  ✓   68 [chromium] › tests/inventory.spec.js:415:3 › Inventory › tapping an event card expands line items (1.2s)
+  ✓   69 [chromium] › tests/inventory.spec.js:428:3 › Inventory › vendor filter has options from API (1.1s)
+  ✓   70 [chromium] › tests/inventory.spec.js:440:3 › Inventory › selecting a vendor filters history events (1.2s)
+  ✓   71 [chromium] › tests/inventory.spec.js:466:3 › Inventory › selecting All Vendors resets filter (1.2s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:50.967013456-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   72 [chromium] › tests/inventory.spec.js:485:3 › Inventory › Stock tab loads stock levels from API (1.3s)
+  ✓   73 [chromium] › tests/inventory.spec.js:495:3 › Inventory › Stock tab groups items by tag category (1.2s)
+  ✓   74 [chromium] › tests/inventory.spec.js:506:3 › Inventory › stock item badges are right-aligned in a single container (1.3s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:17:55.080616674-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   75 [chromium] › tests/inventory.spec.js:523:3 › Inventory › tapping tag header collapses and expands section (1.6s)
+  ✓   76 [chromium] › tests/inventory.spec.js:543:3 › Inventory › tapping stock item expands detail with purchase info (1.4s)
+  ✓   77 [chromium] › tests/inventory.spec.js:557:3 › Inventory › reorder suggestions section shows Low/Medium items if any exist (1.4s)
+  ✓   78 [chromium] › tests/inventory.spec.js:569:3 › Inventory › Override Level button shows override form (1.4s)
+  ✓   79 [chromium] › tests/inventory.spec.js:586:3 › Inventory › Trends renders the spend-by-group surface on bi.html (1.3s)
+  ✓   80 [chromium] › tests/inventory.spec.js:594:3 › Inventory › Food cost renders the cost surface on bi.html (1.1s)
+  ✓   81 [chromium] › tests/inventory.spec.js:604:3 › Inventory › By dish renders empty state when API returns [] (1.5s)
+  ✓   82 [chromium] › tests/inventory.spec.js:622:3 › Inventory › By dish renders rows when API returns data (1.6s)
+  ✓   83 [chromium] › tests/inventory.spec.js:655:3 › Inventory › pending review items show Needs Review badge (1.3s)
+  ✓   84 [chromium] › tests/inventory.spec.js:690:3 › Inventory › tapping pending card opens review form (1.3s)
+  ✓   85 [chromium] › tests/inventory.spec.js:696:3 › Inventory › review form has confirm and discard buttons (1.4s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:18:10.308248269-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+  ✓   86 [chromium] › tests/inventory.spec.js:702:3 › Inventory › review form shows pre-filled vendor and date fields (1.4s)
+  ✓   87 [chromium] › tests/inventory.spec.js:708:3 › Inventory › review form allows adding a new line item (1.4s)
+  ✓   88 [chromium] › tests/inventory.spec.js:716:3 › Inventory › All caught up shows when no pending items in review queue (1.1s)
+  ✓   89 [chromium] › tests/inventory.spec.js:750:3 › Inventory › double-tapping a line price negates it and flips back (2.0s)
+  ✓   90 [chromium] › tests/inventory.spec.js:761:3 › Inventory › a negated line price makes a refund receipt balance (1.3s)
+  ✓   91 [chromium] › tests/inventory.spec.js:779:3 › Inventory › a negative line total renders as -$X.XX, not $-X.XX (1.3s)
+  ✓   92 [chromium] › tests/inventory.spec.js:786:3 › Inventory › tapping the Review Receipt title collapses the form back to the card (1.5s)
+  ✓   93 [chromium] › tests/inventory.spec.js:797:3 › Inventory › edits survive collapsing and reopening the review form (1.5s)
+  ✓   94 [chromium] › tests/inventory.spec.js:808:3 › Inventory › a negative line price round-trips through confirm and persists (1.2s)
+[2m[WebServer] [22m{"time":"2026-10-01T19:18:23.38679213-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   95 [chromium] › tests/inventory.spec.js:841:3 › Inventory › a malformed price never reads as $0.00 or as a matching total (2.0s)
+  ✓   96 [chromium] › tests/inventory.spec.js:866:3 › Inventory › a malformed price survives re-render as typed, not as "NaN" (1.5s)
+  ✓   97 [chromium] › tests/inventory.spec.js:876:3 › Inventory › tapping a number box selects it so the next keystroke replaces the value (1.4s)
+  ✓   98 [chromium] › tests/inventory.spec.js:890:3 › Inventory › the review Date field is boxed and aligned like the Vendor field (1.3s)
+  ✓   99 [chromium] › tests/inventory.spec.js:908:3 › Inventory › Deep Sync date inputs line up with the Cancel/Run buttons below them (1.3s)
+  ✘  100 [chromium] › tests/inventory.spec.js:949:3 › Inventory › a parse failure states its cause instead of only that it failed (6.2s)
+  ✘  101 [chromium] › tests/inventory.spec.js:955:3 › Inventory › a parse failure with no recorded cause says so rather than standing bare (6.3s)
+  ✘  102 [chromium] › tests/inventory.spec.js:961:3 › Inventory › Retry parse is offered on a pending row with no parse_error and no items (6.4s)
+  ✘  103 [chromium] › tests/inventory.spec.js:969:3 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth (6.5s)
