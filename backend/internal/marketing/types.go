@@ -39,9 +39,14 @@ type moneyDTO struct {
 	NetCents      int      `json:"net_cents"`
 	PerDollar     *float64 `json:"per_dollar"`
 
-	// Detail-route-only additions (§5 row 3). Null for the same reason.
-	AvgOrderCentsWith    *int `json:"avg_order_cents_with,omitempty"`
-	AvgOrderCentsWithout *int `json:"avg_order_cents_without,omitempty"`
+	// §5 row 3's two detail-route fields. Null for the same reason, and
+	// WITHOUT omitempty: a nil pointer with omitempty vanishes from the JSON
+	// entirely, and H2 cannot tell "this endpoint has no opinion" from "this
+	// key does not exist". One money shape on every route — which is also what
+	// decision 190's "the same per-row rule on every slice" asks for — so the
+	// list rows carry these as null too.
+	AvgOrderCentsWith    *int `json:"avg_order_cents_with"`
+	AvgOrderCentsWithout *int `json:"avg_order_cents_without"`
 }
 
 // zeroMoney is the H3b placeholder, in one place so the list and detail routes

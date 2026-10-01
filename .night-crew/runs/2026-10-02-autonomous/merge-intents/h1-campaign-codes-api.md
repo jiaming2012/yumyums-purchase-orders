@@ -117,6 +117,47 @@ gated block. Named here so the orchestrator can see all of them at merge:
   whole Campaigns tab, so every handler `Mount` registers — `GET` included — answers a
   `team_member` with `403 managers_only`.
 
+## The exact shipped JSON shape (so H2 does not re-derive it)
+
+`POST /api/v1/marketing/campaigns` → `201`. Printed from a real run; `GET /campaigns` rows and
+`GET /campaigns/{id}` carry the same `campaign` object.
+
+```json
+{
+  "campaign": {
+    "id": "…", "slug": "shape-probe", "name": "Shape Probe",
+    "offer_text": "$2 off any 6pc wings", "face_value_cents": 200,
+    "requires_online": false, "landing": "signup", "status": "live",
+    "starts_at": "…", "ends_at": "…", "projected_at": null,
+    "item": {"id": "…", "name": "Six Piece Wings"},
+    "funnel": {"scans": 0, "signups": 0, "redeemed": 0},
+    "money": {"revenue_cents": 0, "discount_cents": 0, "discount_basis": "implied",
+              "net_cents": 0, "per_dollar": null,
+              "avg_order_cents_with": null, "avg_order_cents_without": null},
+    "codes": [{"id": "…", "short": "55YS6V", "campaign_id": "…", "channel": "flyer",
+               "channel_label": null, "item_id": "…", "placement": "Counter",
+               "variant": null, "landing": null, "active": true, "v": 1,
+               "scans": 0, "signups": 0,
+               "payload_url": "https://hq.yumyums.kitchen/q/55YS6V",
+               "png_url": "/api/v1/marketing/codes/…png"}]
+  },
+  "codes": [ …the same array… ],
+  "warnings": ["not_projected"]
+}
+```
+
+Three notes for H2:
+
+- `codes` appears BOTH inside `campaign` and at the top level. §5 specifies the top-level array
+  on the create route and an in-row `codes` array on the list route; shipping both means H2 can
+  read whichever it already has in hand. Redundant on purpose, not an oversight.
+- `payload_url` and `png_url` are derived fields this card added beyond §5, so the create sheet
+  can render the payload preview and the code sheet can fetch the PNG without rebuilding the
+  host client-side.
+- `money.avg_order_cents_*` deliberately carry **`null`, not omitted** (no `omitempty`): a nil
+  pointer with `omitempty` vanishes from the JSON entirely and H2 could not tell "no opinion"
+  from "no such key". One money shape on every route.
+
 ## Red-first
 
 The red is **structural**, exactly as the slate predicted: the five done_when tests reference a
