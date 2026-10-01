@@ -1,0 +1,17 @@
+# PROJECTION CONFIGURED-PATH LEG — the Go port of spike 02, run for real.
+# Target: compose project spike-supabase (LOCAL throwaway), docker-compose.supabase.yml.
+# NOT :5433 (dev AND production), NOT :5434 (the Go test cluster), NOT a hosted project.
+# resolved rest port: 52932
+# minted a service_role JWT with the committed throwaway secret (len 181)
+# HQ_SYNC_REST_URL=http://127.0.0.1:52932
+
+2026/10/01 19:02:07 goose: no migrations to run. current version: 83
+2026/10/01 19:02:07 INFO database migrations applied successfully
+=== RUN   TestProjectionConfiguredUpsertsToSubstrate
+    projection_test.go:193: LIVE projection OK: a1000000-0000-4000-8000-727112711808 -> campaigns{name="H1 Go projection 711808", face_value=40, requires_online=true} via http://127.0.0.1:52932
+    projection_test.go:175: cleanup: deleted projected row a1000000-0000-4000-8000-727112711808 (status 204)
+--- PASS: TestProjectionConfiguredUpsertsToSubstrate (0.07s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	0.114s
+GO_TEST_EXIT=0
+EXIT=0

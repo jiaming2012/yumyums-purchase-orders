@@ -1,0 +1,20 @@
+# ROUTE-REACHABILITY PROOF — the public landing through the REAL server router,
+#   not the test mux. Proves /q/{short} is mounted at the root, outside auth, and
+#   is NOT shadowed by main.go's "/*" static handler.
+# DB_URL points at the TEST cluster on :5434 (NEVER :5433).
+## health
+GET /api/v1/health -> 200
+## unknown short (expect 404, served by the landing handler and not the SPA fallback)
+GET /q/ZZZZZZ -> 404  bytes=19
+404 page not found
+
+## the gated admin route with NO session (expect 401 from auth.Middleware — proves it IS gated)
+GET /api/v1/marketing/campaigns -> 401
+## the BI reports seam is a no-op: nothing is registered, so the static SPA fallback answers
+GET /api/v1/bi/campaigns/overview -> 404
+## the static handler still works (the landing route did not shadow it)
+GET /index.html -> 301
+## startup line for the unconfigured projection (fail-loud at boot)
+{"time":"2026-10-01T19:06:42.780138456-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+# server stopped
+EXIT=0

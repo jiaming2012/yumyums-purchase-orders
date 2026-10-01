@@ -123,7 +123,7 @@ The red is **structural**, exactly as the slate predicted: the five done_when te
 package that has no non-test source on the base tree. Captured BEFORE any implementation file
 existed, at
 `.night-crew/runs/2026-10-02-autonomous/logs/h1/RF-red-first.log`
-(commit `<tests commit>`; the log is committed in the same change set).
+(commit `e922faa`; the log is committed in the same change set).
 
 Observed, from `backend/` with `PATH=/usr/local/go/bin:$PATH` and
 `DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_h1?sslmode=disable`:
@@ -155,4 +155,55 @@ Note the honest asymmetry in that log: **`go build ./...` exits 0** on the red t
 source at all. The red is at `go vet` and `go test`, and that is where it is claimed. Naming
 `go build` as the red would have been wrong.
 
-Green-after is recorded in `logs/h1/G2-go.log` (counts, not `ok`).
+Green-after: all five pass in `logs/h1/G2-go.log` — `internal/marketing` 24 top-level tests,
+0 FAIL, 1 SKIP (the opt-in live projection leg, which is run separately and recorded below).
+
+## Gate evidence (all logs under `.night-crew/runs/2026-10-02-autonomous/logs/h1/`)
+
+| Gate | Command | Result | Log |
+|---|---|---|---|
+| G1 | `go build ./...` + `go vet ./...` from `backend/` | both `EXIT=0` | `G1-build-vet.log` |
+| G2 (Go) | `go test -p 1 -count=1 -v ./...`, `DB_TEST_URL` set to `:5434/hq_test_go_h1`, `HQ_RLS_TEST_DB=hq_rls_h1_20261002` | `GO_TEST_EXIT=0`; 14/14 packages `ok`; **649 RUN / 646 PASS / 0 FAIL / 3 SKIP**; `internal/workflow` 39 top-level tests, `internal/sync` 53 + 111 subtests (so `DB_TEST_URL` was honored, not silently skipped). `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both UNSET — asserted in the log's own env-check line. The 3 skips are the two `internal/sync` `HQ_SYNC_SPIKE_LIVE` proofs and this card's own opt-in projection leg. | `G2-go.log` |
+| G2 (Playwright) | full suite under `flock /tmp/hq-full-suite.lock`, `npx bddgen` first, `--retries=0`, `TEST_PORT=8511`, `TEST_DB_NAME=hq_test_e2e_h1_20261002`, `DB_PORT=5434` | see `G2-playwright.log` | `G2-playwright.log` |
+| G4 | `node build-sw.js` twice, after the implementation commits (it reads git HEAD) | both runs `EXIT=0`, identical output, **48 files precached** — unchanged, as expected for a card that adds no frontend asset. `sw.js` is not even modified in `git status`, so the committed artifact already matches HEAD. | `G4-sw.log` |
+| RF | the structural red above | `VET_EXIT=1`, `TEST_EXIT=1` (`[build failed]`, `undefined: Deps`) | `RF-red-first.log` |
+
+### The projection CONFIGURED path — proven, not stubbed
+
+`TestProjectionConfiguredUpsertsToSubstrate` ran for real against the LOCAL `spike-supabase`
+substrate (compose project `spike-supabase`, REST resolved to `http://127.0.0.1:52932` from
+`docker compose port rest 3000`; service-role JWT minted with the committed throwaway secret via
+`.night-crew/qa/spike-supabase/mintjwt`, exactly as spike 02 does). Log:
+`projection-configured-live.log`.
+
+```
+--- PASS: TestProjectionConfiguredUpsertsToSubstrate (0.07s)
+    LIVE projection OK: a1000000-0000-4000-8000-727112711808 ->
+      campaigns{name="H1 Go projection 711808", face_value=40, requires_online=true}
+      via http://127.0.0.1:52932
+    cleanup: deleted projected row a1000000-0000-4000-8000-727112711808 (status 204)
+GO_TEST_EXIT=0
+```
+
+Production code (`ProjectCampaign`) did the write; the test did its own independent PostgREST
+`GET` to read it back, then re-projected the same id to prove the `merge-duplicates` UPDATE leg,
+then deleted only the row it had created. It touched no existing fixture. Not `:5433`, not
+`:5434`, not a hosted project.
+
+### Route reachability on the REAL server router
+
+`route-reachability.log` — `go run ./cmd/server` against the test cluster on `:5434`:
+
+```
+GET /api/v1/health                   -> 200
+GET /q/ZZZZZZ                        -> 404  bytes=19   ("404 page not found")
+GET /api/v1/marketing/campaigns      -> 401             (gated: no session)
+GET /api/v1/bi/campaigns/overview    -> 404             (the seam registers nothing — correct)
+GET /index.html                      -> 301             (static handler still works)
+startup: "marketing campaign projection not configured; campaigns will save with
+          projected_at NULL and warnings:[\"not_projected\"]"
+```
+
+The 19-byte 404 body is the proof that matters: the LANDING handler answered `/q/ZZZZZZ`, not
+`main.go`'s `"/*"` static fallback, which would have served `index.html` instead. The route is
+mounted at the root, outside every gate, and does not shadow the static handler.

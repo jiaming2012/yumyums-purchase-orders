@@ -1,0 +1,5 @@
+# G2 (Playwright) FULL suite — tree afeceed  2026-10-01T19:05:16-04:00
+# TEST_PORT=8511  TEST_DB_NAME=hq_test_e2e_h1_20261002  DB_PORT=5434 (TEST cluster; NEVER 5433)
+# npx bddgen runs FIRST — without it the bdd project resolves to zero spec files
+#   and the suite reports success (B-09).
+# waiting on /tmp/hq-full-suite.lock (the base-reds leg held it at queue time)
