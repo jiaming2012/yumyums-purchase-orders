@@ -4360,3 +4360,65 @@ tile still said Soon now opens the two reports; the migration preserves those ro
 nothing audits them, so the Access list for `bi` is worth one look before deploy. (b) **0082's
 Down is a rollback only together with the pre-WO-2b code**: on current code it re-enables two
 rows that gate nothing.
+
+### T-60 — Attended sitting: Marketing tabs designed, Activity H authored (2026-10-01)
+
+The operator asked for designs for the Campaigns, Subscribers and Stats tabs of the Marketing
+app, iterated on them in the attended session (decline-with-note on the reconciliation queue;
+implied discount beside every revenue figure; discount on the by-item slice; a "current state"
+page per tab after the exploration canvases proved confusing), then asked for a handle and for
+the whole thing to go to night-crew in one shot. Design of record: Claude Design project
+*Yumyums HQ Marketing* — https://claude.ai/design/p/a8ffc065-b005-4020-bc6a-f42dc7e8f0e3 (the
+three **Current** pages are the proposal; the other canvases are history). Spec:
+`docs/handoffs/HANDOFF-marketing-campaigns-subscribers-stats.md`. Handle: **B-458**. Roadmap:
+**Activity H** (six cards, H1–H6). Absorbs Activity F's `reconciliation-view`; supersedes
+`smtp-toast-ingest`; folds in B-424, B-436, B-440, B-446, B-447 (flipped to promoted).
+
+Engineering calls made and stated here rather than carried (all revisable at the first
+morning triage that finds them wrong):
+
+**Decision 187 — campaign admin lives in HQ Go + HQ Postgres; the Supabase `campaigns` row is
+a projection.** `campaigns_admin`, `qr_codes`, `qr_scans`, `subscribers`, `toast_orders`,
+`reconciliation_decisions` and a `scan_attempts_mirror` are HQ tables (migrations 0083+); the
+create handler upserts the four tablet columns to Supabase over PostgREST with the service key.
+Fail-loud: unconfigured or failed projection leaves `projected_at NULL` and the UI shows "not
+on tablets yet". Closes handoff §14 #11's campaign-admin half; R2 (redemption orchestrated in
+HQ Go, Supabase the sole arbiter) is untouched.
+
+**Decision 188 — reconciliation joins `OrderDetails.csv` from the Toast SFTP export HQ already
+syncs (Phase 22), not an SMTP mailbox.** The export directory HQ reads per business date is
+Toast's standard daily export; `OrderDetails.csv` carries `Order #`, `Opened`, `Discount
+Amount`, `Amount`, `Total`, `Voided`. Card H3's first act is a read-only listing of the remote
+date directory; if the file is absent the card lands the engine on a fixture loader and
+`smtp-toast-ingest` returns to PLANNED. Stated as an assumption with its check, not a fact.
+
+**Decision 189 — the campaign-QR payload is a short URL, record server-side; channel is a
+fixed enum; attribution is first-touch.** `hq.yumyums.kitchen/q/<6 chars, no 0/O/1/I>` →
+`qr_codes` row with `campaign_id, channel, item_id, placement, variant, landing, active, v`.
+Re-pointable after printing. The forwarded landing carries the same fields as UTM parameters.
+A subscriber's `source_short` is the first code they scanned; redemptions inherit its channel
+and item.
+
+**Decision 190 — discount is implied (face value × accepted redemptions) until Toast's
+discount column makes it actual; both render when they differ. Net = revenue − discount;
+"Per $1" = revenue ÷ discount. Declined attempts still count in the orphan rate, except reason
+`duplicate_scan`.** The operator asked for the implied discount beside every revenue figure
+and on the by-item slice; "explained, not excused" keeps the orphan rate honest.
+
+**Decision 191 — B-436 fails closed.** A device that cannot construct a campaign policy
+source gets no offline override for any code, uniform with the source's own predicate;
+`campaigns-harness.mjs` leg 3's negative assertion moves with it. The refusal is armed on real
+data now (requires-online-replication, refusal-holds-before-sync); the no-source device was
+the last door through which a `requires_online` code could burn offline.
+
+Operator forks deliberately **not** taken (defaults chosen so the night is not blocked; each
+changes what a customer sees, so each is the operator's to flip): the campaign QR's landing
+(signup form, default) vs the menu; one item per code (default) vs several; "Resend QR" shipped
+as a recorded request, not a send; net after food cost out of scope (BI's per-dish COGS makes
+it a one-card follow-up).
+
+Backlog state at this sitting: `night-crew backlog check` reports 3 pre-existing issues — two on
+B-156 (a `lead (as filed):` status token and a missing plain-language lead) and one on B-455 (the
+`approved-direction` status from the attended BI work, T-59) — that this sitting did not introduce
+and did not touch; the check ran before and after the B-458 entry and the five status flips and
+the count stayed at 3 (252 → 253 entries).
