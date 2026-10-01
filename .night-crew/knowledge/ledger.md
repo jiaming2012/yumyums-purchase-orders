@@ -4450,3 +4450,38 @@ handshake being closed by AWS Transfer. **Decision 188 CONFIRMED** by read-only 
 activity-name reason, so the records were shape-checked by hand against the skill's five fields.
 Handoff and roadmap updated for the signed corrections. **Next:** `/nc-slate-plan Activity H
 --night 10h` in a fresh session — every gate it reads is now on disk.
+
+### T-61 — Slate sitting: Activity H slated (slate-20261002); Stats re-homed (2026-10-01)
+
+`/nc-slate-plan Activity H --night 10h`, second attempt (the first stopped at the spike gate,
+T-60 addendum). Gates: PRD gate exit 0 (7 PRDs — all from the previous cycle, recorded as such);
+workflow preflight `openspec: absent`, `gsd: detected`; spike gate verb still cannot resolve a
+product-mode activity (exit 1, both with and without `--repo`) — substance verified by hand from
+the six goal ledgers: 11 passed, 1 recorded skip (`campaigns-tab-ui/web-share-files-enumerated`),
+3 signed corrections; agreement check `okr compare-slate --expect-cards 7` exit 0, zero cards
+named by both documents (the goal page names surfaces, not cards). Run id `20261002`, no branch
+collision, no unmerged run branch. Dispatch: **concurrent, three tracks after a solo Wave 0**
+(operator's pick at the §2b.3 question; serial would have fit five of seven cards).
+
+**Split made (split-before-slating):** `toast-orders-and-reconciliation` → `toast-orders-and-mirror`
+(H3a) + `reconciliation-and-stats-engine` (H3b), both children of the same goal ledger.
+
+**Decision 192 — campaign REPORTS live in BI; the reconciliation QUEUE stays in Marketing.**
+Operator fork, raised by the operator at sign-off ("the stats tab is technically a report not
+requiring any inputs") and decided by them: the Stats overview, funnel, money and the three
+slices (by campaign / channel / item, drill-ins) render as a third row on the BI hub (`bi.html`),
+behind the `bi` app grant like Trends and Food cost — so **anyone holding the BI grant can see
+campaign money**, not only Marketing managers. The reconciliation queue (overrides → orphans →
+unmatched, match / decline-with-note / reopen / verify / reject, the declined bucket) and its
+health card with the orphan rate stay as the Marketing page's fourth tab, manager-only — they are
+writes, not a report. P-KR3 and Q-KR2 keep their measuring surface (`marketing.html`).
+Engineering calls stated: the engine's report reads are mounted twice — `/api/v1/marketing/stats/*`
+(marketing grant + manager tier) and `/api/v1/bi/campaigns/{overview,by}` (`bi` grant) — through a
+`marketing.MountReports(r)` seam H1 lands as a no-op in the BI route block so H3b never touches
+`main.go`; one module `marketing/stats.js` serves both pages (precache still +1);
+`tests/states-bi-hub.spec.js` moves from asserting 2 hub rows to 3. The two alternatives
+(everything to BI including the queue — would have required amending the goal page; keep as
+designed) were presented and declined. Design of record for the BI row: *Current Stats 1–5*
+(overview + slices) rendered in BI's hub-row idiom; the queue screens (*Current Stats 6–8*) in
+Marketing. Handoff spec §2/§3/§5/§6, roadmap H1/H3b/H4 and the slate updated in the same commit.
+

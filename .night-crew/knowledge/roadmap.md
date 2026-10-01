@@ -656,7 +656,15 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > Q-KR2 (overrides auditable, reconciled first) are graded against `marketing.html` and have no
 > surface until this lands. Absorbs Activity F's `reconciliation-view`, supersedes
 > `smtp-toast-ingest` (decision 188), and folds in B-424, B-436, B-440, B-446, B-447.
-> **Dispatch:** five parallel tracks (H1 ∥ H2 ∥ H3 ∥ H4 ∥ H5), H6 serial after H3.
+> **Decision 192 (operator, slate sitting 2026-10-01):** the Stats REPORTS live on the BI hub behind
+> the `bi` grant; the reconciliation QUEUE stays as Marketing's fourth tab. See H4 / H3b / H1.
+> **Dispatch (as slated 2026-10-01, slate-20261002):** H1 alone first (Wave 0 — it creates the
+> `backend/internal/marketing/` package, migration 0083 and the `qr_codes(short)` key that 0085
+> references), then three concurrent tracks — B: H2 → H4 · C: H3a → H3b → H6 · E: H5 — with H4
+> starting only once H3b has landed (it switches from fixtures to the real stats endpoints before
+> its final gate). **H3 was split at the slate sitting** (split-before-slating rule): `toast-orders-and-mirror`
+> (H3a — ingest + mirror + migration 0084 + B-424) and `reconciliation-and-stats-engine` (H3b — the
+> engine and its endpoints). Both are children of the `toast-orders-and-reconciliation` goal ledger.
 
 - **`campaign-codes-api`** · **PLANNED** · (H1, track A — backend) Campaign admin in HQ Go +
   Postgres (decision 187): migration `0083_campaigns_admin` (`campaigns_admin`, `qr_codes`,
@@ -671,7 +679,9 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `TestProjectionUnconfiguredLeavesProjectedAtNull`, `TestTeamMemberGets403ManagersOnly` red on
   the pre-change tree, green after; Go suite counts checked. Footprint: `backend/internal/marketing/`
   (new), migration 0083, `backend/cmd/server/main.go` (undeclared seam → full Playwright suite),
-  `go.mod`.
+  `go.mod`. Also lands the no-op `marketing.MountReports(r)` seam inside the BI
+  route block (`RequirePermission(pool,"bi")`) so H3b's report reads mount there without touching
+  `main.go` again (decision 192).
 
 - **`campaigns-tab-ui`** · **PLANNED** · (H2, track B — UI) The Campaigns section of
   `marketing.html` per Current Campaigns 1–8: list as funnel cards with the money strip
@@ -686,33 +696,63 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing.html`, `marketing/campaigns.js` (new), `tests/marketing-campaigns.spec.js` (new),
   `tests/states-marketing-campaigns.spec.js` (new), `sw.js`, `night-crew.toml` (+seam rows).
 
-- **`toast-orders-and-reconciliation`** · **PLANNED** · (H3, track C — backend) Absorbs
-  `reconciliation-view`, supersedes `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync
-  fetches `OrderDetails.csv` beside `ItemSelectionDetails.csv` and upserts `toast_orders` keyed
-  `(business_date, order_number)` — the same report WILL arrive twice (§13); **the export was listed read-only
-  at the spike (2026-10-01): `OrderDetails.csv` is present on every recent date dir** — no fallback needed. A 5-minute keyset poller mirrors Supabase
-  `scan_attempts` into HQ (`scan_attempts_mirror`). The engine buckets attempts matched /
-  unmatched (±30 min nearest-order suggestion) / orphan, orders the queue overrides → orphans →
-  unmatched, and records `reconciliation_decisions` (match / decline-with-reason+note / reopen /
-  verify / reject). Money per campaign·channel·item with **implied → actual discount** and
-  `per_dollar` (decision 190); orphan rate counts declines except `duplicate_scan`. B-424:
-  unique index on `race_lost_notifications (code_id, losing_device, scanned_at)` and the F4
-  status bullet owned here. done_when: `TestOrderDetailsUpsertIsIdempotent`,
-  `TestQueueOrdersOverridesThenOrphansThenUnmatched`, `TestDeclineOtherRequiresNote`,
-  `TestOrphanRateCountsDeclinesExceptDuplicateScan`, `TestRaceLostNotificationDedupe` red →
-  green. Footprint: `backend/internal/toast/` (+`orderdetails.go`), `backend/internal/marketing/`
-  (`reconciliation.go`, `mirror.go`, `stats.go`), migration 0084, `backend/internal/redemption/store.go`.
+- **`toast-orders-and-mirror`** · **PLANNED** · (H3a, track C — backend; the first half of the
+  `toast-orders-and-reconciliation` goal, split at the slate sitting 2026-10-01) Supersedes
+  `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync fetches `OrderDetails.csv` beside
+  `ItemSelectionDetails.csv` and upserts `toast_orders` keyed `(business_date, order_number)` —
+  the same report WILL arrive twice (§13); **the export was listed read-only at the spike
+  (2026-10-01): `OrderDetails.csv` is present on every recent date dir** — no fallback needed;
+  `Order #` is digits only, 1–4 long, stored as text. A 5-minute keyset poller mirrors Supabase
+  `scan_attempts` into HQ (`scan_attempts_mirror`; service key; off under
+  `E2E_DISABLE_SCHEDULERS=1`). Migration `0084_toast_orders_reconciliation` lands ALL THREE
+  tables (`toast_orders`, `scan_attempts_mirror`, `reconciliation_decisions`) so H3b adds no
+  migration. B-424: unique index on `race_lost_notifications (code_id, losing_device, scanned_at)`
+  (store insert becomes `ON CONFLICT DO NOTHING`) and the F4 status bullet owned here.
+  done_when: `TestOrderDetailsUpsertIsIdempotent`, `TestScanAttemptsMirrorKeysetResumes`,
+  `TestRaceLostNotificationDedupe` red → green; Go suite counts checked. Footprint:
+  `backend/internal/toast/` (+`orderdetails.go`, `sync.go`), `backend/internal/marketing/mirror.go`,
+  migration 0084, `backend/internal/redemption/store.go`, `backend/cmd/server/main.go` (poller
+  start beside the Toast worker → undeclared seam → full Playwright suite).
 
-- **`stats-tab-ui`** · **PLANNED** · (H4, track D — UI) The Stats section per Current Stats 1–8:
-  overview (period, "N redemptions need a look" banner, funnel with revenue / discount / net
-  lines, reconciliation card with the 10% orphan line, slice links), by campaign / by channel /
-  by item with the Funnel ⇄ Money toggle and drill-ins, the reconciliation queue with the fix
+- **`reconciliation-and-stats-engine`** · **PLANNED** · (H3b, track C, serial after H3a — backend;
+  the second half of the `toast-orders-and-reconciliation` goal) Absorbs `reconciliation-view`.
+  The engine buckets attempts matched / unmatched (±30 min nearest-order suggestion) / orphan,
+  orders the queue overrides → orphans → unmatched, and records `reconciliation_decisions`
+  (match / decline-with-reason+note / reopen / verify / reject). Money per campaign·channel·item
+  with the **per-row discount rule** (decision 190 as refined: actual where matched, face value
+  where not; `discount_basis` is a label) and `per_dollar`; orphan rate counts declines except
+  `duplicate_scan`. Ships the §5 endpoints `GET /stats/overview`, `GET /stats/by`,
+  `GET /reconciliation/queue`, `POST /reconciliation/{id}/match|decline|reopen|verify|reject`,
+  `GET /reconciliation/declined`, and the `money` block on `GET /campaigns`. The report reads
+  (`overview`, `by`) are registered twice: under `/marketing/stats/*` (marketing grant + manager
+  tier) and under `/bi/campaigns/*` through H1's `MountReports` seam (`bi` grant) — decision 192.
+  done_when:
+  `TestQueueOrdersOverridesThenOrphansThenUnmatched`, `TestDeclineOtherRequiresNote`,
+  `TestOrphanRateCountsDeclinesExceptDuplicateScan`, `TestSlicesReconcileToOverview` (the
+  spike `stats-tab-ui/01-slices-reconcile` arithmetic, as a Go test) red → green. Footprint:
+  `backend/internal/marketing/` (`reconciliation.go`, `stats.go`, `routes.go`), no migration.
+
+- **`stats-tab-ui`** · **PLANNED** · (H4, track B after H2, starts once H3b has landed — UI, two
+  pages per **decision 192**) **Reports in BI:** a third `hub-row` "Campaigns" on `bi.html`
+  (behind the `bi` grant, idiom of Trends / Food cost) rendering Current Stats 1–5 — overview
+  (period, funnel with revenue / discount / net lines, "implied −$X · actual −$Y" where they
+  differ, reconciliation health card with the 10% orphan line, slice links), by campaign / by
+  channel / by item with the Funnel ⇄ Money toggle and drill-ins — from `GET /api/v1/bi/campaigns/*`.
+  **Queue in Marketing:** the fourth tab of `marketing.html` becomes the reconciliation queue
+  (Current Stats 6–8): "N redemptions need a look", overrides → orphans → unmatched with the fix
   **and** "Can't match…" on every row, the add-order-number sheet with nearest-order chips, the
   decline sheet (reason chips, note required for Other, plain statement of what declining does),
-  and the declined bucket with Reopen. Fixture-first like H2. done_when: `[MS-01]`–`[MS-05]` red
-  → green; states spec screenshots read back. Footprint: `marketing.html`, `marketing/stats.js`
-  (new), `tests/marketing-stats.spec.js`, `tests/states-marketing-stats.spec.js`, `sw.js`,
-  `night-crew.toml`.
+  the declined bucket with Reopen, and its own health card with the orphan rate (P-KR3 / Q-KR2
+  read here). One module `marketing/stats.js` loaded by both pages. Fixture-first like H2 for the
+  forced state rows only. done_when: `[MS-01]` BI overview renders funnel + revenue/discount/net +
+  orphan rate with the 10% marker; `[MS-02]` by-item rows carry discount and Per $1; `[MS-03]`
+  decline sheet requires a reason and posts reason+note; `[MS-04]` declined bucket shows note and
+  Reopen; `[MS-05]` empty period renders "No redemptions yet" on BOTH pages; `[MS-06]` a user with
+  `bi` but not `marketing` sees the BI row and gets the Locked state on the Marketing queue — red →
+  green; `tests/states-bi-hub.spec.js` updated from 2 rows to 3; states spec screenshots read
+  back. Footprint: `bi.html`, `marketing.html` (#s4), `marketing/stats.js` (new),
+  `tests/marketing-stats.spec.js`, `tests/states-marketing-stats.spec.js`,
+  `tests/states-bi-hub.spec.js`, `sw.js`, `night-crew.toml`.
 
 - **`subscribers-tab`** · **PLANNED** · (H5, track E — full-stack) Migration `0085_subscribers`
   (`subscribers`, `subscriber_events`), three source adapters behind one interface — Fluent
@@ -728,7 +768,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/subscribers.js` (new), `tests/marketing-subscribers.spec.js`,
   `tests/states-marketing-subscribers.spec.js`, `sw.js`, `night-crew.toml`.
 
-- **`scanner-polish`** · **PLANNED** · (H6, serial after H3 — touches `marketing/sync/*`) Closes
+- **`scanner-polish`** · **PLANNED** · (H6, serial after H3b — touches `marketing/sync/*`) Closes
   **B-446** (render the `requires_online` refusal at scan-resolve while offline, same copy,
   earlier; post-submit guard stays), **B-447** (add `name` to the campaigns pull selection;
   offer card shows the campaign name and the code's last four), **B-440** (divert predicate
