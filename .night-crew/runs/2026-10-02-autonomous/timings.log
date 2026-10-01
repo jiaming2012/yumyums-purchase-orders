@@ -1,0 +1,6 @@
+2026-10-01T18:37:24-04:00	launch	run 20261002 branch cut at c4f6db4
+2026-10-01T18:37:24-04:00	env-up	GREEN EXIT=0 (reconcile; db=53222 rest=52932 realtime=52074)
+2026-10-01T18:39:11-04:00	card1-dispatch	h1-campaign-codes-api worktree + card/h1 branch, TEST_PORT=8511
+2026-10-01T18:55:25-04:00	base-reds-go	GREEN EXIT_TEST=0 — 13 pkgs, 368 top-level (623 incl subtests), 0 fail, 2 opt-in skips; first run red was orchestrator HQ_RLS_TEST_DB shape, not a base red
+2026-10-01T18:55:25-04:00	ladder-fix	dbbc1a8 — HQ_RLS_TEST_DB shape named, G4 precache 43->48 corrected
+2026-10-01T19:16:20-04:00	base-reds-pw	24 failed / 965 passed, 34.8m, ONE summary block, EXIT_PW=1 — the no-new-reds set; lock released
