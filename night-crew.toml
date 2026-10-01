@@ -140,8 +140,15 @@ subset = 'npx playwright test "{tags}"'
 # how a mislabelling regression escapes a green gate.
 "item-name.js"                = ["inventory", "recipes", "purchasing"]
 "tests/health-banner.spec.js" = ["health"]
-"index.html"                  = ["health"]
 "backend/internal/sync/health.go" = ["health", "sync"]
+# backend/cmd/server is INTENTIONALLY UNMAPPED. main.go wires every route of
+# every app plus the catch-all static handler (static.go, Cache-Control:
+# no-cache), so no app's spec subset can stand in for it: a change there
+# de-confines the card and runs the full suite, which is the rule the header
+# of this section states for shared packages. Do not add a key for it — any
+# subset listed here would be narrower than the blast radius, which is exactly
+# how a regression escapes a green gate (2026-10-01, the no-cache change was
+# gated on marketing.spec.js by hand because this note did not yet exist).
 "backend/internal/workflow"   = ["workflows", "persistence", "sync", "repro-cut-task"]
 "workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task", "health"]
 "tests/workflows.spec.js"     = ["workflows", "persistence"]
@@ -158,8 +165,11 @@ subset = 'npx playwright test "{tags}"'
 # The launcher shell. index.html writes the identity token the service worker
 # partitions api-cache by (sw-api-cache-partition) and paints tiles from
 # /api/v1/me/apps (grant-enforcement-parity) — both suites drive it directly.
-# Added on fix/sticky-launcher-header (2026-09-28): the row was missing.
-"index.html"                  = ["index", "storage-banner", "version-badge", "sw-api-cache-partition", "grant-enforcement-parity"]
+# Added on fix/sticky-launcher-header (2026-09-28) as a second "index.html" row;
+# the original ["health"] row still existed above, and BurntSushi/toml (what
+# night-crew links) rejects a duplicate key, so the file did not parse. Merged
+# into ONE row on 2026-10-01 — "health" is kept from the original.
+"index.html"                  = ["index", "storage-banner", "version-badge", "sw-api-cache-partition", "grant-enforcement-parity", "health"]
 "tests/index.spec.js"         = ["index"]
 # ─────────────────────────────────────────────────────────────────────────────
 # THE SYNC CLIENT SEAM — B-154 rider (card `client-guard-coverage`, run 20260901,
