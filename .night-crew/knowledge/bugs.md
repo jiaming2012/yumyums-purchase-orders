@@ -35,6 +35,31 @@ worktree before blaming a card; if they are red there, the card is not the
 cause. Diagnose from the snapshot (route hit count vs. page fetch), not from
 the assertion.
 
+*Re-measured 2026-10-01 at the launch of run `20261002`* — the base-reds leg this
+entry's handling note prescribes, run for real on a detached `dev` worktree at
+`c4f6db4` (`logs/base-pw.log`, one summary block, `EXIT_PW=1`): **24 failed / 965
+passed in 34.8m.** The Go suite on the same tree is **clean** (368 top-level tests,
+0 fail, 2 opt-in skips) — so this is a browser-surface condition only.
+
+The 24 decompose as: this entry's cluster, still red and still undiagnosed; the
+**three** surviving reds of B-433's stale four (`SYNC-FC-01`, `SYNC-RF-01`,
+`SYNC-RF-02` — `B1-XT-01` passed, consistent with 20260906-2 and 20260907);
+`store_location` (B-453, named flaky above); and **four this record did not carry**:
+
+| Test | Note |
+|---|---|
+| `tests/receipt-carousel.spec.js:54` — single attachment renders simple iframe overlay without carousel nav | new to the record |
+| `tests/receipt-carousel.spec.js:123` — multi attachment renders carousel with prev/next and counter | new to the record |
+| `tests/purchasing.spec.js:455` — No photo badge shows on checked item without photo and disappears after photo upload | new to the record |
+| `tests/workflows.spec.js:1641` — Tab Persistence › inventory tab persists on reload | new to the record; names the Inventory tab, so plausibly the same hub cause |
+
+Three of those four touch the same receipt/attachment and Inventory-tab surfaces as
+the cluster, which is suggestive but **not diagnosed** — recorded, not concluded.
+`inventory.spec.js:1404` (B-437) and `FILL-04` (B-443) were **green** on this base.
+
+🛑 **This set of 24 is run `20261002`'s no-new-reds baseline.** A card tonight is
+judged against it, never against green, and a red inside it is not that card's.
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
