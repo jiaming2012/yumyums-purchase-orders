@@ -33,7 +33,7 @@
 | **G2 (Go)** | `go test -p 1 -count=1 ./...` | exit 0, **and counts checked, not `ok`**. 🛑 `DB_TEST_URL` must be set or the suite exits 0 while skipping every DB-coupled test — `internal/workflow` runs **zero** tests and still prints `ok`. Expect 9 packages and ~439 tests; `internal/workflow` should run **35**. For `internal/sync` the package `ok` line is **not** evidence — **the 59-subtest count is asserted by the suite itself, not eyeballed from a `-v` log** (card A1, run `20260806`, merged **`9b63958`**; see below). No manual fallback is needed: the assertion is in the tree, and a card that skips it gets a red, not a quiet pass. The human evidence line must still state that **`HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both unset** (B-36, the package that prints `ok` on zero tests; decision 108 made proving-the-suite-ran a standing evidence rule, and decision 116 kept it with amendments) |
 | **G2 (Playwright)** | `npx bddgen` · `npx playwright test --retries=0` | **Exactly one summary block.** Two blocks under one header = an invalidated run; discard and re-run. Judged against the armed-reds baseline, never against green |
 | **G3** | — | **N/A.** Preflight verdict `openspec: absent`; ledger §T-34 decision 140 keeps it that way. Create no OpenSpec scaffolding |
-| **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **43** (re-measured at morning triage 2026-09-05 on both the merged tree and the base — this line read **31** for two cycles, which disarms the tripwire by making a genuine drop look like the documented number); if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
+| **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **48** (counted from the committed `sw.js` at `c4f6db4` on 2026-10-01 at the launch of run `20261002`: 48 `revision` keys. This line read **43** for every run after 2026-09-05 (`20260906`, `20260906-2`, `20260907`) and **31** for two cycles before that — 🛑 **the second time the same staleness recurred in the same row**, and it disarms the tripwire exactly as described: a genuine drop to 43 would have read as the documented number. The real count moved 43 → 48 across T-59's attended Inventory-hub + BI work — 45 → 46 `health-banner.js`, 46 → 47 `item-name.js` (both 2026-09-29), 47 → 48 `bi.html` (2026-09-30) — all deliberate additions CLAUDE.md recorded while this row did not. Left visibly corrected, per this file's convention); if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
 | **RF (Red-first)** | the `## Red-first` section of the card's merge-intent | The card shows its defect **red before the fix** — a failing test, probe, or captured failing command with its exit code — and G6 re-verifies that evidence. **A card that changes code and has shown no red cannot merge.** Cards whose deliverable is not code state `n/a` with the reason, as C1 and A4 did on run `20260806`. Named gate ruled at triage 2026-08-05 (ledger §T-38 decision 153) |
 | **G6** | fresh-context adversarial subagent | Inputs are the card's slate entry, the diff and the evidence — **never** the implementer's reasoning. On run 20260804 all four cards' G6 found something the card had not; the slot earns itself |
 
@@ -157,6 +157,20 @@ audit the figures instead of inheriting them.
 
 Every implementer, G6 reviewer and fix round gets a **unique `TEST_PORT`, a unique `TEST_DB_NAME`, a
 unique `HQ_RLS_TEST_DB`, and a unique scratchpad directory.**
+
+🛑 **`HQ_RLS_TEST_DB` must match `^hq_rls_[a-z0-9_]+$` — the prefix is `hq_rls_`, not `hq_test_`.**
+`backend/internal/sync/rowvisibility_rls_test.go` refuses any other name, because a prefix
+*enumerates what may be destroyed* where the blocklist it replaced accepted the very name that
+destroyed production on 2026-08-06 (B-141, ledger decision 155). Unsetting it is also valid — the
+A3 re-gate mints a per-process name and claims rather than drops.
+
+**The refusal does not read as one.** A wrong-shaped name fails `TestRowVisibilityRLS`, and through
+it `TestRowVisibilitySubtestCount_Executed` and `TestSubstrateGate_ExitCodeAsymmetry` — **three reds
+in `internal/sync` that look like a substrate or base defect and are neither.** Measured at the
+launch of run `20261002`: this stanza demanded a *unique* name without ever stating the *shape*, the
+orchestrator minted `hq_test_rls_basereds_20261002`, and the base-reds leg came back red against a
+GREEN substrate. The leg was re-run with `hq_rls_basereds_20261002`. Naming the shape here is what
+stops the next leg paying for it.
 
 🛑 **`TEST_DB_NAME` became load-bearing on 2026-08-04 and the launch prompt did not know it.** Since
 card A1 landed, `playwright.config.js`'s `webServer.command` **DROPs the database it is pointed at as
