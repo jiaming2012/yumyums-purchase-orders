@@ -4,3 +4,5 @@
 2026-10-01T18:55:25-04:00	base-reds-go	GREEN EXIT_TEST=0 — 13 pkgs, 368 top-level (623 incl subtests), 0 fail, 2 opt-in skips; first run red was orchestrator HQ_RLS_TEST_DB shape, not a base red
 2026-10-01T18:55:25-04:00	ladder-fix	dbbc1a8 — HQ_RLS_TEST_DB shape named, G4 precache 43->48 corrected
 2026-10-01T19:16:20-04:00	base-reds-pw	24 failed / 965 passed, 34.8m, ONE summary block, EXIT_PW=1 — the no-new-reds set; lock released
+2026-10-01T19:51:18-04:00	implementer-return	Card 1 h1-campaign-codes-api COMPLETE — 13 commits, G1/G2go/G4/RF green, projection LIVE; PW 26f/963p one block, 3 non-baseline reds isolated GREEN (load flake)
+2026-10-01T19:52:54-04:00	g6-dispatch	Card 1 G6 adversarial review, worktree g6-h1-20261002 at 2de4f91, TEST_PORT=8541
