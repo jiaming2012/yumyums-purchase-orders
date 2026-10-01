@@ -666,7 +666,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > (H3a — ingest + mirror + migration 0084 + B-424) and `reconciliation-and-stats-engine` (H3b — the
 > engine and its endpoints). Both are children of the `toast-orders-and-reconciliation` goal ledger.
 
-- **`campaign-codes-api`** · **PLANNED** · (H1, track A — backend) Campaign admin in HQ Go +
+- **`campaign-codes-api`** · **LANDED** (run `20261002`, branch `card/h1-campaign-codes-api`) · (H1, track A — backend) Campaign admin in HQ Go +
   Postgres (decision 187): migration `0083_campaigns_admin` (`campaigns_admin`, `qr_codes`,
   `qr_scans`), `POST /api/v1/marketing/campaigns` mints **one `qr_codes` row per channel** in
   one transaction, projects the four tablet columns to Supabase `campaigns` over PostgREST
@@ -682,6 +682,19 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `go.mod`. Also lands the no-op `marketing.MountReports(r)` seam inside the BI
   route block (`RequirePermission(pool,"bi")`) so H3b's report reads mount there without touching
   `main.go` again (decision 192).
+  **Landed as slated**, with four things stated rather than assumed: (1) `main.go` has THREE call
+  sites, not two — `Mount`, `MountReports` and `MountPublic`, because the public `/q/{short}`
+  cannot live inside either gated block; (2) `MountReports` sits in a `bi` `r.Group` of its own,
+  not inside the `/inventory` Route, whose prefix would have made the contract
+  `/api/v1/inventory/bi/*`; (3) `marketing_settings` is a **Supabase** table with no HQ copy, so
+  the #5 threshold is read over PostgREST when the projection is configured and falls back to the
+  substrate's own seeded 2000 cents at WARN — a dead substrate never blocks a save; (4) the
+  projection writes **four** columns (`id, name, face_value, requires_online`), which is what
+  Supabase `public.campaigns` has — decision 187's "`expires_at`-equivalent" has no column to land
+  in, expiry living on `codes`. `funnel.signups` / `funnel.redeemed` and the whole `money` block
+  ship as the stated zero shapes H5 / H3a / H3b fill. The CONFIGURED projection path is proven
+  against the local `spike-supabase` substrate from Go, not stubbed
+  (`TestProjectionConfiguredUpsertsToSubstrate`).
 
 - **`campaigns-tab-ui`** · **PLANNED** · (H2, track B — UI) The Campaigns section of
   `marketing.html` per Current Campaigns 1–8: list as funnel cards with the money strip
