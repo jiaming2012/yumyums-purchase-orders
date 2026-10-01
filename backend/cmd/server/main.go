@@ -881,7 +881,7 @@ func main() {
 		})
 	})
 
-	r.Handle("/*", http.FileServerFS(staticFS))
+	r.Handle("/*", staticHandler(staticFS)) // Cache-Control: no-cache — see static.go
 
 	// E2E_DISABLE_SCHEDULERS=1 turns off the background pollers (receipt
 	// ingest, cutoff auto-lock, drift check). All run an immediate check on
