@@ -58,6 +58,16 @@ vars:
 
   # Network addresses
   DEV_TS: '{{.DEV_TS | default "100.90.128.69"}}'
+  # TS_DNS — this machine's tailnet MagicDNS name (trailing dot stripped),
+  # e.g. jamals-macbook-pro.tailcc25bb.ts.net. With `tailscale serve --bg 8484`
+  # configured on the machine, https://<TS_DNS> is the HTTPS origin phones on
+  # the tailnet use for camera testing (getUserMedia needs a secure context).
+  # Resolves on macOS, Linux, and WSL (tailscale.exe via Windows interop);
+  # empty when Tailscale is not installed, in which case PUBLIC_URL below is
+  # empty too and the server simply doesn't log the line.
+  TS_DNS:
+    sh: '( { command -v tailscale >/dev/null 2>&1 && tailscale status --json; } || { command -v tailscale.exe >/dev/null 2>&1 && tailscale.exe status --json; } ) 2>/dev/null | grep -m1 "\"DNSName\"" | sed -E "s/.*\"DNSName\": *\"([^\"]+)\.\".*/\1/" || true'
+  PUBLIC_URL: '{{if .TS_DNS}}https://{{.TS_DNS}}{{end}}'
   WIN_LAN: '192.168.8.164'
   WIN_TS: '100.70.200.55'
   WIN_PORT: '5433'
@@ -73,6 +83,7 @@ tasks:
       PORT: '{{.PORT}}'
       DB_URL: '{{.DB_URL}}'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      PUBLIC_URL: '{{.PUBLIC_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       # The four HQ_SYNC_* vars open the /sync/* proxy door (card
       # sync-live-in-dev-substrate). DEV ONLY — see the vars: banner + proxy.go:78.
@@ -92,6 +103,7 @@ tasks:
       PORT: '{{.PORT}}'
       DB_URL: '{{.DB_URL}}'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      PUBLIC_URL: '{{.PUBLIC_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       LOG_TO_FILE: '1'
       HQ_SYNC_REST_URL:
@@ -112,6 +124,7 @@ tasks:
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      PUBLIC_URL: '{{.PUBLIC_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       HQ_SYNC_REST_URL:
         sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
@@ -131,6 +144,7 @@ tasks:
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      PUBLIC_URL: '{{.PUBLIC_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       HQ_SYNC_REST_URL:
         sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
@@ -148,6 +162,7 @@ tasks:
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      PUBLIC_URL: '{{.PUBLIC_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       LOG_TO_FILE: '1'
       HQ_SYNC_REST_URL:
