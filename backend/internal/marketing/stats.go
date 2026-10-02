@@ -569,12 +569,22 @@ type statsFilter struct {
 	ItemID     string
 }
 
+// 🛑 The item filter compares the ITEM DIMENSION'S OWN KEY, never the raw
+// ItemID column. They can differ: an attempt whose code did not resolve but
+// whose campaign did carries a non-nil ItemID (inherited from the campaign)
+// while its item key is `direct`, because "which item did this redemption come
+// through?" is unanswerable without the code. Filtering on the column would
+// admit a row that the slice then renders under `direct` — a drill-in whose
+// totals include a row it does not show. Deriving the filter from the key makes
+// that impossible by construction.
 func (f statsFilter) keepAttempt(a reconAttempt) bool {
 	if f.CampaignID != "" && (a.CampaignID == nil || *a.CampaignID != f.CampaignID) {
 		return false
 	}
-	if f.ItemID != "" && (a.ItemID == nil || *a.ItemID != f.ItemID) {
-		return false
+	if f.ItemID != "" {
+		if key, _ := statsAttemptKey(a, "item"); key != f.ItemID {
+			return false
+		}
 	}
 	return true
 }
@@ -583,8 +593,10 @@ func (f statsFilter) keepCode(c statsCode) bool {
 	if f.CampaignID != "" && c.CampaignID != f.CampaignID {
 		return false
 	}
-	if f.ItemID != "" && (c.ItemID == nil || *c.ItemID != f.ItemID) {
-		return false
+	if f.ItemID != "" {
+		if key, _ := statsCodeKey(c, "item"); key != f.ItemID {
+			return false
+		}
 	}
 	return true
 }
