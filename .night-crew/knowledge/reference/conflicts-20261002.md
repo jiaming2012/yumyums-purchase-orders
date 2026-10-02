@@ -334,3 +334,31 @@ than let an unattributable pass stand — the probe is recorded **NOT RUN** (box
 legs' exit codes GRADED, or narrated?"* — is answered: **graded**, live, red-first then green, with
 `EXIT=` inside each log and exits propagated through `exit "$NODE_EXIT"`.
 
+#### Addendum to Merge 6 — the mutation probe WAS run, and it passed (correcting `23be14a`)
+
+🛑 **The merge commit `23be14a` states the mutation probe is "NOT RUN, stated". That is now false,
+and the correction belongs here because the commit is immutable.**
+
+After the merge, H6's G6 completed the probe properly and it **passes**. It bypassed the wedging
+`webServer` spawn by hand-provisioning the identical stack on port 8549 through `NIGHTCREW_ENV_URL`
+(`playwright.config.js:69-72`), which needs **no full-suite lock** — so it did not contend with
+Card 5.
+
+What makes this run attributable where the first was not: the mutation was verified **on disk**
+(`failClosed` → `return false;`, `earlyRefusalBranch` → `return null;`, originals `0 0`) **and in the
+bytes actually served over HTTP** (`GET /marketing/submit-flow.js` returned the mutated body, zero
+originals). That served-bytes check is precisely what the contaminated first attempt lacked.
+
+Result: **2 failed, `PLAYWRIGHT_EXIT=1`**, and failing for the right reason rather than on setup —
+both die on the refusal simply not rendering (`[SP-01]` at `marketing.spec.js:1325`, `[SP-03]` at
+`:1452`). File restored afterwards, `0 modified`.
+
+**So both of H6's new guards are independently proven load-bearing**, and the earlier `2 passed` was
+confirmed to be the reviewer's own mid-run `git checkout` restoring the file under a wedged run — it
+was right to discard it rather than report it. Nothing about the merge changes; the card's evidence
+is simply stronger than the merge commit was able to claim at the time it was written.
+
+Recorded rather than quietly dropped, because "a convenient pass I could not attribute" and "a pass"
+must never read alike — which is the same standard this log applied to the orchestrator's own
+discarded Go run at Merge 5.
+
