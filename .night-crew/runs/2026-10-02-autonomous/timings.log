@@ -9,3 +9,5 @@
 2026-10-01T20:24:45-04:00	wave1-dispatch	Cards 2 (h2, B), 3 (h3a, C), 6 (h5, E) dispatched concurrently off 94ad3b3; ports 8521/8551/8561
 2026-10-01T22:02:04-04:00	implementer-return	Card 2 h2-campaigns-tab-ui COMPLETE — 5 commits, precache 48->49, PW 28f/977p one block, 23 baseline + 5 non-baseline (marketing.spec.js:141 fixed by the card); states PNGs read back, 2 real defects caught by read-back
 2026-10-01T22:02:04-04:00	g6-dispatch	Card 2 G6, worktree g6-h2-20261002 at f29a8b7, TEST_PORT=8542
+2026-10-01T22:21:05-04:00	G6-return	Card 3 suite done 26f/963p one block; 22 baseline + 4 non-baseline (all known Inventory family, card is backend-only)
+2026-10-01T22:21:05-04:00	g6-dispatch	Card 3 G6 at 2e17ae3 (g6-h3a, port 8543); Card 4 h3b DISPATCHED off card/h3a unmerged base to keep Track C off G6 critical path
