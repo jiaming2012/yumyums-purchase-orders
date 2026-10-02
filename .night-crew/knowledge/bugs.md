@@ -60,6 +60,36 @@ the cluster, which is suggestive but **not diagnosed** — recorded, not conclud
 🛑 **This set of 24 is run `20261002`'s no-new-reds baseline.** A card tonight is
 judged against it, never against green, and a red inside it is not that card's.
 
+### One member of the cluster is now DIAGNOSED — `inventory.spec.js:2186` (Setup alias chips)
+
+Named by Card 2's G6 on 2026-10-01, and it is **a real race in pre-existing Inventory
+code, not load flake**. The test fails as `expect('.alias-chip').toHaveCount(2)` →
+`Received: 1`, and it flips **both ways in isolation on a quiet box**, which load
+contention cannot explain.
+
+**Mechanism.** `ALL_ITEMS` has **three unsequenced writers**, all last-write-wins with no
+request versioning: `inventory.html:2179` (`loadItems()`), `:2835` (the `DOMContentLoaded`
+preload) and `:2550` (the alias handler's own refetch). The test does `reload()` →
+`waitForLoadState('networkidle')` → `goTab(7)`, and **`goTab(7)` fires a fresh `GET /items`
+that `networkidle` does not cover**. The Add handler then runs `POST /items/aliases` →
+`GET /items` → `ALL_ITEMS` becomes the 2-alias snapshot → `refreshAliasChips()` paints 2
+chips. If the *earlier* in-flight `GET` — issued before the POST — resolves **last**, it
+overwrites `ALL_ITEMS` with the 1-alias snapshot and `loadItems()` re-renders the list from
+it, producing exactly the observed count of 1. Timing-dependent on response ordering, hence
+both-ways.
+
+**Fix direction:** sequence or version the items fetch (ignore a response older than the
+latest issued request), rather than retrying the test.
+
+**Proven NOT attributable to any card tonight:** `playwright.config.js:65` sets
+`serviceWorkers: 'block'` repo-wide, so a `sw.js` change has no path to it; `inventory.spec.js`
+loads neither `marketing.html` nor `marketing/campaigns.js`; and with `workers: 1` and
+alphabetical file order it runs **before** every spec added tonight, so none can pollute it.
+
+*Handling:* treat a `:2186` red as this race until the fetch is sequenced. It is a product
+defect in the Inventory page's state management, not a test defect — the test is correct to
+expect 2.
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
