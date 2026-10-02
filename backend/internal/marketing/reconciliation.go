@@ -233,6 +233,7 @@ WITH latest AS (
   LEFT JOIN latest l ON l.attempt_id = a.id
   WHERE a.status = 'accepted'
     AND ($1::timestamptz IS NULL OR a.scanned_at >= $1)
+    AND ($2::uuid IS NULL OR a.id = $2)
 )
 SELECT e.id::text, e.scanned_at, e.pos_business_date, e.device_id,
        e.offline_override, e.override_by, e.unverified_code, e.policy_unresolved,
@@ -257,7 +258,19 @@ ORDER BY e.scanned_at, e.id`
 
 // reconLoadAttempts reads every accepted attempt in the period.
 func reconLoadAttempts(ctx context.Context, pool *pgxpool.Pool, since *time.Time) ([]reconAttempt, error) {
-	rows, err := pool.Query(ctx, reconAttemptsSQL, since)
+	return reconLoadAttemptsFiltered(ctx, pool, since, nil)
+}
+
+// reconLoadAttemptsFiltered is reconLoadAttempts narrowed to one attempt id,
+// which is what a decision write needs to report the attempt's resulting bucket.
+// Narrowing matters: the alternative is re-reading every accepted attempt ever
+// recorded to answer a question about one row.
+//
+// An attemptID that names a row whose status is not 'accepted' returns NOTHING,
+// because the queue is defined over accepted attempts only — the caller reports
+// an empty bucket, which is the honest answer for a row that is not in the queue.
+func reconLoadAttemptsFiltered(ctx context.Context, pool *pgxpool.Pool, since *time.Time, attemptID *string) ([]reconAttempt, error) {
+	rows, err := pool.Query(ctx, reconAttemptsSQL, since, attemptID)
 	if err != nil {
 		return nil, err
 	}
@@ -744,11 +757,17 @@ func ReconDecisionHandler(d Deps, kind string) http.HandlerFunc {
 		}
 		logged.DecidedBy = user.DisplayName
 
-		// Re-read the one attempt so the response reports the bucket the queue
-		// will actually put it in — derived by the same bucket() every other
-		// reader uses, never guessed from `kind`.
+		// Re-read THIS attempt so the response reports the bucket the queue will
+		// actually put it in — derived by the same bucket() every other reader
+		// uses, never guessed from `kind`. An empty bucket means the attempt is
+		// not in the accepted queue at all (its status is not 'accepted'); the
+		// decision is still logged, because a human's call on a mirrored row is
+		// worth keeping either way.
 		bucket := ""
-		if attempts, err := reconLoadAttempts(ctx, d.Pool, nil); err == nil {
+		if attempts, err := reconLoadAttemptsFiltered(ctx, d.Pool, nil, &ref.ID); err != nil {
+			slog.Warn("marketing: could not re-read attempt after decision; bucket omitted",
+				"error", err, "attempt_id", ref.ID)
+		} else {
 			for _, a := range attempts {
 				if a.ID == ref.ID {
 					bucket = a.bucket()
