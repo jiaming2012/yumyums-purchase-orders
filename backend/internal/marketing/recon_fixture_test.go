@@ -87,7 +87,15 @@ func seedScanRows(t *testing.T, pool *pgxpool.Pool, short string, n int) {
 
 // attemptFixture is one scan_attempts_mirror row a test wants to exist.
 type attemptFixture struct {
-	CodeID      *string // nil = no first-touch code (forces the 0084 CHECK's override arm)
+	// CodeID: nil = no code at all (forces the 0084 CHECK's override arm).
+	// A NON-NIL id that matches no qr_codes row is the live case — see
+	// RawCodeID.
+	CodeID *string
+	// RawCodeID writes a code_id that is deliberately NOT an HQ qr_codes id,
+	// which is what the mirror actually carries (upstream code_id is the
+	// Supabase public.codes id and HQ has no copy of that table). Used to pin
+	// that the engine degrades to direct/unattributed rather than mis-bucketing.
+	RawCodeID   *string
 	CampaignID  *string
 	ScannedAt   time.Time
 	OrderNumber *string
@@ -111,7 +119,11 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, f attemptFixture) string {
 	override := f.Override
 	unverified := false
 	var tokenHash *string
-	if f.CodeID == nil {
+	codeID := f.CodeID
+	if f.RawCodeID != nil {
+		codeID = f.RawCodeID
+	}
+	if codeID == nil {
 		override, unverified = true, true
 		h := "tok-" + randSuffix(t)
 		tokenHash = &h
@@ -127,7 +139,7 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, f attemptFixture) string {
 		   unverified_code, token_hash, pos_order_number, pos_business_date, match_status)
 		VALUES (gen_random_uuid(), $1, $2, 'tablet-1', $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id::text`,
-		f.CodeID, f.CampaignID, scannedAt, status, override, unverified, tokenHash,
+		codeID, f.CampaignID, scannedAt, status, override, unverified, tokenHash,
 		f.OrderNumber, scannedAt.In(time.UTC).Format("2006-01-02"), matchStatus).Scan(&id)
 	if err != nil {
 		t.Fatalf("seedAttempt: %v", err)

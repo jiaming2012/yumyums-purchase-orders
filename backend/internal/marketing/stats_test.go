@@ -470,6 +470,63 @@ func TestStatsByDrillInsScopeToTheirParent(t *testing.T) {
 	}
 }
 
+// 🛑 THE LIVE ATTRIBUTION CASE, pinned. scan_attempts_mirror.code_id is the
+// SUPABASE public.codes id and HQ has no copy of that table, so on real data
+// today a non-nil code_id resolves to NO qr_codes row (and campaign_id arrives
+// NULL). This test forces exactly that and asserts the engine degrades honestly:
+//
+//   - the channel AND item dimensions both answer `direct` — not `any`, which
+//     would be an assertion about the campaign the data does not support;
+//   - the campaign dimension answers `unattributed`;
+//   - the row is counted in `discount_unknown_rows`, so its 0 face value cannot
+//     read as "this redemption was free";
+//   - Σ over every slice still equals the overview.
+func TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown(t *testing.T) {
+	pool := setupReconDB(t)
+	manager := seedUser(t, pool, "manager")
+	mux := mountedMuxWithReports(testDeps(pool))
+	ctx := userCtx(manager, "manager")
+
+	// A code_id that is a perfectly good uuid and names nothing in qr_codes —
+	// which is what the mirror writes today.
+	var raw string
+	if err := pool.QueryRow(t.Context(), `SELECT gen_random_uuid()::text`).Scan(&raw); err != nil {
+		t.Fatalf("gen uuid: %v", err)
+	}
+	_ = seedAttempt(t, pool, attemptFixture{RawCodeID: &raw})
+
+	rec := do(t, mux, ctx, http.MethodGet, "/api/v1/marketing/stats/overview?period=30d", nil)
+	var ov StatsOverviewResponse
+	decode(t, rec, &ov)
+	if ov.Funnel.Redeemed != 1 {
+		t.Fatalf("redeemed = %d, want 1\nbody: %s", ov.Funnel.Redeemed, rec.Body.String())
+	}
+	if ov.Money.DiscountUnknownRows != 1 {
+		t.Errorf("discount_unknown_rows = %d, want 1 — an unpriceable row must not read as a free one",
+			ov.Money.DiscountUnknownRows)
+	}
+	if ov.Money.DiscountCents != 0 || ov.Money.DiscountImpliedCents != 0 {
+		t.Errorf("discount = %d implied = %d, want 0/0 (no campaign resolved, so no face value exists)",
+			ov.Money.DiscountCents, ov.Money.DiscountImpliedCents)
+	}
+
+	want := map[string]string{"campaign": StatsUnattributedKey, "channel": StatsDirectKey, "item": StatsDirectKey}
+	for dim, key := range want {
+		rec := do(t, mux, ctx, http.MethodGet, "/api/v1/marketing/stats/by?dim="+dim+"&period=30d", nil)
+		var by StatsByResponse
+		decode(t, rec, &by)
+		if len(by.Rows) != 1 {
+			t.Fatalf("dim=%s rows = %d, want 1\nbody: %s", dim, len(by.Rows), rec.Body.String())
+		}
+		if by.Rows[0].Key != key {
+			t.Errorf("dim=%s row key = %q, want %q", dim, by.Rows[0].Key, key)
+		}
+		if by.Rows[0].Redeemed != ov.Funnel.Redeemed || by.Rows[0].DiscountUnknownRows != 1 {
+			t.Errorf("dim=%s row does not reconcile: %+v", dim, by.Rows[0])
+		}
+	}
+}
+
 // signups is 0 with a STATED basis when card H5's `subscribers` is absent —
 // never a failure, never a silent omission.
 func TestSignupsStatesItsBasisWhenSubscribersIsAbsent(t *testing.T) {

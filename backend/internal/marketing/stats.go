@@ -456,12 +456,12 @@ func statsAttemptKey(a reconAttempt, dim string) (string, string) {
 		}
 		return StatsUnattributedKey, "Unattributed"
 	case "channel":
-		if a.CodeID == nil || a.Channel == nil {
+		if !a.codeResolved() {
 			return StatsDirectKey, "Direct"
 		}
 		return *a.Channel, statsChannelLabel(*a.Channel, a.ChannelLabel)
 	case "item":
-		if a.CodeID == nil {
+		if !a.codeResolved() {
 			return StatsDirectKey, "Direct"
 		}
 		if a.ItemID != nil {
@@ -469,7 +469,7 @@ func statsAttemptKey(a reconAttempt, dim string) (string, string) {
 		}
 		return StatsAnyItemKey, "Any item"
 	case "code":
-		if a.Short == nil {
+		if !a.codeResolved() {
 			return StatsDirectKey, "Direct"
 		}
 		return *a.Short, *a.Short

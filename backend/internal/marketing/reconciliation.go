@@ -160,6 +160,20 @@ type reconAttempt struct {
 	OrderVoided        *bool
 }
 
+// codeResolved reports whether this attempt's code_id actually resolved to an HQ
+// qr_codes row, which is the test every attribution dimension must use.
+//
+// 🛑 NOT `CodeID != nil`. A mirrored attempt's code_id is the SUPABASE
+// public.codes id (the per-customer redemption token row), and HQ Postgres has
+// no copy of that table — so a non-nil code_id that resolves to nothing is the
+// NORMAL live case today, not an anomaly. Testing the id's presence instead of
+// the join's success would bucket such an attempt as "Any item" (an assertion
+// about the campaign) when the truth is "we do not know which item" — and would
+// disagree with the channel dimension, which can only answer "direct". One
+// predicate, so every dimension agrees. See the card's report for the full
+// attribution gap.
+func (a reconAttempt) codeResolved() bool { return a.Short != nil }
+
 // matched reports whether this attempt is joined to a toast_orders row. It is
 // the ONE definition of "matched" in this package: revenue, the per-row discount
 // rule, the health card and the queue all read it.
