@@ -119,6 +119,14 @@ func NewDeps(pool *pgxpool.Pool) Deps {
 // signature. Written once at startup by NewDeps, read once at route
 // registration; atomic because a test may call NewDeps while a server goroutine
 // is up.
+//
+// 🛑 IT IS A PACKAGE SINGLETON: the LAST NewDeps wins. That is correct for this
+// process — main.go calls NewDeps exactly once, before either mount — and it is
+// the price of filling H1's one-argument seam without touching main.go
+// (decision 192). It would be wrong the moment a process wanted TWO marketing
+// surfaces against two pools; the fix then is to give MountReports the Deps
+// (MountReportsDeps already takes them) and delete this variable, which is a
+// main.go edit and so belongs to whoever wants that.
 var reportDeps atomic.Pointer[Deps]
 
 // Mount registers the gated campaign-admin route table. Call it INSIDE a group

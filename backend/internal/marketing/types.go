@@ -49,15 +49,50 @@ type moneyDTO struct {
 	DiscountActualCents  int `json:"discount_actual_cents"`
 
 	// DiscountUnknownRows is the count of accepted redemptions whose CAMPAIGN
-	// could not be resolved, so no face value could be summed for them.
+	// could not be resolved, so no FACE VALUE could be summed for them.
 	//
 	// 🛑 It exists so that "unknown" cannot read as a confident zero. Revenue,
 	// discount and net stay non-pointer ints because after H3b they are always
 	// computed and a period with no matched orders really is $0.00 — but a row
-	// that contributed 0 because nothing could PRICE it is a different fact, and
-	// this is where it is stated. Non-zero here means the discount total is a
-	// floor, not a figure.
+	// that could not be PRICED is a different fact, and this is where it is
+	// stated.
+	//
+	// What non-zero means, precisely (corrected after G6, run 20261002 — the
+	// earlier wording "the discount total is a floor" was FALSE for a matched
+	// row): each counted row contributed NO face value, so
+	// DiscountImpliedCents is a floor. DiscountCents is a floor only for the
+	// counted rows that are UNMATCHED — a MATCHED row with no campaign still
+	// contributes its order's exact actual discount, so with
+	// DiscountBasis "actual" the discount figure is exact and only the implied
+	// comparison is short. Read it as "N redemptions had no campaign to price
+	// them", never as "the total is understated by N rows".
 	DiscountUnknownRows int `json:"discount_unknown_rows"`
+
+	// ── G6 fix F1 (run 20261002): PERIOD-SCOPE disclosure ──
+	//
+	// UnattributedRedeemed / UnattributedRevenueCents are the redemptions in the
+	// period that NO campaign could claim (scan_attempts_mirror.campaign_id
+	// NULL and code_id resolving to no qr_codes row — which is every row on live
+	// data today, D-4), and the matched revenue sitting in them.
+	//
+	// 🛑 WHY THEY EXIST. Without them `GET /campaigns` rendered a confident
+	// $0.00: the campaign's own revenue IS zero (nothing was attributed to it)
+	// while real matched money sat in the invisible `unattributed` row of the
+	// by-campaign slice. DiscountUnknownRows cannot carry that — it is a
+	// PER-ROW count scoped to the group, so on the campaign's own row it is
+	// legitimately 0. These two are the period fact, so the list can tell
+	// "this campaign earned nothing" from "this campaign's money could not be
+	// attributed".
+	//
+	// SCOPE, and it is the usual null contract: non-nil on the period-scoped
+	// routes (`GET /campaigns`, `GET /campaigns/{id}`, `PATCH /campaigns/{id}`,
+	// `GET /stats/overview`), where **0 is a stated fact** meaning "every
+	// redemption found its campaign"; nil on `/stats/by` rows and totals, where
+	// a slice has no opinion on a period fact — a slice states the figure as its
+	// own `unattributed` / `direct` ROW instead, which is why summing these
+	// would double-count.
+	UnattributedRedeemed     *int `json:"unattributed_redeemed"`
+	UnattributedRevenueCents *int `json:"unattributed_revenue_cents"`
 
 	// §5 row 3's two detail-route fields. Null for the same reason, and
 	// WITHOUT omitempty: a nil pointer with omitempty vanishes from the JSON

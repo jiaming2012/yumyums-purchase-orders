@@ -1,0 +1,71 @@
+# RF (red-first) — G6 fix round F1/F2, card h3b, run 20261002
+# cmd: (from backend/) go test -p 1 -count=1 ./internal/marketing/ -run 'TestCampaignListDisclosesUnattributedMoney|TestCampaignListReportsZeroUnattributedAsAFact|TestSliceRowsCarryNullForThePeriodScopedKeys|TestOrphanRateDisclosesItsNumerator'
+# DB_TEST_URL set; HQ_SYNC_SUBSTRATE_OPTIONAL and HQ_SYNC_GATE_CHILD both UNSET
+
+# github.com/yumyums/hq/internal/marketing [github.com/yumyums/hq/internal/marketing.test]
+internal/marketing/fixround_test.go:62:7: m.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:65:8: m.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:66:59: m.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:68:7: m.UnattributedRevenueCents undefined (type moneyDTO has no field or method UnattributedRevenueCents)
+internal/marketing/fixround_test.go:69:137: m.UnattributedRevenueCents undefined (type moneyDTO has no field or method UnattributedRevenueCents)
+internal/marketing/fixround_test.go:77:18: detail.Money.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:78:83: detail.Money.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:117:7: m.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:118:109: m.UnattributedRedeemed undefined (type moneyDTO has no field or method UnattributedRedeemed)
+internal/marketing/fixround_test.go:120:7: m.UnattributedRevenueCents undefined (type moneyDTO has no field or method UnattributedRevenueCents)
+internal/marketing/fixround_test.go:120:7: too many errors
+FAIL	github.com/yumyums/hq/internal/marketing [build failed]
+FAIL
+EXIT=1
+
+############################################################
+# STAGE 2 — BEHAVIOURAL red. The struct fields now EXIST and
+#   the package compiles; nothing is wired. So these failures
+#   are the DEFECTS THEMSELVES, not missing identifiers:
+#   F1 — the campaigns list reports null where real matched
+#        money exists (a confident $0.00 with no disclosure);
+#   F2 — the orphan rate ships with no basis naming it.
+############################################################
+
+=== RUN   TestCampaignListDisclosesUnattributedMoney
+    fixround_test.go:63: money.unattributed_redeemed is null on the campaigns list; it is a PERIOD fact and must be stated
+        body: {"campaigns":[{"id":"45f08ecc-e3ae-4183-8176-396568712002","slug":"unattr-c78c0b9a","name":"Unattributed Money","offer_text":"Unattributed Money offer","face_value_cents":500,"requires_online":false,"item":null,"landing":"signup","status":"live","starts_at":"2026-09-30T00:20:31.40639-04:00","ends_at":"2026-11-01T00:20:31.40639-04:00","projected_at":null,"funnel":{"scans":6,"signups":0,"redeemed":0},"money":{"revenue_cents":0,"discount_cents":0,"discount_basis":"implied","net_cents":0,"per_dollar":null,"discount_implied_cents":0,"discount_actual_cents":0,"discount_unknown_rows":0,"unattributed_redeemed":null,"unattributed_revenue_cents":null,"avg_order_cents_with":null,"avg_order_cents_without":null},"codes":[{"id":"0e90cae2-e24b-48ed-a4ff-f201318aa167","short":"UUUUU2","campaign_id":"45f08ecc-e3ae-4183-8176-396568712002","channel":"truck_sign","channel_label":null,"item_id":null,"placement":null,"variant":null,"landing":null,"active":true,"v":1,"scans":6,"signups":0,"payload_url":"https://hq.yumyums.kitchen/q/UUUUU2","png_url":"/api/v1/marketing/codes/0e90cae2-e24b-48ed-a4ff-f201318aa167.png"}]}]}
+--- FAIL: TestCampaignListDisclosesUnattributedMoney (0.25s)
+=== RUN   TestCampaignListReportsZeroUnattributedAsAFact
+    fixround_test.go:118: unattributed_redeemed = <nil> on a fully-attributed period, want 0 (a stated fact, not a null)
+    fixround_test.go:121: unattributed_revenue_cents = <nil>, want 0
+--- FAIL: TestCampaignListReportsZeroUnattributedAsAFact (0.31s)
+=== RUN   TestSliceRowsCarryNullForThePeriodScopedKeys
+    fixround_test.go:130: subscribers table ABSENT (card H5 / migration 0085 has not landed in this tree): signups is asserted as 0 with basis=unavailable, per the card's own rule
+--- PASS: TestSliceRowsCarryNullForThePeriodScopedKeys (0.39s)
+=== RUN   TestOrphanRateDisclosesItsNumerator
+    fixround_test.go:182: seedCodeRow("OOOOO2"): ERROR: new row for relation "qr_codes" violates check constraint "qr_codes_short_check" (SQLSTATE 23514)
+--- FAIL: TestOrphanRateDisclosesItsNumerator (0.19s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	1.172s
+FAIL
+EXIT=1
+
+# (re-capture after fixing the fixture's short code: 'O' is not in 0083's
+#  alphabet 23456789ABCDEFGHJKLMNPQRSTUVWXYZ — NNNNN2 instead of OOOOO2.)
+
+=== RUN   TestCampaignListDisclosesUnattributedMoney
+    fixround_test.go:63: money.unattributed_redeemed is null on the campaigns list; it is a PERIOD fact and must be stated
+        body: {"campaigns":[{"id":"07e51b3a-067d-4cd3-b0d4-1e0c34df533d","slug":"unattr-aa016bb1","name":"Unattributed Money","offer_text":"Unattributed Money offer","face_value_cents":500,"requires_online":false,"item":null,"landing":"signup","status":"live","starts_at":"2026-09-30T00:20:44.150491-04:00","ends_at":"2026-11-01T00:20:44.150491-04:00","projected_at":null,"funnel":{"scans":6,"signups":0,"redeemed":0},"money":{"revenue_cents":0,"discount_cents":0,"discount_basis":"implied","net_cents":0,"per_dollar":null,"discount_implied_cents":0,"discount_actual_cents":0,"discount_unknown_rows":0,"unattributed_redeemed":null,"unattributed_revenue_cents":null,"avg_order_cents_with":null,"avg_order_cents_without":null},"codes":[{"id":"9ea77a90-f810-4dd4-86f5-c3881cacdc39","short":"UUUUU2","campaign_id":"07e51b3a-067d-4cd3-b0d4-1e0c34df533d","channel":"truck_sign","channel_label":null,"item_id":null,"placement":null,"variant":null,"landing":null,"active":true,"v":1,"scans":6,"signups":0,"payload_url":"https://hq.yumyums.kitchen/q/UUUUU2","png_url":"/api/v1/marketing/codes/9ea77a90-f810-4dd4-86f5-c3881cacdc39.png"}]}]}
+--- FAIL: TestCampaignListDisclosesUnattributedMoney (0.24s)
+=== RUN   TestCampaignListReportsZeroUnattributedAsAFact
+    fixround_test.go:118: unattributed_redeemed = <nil> on a fully-attributed period, want 0 (a stated fact, not a null)
+    fixround_test.go:121: unattributed_revenue_cents = <nil>, want 0
+--- FAIL: TestCampaignListReportsZeroUnattributedAsAFact (0.22s)
+=== RUN   TestSliceRowsCarryNullForThePeriodScopedKeys
+    fixround_test.go:130: subscribers table ABSENT (card H5 / migration 0085 has not landed in this tree): signups is asserted as 0 with basis=unavailable, per the card's own rule
+--- PASS: TestSliceRowsCarryNullForThePeriodScopedKeys (0.37s)
+=== RUN   TestOrphanRateDisclosesItsNumerator
+    fixround_test.go:213: orphan_numerator/denominator = 0/0, want 3/5 — the figure must carry its own arithmetic
+    fixround_test.go:217: orphan_rate_basis = "", want "unmatched_and_orphans_excl_duplicate_scan" — the wire must NAME the definition in force (D-5)
+    fixround_test.go:240: orphan_rate_basis = "" on an empty period, want it stated anyway
+--- FAIL: TestOrphanRateDisclosesItsNumerator (0.31s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	1.173s
+FAIL
+EXIT=1

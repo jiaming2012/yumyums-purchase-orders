@@ -362,3 +362,148 @@ GET /api/v1/marketing/reconciliation/declined   -> 200
 }
 
 EXIT=0
+
+
+################################################################################
+# APPENDED 2026-10-02 — G6 FIX ROUND F1/F2. NEW KEYS, read these before building.
+#
+# Fixture below is G6's live shape: a campaign ("Taco Tuesday", face $5.00) with
+# 6 scans and ONE MATCHED $30.00 Toast order whose scan_attempts_mirror
+# campaign_id is NULL and whose code_id resolves to no qr_codes row — which is
+# EVERY row on live data today (D-4, confirmed at mirror.go:370).
+#
+# moneyDTO gains TWO keys, on every route, always present:
+#   unattributed_redeemed        *int
+#   unattributed_revenue_cents   *int
+# NON-NULL on the period-scoped routes (GET /campaigns, GET /campaigns/{id},
+# PATCH /campaigns/{id}, GET /stats/overview) where 0 is a STATED FACT meaning
+# "every redemption found its campaign"; NULL on /stats/by rows and totals,
+# where a slice has no opinion on a period fact and states the figure as its own
+# `unattributed` row instead (so never sum these across rows).
+#
+# 🛑 WHAT CARD 2 AND CARD 5 MUST RENDER WHEN IT FIRES (unattributed_redeemed > 0):
+#   Card 2 (campaigns money strip, already shipped): the campaign's own
+#     revenue_cents IS a true zero — render $0.00 — but it must NOT stand alone.
+#     Add a note beside the strip, e.g. "1 redemption ($30.00) not attributed to
+#     any campaign" from unattributed_redeemed + unattributed_revenue_cents. A
+#     bare $0.00 on this shape is the defect G6 found.
+#   Card 5 (stats): the by-campaign slice already carries an `unattributed` ROW
+#     with those figures — render it as a real row, never filter it out, or the
+#     slice stops summing to the overview.
+#
+# StatsReconciliation gains THREE keys (the rate now carries its own arithmetic):
+#   orphan_rate_basis  "unmatched_and_orphans_excl_duplicate_scan"
+#   orphan_numerator   int
+#   orphan_denominator int
+# 🛑 THE RULE IS UNCHANGED — D-5 is PARKED at top severity on whether the
+# UNMATCHED bucket (order number typed, no Toast match) belongs in the numerator.
+# Render the basis string somewhere a manager can see it (a tooltip on the orphan
+# rate is enough); if the basis string you receive is not the one above, the
+# definition changed and your label must change with it.
+################################################################################
+
+========================================================================
+GET /api/v1/marketing/campaigns?period=30d   -> 200
+========================================================================
+{
+ "campaigns": [
+  {
+   "id": "b526ae05-c202-4339-9da5-43d5c648bd3b",
+   "slug": "probe-39f2ca96",
+   "name": "Taco Tuesday",
+   "offer_text": "Taco Tuesday offer",
+   "face_value_cents": 500,
+   "requires_online": false,
+   "item": null,
+   "landing": "signup",
+   "status": "live",
+   "starts_at": "2026-09-30T00:26:12.275449-04:00",
+   "ends_at": "2026-11-01T00:26:12.275449-04:00",
+   "projected_at": null,
+   "funnel": {
+    "scans": 6,
+    "signups": 0,
+    "redeemed": 0
+   },
+   "money": {
+    "revenue_cents": 0,
+    "discount_cents": 0,
+    "discount_basis": "implied",
+    "net_cents": 0,
+    "per_dollar": null,
+    "discount_implied_cents": 0,
+    "discount_actual_cents": 0,
+    "discount_unknown_rows": 0,
+    "unattributed_redeemed": 1,
+    "unattributed_revenue_cents": 3000,
+    "avg_order_cents_with": null,
+    "avg_order_cents_without": null
+   },
+   "codes": [
+    {
+     "id": "eafb1457-64b8-4b2d-bd5a-eab0cc153d01",
+     "short": "PPPPP2",
+     "campaign_id": "b526ae05-c202-4339-9da5-43d5c648bd3b",
+     "channel": "truck_sign",
+     "channel_label": null,
+     "item_id": null,
+     "placement": null,
+     "variant": null,
+     "landing": null,
+     "active": true,
+     "v": 1,
+     "scans": 6,
+     "signups": 0,
+     "payload_url": "https://hq.yumyums.kitchen/q/PPPPP2",
+     "png_url": "/api/v1/marketing/codes/eafb1457-64b8-4b2d-bd5a-eab0cc153d01.png"
+    }
+   ]
+  }
+ ]
+}
+
+========================================================================
+GET /api/v1/marketing/stats/overview?period=30d   -> 200
+========================================================================
+{
+ "period": "30d",
+ "funnel": {
+  "scans": 6,
+  "signups": 0,
+  "codes_sent": 0,
+  "redeemed": 1
+ },
+ "money": {
+  "revenue_cents": 3000,
+  "discount_cents": 400,
+  "discount_basis": "actual",
+  "net_cents": 2600,
+  "per_dollar": 7.5,
+  "discount_implied_cents": 0,
+  "discount_actual_cents": 400,
+  "discount_unknown_rows": 1,
+  "unattributed_redeemed": 1,
+  "unattributed_revenue_cents": 3000,
+  "avg_order_cents_with": 3000,
+  "avg_order_cents_without": null
+ },
+ "reconciliation": {
+  "matched": 1,
+  "open": 0,
+  "declined": 0,
+  "orphan_rate": 0,
+  "threshold": 0.1,
+  "orphan_rate_basis": "unmatched_and_orphans_excl_duplicate_scan",
+  "orphan_numerator": 0,
+  "orphan_denominator": 1
+ },
+ "needs_look": {
+  "overrides": 0,
+  "orphans": 0,
+  "unmatched": 0
+ },
+ "signups_basis": "unavailable",
+ "codes_sent_basis": "unavailable"
+}
+
+EXIT=0

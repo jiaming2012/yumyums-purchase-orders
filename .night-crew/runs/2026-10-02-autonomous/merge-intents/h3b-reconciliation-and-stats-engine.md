@@ -158,3 +158,140 @@ Also noted for triage: this card's orphan rate inherits `qr_scans`' **write-time
 dedupe, which is **DECISIONS-NEEDED D-2** (read-then-write under READ COMMITTED). `scans` is
 not the orphan-rate denominator (accepted attempts are), but it IS the funnel denominator a
 manager reads beside it. Not fixed, by instruction.
+
+---
+
+# APPENDED 2026-10-02 — G6 fix round (F1 / F2 / F3)
+
+G6 came back APPROVE-WITH-FINDINGS and **confirmed D-4 at source**
+(`mirror.go:370` inserts `campaign_id` as a literal NULL and omits it from the
+`ON CONFLICT SET` list; `public.codes.id` and `qr_codes.id = gen_random_uuid()`
+are different id spaces, so the join never matches live). It also re-proved the
+keystone on a harder fixture than mine — one including an **unmatched** row, a
+shape my fixture never modelled — and Σ still equalled overview across four dims.
+
+## Shared files touched by this round
+
+Only files already declared above: `types.go`, `stats.go`, `campaigns.go`,
+`routes.go` (one comment). New test file `fixround_test.go`. **No new file outside
+`backend/internal/marketing/`, no migration, `main.go` still untouched, `sw.js`
+unchanged (48).**
+
+## F1 — `GET /campaigns` rendered a confident $0.00. FIXED.
+
+G6's live shape: a campaign with 6 scans and one **matched $30.00 order whose
+`campaign_id` is NULL** returned `funnel.redeemed 0 / revenue_cents 0 /
+discount_cents 0 / discount_unknown_rows 0`. The money was real and sitting in the
+invisible `unattributed` row of the by-campaign slice, and **Card 2's money strip
+is already shipped against this block.**
+
+Why the existing signal could not fire: `discount_unknown_rows` is a **per-row
+count scoped to the group**, so on the campaign's own row 0 is legitimately
+correct — the campaign has no unpriceable rows *of its own*. The missing fact is a
+**period** fact.
+
+**`moneyDTO` gains two always-present keys** (no Card-1 key renamed, retyped or
+removed — all seven intact):
+
+| Key | Type | Meaning |
+|---|---|---|
+| `unattributed_redeemed` | `*int` | accepted redemptions in the period that **no campaign could claim** |
+| `unattributed_revenue_cents` | `*int` | the matched revenue sitting inside them |
+
+Scope follows this block's existing null contract: **non-null** on the
+period-scoped routes (`GET /campaigns`, `GET /campaigns/{id}`,
+`PATCH /campaigns/{id}`, `GET /stats/overview`) — where **`0` is a stated fact**
+meaning "every redemption found its campaign", which is what lets a UI render a
+plain `$0.00` with confidence; **null** on `/stats/by` rows and totals, where a
+slice has no opinion on a period fact and states the figure as its own
+`unattributed` row instead. **Never sum them across rows.** One
+`statsPeriodScope` struct now decides which routes state period facts, so the
+campaigns routes and the overview cannot disagree.
+
+**What Card 2 and Card 5 must render when it fires** (also written into
+`logs/h3b/wire-shapes-for-card-h4.log`, which Card 5 is dispatched against):
+Card 2 renders the campaign's own `$0.00` — it is a true zero — but **not alone**:
+beside the strip, "1 redemption ($30.00) not attributed to any campaign". Card 5
+renders the by-campaign slice's `unattributed` row as a real row and must never
+filter it out, or the slice stops summing to the overview.
+
+Live shape now returned on G6's fixture:
+`{revenue_cents:0, …, discount_unknown_rows:0, unattributed_redeemed:1, unattributed_revenue_cents:3000, avg_order_cents_with:null, avg_order_cents_without:null}`.
+
+## F2 — the orphan-rate numerator is wider than the words. DISCLOSED, NOT CHANGED.
+
+🛑 **The rule is unchanged.** `night-crew decisions log` returned
+**`verdict: park`, top severity**; it is **D-5** in `DECISIONS-NEEDED.md`.
+
+**The undisclosed choice, stated plainly.** `reconAttempt.countsInOrphanRate`
+counts **every accepted attempt with no matched Toast order**, minus declines whose
+reason is `duplicate_scan`. That set is the `orphan` bucket (no order number at
+all) **plus the `unmatched` bucket** (an order number *was* typed, Toast has no
+such order). §5's words are "orphan rate = orphans ÷ accepted", which reads
+narrower. On G6's five-row fixture:
+
+| Reading | Numerator | Rate | vs the 10% threshold |
+|---|---|---|---|
+| **shipped** (orphans + unmatched, excl. `duplicate_scan`) | 3 of 5 | **60%** | 6× over |
+| narrow literal (orphan bucket only, excl. `duplicate_scan`) | 2 of 5 | **40%** | 4× over |
+
+Both breach the threshold on that fixture, so the ruling does not flip the banner
+there — but it moves a figure **P-KR3 is graded on** by 20 points, and my spike
+fixture models no unmatched row, so it never disambiguated. That omission was
+mine and is now on the record.
+
+**`StatsReconciliation` gains three keys** so the figure is self-describing:
+`orphan_rate_basis` (the constant
+`"unmatched_and_orphans_excl_duplicate_scan"`), `orphan_numerator`,
+`orphan_denominator`. The basis is stated even when the rate is `null`.
+`TestOrphanRateDisclosesItsNumerator` **pins 3/5** on G6's shape, so whichever way
+D-5 is ruled the change is a deliberate edit to an asserted value, and a consumer
+that keyed off the old basis string sees a NEW string rather than a silently
+different number under the same name.
+
+## F3 — a comment in my own code was false. CORRECTED.
+
+`types.go` said of `discount_unknown_rows`: *"Non-zero here means the discount
+total is a floor, not a figure."* **Untrue for a matched row** — G6's probe
+returned `basis:"actual", discount_cents:400, discount_unknown_rows:1`, which is
+exact. Corrected to say what is true: each counted row contributed **no face
+value**, so `discount_implied_cents` is a floor; `discount_cents` is a floor only
+for the counted rows that are **unmatched**, because a matched row with no campaign
+still contributes its order's exact actual discount. Read it as "N redemptions had
+no campaign to price them", never as "the total is understated by N rows".
+
+## Also done, from the same review
+
+- `reportDeps` now carries the comment you asked for: it is a **package singleton,
+  last `NewDeps` wins**, correct for this process (main.go calls it once, before
+  either mount) and the price of filling H1's one-argument seam without touching
+  `main.go`. The escape hatch is named: `MountReportsDeps` already takes Deps, so
+  a two-pool process deletes the variable — a `main.go` edit, so not this card's.
+- **RF disclosure:** the card's original red-first was a **compile** red
+  (`[build failed]`, undefined types) rather than behavioural — acceptable for a
+  brand-new package where the handlers did not exist, and stated here rather than
+  implied. **This fix round's red is behavioural**: the struct fields were added
+  first with no wiring, the package compiled, and the tests then failed on the
+  defects themselves (`unattributed_redeemed is null on the campaigns list`,
+  `orphan_rate_basis = ""`), exit 1. Both stages are in
+  `logs/h3b/rf-fixround-red.log`.
+- A defect of my own, found while wiring F1 and fixed before it shipped: the first
+  cut recovered a `statsAgg` from an already-rendered `StatsRow` to re-render it at
+  period scope, guessing `matchedRows` for the `"mixed"` basis. That is a **second
+  arithmetic** — the one thing `stats.go` exists to prevent. Replaced by
+  `statsGroup`, which returns the accumulators, so the period-scoped render uses
+  the *same* accumulator as the slice.
+
+## Gate results, this round
+
+| Gate | Command | EXIT | Log |
+|---|---|---|---|
+| RF stage 1 | the four new tests, pre-field | 1 — `[build failed]`, undefined `UnattributedRedeemed` / `OrphanBasisUnmatchedAndOrphans` | `logs/h3b/rf-fixround-red.log` |
+| RF stage 2 | same, fields added, **nothing wired** | 1 — **behavioural**: `unattributed_redeemed is null`, `orphan_rate_basis = ""`, `orphan_numerator/denominator = 0/0` | same file |
+| G1 | `go build ./...` + `go vet ./...` | 0 / 0 | — |
+| G2 Go | `go test -p 1 -count=1 -v ./...` | 0 — **676 PASS / 0 FAIL / 3 SKIP** (was 672; +4 new tests) | `logs/h3b/g2-go-fixround.log` |
+| G4 | `node build-sw.js` | 0 — **48 precached**, `sw.js` unchanged | `logs/h3b/g4-sw-fixround.log` |
+
+**No Playwright this round**, by instruction: the box lock is Card 7's, the diff is
+backend-only, and the card's own full suite already measured **22 failed / 962
+passed = zero new reds** against the baseline 24.

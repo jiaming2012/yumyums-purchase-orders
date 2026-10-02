@@ -132,7 +132,42 @@ type StatsReconciliation struct {
 	Declined   int      `json:"declined"`
 	OrphanRate *float64 `json:"orphan_rate"`
 	Threshold  float64  `json:"threshold"`
+
+	// ── G6 fix F2 (run 20261002): the rate carries its own arithmetic ──
+	//
+	// 🛑 THE RULE IS NOT CHANGED BY THESE FIELDS. `night-crew decisions log`
+	// returned `verdict: park` at top severity; the question — whether the
+	// numerator should include the UNMATCHED bucket (an order number was typed,
+	// Toast has no such order) or only the orphan bucket — is D-5 in
+	// DECISIONS-NEEDED.md and is the operator's, because it is decision-190
+	// territory and it moves a figure graded against a 10% threshold.
+	//
+	// What these do is make the figure SELF-DESCRIBING, so no consumer has to
+	// infer which definition produced it: OrphanRateBasis NAMES the definition
+	// in force, and the numerator and denominator are shipped beside the rate so
+	// the arithmetic is checkable without re-deriving it. On G6's five-row shape
+	// the shipped rule gives 3/5 = 60% where the narrow reading gives 2/5 = 40%;
+	// TestOrphanRateDisclosesItsNumerator pins 3/5 so a ruling becomes a
+	// deliberate edit to an asserted value rather than a silent drift.
+	OrphanRateBasis   string `json:"orphan_rate_basis"`
+	OrphanNumerator   int    `json:"orphan_numerator"`
+	OrphanDenominator int    `json:"orphan_denominator"`
 }
+
+// OrphanBasisUnmatchedAndOrphans is the definition CURRENTLY IN FORCE, named on
+// the wire as StatsReconciliation.OrphanRateBasis.
+//
+// It reads: every accepted attempt with no matched Toast order — which is the
+// `orphan` bucket (no order number at all) AND the `unmatched` bucket (an order
+// number was typed, Toast has no such order) — excluding declines whose reason
+// is `duplicate_scan` (decision 190).
+//
+// 🛑 D-5 is parked on whether the `unmatched` half belongs. If the operator
+// rules it out, this constant and the predicate behind it
+// (reconAttempt.countsInOrphanRate) change TOGETHER, and the pinned test value
+// changes with them — so a consumer that keyed off the old string sees a new
+// one rather than a silently different number under the same name.
+const OrphanBasisUnmatchedAndOrphans = "unmatched_and_orphans_excl_duplicate_scan"
 
 // StatsNeedsLook is the "needs a look" banner's three bucket counts.
 type StatsNeedsLook struct {
@@ -216,11 +251,28 @@ func (g *statsAgg) addCode(c statsCode) {
 	g.signups += c.Signups
 }
 
-// money renders the accumulator as the wire block. avgWithout is the
-// period-level "orders with no offer attached" baseline, which is only
-// meaningful at period scope — slice rows pass nil, and nil means "no opinion",
-// never 0.
-func (g statsAgg) money(avgWithout *int) moneyDTO {
+// statsPeriodScope carries the facts that are true of a PERIOD rather than of a
+// group, so there is exactly one place that decides which routes state them.
+//
+// A slice row passes nil and gets nulls, because a row has no opinion on a
+// period fact — and because summing a period fact across rows would multiply it
+// by the row count. A period-scoped route (`GET /campaigns`, `/campaigns/{id}`,
+// `PATCH /campaigns/{id}`, `/stats/overview`) passes a value, and then a 0 is a
+// STATED FACT, not an absence.
+type statsPeriodScope struct {
+	// AvgOrderCentsWithout is the mean amount over Toast orders in the period
+	// that no accepted attempt matched — the design's "average check without
+	// the offer". nil inside the struct when there were no such orders.
+	AvgOrderCentsWithout *int
+	// UnattributedRedeemed / UnattributedRevenueCents are G6 fix F1: the
+	// redemptions no campaign could claim, and the matched revenue inside them.
+	UnattributedRedeemed     int
+	UnattributedRevenueCents int
+}
+
+// money renders the accumulator as the wire block. scope is nil for a slice row
+// and set for a period-scoped route; see statsPeriodScope.
+func (g statsAgg) money(scope *statsPeriodScope) moneyDTO {
 	m := moneyDTO{
 		RevenueCents:         g.revenue,
 		DiscountCents:        g.discount,
@@ -230,7 +282,14 @@ func (g statsAgg) money(avgWithout *int) moneyDTO {
 		DiscountImpliedCents: g.implied,
 		DiscountActualCents:  g.actual,
 		DiscountUnknownRows:  g.unknownRows,
-		AvgOrderCentsWithout: avgWithout,
+	}
+	if scope != nil {
+		m.AvgOrderCentsWithout = scope.AvgOrderCentsWithout
+		// Taken by address so 0 ships as 0 and not as null: at period scope,
+		// "nothing was unattributed" is an answer.
+		redeemed, revenue := scope.UnattributedRedeemed, scope.UnattributedRevenueCents
+		m.UnattributedRedeemed = &redeemed
+		m.UnattributedRevenueCents = &revenue
 	}
 	if g.matchedRows > 0 {
 		// Integer division, integer cents. A truncated average cent is the
@@ -445,6 +504,38 @@ func statsAvgOrderWithout(attempts []reconAttempt, orders []reconOrder) *int {
 	return &v
 }
 
+// statsUnattributed is G6 fix F1's figure: the accepted redemptions in the period
+// that NO campaign could claim, and the matched revenue sitting in them.
+//
+// "No campaign could claim it" is exactly reconAttempt.CampaignID == nil, i.e.
+// the mirror carried no campaign_id AND code_id resolved to no qr_codes row —
+// which is every row on live data today (D-4). The by-campaign slice shows these
+// as its `unattributed` ROW; the campaigns list cannot show a row it does not
+// have, so it states the figure instead.
+func statsUnattributed(attempts []reconAttempt) (redeemed int, revenueCents int) {
+	for _, a := range attempts {
+		if a.CampaignID != nil {
+			continue
+		}
+		redeemed++
+		if a.matched() {
+			revenueCents += *a.OrderAmountCents
+		}
+	}
+	return redeemed, revenueCents
+}
+
+// statsScope builds the period scope from the loaded data, in one place so the
+// campaigns routes and the overview cannot state different period facts.
+func statsScope(data statsData) statsPeriodScope {
+	redeemed, revenue := statsUnattributed(data.attempts)
+	return statsPeriodScope{
+		AvgOrderCentsWithout:     statsAvgOrderWithout(data.attempts, data.orders),
+		UnattributedRedeemed:     redeemed,
+		UnattributedRevenueCents: revenue,
+	}
+}
+
 // ── grouping ──
 
 // statsAttemptKey is the (key, label) an attempt contributes to in `dim`.
@@ -507,8 +598,22 @@ func statsChannelLabel(channel string, label *string) string {
 	return channel
 }
 
-// statsBuild partitions the inputs into rows for `dim`, plus the totals.
-func statsBuild(dim string, data statsData, filter statsFilter) ([]StatsRow, statsAgg) {
+// statsGroups is the partition behind every slice: one accumulator per group, in
+// first-seen order, with its label. Returned rather than only rendered so a
+// period-scoped caller (statsCampaignMoney) can render the SAME accumulator at a
+// different scope — recovering an accumulator from an already-rendered row would
+// be a second arithmetic, which is the one thing this file exists to prevent.
+type statsGroups struct {
+	Order  []string
+	Labels map[string]string
+	Aggs   map[string]*statsAgg
+	Totals statsAgg
+}
+
+// statsGroup partitions the inputs for `dim`. Every attempt lands in exactly one
+// group and every code lands in exactly one group, which is what makes Σ over
+// the groups equal the overview.
+func statsGroup(dim string, data statsData, filter statsFilter) statsGroups {
 	groups := map[string]*statsAgg{}
 	labels := map[string]string{}
 	order := []string{}
@@ -541,9 +646,16 @@ func statsBuild(dim string, data statsData, filter statsFilter) ([]StatsRow, sta
 		totals.addCode(c)
 	}
 
-	rows := make([]StatsRow, 0, len(order))
-	for _, key := range order {
-		rows = append(rows, groups[key].row(key, labels[key]))
+	return statsGroups{Order: order, Labels: labels, Aggs: groups, Totals: totals}
+}
+
+// statsBuild renders statsGroup's partition as slice rows (scope-less: a row has
+// no opinion on a period fact), plus the totals accumulator.
+func statsBuild(dim string, data statsData, filter statsFilter) ([]StatsRow, statsAgg) {
+	g := statsGroup(dim, data, filter)
+	rows := make([]StatsRow, 0, len(g.Order))
+	for _, key := range g.Order {
+		rows = append(rows, g.Aggs[key].row(key, g.Labels[key]))
 	}
 	// Deterministic, and the design's order: the slices that cost the most
 	// first. Key breaks every tie so two requests never disagree.
@@ -560,7 +672,7 @@ func statsBuild(dim string, data statsData, filter statsFilter) ([]StatsRow, sta
 		}
 		return a.Key < b.Key
 	})
-	return rows, totals
+	return rows, g.Totals
 }
 
 // statsFilter is §5's two drill-in scopes.
@@ -614,6 +726,8 @@ func statsOverview(period string, data statsData) StatsOverviewResponse {
 		all.addCode(c)
 	}
 
+	scope := statsScope(data)
+
 	var needs StatsNeedsLook
 	matched, declined, orphanNumerator := 0, 0, 0
 	for _, a := range data.attempts {
@@ -643,13 +757,16 @@ func statsOverview(period string, data statsData) StatsOverviewResponse {
 			CodesSent: data.codesSent,
 			Redeemed:  all.redeemed,
 		},
-		Money: all.money(statsAvgOrderWithout(data.attempts, data.orders)),
+		Money: all.money(&scope),
 		Reconciliation: StatsReconciliation{
-			Matched:    matched,
-			Open:       needs.Overrides + needs.Orphans + needs.Unmatched,
-			Declined:   declined,
-			OrphanRate: statsRate(orphanNumerator, len(data.attempts)),
-			Threshold:  ReconOrphanThreshold,
+			Matched:           matched,
+			Open:              needs.Overrides + needs.Orphans + needs.Unmatched,
+			Declined:          declined,
+			OrphanRate:        statsRate(orphanNumerator, len(data.attempts)),
+			Threshold:         ReconOrphanThreshold,
+			OrphanRateBasis:   OrphanBasisUnmatchedAndOrphans,
+			OrphanNumerator:   orphanNumerator,
+			OrphanDenominator: len(data.attempts),
 		},
 		NeedsLook:      needs,
 		SignupsBasis:   data.signupsBasis,
@@ -756,23 +873,30 @@ func StatsByHandler(d Deps, managerTier bool) http.HandlerFunc {
 // avg_order_cents_without is the PERIOD baseline (orders with no offer
 // attached), identical for every campaign because that is what it means: the
 // average check when the offer was not used.
-func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Time) (map[string]StatsRow, *int, error) {
+func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Time) (map[string]StatsRow, statsPeriodScope, error) {
 	data, err := statsLoad(ctx, pool, since)
 	if err != nil {
-		return nil, nil, err
+		return nil, statsPeriodScope{}, err
 	}
-	rows, _ := statsBuild("campaign", data, statsFilter{})
-	without := statsAvgOrderWithout(data.attempts, data.orders)
-	out := make(map[string]StatsRow, len(rows))
-	for _, row := range rows {
-		row.AvgOrderCentsWithout = without
-		out[row.Key] = row
+	g := statsGroup("campaign", data, statsFilter{})
+	scope := statsScope(data)
+	out := make(map[string]StatsRow, len(g.Order))
+	for _, key := range g.Order {
+		agg := g.Aggs[key]
+		// Rendered from the ACCUMULATOR at PERIOD scope: same arithmetic as the
+		// by-campaign slice, plus the period facts these routes are entitled to
+		// state (the baseline, and G6 fix F1's unattributed figures). Every
+		// campaign gets the same period values, because they are facts about the
+		// period and not about the campaign — handing one campaign the number
+		// and another a null would read as "we have no baseline for this
+		// campaign".
+		out[key] = StatsRow{
+			Key: key, Label: g.Labels[key],
+			Scans: agg.scans, Signups: agg.signups, Redeemed: agg.redeemed,
+			moneyDTO: agg.money(&scope),
+		}
 	}
-	// `without` is returned alongside so a campaign with NO redemptions gets the
-	// same baseline as one with some. It is a period fact, not a campaign fact —
-	// handing one campaign the number and another a null would read as "we have
-	// no baseline for this campaign", which is not what is true.
-	return out, without, nil
+	return out, scope, nil
 }
 
 // statsApplyCampaignMoney fills one campaign's funnel and money from the map,
@@ -781,12 +905,11 @@ func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Tim
 // A campaign the map does not know (no codes, no redemptions) gets the computed
 // EMPTY money — zeroMoney()'s shape with the new keys — which is a true zero,
 // not an unknown: it really has no redemptions.
-func statsApplyCampaignMoney(c *campaignDTO, byCampaign map[string]StatsRow, without *int) {
+func statsApplyCampaignMoney(c *campaignDTO, byCampaign map[string]StatsRow, scope statsPeriodScope) {
 	row, ok := byCampaign[c.ID]
 	if !ok {
 		var empty statsAgg
-		m := empty.money(without)
-		c.Money = m
+		c.Money = empty.money(&scope)
 		return
 	}
 	c.Funnel.Signups = row.Signups
