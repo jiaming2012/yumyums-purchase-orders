@@ -1,0 +1,25 @@
+# night-crew.toml [e2e.seams] check for card H3a's footprint.
+# Expected change: NONE. (A new key or token would be a PARK.)
+
+backend/internal/toast                   UNMAPPED (no [e2e.seams] entry) -> full suite
+backend/internal/marketing               UNMAPPED (no [e2e.seams] entry) -> full suite
+backend/cmd/server                       UNMAPPED (no [e2e.seams] entry) -> full suite
+backend/internal/redemption              UNMAPPED (no [e2e.seams] entry) -> full suite
+backend/internal/db/migrations           UNMAPPED (no [e2e.seams] entry) -> full suite
+
+# backend/internal/redemption:
+210:# THE MARKETING SEAM — added by card `redemption-submit-flow` (run 20260905),
+
+# The deliberate note the toml already carries about cmd/server:
+# backend/cmd/server is INTENTIONALLY UNMAPPED. main.go wires every route of
+# every app plus the catch-all static handler (static.go, Cache-Control:
+# no-cache), so no app's spec subset can stand in for it: a change there
+# de-confines the card and runs the full suite, which is the rule the header
+# of this section states for shared packages. Do not add a key for it — any
+# subset listed here would be narrower than the blast radius, which is exactly
+# how a regression escapes a green gate (2026-10-01, the no-cache change was
+# gated on marketing.spec.js by hand because this note did not yet exist).
+
+# CONCLUSION: every path this card touches is already unmapped, so the card is
+# de-confined to the FULL Playwright suite with no toml edit at all. No key added,
+# no token added, no roll-call comment needed.

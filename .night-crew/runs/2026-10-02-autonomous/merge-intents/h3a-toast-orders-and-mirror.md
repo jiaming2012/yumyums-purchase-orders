@@ -208,3 +208,23 @@ override provenance — which is the acceptance bullet.
    with the gap and its cheap fix (resume from `cursor.scanned_at − replay window`; the upsert
    already makes overlap free) written into `mirror.go` rather than left to be rediscovered. Worth a
    backlog line at triage.
+
+## Gate outcomes (for the orchestrator, full logs under `logs/h3a/`)
+
+| Gate | Result |
+|---|---|
+| G1 | `go build ./...` + `go vet ./...` from `backend/` — both exit 0. |
+| G2 (Go) | `go test -p 1 -count=1 -v ./...` — **655 PASS / 0 FAIL / 3 SKIP** (658 results; base 651 → +7, exactly this card's seven). `internal/workflow` ran **39**, so `DB_TEST_URL` took effect. All three SKIPs are pre-existing opt-in gates. `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both **UNSET**. |
+| G2 (Playwright) | ONE full suite under `flock /tmp/hq-full-suite.lock` — **exactly one summary block**: 26 failed / 6 skipped / 963 passed, EXIT=1. 22 of the 26 are baseline members; 2 baseline members went green; **4 fell outside the 24 and ALL FOUR pass confined.** Not diff-attributable — see the log's RED-SET DIFF block. |
+| G4 | `node build-sw.js` twice — precache **48** both times, `sw.js` byte-unchanged (this card touches no precached asset). |
+| RF | Three reds observed before the fix, then green — see Red-first above. |
+
+### The four non-baseline reds, for the triage record
+
+`inventory.spec.js:1469` (medium shows n/a), `:2700` (create new item via Items tab — **named verbatim
+in `bugs.md`'s own cluster list**), `:2919` (create item without group shows alert),
+`states-inventory-nav.spec.js:297` (hub painted before boot). All four green confined; `:2919` needed
+true isolation rather than the four-test subset. Same Inventory Setup-tab / hub surface as the
+undiagnosed 17-test cluster, and the same run saw two *baseline* members (`:2767`, `:2931`) flip
+green — B-45/B-437's "a distribution of about four, not a fixed four", moving. Worth a line on the
+cluster rather than a card.

@@ -1,0 +1,57 @@
+# Proof that ItemSelectionDetails behaviour survives untouched (card H3a).
+
+## 1. The diff on sync.go is ADDITION-ONLY — zero removed lines.
+$ git diff 94ad3b3..HEAD --numstat -- backend/internal/toast/sync.go
+49	0	backend/internal/toast/sync.go
+
+$ git diff 94ad3b3..HEAD -- backend/internal/toast/sync.go | grep -c '^-[^-]'   # removed lines
+0
+
+## 2. Every pre-change line of sync.go is still present, byte-identical.
+#    (base blob vs HEAD blob: the base is a strict line-subset of HEAD)
+$ diff <(base) <(HEAD) | grep '^<' | wc -l   # base-only lines (must be 0)
+0
+
+## 3. The ItemSelection remote path and its ErrSFTPMiss/ErrSFTPUnavailable classification
+#    are character-identical between base and HEAD.
+$ grep -n 'ItemSelectionDetails.csv\|ErrSFTPMiss\|ErrSFTPUnavailable' on each
+--- base ---
+24:// returns ErrSFTPUnavailable so the worker can fail loud.
+27:// ErrSFTPUnavailable signals that the SFTP endpoint could not be opened or
+32:var ErrSFTPUnavailable = errors.New("toast sync: sftp dial/auth failed")
+34:// SyncDate fetches one business date's ItemSelectionDetails.csv from SFTP and
+42://   - (false, ErrSFTPUnavailable)  — SFTP dial/auth failed (B-146 loud path — health + alert)
+61:		// the same class as a dial/auth failure. Classify it as ErrSFTPUnavailable
+68:		return false, fmt.Errorf("%w: read key %q: %v", ErrSFTPUnavailable, cfg.SFTPKeyPath, err)
+77:		// dead. Return ErrSFTPUnavailable so the worker fails loud (health +
+81:		return false, fmt.Errorf("%w: %v", ErrSFTPUnavailable, err)
+85:	remotePath := fmt.Sprintf("/%s/%s/ItemSelectionDetails.csv", cfg.ExportID, dateDir)
+89:		return false, ErrSFTPMiss
+119:	//    Original filename from Toast is "113866_HQ_YYYYMMDD_ItemSelectionDetails.csv"
+121:	origName := fmt.Sprintf("%s_HQ_%s_ItemSelectionDetails.csv", cfg.ExportID, dateDir)
+--- HEAD ---
+24:// returns ErrSFTPUnavailable so the worker can fail loud.
+27:// ErrSFTPUnavailable signals that the SFTP endpoint could not be opened or
+32:var ErrSFTPUnavailable = errors.New("toast sync: sftp dial/auth failed")
+34:// SyncDate fetches one business date's ItemSelectionDetails.csv from SFTP and
+42://   - (false, ErrSFTPUnavailable)  — SFTP dial/auth failed (B-146 loud path — health + alert)
+61:		// the same class as a dial/auth failure. Classify it as ErrSFTPUnavailable
+68:		return false, fmt.Errorf("%w: read key %q: %v", ErrSFTPUnavailable, cfg.SFTPKeyPath, err)
+77:		// dead. Return ErrSFTPUnavailable so the worker fails loud (health +
+81:		return false, fmt.Errorf("%w: %v", ErrSFTPUnavailable, err)
+85:	remotePath := fmt.Sprintf("/%s/%s/ItemSelectionDetails.csv", cfg.ExportID, dateDir)
+89:		return false, ErrSFTPMiss
+119:	//    Original filename from Toast is "113866_HQ_YYYYMMDD_ItemSelectionDetails.csv"
+121:	origName := fmt.Sprintf("%s_HQ_%s_ItemSelectionDetails.csv", cfg.ExportID, dateDir)
+149:	//    and its ErrSFTPMiss / ErrSFTPUnavailable classification are B-146's
+
+## 4. The pre-existing toast tests that pin that classification still pass (G2 Go, 30 results
+#    in internal/toast, 0 FAIL): TestSyncDate_DialFailure_ReturnsUnavailable,
+#    TestSyncDate_KeyUnreadable_ReturnsUnavailable, the handleSyncOutcome table, parseItemSelectionDetails.
+## 5. parser.go, ingest.go, worker.go, meta.go, spaces.go: NOT TOUCHED by this card.
+$ git diff 94ad3b3..HEAD --name-only -- backend/internal/toast/
+backend/internal/toast/main_test.go
+backend/internal/toast/orderdetails.go
+backend/internal/toast/orderdetails_test.go
+backend/internal/toast/sync.go
+backend/internal/toast/testdata/OrderDetails.csv

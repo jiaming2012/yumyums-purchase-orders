@@ -1,0 +1,14 @@
+# G4 — node build-sw.js, run AFTER the card's commit (build-sw.js reads git HEAD, not the working tree).
+# This card adds no precached asset, so the count must stay 48.
+# --- run 1 ---
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+RUN1_EXIT=0
+# --- run 2 (idempotence) ---
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+RUN2_EXIT=0
+# --- git status after both runs ---
+?? .night-crew/runs/2026-10-02-autonomous/logs/h3a/G4-sw.log
