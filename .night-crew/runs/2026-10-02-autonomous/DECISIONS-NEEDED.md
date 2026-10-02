@@ -154,6 +154,38 @@ right-to-erasure request cannot be served by a plain `DELETE`. Decide it with D-
 
 ---
 
+## D-5 · Which scans count as orphans? The rate reads 40% or 60% on the same data, against a 10% line
+
+**Status:** OPEN · **Severity:** MEDIUM (ladder: top, parked) · **Raised by:** G6 on card
+`h3b-reconciliation-and-stats-engine`
+
+Slate and handoff §5 define the metric as **orphans ÷ accepted, counting declines except
+`duplicate_scan`**, and define an **orphan** as an accepted attempt with **no order number**.
+Card 4 implemented the numerator as `!matched && !dup_decline` (`reconciliation.go:219-228`),
+which **also counts `unmatched` rows** — where an order number *was* typed but no Toast order
+matched it.
+
+On G6's fixture that is **3 of 5 = 60%** where the literal reading gives **2 of 5 = 40%** —
+**against a 10% threshold, on the figure P-KR3 is graded against.** The spike's fixture models no
+unmatched row, so it never disambiguated this, and the card did not surface the choice.
+
+**Tonight's handling:** the rule is **unchanged** (changing it is decision-190 territory and a park
+in its own right). The card was instructed instead to make the figure **self-describing on the
+wire**, state both numbers in its merge-intent, and **pin the current numerator in a test** — so
+whichever way you rule, the change is a deliberate edit to an asserted value rather than a silent
+drift.
+
+| Option | What you would see |
+|---|---|
+| **Literal spec: orphans only (+ declines except `duplicate_scan`)** *(run's recommendation)* | The lower number, and the 10% line keeps the meaning it was set against. An `unmatched` row is its own bucket with its own queue section and its own suggestion, so it is already visible elsewhere. |
+| As shipped: every accepted attempt not matched and not duplicate-declined | The higher number. Arguably truer to the metric's *purpose* — a scan nobody has tied to a sale is unreconciled whether or not someone typed a number — but wider than the words say. |
+| Ship both | `orphan_rate` keeps the defined meaning for the threshold, and a second named figure carries the wider health signal. |
+
+🛑 **Do not read the current `orphan_rate` against the 10% line until this is settled** — the number
+and the threshold may not be measuring the same thing.
+
+---
+
 ## Not decisions — recorded so triage does not mistake them for forks
 
 - **Four LOW/INFO G6 findings on Card 1**, all engineer-level and none parked: the public landing

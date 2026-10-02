@@ -19,3 +19,4 @@
 2026-10-01T23:41:27-04:00	merge	MERGE 3 799a748 — Card 3 h3a; precache 49 (no asset added), G1+G2(Go) green
 2026-10-01T23:48:35-04:00	merge	MERGE 4 78e768f — Card 6 h5; THREE conflicts resolved against intent (marketing.html auto, spec union, toml union, sw.js regenerated not merged); precache 50 at merged HEAD, 15 pkgs green
 2026-10-01T23:48:35-04:00	card7-dispatch	Card 7 h6-scanner-polish dispatched EARLY off the run branch — disjoint from Card 4, and the slate ordering reason (H3a mirror) merged at 23:30; takes it off the critical path
+2026-10-02T00:18:04-04:00	G6-return	Card 4 G6 APPROVE-WITH-FINDINGS — attribution finding CONFIRMED at source (D-4 stands); keystone held on a harder fixture; F1 confident $0.00 on /campaigns + F2 orphan numerator -> D-5; fix round sent
