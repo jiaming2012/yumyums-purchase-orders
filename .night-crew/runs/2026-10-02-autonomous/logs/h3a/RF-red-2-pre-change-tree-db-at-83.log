@@ -1,0 +1,20 @@
+# RF RED-2 — the TRUE pre-change tree (as RED-1) AND the test database rolled back to
+#   goose version 83, i.e. migration 0084 never applied. This is the red a FRESH clone of
+#   base 94ad3b3 produces: RED-1's database still carried 0084 from an earlier green run,
+#   which is why its redemption red was 23505 (index present, ON CONFLICT clause absent)
+#   rather than the behavioural count.
+# Target: docker exec yumyums-test-pg (host :5434), role hqtest, db hq_test_go_h3a. NEVER :5433.
+# $ go test -count=1 ./internal/redemption/
+
+2026/10/01 21:04:10 goose: no migrations to run. current version: 83
+2026/10/01 21:04:10 INFO database migrations applied successfully
+2026/10/01 21:04:10 WARN RaceLostReconciled code_token_hash=f4-code-hash device_id=device-b staff=manager@yumyums.kitchen order_number=4021 scanned_at=2026-09-04T19:42:00.000Z value_known=true value=2.5 unverified_code=true
+2026/10/01 21:04:13 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:04:13 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:04:13 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-b@yumyums.com order_number=1042-A scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+--- FAIL: TestRaceLostNotificationDedupe (0.04s)
+    racelost_dedupe_test.go:69: B-424: a replayed reconciliation created 3 notifications, want 1
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	2.755s
+FAIL
+EXIT=1

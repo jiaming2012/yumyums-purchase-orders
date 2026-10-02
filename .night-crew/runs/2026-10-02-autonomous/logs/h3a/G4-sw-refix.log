@@ -1,0 +1,16 @@
+# G4 RE-RUN after the G6 fix-round commit (build-sw.js reads git HEAD, not the working tree).
+# The fix round adds no precached asset — Go-only changes under backend/internal/toast —
+# so the count must stay 48 and sw.js must come out byte-identical.
+# --- run 1 ---
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+RUN1_EXIT=0
+# --- run 2 (idempotence) ---
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+RUN2_EXIT=0
+# --- git status after both runs (empty = sw.js byte-unchanged) ---
+?? .night-crew/runs/2026-10-02-autonomous/logs/h3a/G4-sw-refix.log
+# EXIT=0

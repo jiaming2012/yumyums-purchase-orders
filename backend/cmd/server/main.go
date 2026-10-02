@@ -986,6 +986,20 @@ func main() {
 		recipes.StartDriftScheduler(ctx, pool)
 	}
 
+	// scan_attempts mirror — card H3a (run 20261002).
+	// Pulls Supabase public.scan_attempts into HQ's scan_attempts_mirror every
+	// 5 minutes with the service key, keyset on (scanned_at, id). Devices can
+	// INSERT upstream and never SELECT, so this is the only way the counter's
+	// outcome becomes visible inside HQ (B-424's F4 bullet).
+	// Unconfigured substrate (HQ_SYNC_REST_URL / HQ_SYNC_SERVICE_KEY unset) is
+	// IDLE AND LOGGED inside MirrorStart, not a failure. It sits here, beside
+	// the Toast worker, because the two together are the reconciliation join.
+	if schedulersDisabled {
+		slog.Info("scan-attempts mirror disabled", "reason", "E2E_DISABLE_SCHEDULERS=1")
+	} else {
+		marketing.MirrorStart(ctx, pool, mktDeps.Projection)
+	}
+
 	// Toast ingest — Phase 22.1.
 	// Combined sync+ingest worker: SFTP→Spaces+cache per date, then Spaces→DB.
 	// D-12 preserved: LoadConfigFromEnv fails fast on missing/unreadable TOAST_SFTP_KEY_PATH.
