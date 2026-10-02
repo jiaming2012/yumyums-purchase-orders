@@ -855,6 +855,125 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/submit-flow.js`, `marketing/scan-page.js`, `marketing/sync/harness/*`,
   `tests/marketing.spec.js`, `sw.js`.
 
+## Activity I — Honest gates, then verify before the till (triage 20261002 follow-ups)
+
+> **Why here:** Activity H landed seven cards and its morning triage (ledger **T-62**, decisions
+> 194–200) found that two of the gates guarding the scanner's offline policy are false, that one
+> guard behind a legal commitment ("nothing sends") is narrower than its name, that an online phone
+> commits a discount before anything has verified the code, and two schema gaps the night parked.
+> The operator ordered these at triage — the test-integrity fix "lands before any new product
+> work", B-468 "promoted above the backlog" (decision 200) — and the slate sitting of 2026-10-02
+> authored them as cards (the "triage authors the card that discharges the finding it raised"
+> precedent, decisions 167 / 170 / 180). **Trace:** QA objective (Q-KR1's refusal is what the false
+> gates claim to guard; P-KR3's orphan-rate denominator is what the dedupe protects) and the
+> Product objective (B-468 is the window workflow). Four cards, two tracks: **A (client)** I1 → I2,
+> **B (backend)** I3 → I4. Spike ledgers under
+> `.night-crew/knowledge/spikes/activity-i-honest-gates-verify-first/`.
+
+- **`test-integrity-fix`** · **PLANNED** · (I1, track A — the operator's stated condition for
+  merging run 20261002) Three gates pass against inverted or widened production code, and all
+  three are fixed so they red on the mutation that fooled them. **B-462** — `campaigns-harness.mjs`
+  leg 3 reimplements `failClosed` instead of importing `marketing/submit-flow.js`'s; it must
+  import the shipped predicate (export it; the harness asserts the IMPORT, since its comment's
+  "negative assertion moves with it" was proven never true). **B-465** — `[SP-03b]` passes
+  against an inverted `failClosed` because `kind='unknownCode'` never consults the predicate; the
+  branch it claims to guard exists only because `MARKETING_REPLICA_SCHEMA` omits `campaign_id`
+  from `required`, a row both databases forbid (`not null references`). Add `campaign_id` to
+  `required` **as schema version 1 with a migration strategy** (the three-part shape
+  `replicas.js` documents for the campaigns v1 schema — a bare edit bricks a synced phone), and
+  retire `[SP-03b]` in favour of a test that the invariant is a schema fact. **B-466** —
+  `TestNothingInThisPackageSends` scans two filenames; make it walk every non-test `.go` file in
+  `internal/marketing` and `sources/`, with an explicit allowlist naming the files permitted to
+  speak HTTP and why (`projection.go` — decision 187's projection; `mirror.go` — the poller), so
+  an `http.Post` added anywhere else reds it. Carries the three decision-191 amendment riders
+  (T-62). 🛑 The refusal behaviour itself does not change: the B-432 fail-closed predicate, the
+  `requires_online = true` refusal and decisions 166/199 are untouchable — this card changes what
+  the TESTS measure, not what the phone does. done_when (each mutation-proven, red-first):
+  with `failClosed` inverted, `campaigns-run.sh` exits 1 (today 0) and `[SP-03]` reds while no
+  spec in the file stays green by never consulting the predicate; with an `http.Post` in
+  `campaigns.go`, `TestNothingInThisPackageSends` reds (today green); a codes-replica store
+  created at v0 reopens at v1 with its rows intact (the B-441 lead, executed). Footprint:
+  `marketing/sync/harness/campaigns-harness.mjs`, `marketing/submit-flow.js` (exports only),
+  `marketing/sync/replicas.js` (schema v1 + strategy), `tests/marketing.spec.js`,
+  `backend/internal/marketing/subscribers_test.go`, `sw.js` (regenerated, count unchanged),
+  BACKLOG dispositions B-462 / B-465 / B-466.
+
+- **`scan-time-verify`** · **PLANNED** · (I2, track A after I1 — **B-468**, decision 200)
+  Today `marketing/scanner.js` `resolve()` consults three LOCAL sources only and contains no
+  network call, so a code minted since the phone last synced resolves `unknownCode` even on a
+  fully-online phone, the crew keys the discount into Toast, and only the submit asks the server.
+  Behaviour after this card: **an online phone that has never seen a code asks the server about it
+  at scan time, before any discount is applied** — the real offer renders (or "already used"), and
+  only if the server cannot be reached inside the probe budget does the phone fall back to today's
+  "this code isn't on this device" path, saying it could not check. **Offline behaviour is
+  unchanged** (decisions 166 / 199 govern the never-seen code offline). Mechanism (decision 200's
+  direction, spike-proven): one `GET /codes?token_hash=eq.<hash>&select=id,campaign_id,expires_at,redeemed_at,redeemed_by`
+  through the sync door the device already uses (`restUrl` from the provisioned coordinates; the
+  proxy mints the session's device JWT; RLS lets the device role read any code row — redeemed
+  and expired included, spike 01), with a timeout no longer than the connectivity probe's, wired
+  as an optional `serverLookup` dep on `createScanResolver` and called only when `online` and
+  the token is in neither replica. A server row that is live → `offerReady` with
+  `source: 'server'`; redeemed → the "already used" result (the existing F3 online handling
+  decides at submit, as today); no row → `unknownCode`; timeout/error → `unknownCode` with
+  `verified: false` so the copy says the server could not be checked. Preference candidate
+  `process/C-4` ("put the check before the step that cannot be undone") is the operator's
+  stated reason. done_when: `[SV-01]` online + code absent locally + server has it → the offer
+  card renders from the server row before any submit control; `[SV-02]` online + server says
+  redeemed → "already used" at scan, no discount prompt; `[SV-03]` server killed at the network
+  layer → today's copy plus "couldn't check the server", inside the budget; `[SV-04]` offline →
+  zero network calls (route-interception count 0) and behaviour byte-identical to today — red →
+  green in `tests/marketing.spec.js`. Footprint: `marketing/scanner.js`, `marketing/scan-page.js`,
+  `marketing/submit-flow.js` (copy only), `tests/marketing.spec.js`, `sw.js`; **no backend file**
+  (a `backend/` diff is scope drift, stated). BACKLOG B-468 `promoted → scan-time-verify`.
+
+- **`dish-merge-and-erasure-backstop`** · **PLANNED** · (I3, track B — decision 194) Migration
+  `0083`'s `campaigns_admin.item_id` and `qr_codes.item_id` reference `menu_items(id)` with no
+  `ON DELETE`, so `recipes.MergeMenuItem` (re-point recipes, delete the source dish) fails
+  `23503` once any campaign references the dish — API-only today, no frontend calls the merge.
+  Behaviour after this card: **a dish merge re-points the campaigns and codes that named the
+  source dish to the surviving one** (the house convention — "merge re-points all FKs, deletes
+  source"), **and a dish, code or subscriber can be deleted without a 500**: the blank-on-delete
+  backstop (`ON DELETE SET NULL` on `campaigns_admin.item_id`, `qr_codes.item_id`,
+  `subscribers.source_short`) so a future table that forgets the merge path degrades to an empty
+  label; and `ON DELETE CASCADE` on `subscriber_events.subscriber_id` (a timeline row cannot be
+  blanked — engineer-level call, stated) so a right-to-erasure request is one `DELETE FROM
+  subscribers`; plus the FK `0083` never declared, `qr_scans.subscriber_id → subscribers(id)
+  ON DELETE SET NULL`, so that one DELETE leaves no dangling id behind (spike correction 2).
+  **A code that has been scanned stays undeletable by design** — codes are deactivated, never
+  deleted, and scan history is attribution evidence — so `qr_scans.short → qr_codes(short)`
+  keeps its plain FK and the card asserts the refusal rather than cascading it (spike
+  correction 1). Migration `0086` (Down included; five ALTERs, verbatim in the extraction
+  record). `CLAUDE.md`'s stale "Menu items in the Recipes
+  tab can be merged the same way" line corrected (triage T-62 finding 1). done_when:
+  `TestRepository_MergeMenuItem_RePointsCampaignsAndCodes` red (`23503`) → green;
+  `TestSubscriberDeleteCascadesTimelineAndBlanksScans` and `TestCodeDeleteBlanksFirstTouch`
+  red → green; `TestScannedCodeDeleteIsRefused` green (asserts `23503 qr_scans_short_fkey`);
+  the migration round-trips Down in the package's `zz_migration_down_test` pattern; Go suite
+  counts checked. Footprint: `backend/internal/db/migrations/0086_*.sql`,
+  `backend/internal/recipes/repository.go` (+`repository_test.go`),
+  `backend/internal/marketing/*_test.go` (new test file), `CLAUDE.md`.
+
+- **`atomic-scan-dedupe`** · **PLANNED** · (I4, track B after I3 — decision 195) The public
+  landing's 10-minute scan dedupe (`landing.go` `INSERT … WHERE NOT EXISTS`) is a read-then-write
+  under READ COMMITTED: 12 concurrent hits from one IP left 3/7/8/8/8 rows where one was wanted,
+  on an unauthenticated route, so the orphan rate's denominator (P-KR3) is inflatable from
+  outside. Behaviour after this card: **double-tapping a QR link counts once; a return visit after
+  ten minutes still counts; an anonymous scan with no IP hash still counts every time** (the
+  stated honest over-count). Mechanism (decision 195, spike-proven shape): migration `0087` adds a
+  10-minute tumbling `bucket` column (a STORED generated column —
+  `date_bin('10 minutes', scanned_at, …)`, accepted by PostgreSQL 16, spike-proven) and a partial
+  unique index on `(short, ip_hash, bucket) WHERE ip_hash IS NOT NULL`; the insert becomes
+  `ON CONFLICT (short, ip_hash, bucket) WHERE ip_hash IS NOT NULL DO NOTHING`. Stated trade-off
+  (decision 195's, spike correction 2): a tumbling bucket is not a sliding window — two taps that
+  straddle a bucket edge count twice. done_when:
+  `TestLandingDedupeIsAtomicUnderConcurrency` (12 goroutines on already-open connections
+  released by one barrier — a spawn-staggered test passes against the broken code, spike
+  correction 1 — one short + ip_hash → exactly 1 row, run 5×) red → green; `TestLandingAnonymousScansNeverDedupe` and `TestLandingCountsAgainAfterWindow`
+  green; `TestLandingLogsScanAndRedirectsWithUTM` untouched and green; Go counts checked.
+  Footprint: `backend/internal/db/migrations/0087_*.sql`, `backend/internal/marketing/landing.go`,
+  `backend/internal/marketing/landing_test.go`.
+
+
 ---
 
 ## Backlog dispositions this round

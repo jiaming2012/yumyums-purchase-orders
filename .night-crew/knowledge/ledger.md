@@ -4708,3 +4708,68 @@ is written" rule exists to close.
 six at top severity — so `preferences ratchet` has nothing to offer, which is the correct
 consequence and not a skipped step. Stated so that a step with nothing to do and a step that
 never ran do not look alike (B-242).
+
+### T-63 — Slate sitting: Activity I authored, four goals spiked, slate-20261003 signed (2026-10-02)
+
+Evening sitting, `/nc-slate-plan` with no args. PRD gate exit 0 (7 PRDs — all from the previous
+cycle, mismatch stated as at T-61). `night-crew next`: NOT COMPUTABLE (no milestone heading in
+the narrative roadmap) — reported, not substituted. Workflow preflight `openspec: absent`, exit
+0 → universal mechanics only. Clone fresh (`dev` == `origin/dev` at `6b139fb`). Run id
+`20261003`, no collision, no unmerged run branch.
+
+**Target.** The next activity in roadmap order with unbuilt cards is Activity 0 (attended) and
+after it Activity E (spike-less, send card blocked on the number), so the only overnight-able
+work was the four follow-ups the operator ordered at T-62. The operator asked for the whole
+remaining milestone in nights ("two at minimum, three realistically": tonight's four; Activity
+0 attended between; Activity E; a probable follow-up night) and then chose "spike all four and
+slate them" over spiking two or stopping. **The sitting authored `## Activity I — Honest gates,
+then verify before the till` into the roadmap** (four cards: `test-integrity-fix`,
+`scan-time-verify`, `dish-merge-and-erasure-backstop`, `atomic-scan-dedupe`) under the
+"triage/sitting authors the card that discharges the finding" precedent (decisions 167, 170,
+180), and marked B-462 / B-465 / B-466 / B-468 `promoted → <card>` in BACKLOG.md.
+
+**Spike gate.** The installed binary moved to `v3.6.0+3` (main, `e3d35ce`) between the morning
+and the evening; its `spikes gate` reads the narrative roadmap but refuses the house card shape
+("a bolded `**slug**` is not a card") — the per-goal substance was therefore verified by hand
+from four goal ledgers + runnable scripts under
+`.night-crew/{knowledge/,}spikes/activity-i-honest-gates-verify-first/`, hand-run this sitting by
+four parallel fresh-context subagents in spike-owned `:5434` databases, a throwaway worktree, and
+the (UP, healthy) local substrate. **7 spikes, 7 passed, 0 skipped, 0 could-not-run; four
+extraction records, each passing `spikes record-check`.** Four agent-reached corrections, all
+presented at sign-off with the sitting's call and signed: (1) `qr_scans.short → qr_codes(short)`
+is a fourth FK block — codes are deactivated, never deleted; no cascade on scan history; (2)
+`qr_scans.subscriber_id` has no FK — the card adds it with `ON DELETE SET NULL` (fifth ALTER);
+(3) the scan-dedupe race reproduces only from already-open connections released on a barrier
+(a spawn-staggered test passes against the broken code) — the card's test uses a barrier; (4) a
+tumbling bucket counts two taps straddling a bucket edge twice — decision 195's accepted
+trade-off, now stated. Build-facts worth the record: the shipped statement lets 11–12 of 12
+aligned hits through (triage's 3–8 was HTTP-staggered); PostgreSQL 16 accepts the STORED
+generated `date_bin` bucket; `campaigns-harness.mjs` imports NOTHING from `submit-flow.js`
+(zero-coupling reimplementation — `failClosed`/`policyFor` must be exported first); the
+same-version `required` widen on the codes schema is refused with RxDB `DB6`, v1 + a strategy
+carries the rows, a v1 row without `campaign_id` is refused with `VD2`; B-441 (Dexie migration
+path) stays unproven — no `fake-indexeddb` is vendored; the device role reads any `codes` row by
+hash in ~10–80 ms locally, redeemed and expired rows included.
+
+**Decision 201 (engineer-level, stated not asked) — a scanned code is never deleted.** Found by
+spike I3: cascading `qr_scans.short` would make a code deletable at the cost of its scan history,
+which is the attribution evidence the whole cycle exists to produce. Codes are deactivated (the
+H1 design already renders "this offer has ended"); the card asserts the `23503` refusal as the
+design. **Decision 202 (engineer-level) — subscriber erasure blanks `qr_scans.subscriber_id`.**
+The column has no FK; the card adds one with `ON DELETE SET NULL` so "one DELETE erases the
+subscriber" is true of every table that names them. Both signed in the batch sign-off.
+
+**Agreement check** exit 0, 4/4 card leads parsed, no contradiction; 0 cards named by both
+documents (the goal page names surfaces). **Sign-off GRANTED** ("Yes, sign it"). **Dispatch:
+CONCURRENT, two tracks** (A: I1 → I2; B: I3 → I4), chosen by the operator with both projections on
+screen (concurrent ≈ 5 h 15 m – 6 h 20 m, serial ≈ 6 h 40 m – 8 h 30 m, identical card list).
+Routing: every tier the session model; two risk-flagged cards (I1 — the RxDB schema migration;
+I2 — the first server read at scan time). Launch prompt saved as `reference/launch-20261003.md`.
+
+**Comebacks (clone-side, filed here, not blocking).** On `v3.6.0+3`: `backlog check --repo .`
+reports `valid — 0 entries` and only `--file .night-crew/knowledge/BACKLOG.md` finds the
+document (`valid — 263 entries`, exit 0 on tonight's edits — the §4.5 gate passes with the
+flag; COMMANDS.md's invocation corrected); `backlog render` writes `backlog.html` into the cwd
+(removed); `slate price` finds no class data in `card-actuals.md` under either `--repo` (priced
+by hand); `spikes gate` refuses the narrative card shape (above). Each is a verb reading a path
+differently from the binary that ran this morning.

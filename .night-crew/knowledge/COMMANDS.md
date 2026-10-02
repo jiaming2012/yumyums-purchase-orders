@@ -70,7 +70,7 @@ overnight → morning).
    and before the triage merge commit — run:
 
    ```
-   night-crew backlog check --repo .
+   night-crew backlog check --repo . --file .night-crew/knowledge/BACKLOG.md
    ```
 
    It must **exit 0**. The document was migrated to full canonical form by
