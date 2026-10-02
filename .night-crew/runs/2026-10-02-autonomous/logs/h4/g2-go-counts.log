@@ -1,0 +1,8 @@
+=== G2 (Go) COUNTS — card h4-stats-tab-ui, run 20261002 ===
+DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_h4?sslmode=disable ; HQ_RLS_TEST_DB=hq_rls_h4_20261002
+HQ_SYNC_SUBSTRATE_OPTIONAL=UNSET  HQ_SYNC_GATE_CHILD=UNSET
+cmd: go test -p 1 -count=1 -json ./...  (counts extracted below)
+2026-10-02T01:21:46-04:00
+TESTS PASS=699  FAIL=0  SKIP=3
+go test rc=0
+EXIT=0

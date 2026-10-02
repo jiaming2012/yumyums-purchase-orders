@@ -1,0 +1,35 @@
+=== G2 (Go) — card h4-stats-tab-ui, run 20261002 ===
+DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_h4?sslmode=disable
+HQ_RLS_TEST_DB=hq_rls_h4_20261002
+HQ_SYNC_SUBSTRATE_OPTIONAL=UNSET  HQ_SYNC_GATE_CHILD=UNSET
+cmd: go test -p 1 -count=1 ./...
+2026-10-02T01:18:03-04:00
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+ok  	github.com/yumyums/hq/cmd/server	0.012s
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.004s
+ok  	github.com/yumyums/hq/internal/auth	3.695s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	38.919s
+ok  	github.com/yumyums/hq/internal/marketing	13.968s
+ok  	github.com/yumyums/hq/internal/marketing/sources	0.005s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+ok  	github.com/yumyums/hq/internal/onboarding	0.322s
+ok  	github.com/yumyums/hq/internal/photos	1.562s
+ok  	github.com/yumyums/hq/internal/purchasing	8.095s
+ok  	github.com/yumyums/hq/internal/receipt	29.289s
+ok  	github.com/yumyums/hq/internal/recipes	36.063s
+ok  	github.com/yumyums/hq/internal/redemption	2.810s
+ok  	github.com/yumyums/hq/internal/sync	63.948s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.824s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	2.135s
+EXIT=0

@@ -1,0 +1,16 @@
+=== G4 — card h4-stats-tab-ui, run 20261002 ===
+node build-sw.js, run AFTER the implementation commit because build-sw.js
+reads GIT HEAD, not the working tree (B-13).
+HEAD=4571538af5b9c14a39b9f0d9a145da658e487515
+2026-10-02T01:35:21-04:00
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3088.8 KB)
+Frontend version: 1.10.2
+EXIT=0
+--- idempotence: a second run must change nothing ---
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3088.8 KB)
+Frontend version: 1.10.2
+EXIT2=0
+--- git status for sw.js ---
+ M sw.js
