@@ -228,3 +228,102 @@ connection so triage sees it: the fix lands wherever D-1 is resolved, and this c
 
 Nothing else. No new sheet, no new state, no new lifecycle row, no `night-crew.toml`
 key or token, no app grant, nothing that sends.
+
+---
+
+# Appendix — G6 fix round (appended, nothing above rewritten)
+
+G6 returned APPROVE-WITH-FINDINGS with one reproduced P1 in this card's own code.
+Fixed on this branch before merge, under the repo's bug-fix protocol: regression test
+first, run it, confirm RED, fix, confirm green. Commits `b883eb2` (fixes) and `0786c2b`
+(sw.js). Logs: `logs/h2/RF2-g6-fixes-red-first.log`,
+`logs/h2/G2-playwright-confined-after-g6-fixes.log`, `logs/h2/G4-sw-after-g6-fixes.log`.
+
+## F1 · P1 — the "Other" channel label was unusable
+
+`otherLabel` was routed through the full `render()` path, which rebuilds the create
+sheet with `innerHTML` and destroys the input the thumb is in.
+
+**Red, observed before the fix** (`RF2-g6-fixes-red-first.log`, `TEST_EXIT=1`, 2 failed):
+
+```
+Error: expect(locator).toHaveValue(expected) failed
+Expected: "Sandwich board"
+Received: "S"
+```
+
+Consequence: "Other" is the one channel of nine that needs free text, so it was the one
+channel that did not work — a manager either shipped a campaign whose code row and card
+read **"S"** forever, or typed nothing and was blocked by this module's own
+`channel_label_required` guard.
+
+Why this card's own specs missed it: every one of them used `page.fill()`, a **one-shot
+value set that never re-enters the input**, and the only test using `channel: 'other'`
+set `channel_label` through the API rather than the UI. `[MC-06]` types with
+`pressSequentially` — the only shape that reproduces it — and says so in the test, so a
+future reader meets the hazard where they would otherwise repeat it.
+
+**Fix chosen: restore focus + selection across the render** (`renderKeepingCaret()`),
+not the cheaper "drop `otherLabel` from the re-render list". The cheap fix leaves the
+payload preview naming "Other" while the manager reads the name they just typed — a
+stale projection of state the design puts on screen *precisely so it can be checked
+before the save*. `[MC-06]` also asserts the caret stays in `#mc-f-name`, and that the
+label the manager typed is what comes back on the minted code.
+
+## F2 · a failed WRITE was reported as a failed READ, and wiped the page
+
+`doToggleCampaign()` set `S.detailError` on catch, which `renderDetail()` turns into a
+whole-view replacement reading "Couldn't load this campaign". Tapping **Pause campaign**
+on a 500 took away the Money card and the code rows the manager was reading, and told
+them a load had failed, which it had not. Red before the fix: `#mc-detail-note` —
+`element(s) not found`.
+
+Now `S.detailNote`: loud, above the card, **non-destructive**, with the button still
+armed to retry (UI-R6) — which is what its sibling `doToggleCode()` has always done.
+`S.detailError` still means "the READ failed and there is nothing to show"; the two are
+now distinct states and commented as such. `[MC-07]` asserts both halves: the write
+error is named *and* the Money card, both code rows and the campaign name are still on
+screen.
+
+## F3 · the state PNGs are now durable evidence
+
+`SHOT_DIR` was `test-results/states-marketing-campaigns` — inside Playwright's
+`outputDir`, which Playwright **wipes at the start of every run**, so this card's own
+full-suite leg deleted the screenshots its report cited. It now defaults to
+`test-screenshots/` (outside `outputDir`, added to `.gitignore`) and honours
+`STATES_SHOT_DIR`. **All 18 PNGs are committed under
+`logs/h2/states-screenshots/`** as this card's durable Definition-of-Done evidence.
+`.gitignore` is a shared file — one block added, declared here.
+
+## Verification after the fix round
+
+| Leg | Result |
+|---|---|
+| `tests/marketing-campaigns.spec.js -g "MC-06\|MC-07"`, unfixed tree | **2 failed, `TEST_EXIT=1`** — the two reds above |
+| same two, after the fix | **2 passed, `GREEN_EXIT=0`** |
+| `tests/marketing-campaigns.spec.js` (all 8) confined | **8 passed, `MC_EXIT=0`** |
+| `tests/states-marketing-campaigns.spec.js` (all 10) confined | **10 passed, `STATES_EXIT=0`**, 18 PNGs written outside `outputDir` and still present afterwards |
+| `node build-sw.js` ×2 at the post-fix HEAD | both `EXIT=0`, **still 49 precached** (2987.2 → 2990.0 KB, the edited files' own bytes), byte-identical runs |
+
+The full suite was **not** re-run: the lock is with Card 3, and its red-set diff is
+already measured and recorded above.
+
+## Shared files — delta to the table at the top
+
+- `.gitignore` — one block, adding `test-screenshots/` with the reason (F3). Trivially
+  mergeable; if it conflicts, keep both sides.
+- `marketing.html` still has **exactly two hunks, both inside the `#s2` wrapper**: the
+  section itself, and one 3-line addition to `#s2`'s own `<style>` for `.mc-note-bad`.
+  Nothing outside `#s2` is touched, and `#s3` / `#s4` remain cards H5's and H4's.
+
+## Not acted on — routed elsewhere by the orchestrator
+
+- H1's `money.revenue_cents` / `discount_cents` / `net_cents` being non-pointer ints, so
+  the zero shape renders a confident `$0.00` where the honest answer is "not computed
+  yet" — Card 4's to weigh. This module already renders `null` as `—` wherever the
+  contract offers it (`per_dollar`, both `avg_order_cents_*`), so it needs no change
+  when those three become pointers.
+- `inventory.spec.js:2186` — proven by G6 to be a pre-existing race in Inventory code
+  (three unsequenced writers to `ALL_ITEMS`, last-write-wins, no request versioning)
+  that this diff cannot reach. My own measurement (red alone pass A, green alone pass B)
+  stands as recorded above; the diagnosis is G6's.
