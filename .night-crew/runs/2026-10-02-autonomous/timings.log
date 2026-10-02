@@ -23,3 +23,5 @@
 2026-10-02T00:37:30-04:00	merge	MERGE 5 65ef5dc — Card 4 h3b; routes.go union of H3b+H5 blocks, main.go stale comment fixed; precache 50; Card 3 fix round verified preserved
 2026-10-02T00:37:30-04:00	card5-dispatch	Card 5 h4-stats-tab-ui dispatched — budget gate 00:37+120+30=03:07 <= 04:37 PASS
 2026-10-02T00:43:08-04:00	gate-rerun	merge5 G2(Go) clean on re-run — EXIT_TEST=0, 699 PASS/0 FAIL/3 SKIP, 15 pkgs; first run was substrate contention (B-460)
+2026-10-02T01:38:09-04:00	implementer-return	Card 7 h6 COMPLETE — 5 commits, both harness legs GRADED live red-first then green, precache 50, 27f/1001p one block; decision 191 contradiction -> D-6
+2026-10-02T01:38:09-04:00	g6-dispatch	Card 7 G6 at ff82bb6 (g6-h6, port 8546)

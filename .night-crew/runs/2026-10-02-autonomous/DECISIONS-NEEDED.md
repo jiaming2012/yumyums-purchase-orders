@@ -186,6 +186,45 @@ and the threshold may not be measuring the same thing.
 
 ---
 
+## D-6 · Ratified decision 191 contradicts itself, and a card had to pick a reading to ship
+
+**Status:** OPEN · **Severity:** MEDIUM (ladder: top, parked) · **Raised by:** card
+`h6-scanner-polish` · **Not a park the card could take** — the slate states B-436's shape is
+**DECIDED (191) and is NOT a park**, so the card was required to implement it and found the text
+would not resolve.
+
+**The contradiction.** Decision 191 carries two clauses that do not agree about the no-policy-source
+case: *"no offline override for **any** code"* versus *"**uniform** with the source's own
+predicate."*
+
+**What shipped — the uniform reading**, with both arms pinned by tests (`[SP-03]`, `[SP-03b]`, and
+two `campaigns-harness.mjs` leg-3 checks) so the choice is visible rather than implied:
+- a code that **names a campaign** → refused when no policy source resolves;
+- a code that **names no campaign** → stays as ratified **decision 166** left it.
+
+**The card's grounds, which are worth weighing:** reading *"any code"* literally would **repeal
+decision 166** on precisely the devices least able to recover — a crew phone with no policy data —
+and that is an affordance withdrawal nobody asked for. B-436's own harm statement is about every
+**known** code.
+
+**One honest consequence the card flagged:** B-436 makes a population **strictly smaller**. Rows
+shaped `(unverified_code=false, offline_override=true, policy_unresolved=true)` — a *known* code
+force-submitted offline on a no-source device — are now refused and never written. Fewer
+unauthorised overrides; `policy_unresolved = true` still means exactly "nothing was resolved".
+
+| Option | What you would see |
+|---|---|
+| **Keep the uniform reading as shipped, and amend 191's wording to say so** *(run's recommendation)* | A crew phone with no policy data refuses the scans that name a campaign and behaves as 166 ratified for the rest. The contradiction stops recurring because the text is fixed, not re-derived by the next card. |
+| Literal "any code" | A crew phone with no policy data refuses **every** scan. Strictly fewer unauthorised overrides, at the cost of withdrawing an affordance decision 166 ratified, on the devices least able to recover. |
+| Amend the wording first, then restate the behaviour | Settles reading and text in one act rather than leaving two clauses that disagree. |
+
+🛑 **What is NOT in question:** the `requires_online = true` refusal and the B-432 fail-closed
+predicate are **untouchable** by the card's own PARK note, and weakening either would have been a
+park rather than an interpretation. Card 7's G6 is checking the **code** against that, independently
+of this wording question.
+
+---
+
 ## Not decisions — recorded so triage does not mistake them for forks
 
 - **Four LOW/INFO G6 findings on Card 1**, all engineer-level and none parked: the public landing
