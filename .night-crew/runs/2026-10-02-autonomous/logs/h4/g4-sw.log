@@ -14,3 +14,20 @@ Frontend version: 1.10.2
 EXIT2=0
 --- git status for sw.js ---
  M sw.js
+
+=== G4 RE-RUN after the F1/F2 fix round ===
+marketing/stats.js changed, so its content hash changes and sw.js must be
+regenerated and committed in the same change set (B-13). Run AFTER the fix
+commit, because build-sw.js reads GIT HEAD.
+HEAD=c5849e49bb4cea280f3c2f4e9e045b597f888160
+2026-10-02T02:54:54-04:00
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3090.1 KB)
+Frontend version: 1.10.2
+EXIT=0
+--- idempotence ---
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3090.1 KB)
+Frontend version: 1.10.2
+EXIT2=0
+ M sw.js

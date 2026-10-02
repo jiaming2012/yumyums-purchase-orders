@@ -291,3 +291,88 @@ accumulating-dataset figure), `node scripts/write-version-json.js` (B-92's fix),
 then the same `go run ./cmd/server/`. Same port, same database, same binary,
 same blanked credentials. The only difference is which process called it, and
 the gate log says so at the top.
+
+---
+
+# Addendum 2 — the G6 fix round (F1 / F2)
+
+Appended, not rewritten. Everything above still stands.
+
+## F1 — a null `suggestion` must not read as a search that found nothing
+
+**The defect.** `marketing/stats.js` printed *"No till order is near this scan"*
+for every null `suggestion`. `internal/marketing/reconciliation.go:455` computes
+one **only** `if bucket == "unmatched"`, so **every orphan row is null by
+construction** and the manager working the "No order number" bucket was told the
+system searched and found nothing when it never searched. A **confident negative
+over data that was never computed** — the same class as a confident `$0.00` over
+money in an invisible row. This card refused that everywhere it rendered *money*
+and let it through once, in prose.
+
+**The fix.** The two nulls now read as two different things:
+
+| row | what null means | copy |
+|---|---|---|
+| `unmatched` | both rungs searched, nothing found | "No till order is near this scan, and none matches the number on the row. Type the number off the ticket." |
+| `orphan` / `override` | nothing was ever searched for | "No nearest-order hint is available for this bucket — nearby till orders are only worked out once a row carries an order number. Type the number off the ticket." |
+
+Neither claims a search that did not happen; both still say what to **do**.
+
+**The spec was pinning the wrong behaviour** and is corrected: it asserts the
+orphan copy *and* that it does **not** contain "near this scan" or "found". A
+**seventh fixture row** (an `unmatched` row with a null suggestion) pins the
+other side, which was previously untestable. New committed screenshot
+`states/ms-sheet-order-searched-none.png`.
+
+🛑 **The backend is not changed.** `reconciliation.go` is conformant to handoff
+§5, which scopes `suggestion` to the `unmatched` array. The orphan-bucket gap is
+a design question and is the orchestrator's to triage.
+
+## F2 — corrected fixture/real split
+
+The State-Enumeration comment omitted the last row of each page — **"BI
+unavailable basis"** and **"MS sheets"** (which alone produces four of the 22
+PNGs) — under-reporting the fixture rows by two. The corrected split, now in the
+file and checkable against its 16 tests (8 + 8):
+
+| page | REAL | FIXTURE |
+|---|---|---|
+| BI (`bi.html #s3`) | 2 | 6 |
+| Marketing (`marketing.html #s4`) | 3 | 5 |
+
+**Five REAL rows.** The REAL count in Addendum 1 was correct and is unchanged;
+only the fixture bookkeeping was short. `tests/marketing-stats.spec.js` still
+contains **zero** `page.route()` and all ten of its behavioural rows drive live
+handlers, so the scope claim is unaffected.
+
+## Found while fixing — a latent race in this card's OWN test
+
+`[MS-03]` asserted `.msq-row[data-id=…] → 0` **page-wide** after a decline. That
+is wrong: a declined row is still rendered, in the Declined bucket, which is that
+bucket's whole purpose. It passed only because the assertion could land while the
+post-write reload was in flight and the list was momentarily empty — it went red
+the instant file order changed. Now scoped to the open bucket, **plus** a
+positive assertion that the row **is** in the Declined bucket. Both orderings of
+the two spec files were run, because one ordering is not a proof of an
+ordering race.
+
+## Gate results for this round
+
+| | result |
+|---|---|
+| RF (F1) | `logs/h4/rf-f1-red.log` — **EXIT=1**, received the false copy with the module untouched |
+| G2 confined | `logs/h4/g2-f1-green.log` — **26 / 26 / 89**, three passes, both file orderings, all EXIT=0 |
+| G4 | `logs/h4/g4-sw.log` — **51 precached**, idempotent, reachability 38 / 66 / 0. Size 3088.8 → 3090.1 KB (the longer copy); `marketing/stats.js` changed, so `sw.js` is regenerated and committed in the same change set (B-13) |
+
+Full suite NOT re-run: the change is three string literals and one test-scoping
+correction, the measured full suite had **zero** non-baseline reds, and a full
+pass costs 40 minutes. The confined set covers every spec that renders or
+asserts the changed copy, plus the hub and the regression canaries.
+
+## For the orchestrator, carried forward
+Your three recorded-for-triage items are **not** touched here: the `marketing`
+toml token selecting no BI spec; the `orphan_numerator` / `orphan_denominator`
+unescaped interpolations (unreachable today — both are non-pointer Go `int`s —
+but inconsistent with the rest of the file, which `esc()`s everything); and the
+orphan-bucket suggestion gap in `reconciliation.go`. Also noted: **Card 7's
+"Count stays 5" line in `night-crew.toml` goes stale at 7 once this card lands.**
