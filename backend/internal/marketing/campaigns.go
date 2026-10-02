@@ -332,7 +332,7 @@ func ListCampaignsHandler(d Deps) http.HandlerFunc {
 		// ── card H3b: the money block is REAL (H1 shipped the zero shape) ──
 		// One engine read for the whole list, so a list of twenty campaigns is
 		// one aggregation and not twenty.
-		byCampaign, err := statsCampaignMoney(ctx, d.Pool, since)
+		byCampaign, without, err := statsCampaignMoney(ctx, d.Pool, since)
 		if err != nil {
 			slog.Error("marketing: campaign money", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -347,7 +347,7 @@ func ListCampaignsHandler(d Deps) http.HandlerFunc {
 			}
 			out.Campaigns[i].Codes = codes
 			out.Campaigns[i].Funnel = funnelDTO{Scans: scans}
-			statsApplyCampaignMoney(&out.Campaigns[i], byCampaign, nil)
+			statsApplyCampaignMoney(&out.Campaigns[i], byCampaign, without)
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -437,13 +437,13 @@ func GetCampaignHandler(d Deps) http.HandlerFunc {
 		c.Funnel = funnelDTO{Scans: scans}
 		// card H3b: §5 row 3's money, including avg_order_cents_with /
 		// _without, which the detail route is the one place §5 asks for.
-		byCampaign, err := statsCampaignMoney(ctx, d.Pool, since)
+		byCampaign, without, err := statsCampaignMoney(ctx, d.Pool, since)
 		if err != nil {
 			slog.Error("marketing: campaign money", "error", err, "campaign_id", c.ID)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		statsApplyCampaignMoney(&c, byCampaign, nil)
+		statsApplyCampaignMoney(&c, byCampaign, without)
 		writeJSON(w, http.StatusOK, c)
 	}
 }
@@ -538,12 +538,12 @@ func PatchCampaignHandler(d Deps) http.HandlerFunc {
 		c.Codes = codes
 		c.Funnel = funnelDTO{Scans: scans}
 		// card H3b: a PATCH returns the same shape a GET does, money included.
-		if byCampaign, err := statsCampaignMoney(ctx, d.Pool, periodStart("")); err != nil {
+		if byCampaign, without, err := statsCampaignMoney(ctx, d.Pool, periodStart("")); err != nil {
 			slog.Error("marketing: campaign money after patch", "error", err, "campaign_id", c.ID)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		} else {
-			statsApplyCampaignMoney(&c, byCampaign, nil)
+			statsApplyCampaignMoney(&c, byCampaign, without)
 		}
 
 		if len(warnings) > 0 {

@@ -744,10 +744,10 @@ func StatsByHandler(d Deps, managerTier bool) http.HandlerFunc {
 // avg_order_cents_without is the PERIOD baseline (orders with no offer
 // attached), identical for every campaign because that is what it means: the
 // average check when the offer was not used.
-func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Time) (map[string]StatsRow, error) {
+func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Time) (map[string]StatsRow, *int, error) {
 	data, err := statsLoad(ctx, pool, since)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	rows, _ := statsBuild("campaign", data, statsFilter{})
 	without := statsAvgOrderWithout(data.attempts, data.orders)
@@ -756,7 +756,11 @@ func statsCampaignMoney(ctx context.Context, pool *pgxpool.Pool, since *time.Tim
 		row.AvgOrderCentsWithout = without
 		out[row.Key] = row
 	}
-	return out, nil
+	// `without` is returned alongside so a campaign with NO redemptions gets the
+	// same baseline as one with some. It is a period fact, not a campaign fact —
+	// handing one campaign the number and another a null would read as "we have
+	// no baseline for this campaign", which is not what is true.
+	return out, without, nil
 }
 
 // statsApplyCampaignMoney fills one campaign's funnel and money from the map,
