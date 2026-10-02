@@ -7,24 +7,53 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// MountReports is the decision-192 SEAM: H3b registers the BI campaign report
-// reads (/bi/campaigns/overview, /bi/campaigns/by) from INSIDE this package, so
-// main.go is touched tonight by H1 and H3a only. Tonight it must register
-// NOTHING — a seam that already answers would gate a surface no handler backs.
-func TestMountReportsIsANoOpSeamToday(t *testing.T) {
+// MountReports is the decision-192 SEAM. Card H1 wrote this test as "it must
+// register NOTHING until H3b fills it"; card H3b is the card that fills it, so
+// the assertion is inverted here in the same change set that fills the seam.
+//
+// 🛑 /api/v1/bi/campaigns/* carries the `bi` grant and NO manager tier
+// (decision 192). The tier asymmetry itself is asserted in stats_test.go's
+// TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies; this test pins the
+// route table.
+func TestMountReportsRegistersTheBICampaignReports(t *testing.T) {
 	r := chi.NewRouter()
-	MountReports(r)
+	r.Route("/api/v1", func(r chi.Router) { MountReportsDeps(r, Deps{}) })
 
-	n := 0
+	got := map[string]bool{}
 	if err := chi.Walk(r, func(method, route string, h http.Handler, m ...func(http.Handler) http.Handler) error {
-		n++
-		t.Logf("MountReports registered %s %s", method, route)
+		got[method+" "+route] = true
 		return nil
 	}); err != nil {
 		t.Fatalf("walk: %v", err)
 	}
-	if n != 0 {
-		t.Errorf("MountReports registered %d routes; it is a no-op seam until H3b fills it", n)
+	for _, want := range []string{
+		"GET /api/v1/bi/campaigns/overview",
+		"GET /api/v1/bi/campaigns/by",
+	} {
+		if !got[want] {
+			t.Errorf("MountReports did not register %q (registered: %v)", want, got)
+		}
+	}
+	if len(got) != 2 {
+		t.Errorf("MountReports registered %d routes (%v); the BI mirror is exactly the two report reads", len(got), got)
+	}
+}
+
+// MountReports(r) — H1's one-argument signature, which main.go still calls — must
+// register the same table, reaching the pool through the NewDeps-recorded Deps
+// rather than through a main.go edit.
+func TestMountReportsKeepsCardH1sSignature(t *testing.T) {
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) { MountReports(r) })
+	n := 0
+	if err := chi.Walk(r, func(method, route string, h http.Handler, m ...func(http.Handler) http.Handler) error {
+		n++
+		return nil
+	}); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("MountReports(r) registered %d routes, want 2", n)
 	}
 }
 
@@ -49,6 +78,16 @@ func TestMountRegistersTheGatedRouteTable(t *testing.T) {
 		"POST /api/v1/marketing/campaigns/{id}/codes",
 		"PATCH /api/v1/marketing/codes/{id}",
 		"GET /api/v1/marketing/codes/{id}.png",
+		// ── card H3b's append-only block ──
+		"GET /api/v1/marketing/reconciliation/queue",
+		"GET /api/v1/marketing/reconciliation/declined",
+		"POST /api/v1/marketing/reconciliation/{attempt_id}/match",
+		"POST /api/v1/marketing/reconciliation/{attempt_id}/decline",
+		"POST /api/v1/marketing/reconciliation/{attempt_id}/reopen",
+		"POST /api/v1/marketing/reconciliation/{attempt_id}/verify",
+		"POST /api/v1/marketing/reconciliation/{attempt_id}/reject",
+		"GET /api/v1/marketing/stats/overview",
+		"GET /api/v1/marketing/stats/by",
 	} {
 		if !got[want] {
 			t.Errorf("Mount did not register %q (registered: %v)", want, got)

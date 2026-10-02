@@ -39,6 +39,26 @@ type moneyDTO struct {
 	NetCents      int      `json:"net_cents"`
 	PerDollar     *float64 `json:"per_dollar"`
 
+	// ── card H3b additions (run 20261002) ──
+	//
+	// Decision 190: "the implied total is carried beside it so a row can render
+	// 'implied −$X · actual −$Y' where they differ". DiscountCents stays the
+	// BINDING per-row total; these two are the display decomposition, and each
+	// is itself a per-row sum, so all three reconcile across the slices.
+	DiscountImpliedCents int `json:"discount_implied_cents"`
+	DiscountActualCents  int `json:"discount_actual_cents"`
+
+	// DiscountUnknownRows is the count of accepted redemptions whose CAMPAIGN
+	// could not be resolved, so no face value could be summed for them.
+	//
+	// 🛑 It exists so that "unknown" cannot read as a confident zero. Revenue,
+	// discount and net stay non-pointer ints because after H3b they are always
+	// computed and a period with no matched orders really is $0.00 — but a row
+	// that contributed 0 because nothing could PRICE it is a different fact, and
+	// this is where it is stated. Non-zero here means the discount total is a
+	// floor, not a figure.
+	DiscountUnknownRows int `json:"discount_unknown_rows"`
+
 	// §5 row 3's two detail-route fields. Null for the same reason, and
 	// WITHOUT omitempty: a nil pointer with omitempty vanishes from the JSON
 	// entirely, and H2 cannot tell "this endpoint has no opinion" from "this
@@ -49,8 +69,12 @@ type moneyDTO struct {
 	AvgOrderCentsWithout *int `json:"avg_order_cents_without"`
 }
 
-// zeroMoney is the H3b placeholder, in one place so the list and detail routes
-// cannot drift into two different zero shapes.
+// zeroMoney is the EMPTY money block — the shape a period or campaign with no
+// accepted redemptions gets. Card H1 used it as a placeholder for the whole
+// money block; card H3b made the arithmetic real, so this is now reached only
+// where the answer genuinely is "nothing yet" (a create response, before the
+// campaign has been scanned once). Every key is present and the nullable ones
+// are null, which is the property card H2's UI depends on.
 func zeroMoney() moneyDTO {
 	return moneyDTO{DiscountBasis: "implied", PerDollar: nil}
 }

@@ -34,7 +34,7 @@ func subscribersTableExists(t *testing.T, pool *pgxpool.Pool) bool {
 	t.Helper()
 	var exists bool
 	if err := pool.QueryRow(t.Context(),
-		`SELECT to_regclass('public.subscribers') IS NOT NULL`).Scan(&exists); err != nil {
+		`SELECT to_regclass('subscribers') IS NOT NULL`).Scan(&exists); err != nil {
 		t.Fatalf("subscribersTableExists: %v", err)
 	}
 	return exists
@@ -142,7 +142,9 @@ func seedToastOrder(t *testing.T, pool *pgxpool.Pool, businessDate time.Time, or
 		INSERT INTO toast_orders
 		  (business_date, order_number, order_id, opened_at, closed_at,
 		   amount_cents, discount_cents, total_cents, voided)
-		VALUES ($1, $2, 'ord-' || $2, $3, $3 + interval '20 minutes', $4, $5, $4 - $5, false)`,
+		VALUES ($1::date, $2, 'ord-' || $2, $3::timestamptz,
+		        $3::timestamptz + interval '20 minutes',
+		        $4::integer, $5::integer, $4::integer - $5::integer, false)`,
 		businessDate.In(time.UTC).Format("2006-01-02"), orderNumber, openedAt,
 		amountCents, discountCents); err != nil {
 		t.Fatalf("seedToastOrder(%q): %v", orderNumber, err)

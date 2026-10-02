@@ -35,6 +35,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -101,8 +102,24 @@ func NewDeps(pool *pgxpool.Pool) Deps {
 		slog.Info("marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]",
 			"missing", RESTURLEnv+" and/or "+ServiceKeyEnv)
 	}
+	// ── card H3b (run 20261002): record the Deps for MountReports ──
+	//
+	// main.go calls NewDeps once (line ~467) and then MountReports(r) INSIDE the
+	// `bi` group, with H1's one-argument signature. H3b fills that seam from
+	// inside this package, which is the whole reason main.go stays untouched by
+	// this card (decision 192) — so the pool has to travel some way other than
+	// the signature. NewDeps runs before both mounts, so this pointer is always
+	// set by the time MountReports reads it; if it somehow is not, the report
+	// handlers answer 503 reports_unavailable rather than nil-panic.
+	reportDeps.Store(&d)
 	return d
 }
+
+// reportDeps is how MountReports reaches the pool without changing its
+// signature. Written once at startup by NewDeps, read once at route
+// registration; atomic because a test may call NewDeps while a server goroutine
+// is up.
+var reportDeps atomic.Pointer[Deps]
 
 // Mount registers the gated campaign-admin route table. Call it INSIDE a group
 // that already carries auth.Middleware and
@@ -119,6 +136,25 @@ func Mount(r chi.Router, d Deps) {
 	r.Post("/campaigns/{id}/codes", CreateCodeHandler(d))
 	r.Patch("/codes/{id}", PatchCodeHandler(d))
 	r.Get("/codes/{id}.png", CodePNGHandler(d))
+
+	// ───────────────────────────────────────────────────────────────────────
+	// card H3b · reconciliation + stats (run 20261002). APPEND-ONLY BLOCK —
+	// cards H4/H5 add their own below this one; do not interleave.
+	//
+	// The reconciliation QUEUE stays in Marketing behind the manager tier
+	// (decision 192: it is writes, not a report). The two REPORT reads are
+	// registered HERE as well as on the BI hub — same handlers, byte-identical
+	// bodies, manager tier on this pair ONLY. See MountReports.
+	// ───────────────────────────────────────────────────────────────────────
+	r.Get("/reconciliation/queue", ReconQueueHandler(d))
+	r.Get("/reconciliation/declined", ReconDeclinedHandler(d))
+	r.Post("/reconciliation/{attempt_id}/match", ReconDecisionHandler(d, "matched"))
+	r.Post("/reconciliation/{attempt_id}/decline", ReconDecisionHandler(d, "declined"))
+	r.Post("/reconciliation/{attempt_id}/reopen", ReconDecisionHandler(d, "reopened"))
+	r.Post("/reconciliation/{attempt_id}/verify", ReconDecisionHandler(d, "verified"))
+	r.Post("/reconciliation/{attempt_id}/reject", ReconDecisionHandler(d, "rejected"))
+	r.Get("/stats/overview", StatsOverviewHandler(d, true))
+	r.Get("/stats/by", StatsByHandler(d, true))
 }
 
 // MountReports is the decision-192 seam for the BI mirror:
@@ -126,16 +162,33 @@ func Mount(r chi.Router, d Deps) {
 // `bi` grant and with NO manager tier, serving byte-identical bodies to the
 // /marketing/stats/* reads.
 //
-// It registers NOTHING tonight, on purpose. H3b owns both the handlers and the
-// r.Route("/bi/campaigns", …) inside this function, so landing the report half
-// does not require another main.go edit. A seam that already answered would
-// gate a surface no handler backs.
+// FILLED BY CARD H3b (run 20261002). H1 shipped it as a deliberate no-op
+// because a seam that already answered would gate a surface no handler backs;
+// H3b owns both the handlers and the r.Route below, which is why landing the
+// report half cost no second edit to main.go.
+//
+// 🛑 NO MANAGER TIER ON THIS PAIR. Decision 192: the `bi` grant alone opens the
+// campaign reports, so anyone holding BI sees campaign money — the consequence
+// the operator accepted when they moved the reports off the Marketing page. The
+// marketing pair in Mount passes managerTier=true; this one passes false. That
+// boolean is the ONLY difference between the two registrations, which is what
+// makes the bodies byte-identical.
 func MountReports(r chi.Router) {
-	// H3b: r.Route("/bi/campaigns", func(r chi.Router) {
-	//          r.Get("/overview", StatsOverviewHandler(d))
-	//          r.Get("/by",       StatsByHandler(d))
-	//      })
-	_ = r
+	var d Deps
+	if p := reportDeps.Load(); p != nil {
+		d = *p
+	}
+	MountReportsDeps(r, d)
+}
+
+// MountReportsDeps is MountReports with the Deps passed explicitly. It exists so
+// a test can mount both halves of decision 192 against one pool, and so the
+// route table is registered by exactly one function either way.
+func MountReportsDeps(r chi.Router, d Deps) {
+	r.Route("/bi/campaigns", func(r chi.Router) {
+		r.Get("/overview", StatsOverviewHandler(d, false))
+		r.Get("/by", StatsByHandler(d, false))
+	})
 }
 
 // MountPublic registers the public landing on the ROOT router. It must be
