@@ -21,17 +21,33 @@
 //     no-bi-grant    FIXTURE  403 {"error":"forbidden","missing_grant":"bi"}
 //     offline        FIXTURE  route.abort(), which has no server-side trigger
 //     long content   FIXTURE  40 slices with 90-character labels
+//     unavail basis  FIXTURE  signups_basis "unavailable" — UNREACHABLE on this
+//                             base at all, since card H5's migration 0085 landed
+//                             and statsLoad then reports "subscribers"
 //   Marketing (marketing.html #s4)
 //     success        REAL     seeded mirror rows, GET /reconciliation/queue
 //     empty          REAL     fixture tables cleared
+//     locked         REAL     a real team_member, a real 403 managers_only
 //     loading        FIXTURE  delayed route
 //     error          FIXTURE  500
-//     locked         REAL     a real team_member, a real 403 managers_only
 //     offline        FIXTURE  route.abort()
 //     long content   FIXTURE  30 rows with long campaign + item names
+//     sheets         FIXTURE  both suggestion bases AND both meanings of a null
+//                             suggestion in one run; produces FOUR of the PNGs
+//                             (order / order-businessdate / order-nosuggestion /
+//                             order-searched-none) plus decline + declined-bucket
+//
+// 🛑 CORRECTED COUNT (G6, fix round): this list previously omitted the last row
+// of each page — "BI unavailable basis" and "MS sheets" — and so under-reported
+// the fixture rows by two. The true split is
+//     BI         2 REAL / 6 FIXTURE
+//     Marketing  3 REAL / 5 FIXTURE
+// i.e. 5 REAL rows in this file. The REAL count was right before and is right
+// now; only the fixture bookkeeping was short.
 //
 // The behavioural done_when rows [MS-01]–[MS-06] all hit the REAL endpoints —
-// see tests/marketing-stats.spec.js, which contains no page.route() at all.
+// see tests/marketing-stats.spec.js, which contains no page.route() at all, so
+// all ten of its rows drive live handlers.
 
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
@@ -214,6 +230,12 @@ const QUEUE = (() => {
   const unmatched = [
     qrow(1, 'unmatched', { order_number: '888', suggestion: SUG(240, 'window') }),
     qrow(2, 'unmatched', { order_number: '889', suggestion: SUG(30360, 'business_date') }),
+    // 🛑 THE OTHER NULL. Row 5 above is an ORPHAN with suggestion null because
+    // reconRow never searched for it; row 6 here is an UNMATCHED row with
+    // suggestion null because reconNearestOrder DID search both rungs and found
+    // nothing. Same wire value, OPPOSITE meanings, and the sheet must not say
+    // the same thing about them — which is the whole of fix F1.
+    qrow(6, 'unmatched', { order_number: '890' }),
   ];
   return { queue: [...overrides, ...orphans, ...unmatched], overrides, orphans, unmatched, matched_count: 3, declined_count: 1 };
 })();
@@ -488,13 +510,38 @@ test.describe('States · Marketing reconciliation queue', () => {
     await shot(page, 'ms-sheet-order-businessdate');
     await page.locator('#msq-order-close').click();
 
-    // The orphan has no suggestion at all (the server suggests only for
-    // `unmatched`), so the sheet says so in words rather than showing nothing.
+    // ══ F1: `suggestion: null` MEANS TWO DIFFERENT THINGS, AND MUST READ AS TWO
+    //    DIFFERENT THINGS. internal/marketing/reconciliation.go:455 computes a
+    //    suggestion ONLY `if bucket == "unmatched"`, so:
+    //      * an ORPHAN's null means NOTHING WAS EVER SEARCHED FOR;
+    //      * an UNMATCHED row's null means the ±30-minute window AND the
+    //        business-date rung were both searched and both came back empty.
+    //    Telling a manager "no till order is near this scan" on an orphan is a
+    //    CONFIDENT NEGATIVE OVER DATA THAT WAS NEVER COMPUTED — the same defect
+    //    class as a confident $0.00 over money sitting in an invisible row. The
+    //    copy must not claim a search that did not happen.
+    //
+    //    Orphan: no search ran, so no finding may be reported.
     await page.locator(`.msq-row[data-id="${U(5)}"] .msq-fix`).click();
     await expect(page.locator('#msq-sheet-order .msq-sug')).toHaveCount(0);
-    await expect(page.locator('#msq-sheet-order .msq-sug-why')).toContainText('No till order is near this scan');
+    const orphanWhy = page.locator('#msq-sheet-order .msq-sug-why');
+    await expect(orphanWhy).toContainText('No nearest-order hint is available for this bucket');
+    // 🛑 and it must NOT say a search happened and found nothing.
+    await expect(orphanWhy).not.toContainText('near this scan');
+    await expect(orphanWhy).not.toContainText('found');
+    // It still says what to DO, which is the point of the sheet.
+    await expect(orphanWhy).toContainText('Type the number off the ticket');
     await expect(page.locator('#msq-order-save')).toBeDisabled();
     await shot(page, 'ms-sheet-order-nosuggestion');
+    await page.locator('#msq-order-close').click();
+
+    //    Unmatched with a null suggestion: the search DID run, so reporting that
+    //    it found nothing is true and is the more useful sentence.
+    await page.locator(`.msq-row[data-id="${U(6)}"] .msq-fix`).click();
+    const unmatchedWhy = page.locator('#msq-sheet-order .msq-sug-why');
+    await expect(unmatchedWhy).toContainText('No till order is near this scan');
+    await expect(unmatchedWhy).not.toContainText('for this bucket');
+    await shot(page, 'ms-sheet-order-searched-none');
     await page.locator('#msq-order-close').click();
 
     await page.locator(`.msq-row[data-id="${U(1)}"] .msq-decline`).click();

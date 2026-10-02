@@ -414,9 +414,20 @@ test.describe('Marketing stats — card H4', () => {
     await sheet.locator('#msq-decline-save').click();
     await expect(sheet).toBeHidden();
 
-    // The row left the open queue and the header count fell with it.
-    await expect(page.locator(`.msq-row[data-id="${U(1)}"]`)).toHaveCount(0);
+    // The row left the OPEN queue and the header count fell with it.
+    //
+    // 🛑 Scoped to the open bucket on purpose. A page-wide
+    // `.msq-row[data-id=...] -> 0` is WRONG and was a latent race: a declined
+    // row is still rendered, in the Declined bucket, which is the whole point of
+    // that bucket. It only ever passed because the assertion could land while
+    // the post-write reload was still in flight and the list was empty. Found by
+    // the F1 fix round; corrected here rather than left to flake later.
+    await expect(page.locator('.msq-section[data-bucket="unmatched"]')
+      .locator(`.msq-row[data-id="${U(1)}"]`)).toHaveCount(0);
     await expect(page.locator('#msq-head')).toContainText('3 redemptions need a look');
+    // ...and it is now visible in the Declined bucket, not gone from the world.
+    await expect(page.locator('.msq-section[data-bucket="declined"]')
+      .locator(`.msq-row[data-id="${U(1)}"]`)).toHaveCount(1);
 
     // And the REAL endpoint holds the reason AND the note (read back through
     // /reconciliation/declined, not out of the DOM).

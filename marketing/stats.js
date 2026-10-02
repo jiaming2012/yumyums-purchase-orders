@@ -825,7 +825,25 @@ function msOrderSheet() {
       ${advisory ? `<div class="msq-sug-why">Outside the 30-minute window, so this is the nearest order on the same business date rather than a likely match. Check the ticket before you accept it.</div>` : ''}
     </div>`;
   } else {
-    chips = `<div class="msq-sug-why">No till order is near this scan. Type the number off the ticket.</div>`;
+    // 🛑 `suggestion: null` MEANS TWO DIFFERENT THINGS AND MUST READ AS TWO
+    // DIFFERENT THINGS (fix F1, G6 finding).
+    //
+    // internal/marketing/reconciliation.go:455 computes a suggestion for ONE
+    // bucket:  `if bucket == "unmatched" { row.Suggestion = reconNearestOrder(...) }`
+    // So:
+    //   * UNMATCHED + null  -> reconNearestOrder ran BOTH rungs (the ±30-minute
+    //     window over the period, then the attempt's own business date) and
+    //     found nothing. "No till order is near this scan" is TRUE and useful.
+    //   * ORPHAN / OVERRIDE + null -> NOTHING WAS EVER SEARCHED FOR. Saying
+    //     "none is near this scan" there is a CONFIDENT NEGATIVE OVER DATA THAT
+    //     WAS NEVER COMPUTED — the same defect class as a confident $0.00 over
+    //     money sitting in an invisible row, which is the thing this whole card
+    //     exists to refuse. The copy must not claim a search that never ran.
+    //
+    // Both branches still say what to DO, because that is what the sheet is for.
+    chips = r.bucket === 'unmatched'
+      ? `<div class="msq-sug-why">No till order is near this scan, and none matches the number on the row. Type the number off the ticket.</div>`
+      : `<div class="msq-sug-why">No nearest-order hint is available for this bucket — nearby till orders are only worked out once a row carries an order number. Type the number off the ticket.</div>`;
   }
   return `<div class="msq-sheet" id="msq-sheet-order" role="dialog" aria-modal="true" aria-label="Add an order number">
     <div class="msq-sheet-card">
