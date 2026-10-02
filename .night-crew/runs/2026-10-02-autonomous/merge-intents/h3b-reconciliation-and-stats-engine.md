@@ -24,7 +24,7 @@ Card 3's migration `0084` carries the three tables this card writes
 | `backend/internal/marketing/types.go` | `moneyDTO` gains four ALWAYS-PRESENT keys: `discount_implied_cents`, `discount_actual_cents`, `discount_unknown_rows`. No existing key renamed, removed or retyped. `zeroMoney()` unchanged in meaning. |
 | `backend/internal/marketing/campaigns.go` | The card's "`GET /campaigns`' money block becomes real": the three `zeroMoney()` call sites (list / get / patch) now take the computed per-campaign money, and `funnel.redeemed` / `funnel.signups` are filled from the same engine. `funnel.scans` is left exactly as Card 1 computed it. |
 | `backend/internal/marketing/routes_test.go` | `TestMountReportsIsANoOpSeamToday` is INVERTED into `TestMountReportsRegistersTheBICampaignReports` — Card 1 wrote it as "it must register NOTHING **until H3b fills it**"; this is the card that fills it. |
-| `night-crew.toml` | Roll-call comment only. **No new key, no new token** (a new key is a PARK). |
+| `night-crew.toml` | Roll-call COMMENT only — **no new key, no new token**. It records that `backend/internal/marketing/` is **not** a key in `[e2e.seams]` (the `marketing` key is a path prefix matching the FRONTEND tree), so every Activity-H backend card has an undeclared footprint and de-confines to the full Playwright suite. H3b ran the full suite on that basis rather than claiming its slate line's subset. Whether that path should get a key is a toml change and therefore the operator's. |
 
 New files: `backend/internal/marketing/reconciliation.go`, `backend/internal/marketing/stats.go`,
 plus tests `reconciliation_test.go`, `stats_test.go`, `recon_fixture_test.go`.
@@ -106,6 +106,29 @@ redemption token row), and HQ Postgres has **no `codes` table at all**: nothing 
 `code_id → campaign_id`. So on live data today every accepted attempt is unattributable and
 the campaign/channel/item slices are all `unattributed`/`direct`. Details and blast radius
 in the card's final report. **No fix attempted — Card 3's files are untouched.**
+
+### `opened_at`'s timezone — blast radius, measured
+
+Card H3a's G6 found `orderdetails.go` stamps the export's naive `Opened` with a
+hardcoded `America/Chicago` while the rest of the tree reads
+`users.DefaultTimezone = America/New_York` (T-26 decision 83, migration 0072), and
+nothing establishes which wall clock Toast writes. Quantified against this card:
+
+- **`matched`, revenue, discount, net, every slice, and the orphan rate: UNAFFECTED.**
+  They all read `matched()`, which keys on equality of `pos_business_date` and
+  `toast_orders.business_date`; `business_date` is `opened.Date()` of the wall-clock
+  string and is zone-independent. **No number a manager sees moves.**
+- **The ±30-minute suggestion is the only thing that moves.** A one-hour offset puts
+  every real order outside the window.
+- **It cannot reclassify anything.** `bucket()` reads the ORDER NUMBER, never the
+  suggestion, so an unmatched attempt with no suggestion stays `unmatched` and never
+  becomes an `orphan`. Pinned by `TestSuggestionSurvivesAOneHourOpenedAtOffset`.
+- **Hardened without touching a spec rule:** `reconNearestOrder` keeps the card's
+  ±30-minute rule as rung 1 (`basis:"window"`) and adds rung 2 — the nearest order on
+  the attempt's own, zone-independent `business_date`, `basis:"business_date"` with
+  `gap_seconds` — so a systematic offset surfaces as a labelled ~3600s hint instead of
+  as silence. The suggestion is advisory by §8's framing, so widening the ADVICE
+  changes nothing decision 190 fixes. Card H3a's code is untouched.
 
 Also noted for triage: this card's orphan rate inherits `qr_scans`' **write-time** 10-minute
 dedupe, which is **DECISIONS-NEEDED D-2** (read-then-write under READ COMMITTED). `scans` is

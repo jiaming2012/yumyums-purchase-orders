@@ -223,3 +223,19 @@ subset = 'npx playwright test "{tags}"'
 # selection automatically; that is the intended growth, not drift.
 "marketing"                   = ["marketing"]
 "tests/marketing.spec.js"     = ["marketing"]
+# ROLL CALL, card `h3b-reconciliation-and-stats-engine` (run 20261002) — NO NEW
+# KEY, NO NEW TOKEN (either would be a PARK). Note only, so the next card does
+# not rediscover it:
+#
+#   `backend/internal/marketing/` is NOT a key in this table. The `marketing`
+#   key above is a path PREFIX and matches the FRONTEND tree (marketing.html,
+#   marketing/*) — it does NOT match backend/internal/marketing/. So an
+#   Activity-H backend card (H1, H3a, H3b) has an UNDECLARED footprint and
+#   de-confines to the FULL Playwright suite, exactly like backend/internal/toast
+#   and backend/cmd/server. H3b ran the full suite on that basis rather than
+#   claiming the tests/marketing*.spec.js subset its slate line named.
+#
+#   Whether backend/internal/marketing should GET a key (and with which tokens —
+#   `marketing` alone would be too narrow once H4's stats specs land, since the
+#   backend serves the Campaigns tab, the queue AND the BI campaign reports) is a
+#   night-crew.toml change and therefore the operator's. Left for them.

@@ -95,6 +95,66 @@ func TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes(t *testing.T)
 	if row.Suggestion.AmountCents != 1800 {
 		t.Errorf("suggestion.amount_cents = %d, want 1800", row.Suggestion.AmountCents)
 	}
+	if row.Suggestion.Basis != "window" {
+		t.Errorf("suggestion.basis = %q, want window (the card's ±30-minute rule)", row.Suggestion.Basis)
+	}
+	if row.Suggestion.GapSeconds != 12*60 {
+		t.Errorf("suggestion.gap_seconds = %d, want 720", row.Suggestion.GapSeconds)
+	}
+}
+
+// 🛑 THE TIMEZONE BLAST RADIUS, pinned as behaviour (card H3a's G6, 2026-10-02).
+//
+// toast_orders.opened_at's zone is UNCONFIRMED — H3a stamps the export's naive
+// `Opened` with a hardcoded America/Chicago while the rest of the tree reads
+// users.DefaultTimezone = America/New_York. If it is off by an hour, every real
+// order falls outside the ±30-minute window. This test forces exactly that and
+// asserts the two things that must hold:
+//
+//  1. the attempt STAYS in the `unmatched` bucket — the suggestion never
+//     reclassifies anything, so the orphan rate P-KR3 is graded on does not move;
+//  2. the suggestion still appears, on the zone-INDEPENDENT business_date rung,
+//     labelled basis="business_date" with the ~3600s gap visible — so the offset
+//     surfaces on the row instead of as silence.
+func TestSuggestionSurvivesAOneHourOpenedAtOffset(t *testing.T) {
+	pool := setupReconDB(t)
+	mux := mountedMux(testDeps(pool))
+	manager := seedUser(t, pool, "manager")
+	campaign := seedCampaignRow(t, pool, manager, "tz", "Timezone", 300, nil)
+	code := seedCodeRow(t, pool, manager, campaign, "TTTTT2", "flyer", nil)
+
+	// Midday so a ±1h shift cannot cross a calendar boundary — the point is the
+	// window, not the date.
+	scannedAt := time.Date(2026, 9, 29, 17, 0, 0, 0, time.UTC)
+	attempt := seedAttempt(t, pool, attemptFixture{
+		CodeID: &code, CampaignID: &campaign, ScannedAt: scannedAt,
+		OrderNumber: strptr("5150"),
+	})
+	// The real order, stamped an hour early — outside ±30 min, same business date.
+	seedToastOrder(t, pool, scannedAt, "88", 3300, 300, scannedAt.Add(-1*time.Hour))
+
+	rec := do(t, mux, userCtx(manager, "manager"), http.MethodGet,
+		"/api/v1/marketing/reconciliation/queue", nil)
+	var out ReconQueueResponse
+	decode(t, rec, &out)
+
+	if len(out.Unmatched) != 1 || out.Unmatched[0].ID != attempt {
+		t.Fatalf("an hour-offset order must leave the attempt UNMATCHED, not orphan: unmatched=%d orphans=%d\nbody: %s",
+			len(out.Unmatched), len(out.Orphans), rec.Body.String())
+	}
+	if len(out.Orphans) != 0 {
+		t.Errorf("orphans = %d; a missing suggestion must never reclassify an attempt", len(out.Orphans))
+	}
+	sug := out.Unmatched[0].Suggestion
+	if sug == nil {
+		t.Fatalf("suggestion is null; the business_date rung exists so a systematic offset is visible, not silent")
+	}
+	if sug.Basis != "business_date" {
+		t.Errorf("suggestion.basis = %q, want business_date (outside ±30 min, same zone-independent date)", sug.Basis)
+	}
+	if sug.OrderNumber != "88" || sug.GapSeconds != 3600 {
+		t.Errorf("suggestion = order %q gap %ds, want 88 / 3600", sug.OrderNumber, sug.GapSeconds)
+	}
 }
 
 // §5: `400 note_required` when reason="other" and the note is empty. Every other

@@ -41,18 +41,37 @@ package marketing
 // bucket able to say reason, note, who and when, and what lets an auditor see
 // that a call was changed rather than only that it is now different.
 //
-// # 🛑 Timezone sensitivity, stated because the blast radius is total
+// # 🛑 Timezone dependency, scoped and bounded (card H3a's G6, 2026-10-02)
 //
-// The matched bucket joins on EQUALITY of scan_attempts_mirror.pos_business_date
-// (device-reported) and toast_orders.business_date (derived by card H3a's
-// parser). If those two disagree by a day — a timezone the parser read
-// differently from the tablet — then NO attempt matches, revenue reads 0, the
-// discount basis reads "implied" for everything and the orphan rate goes to
-// ~100%. This file does not and must not paper over that: the ±30-minute
-// SUGGESTION window is deliberately NOT constrained by business_date (the card
-// defines it on scanned_at alone), so a suggestion from the neighbouring date
-// still surfaces and makes the off-by-one visible to the human instead of
-// invisible to everyone.
+// Card H3a parses the Toast export's `Opened` NAIVELY and stamps it with a
+// hardcoded America/Chicago, while every other scheduled reader in this tree
+// (purchasing, recipes, inventory) reads users.DefaultTimezone =
+// America/New_York (ledger T-26 decision 83, migration 0072). Nothing in the
+// repo establishes which wall clock Toast actually writes, so `opened_at`'s zone
+// is UNCONFIRMED — possibly an hour off. That question is the operator's and is
+// not resolved here. What matters is how far it reaches into this file:
+//
+//	MATCHED and the orphan rate — UNAFFECTED, and provably so. The matched
+//	bucket joins on EQUALITY of scan_attempts_mirror.pos_business_date
+//	(device-reported) and toast_orders.business_date, and business_date is
+//	`opened.Date()` of the wall-clock string, i.e. zone-INDEPENDENT (H3a's G6
+//	constructed the 00:30 and 23:50 cases). The orphan rate's numerator is
+//	defined on matched(), so it does not move either. Revenue, discount, net and
+//	every slice read matched(), so they do not move.
+//
+//	The ±30-MINUTE SUGGESTION — this is the only thing that moves. A one-hour
+//	offset puts every real order outside the window and the suggestion goes
+//	null. It CANNOT reclassify anything: bucket() reads the ORDER NUMBER, never
+//	the suggestion, so an unmatched attempt with no suggestion still reads as
+//	`unmatched`, never as `orphan`. Nothing silently reclassifies and no metric
+//	changes; the human just loses a one-tap hint.
+//
+// reconNearestOrder therefore keeps the card's ±30-minute rule exactly as
+// specified as its FIRST rung, and adds a clearly-labelled SECOND rung — the
+// nearest order on the same (zone-independent) business_date — so a one-hour
+// offset surfaces as `{"basis":"business_date","gap_seconds":3600}` instead of
+// as silence. The suggestion is advisory by §8's own framing, so widening the
+// ADVICE changes no rule decision 190 fixes.
 
 import (
 	"context"
@@ -283,6 +302,20 @@ type ReconOrderRef struct {
 	Voided        bool      `json:"voided"`
 }
 
+// ReconSuggestion is the nearest-order hint on an unmatched attempt. `basis`
+// says which rung produced it and `gap_seconds` how far off it is, so a
+// systematic offset (see the timezone note at the top of this file) is visible
+// on the row rather than hidden behind a null.
+//
+//	window        — within ±ReconSuggestionWindow of scanned_at. The card's rule.
+//	business_date — the nearest order on the attempt's own business date, OUTSIDE
+//	                that window. Advisory only, and labelled so a UI can say so.
+type ReconSuggestion struct {
+	ReconOrderRef
+	GapSeconds int    `json:"gap_seconds"`
+	Basis      string `json:"basis"`
+}
+
 // ReconDecisionRef is the latest reconciliation_decisions row for an attempt.
 type ReconDecisionRef struct {
 	Decision  string    `json:"decision"`
@@ -314,7 +347,7 @@ type ReconQueueRow struct {
 	ChannelLabel       *string           `json:"channel_label"`
 	ItemName           *string           `json:"item_name"`
 	Order              *ReconOrderRef    `json:"order"`
-	Suggestion         *ReconOrderRef    `json:"suggestion"`
+	Suggestion         *ReconSuggestion  `json:"suggestion"`
 	Decision           *ReconDecisionRef `json:"decision"`
 }
 
@@ -417,40 +450,59 @@ type reconOrder struct {
 	Voided       bool
 }
 
-// reconNearestOrder returns the order opened closest to scanned_at inside
-// ±ReconSuggestionWindow, or nil.
-//
-// Deliberately NOT constrained to the attempt's business_date: the card defines
-// the window on scanned_at, and an unconstrained window is what makes a
-// timezone-shifted business_date visible (see this file's header) instead of
-// silently suggestionless. Ties break on the lower order number so the
-// suggestion is stable across requests.
-func reconNearestOrder(a reconAttempt, orders []reconOrder) *ReconOrderRef {
-	var best *reconOrder
-	var bestGap time.Duration
-	for i := range orders {
-		o := &orders[i]
-		gap := o.OpenedAt.Sub(a.ScannedAt)
-		if gap < 0 {
-			gap = -gap
+// reconNearestOrder returns the nearest-order hint for an unmatched attempt, by
+// the two-rung ladder documented on ReconSuggestion. Ties break on the lower
+// order number so the suggestion is stable across requests.
+func reconNearestOrder(a reconAttempt, orders []reconOrder) *ReconSuggestion {
+	day := a.BusinessDate.Format("2006-01-02")
+	pick := func(within time.Duration, sameDay bool) *ReconSuggestion {
+		var best *reconOrder
+		var bestGap time.Duration
+		for i := range orders {
+			o := &orders[i]
+			if sameDay && o.BusinessDate.Format("2006-01-02") != day {
+				continue
+			}
+			gap := o.OpenedAt.Sub(a.ScannedAt)
+			if gap < 0 {
+				gap = -gap
+			}
+			if within > 0 && gap > within {
+				continue
+			}
+			if best == nil || gap < bestGap || (gap == bestGap && o.OrderNumber < best.OrderNumber) {
+				best, bestGap = o, gap
+			}
 		}
-		if gap > ReconSuggestionWindow {
-			continue
+		if best == nil {
+			return nil
 		}
-		if best == nil || gap < bestGap || (gap == bestGap && o.OrderNumber < best.OrderNumber) {
-			best, bestGap = o, gap
+		return &ReconSuggestion{
+			ReconOrderRef: ReconOrderRef{
+				OrderNumber:   best.OrderNumber,
+				OpenedAt:      best.OpenedAt,
+				AmountCents:   best.AmountCents,
+				DiscountCents: best.Discount,
+				Voided:        best.Voided,
+			},
+			GapSeconds: int(bestGap / time.Second),
 		}
 	}
-	if best == nil {
-		return nil
+	// Rung 1 — the card's rule, verbatim: within ±30 min of scanned_at, over
+	// every order in the period (NOT constrained to the business date, so a
+	// scan near midnight still sees the neighbouring day's orders).
+	if s := pick(ReconSuggestionWindow, false); s != nil {
+		s.Basis = "window"
+		return s
 	}
-	return &ReconOrderRef{
-		OrderNumber:   best.OrderNumber,
-		OpenedAt:      best.OpenedAt,
-		AmountCents:   best.AmountCents,
-		DiscountCents: best.Discount,
-		Voided:        best.Voided,
+	// Rung 2 — advisory: the nearest order on the attempt's own business date,
+	// which is the zone-independent key. This is what makes a systematic
+	// opened_at offset visible instead of silent.
+	if s := pick(0, true); s != nil {
+		s.Basis = "business_date"
+		return s
 	}
+	return nil
 }
 
 // reconLoadOrders reads the toast_orders rows in the period. The suggestion

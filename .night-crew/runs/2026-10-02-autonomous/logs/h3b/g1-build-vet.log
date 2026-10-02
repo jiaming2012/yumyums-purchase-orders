@@ -1,0 +1,12 @@
+# G1 — card h3b, run 20261002. cwd backend/ (the module root).
+
+$ go build ./...
+BUILD_EXIT=0
+
+$ go vet ./...
+VET_EXIT=0
+
+$ gofmt -l internal/marketing/
+internal/marketing/qrpng_test.go
+GOFMT_EXIT=0
+EXIT=0

@@ -1,0 +1,9 @@
+# G2 (Playwright) — card h3b, run 20261002 — FULL SUITE
+# WHY FULL: backend/internal/marketing is NOT a key in night-crew.toml [e2e.seams],
+#   so this card's footprint is UNDECLARED and de-confines by the toml's own rule.
+#   Adding the key would be a new key = PARK, so the full suite is run instead.
+# coordinates: TEST_PORT=8571  TEST_DB_NAME=hq_test_e2e_h3b_20261002  DB_PORT=5434 (hqtest)
+# lock: flock /tmp/hq-full-suite.lock (waited, never contended)
+# npx bddgen ran first (B-09): exit 0, .features-gen present
+# BASELINE to judge against: dev @ c4f6db4 = 24 failed / 965 passed (bugs.md)
+
