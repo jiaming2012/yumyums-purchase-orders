@@ -1,0 +1,5 @@
+Location,Order Id,Order #,Checks,Opened,# of Guests,Tab Names,Server,Table,Revenue Center,Dining Area,Service,Dining Options,Discount Amount,Amount,Tax,Tip,Gratuity,Total,Voided,Paid,Closed,Duration (Opened to Paid),Order Source
+Yum Yums,ord-0001,9,1,09/28/26 11:42 AM,1,,Alex R,,Truck,Truck,Lunch,Take Out,0.00,12.50,1.03,2.00,0.00,13.53,false,09/28/26 11:48 AM,09/28/26 11:48 AM,6,In Store
+Yum Yums,ord-0002,99,1,09/28/26 12:05 PM,2,,Alex R,,Truck,Truck,Lunch,Take Out,2.00,24.00,1.98,0.00,0.00,23.98,false,09/28/26 12:11 PM,09/28/26 12:11 PM,6,Online
+Yum Yums,ord-0003,9999,1,09/28/26 7:30 PM,1,,Dana K,,Truck,Truck,Dinner,Take Out,$1.41,"$1,205.73",99.47,0.00,0.00,"$1,205.73",false,09/28/26 7:44 PM,,14,In Store
+Yum Yums,ord-0004,100,1,09/28/26 8:02 PM,1,,Dana K,,Truck,Truck,Dinner,Take Out,0.00,8.00,0.66,0.00,0.00,8.00,true,,,0,

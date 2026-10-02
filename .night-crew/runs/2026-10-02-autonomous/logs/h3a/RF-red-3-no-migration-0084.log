@@ -1,0 +1,60 @@
+# RF RED-3 — the card's Go production code present, migration 0084 WITHHELD and the test
+#   database still at goose version 83. This isolates the BEHAVIOURAL red for the two
+#   done_when rows RED-1 could only show as a compile failure: the tables the parser and
+#   the mirror write to do not exist yet.
+# Target: :5434 / hqtest / hq_test_go_h3a. NEVER :5433.
+# $ go test -count=1 ./internal/toast/ ./internal/marketing/ ./internal/redemption/
+
+2026/10/01 21:04:28 goose: no migrations to run. current version: 83
+2026/10/01 21:04:28 INFO database migrations applied successfully
+2026/10/01 21:04:28 ERROR toast sync: SFTP unavailable (dial/auth failed) date=20261001 error="ssh dial: unable to authenticate"
+2026/10/01 21:04:28 ERROR toast worker: ALERT dispatched (SFTP unavailable) message="Toast sync FAILING: cannot open/authenticate SFTP — no sales data is landing. Last error: toast sync: sftp dial/auth failed"
+2026/10/01 21:04:28 ERROR toast worker: cycle reached SFTP but persisted nothing summary="mkdir cache: permission denied"
+2026/10/01 21:04:28 ERROR toast sync: SFTP key unreadable path=/tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable3940380537/001/id_rsa error="read /tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable3940380537/001/id_rsa: is a directory"
+--- FAIL: TestOrderDetailsUpsertIsIdempotent (0.00s)
+    orderdetails_test.go:60: truncate toast_orders: ERROR: relation "toast_orders" does not exist (SQLSTATE 42P01)
+2026/10/01 21:04:28 WARN toast orders: optional column absent; the matching field stays NULL column=Closed file=OrderDetails.csv
+2026/10/01 21:04:28 WARN toast orders: optional column absent; the matching field stays NULL column="Order Source" file=OrderDetails.csv
+--- FAIL: TestMigration0084DownAndUpRoundTrip (0.00s)
+    orderdetails_test.go:239: truncate toast_orders: ERROR: relation "toast_orders" does not exist (SQLSTATE 42P01)
+FAIL
+FAIL	github.com/yumyums/hq/internal/toast	0.038s
+2026/10/01 21:04:28 goose: no migrations to run. current version: 83
+2026/10/01 21:04:28 INFO database migrations applied successfully
+2026/10/01 21:04:28 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=352dd345-e043-47fc-8584-1e36e867a3e9
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=4263375f-7396-4a61-ad14-1c290b9b1aa2
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e65f761d-cfe7-4e30-b31d-e9c0dd995451
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=4c078b43-f0d4-408a-aac1-95ac34235670
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=ac05f43c-3a3c-4691-9669-db0088b27934
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=f4a18215-0976-480d-a563-2a265dfef963
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=99dfc2ce-af6a-4ce8-bd84-722658ed4c89
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=7be566b8-f363-4a6b-addd-8df7a6173a22
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=1280025c-f903-49c8-bb3a-35c65303569d
+2026/10/01 21:04:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c4a1bec0-5645-4945-85de-dbadd4130b63
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=8ee7651d-fb94-4e5e-bdc2-a1e32299fa44
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=9c3a06b5-ef25-4c32-a2c7-911733b524ff
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=74e6926e-1bcc-44b0-9a12-aa3188afd214
+--- FAIL: TestScanAttemptsMirrorKeysetResumes (0.00s)
+    mirror_test.go:234: truncate mirror: ERROR: relation "reconciliation_decisions" does not exist (SQLSTATE 42P01)
+2026/10/01 21:04:30 INFO scan-attempts mirror idle: substrate not configured; scan_attempts_mirror will stay empty missing="HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY" interval=5m0s
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=6135b97e-0056-40b7-aff8-e21c6894cad6
+2026/10/01 21:04:30 WARN marketing: marketing_settings read refused; using the default requires_online threshold status=503 default_cents=2000
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection upsert: postgrest status 503" campaign_id=aeb670f0-2366-4272-a748-d23308730ca8
+2026/10/01 21:04:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=7820aa32-9930-48b6-b691-4d93a8c7a455
+2026/10/01 21:04:30 OK   0083_campaigns_admin.sql (22.52ms)
+2026/10/01 21:04:30 goose: no migrations to run. current version: 82
+2026/10/01 21:04:31 OK   0083_campaigns_admin.sql (117.16ms)
+2026/10/01 21:04:31 goose: successfully migrated database to version: 83
+2026/10/01 21:04:31 INFO database migrations applied successfully
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	2.532s
+2026/10/01 21:04:28 goose: no migrations to run. current version: 83
+2026/10/01 21:04:28 INFO database migrations applied successfully
+--- FAIL: TestF4_RaceLostReconciledEmitsNotification (0.06s)
+    f4_test.go:101: attempt 2: redemption: race-lost notification write failed: insert race_lost_notifications: ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)
+--- FAIL: TestRaceLostNotificationDedupe (0.03s)
+    racelost_dedupe_test.go:43: first emit: insert race_lost_notifications: ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	2.791s
+FAIL
+EXIT=1

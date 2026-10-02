@@ -709,7 +709,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing.html`, `marketing/campaigns.js` (new), `tests/marketing-campaigns.spec.js` (new),
   `tests/states-marketing-campaigns.spec.js` (new), `sw.js`, `night-crew.toml` (+seam rows).
 
-- **`toast-orders-and-mirror`** · **PLANNED** · (H3a, track C — backend; the first half of the
+- **`toast-orders-and-mirror`** · **LANDED** (run `20261002`, branch `card/h3a-toast-orders-and-mirror`) · (H3a, track C — backend; the first half of the
   `toast-orders-and-reconciliation` goal, split at the slate sitting 2026-10-01) Supersedes
   `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync fetches `OrderDetails.csv` beside
   `ItemSelectionDetails.csv` and upserts `toast_orders` keyed `(business_date, order_number)` —
@@ -722,7 +722,16 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   migration. B-424: unique index on `race_lost_notifications (code_id, losing_device, scanned_at)`
   (store insert becomes `ON CONFLICT DO NOTHING`) and the F4 status bullet owned here.
   done_when: `TestOrderDetailsUpsertIsIdempotent`, `TestScanAttemptsMirrorKeysetResumes`,
-  `TestRaceLostNotificationDedupe` red → green; Go suite counts checked. Footprint:
+  `TestRaceLostNotificationDedupe` red → green; Go suite counts checked. **Landed as planned, with
+  four stated engineer-level calls** (full text in the card's merge-intent): `scan_attempts_mirror.code_id`
+  ships NULLABLE and gains `token_hash`, because upstream dropped that NOT NULL for F2 and a
+  verbatim §4 NOT NULL would have silently refused exactly the unverified-code attempts F4 cares
+  about most; `campaign_id` mirrors as NULL (upstream has no such column and no FK to embed
+  through); B-424's index is on 0077's real column names `(code_token_hash, device_id, scanned_at)`;
+  and the keyset's one real gap — a late-arriving offline attempt whose `scanned_at` predates the
+  cursor is never mirrored — is named in `mirror.go` with its fix rather than left to be
+  rediscovered. `TestScanAttemptsMirrorKeysetResumes` ran against the **LIVE** `spike-supabase`
+  substrate, not a fixture. Footprint:
   `backend/internal/toast/` (+`orderdetails.go`, `sync.go`), `backend/internal/marketing/mirror.go`,
   migration 0084, `backend/internal/redemption/store.go`, `backend/cmd/server/main.go` (poller
   start beside the Toast worker → undeclared seam → full Playwright suite).

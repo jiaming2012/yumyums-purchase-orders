@@ -141,8 +141,57 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 		}
 	}
 
+	// 5. OrderDetails.csv — card H3a, decision 188. It rides THIS date's
+	//    already-open SFTP client, which is what "beside ItemSelectionDetails in
+	//    the same date loop" means: one dial per date, not two.
+	//
+	//    🛑 It cannot change anything above it. SyncDate's (bool, error) contract
+	//    and its ErrSFTPMiss / ErrSFTPUnavailable classification are B-146's
+	//    fail-loud machinery for the SALES pipeline; an absent or malformed
+	//    OrderDetails must not mark the transport dead or the date missed. So the
+	//    leg reports loudly through slog (fail-loud per toast-sync-fail-loud: a
+	//    leg that cannot decide is a FAILURE, never a silent pass) and returns
+	//    nothing to the caller. The three severities are the decision:
+	//      - file absent on this date        → WARN, skipped (not fatal)
+	//      - parse or DB failure             → ERROR (the loud path)
+	//      - rows landed                     → INFO with the count
+	syncOrderDetails(ctx, cfg, client, dateDir)
+
 	slog.Info("toast sync: wrote", "date", dateDir, "csv_bytes", len(csvBytes), "key", csvKey)
 	return true, nil
+}
+
+// syncOrderDetails downloads and ingests one date's OrderDetails.csv over an
+// already-authenticated client. It swallows nothing: every outcome is logged at
+// the severity the outcome deserves. It returns nothing because SyncDate's
+// return value is the SALES pipeline's health signal and this leg is not
+// allowed to speak for it.
+func syncOrderDetails(ctx context.Context, cfg Config, client *Client, dateDir string) {
+	if cfg.Pool == nil {
+		// cmd/sync-toast and the unit tests can run without a pool. Say so;
+		// don't pretend the orders landed.
+		slog.Warn("toast orders: no DB pool configured — OrderDetails skipped", "date", dateDir)
+		return
+	}
+	remotePath := fmt.Sprintf("/%s/%s/%s", cfg.ExportID, dateDir, OrderDetailsFilename)
+	r, err := client.Download(remotePath)
+	if err != nil {
+		// Absent on this date. ItemSelectionDetails was present (we only get
+		// here after it landed), so an absent OrderDetails is worth a WARN
+		// rather than the INFO a whole-date miss gets — but it is per the card
+		// "logged and skipped", not fatal.
+		slog.Warn("toast orders: OrderDetails.csv not on the export for this date — skipped",
+			"date", dateDir, "path", remotePath, "error", err)
+		return
+	}
+	defer r.Close()
+
+	n, err := IngestOrderDetails(ctx, cfg.Pool, r)
+	if err != nil {
+		slog.Error("toast orders: OrderDetails ingest FAILED", "date", dateDir, "path", remotePath, "error", err)
+		return
+	}
+	slog.Info("toast orders: upserted", "date", dateDir, "orders_upserted", n)
 }
 
 // dialWithRetry — moved verbatim from ingest.go (Phase 22 D-10 5s/15s/30s schedule).

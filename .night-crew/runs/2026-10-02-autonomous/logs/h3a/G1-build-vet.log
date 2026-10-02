@@ -1,0 +1,8 @@
+# G1 — from backend/ (the module root; ./... from the repo root matches NO module and prints a false green)
+# $ go build ./...  then  go vet ./...
+
+--- go build ./... ---
+BUILD_EXIT=0
+--- go vet ./... ---
+VET_EXIT=0
+EXIT=0 (both legs; see BUILD_EXIT / VET_EXIT above)

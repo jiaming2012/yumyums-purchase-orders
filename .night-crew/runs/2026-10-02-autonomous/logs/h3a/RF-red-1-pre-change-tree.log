@@ -1,0 +1,41 @@
+# RF RED-A — the TRUE pre-change tree (base 94ad3b3 production files) + card H3a's new test files.
+# Removed: 0084_toast_orders_reconciliation.sql, internal/toast/orderdetails.go, internal/marketing/mirror.go
+# Reverted to base: internal/toast/sync.go, internal/redemption/store.go, cmd/server/main.go
+# Kept: the three done_when tests + main_test.go + testdata/OrderDetails.csv
+# $ go test -count=1 ./internal/toast/ ./internal/marketing/ ./internal/redemption/
+
+go: go.mod file not found in current directory or any parent directory; see 'go help modules'
+
+# github.com/yumyums/hq/internal/toast [github.com/yumyums/hq/internal/toast.test]
+internal/toast/orderdetails_test.go:63:16: undefined: IngestOrderDetails
+internal/toast/orderdetails_test.go:89:17: undefined: IngestOrderDetails
+internal/toast/orderdetails_test.go:142:15: undefined: parseOrderDetails
+internal/toast/orderdetails_test.go:150:22: undefined: OrderRow
+internal/toast/orderdetails_test.go:204:52: undefined: orderTimeZone
+internal/toast/orderdetails_test.go:205:77: undefined: orderTimeZone
+internal/toast/orderdetails_test.go:217:15: undefined: parseOrderDetails
+internal/toast/orderdetails_test.go:224:15: undefined: parseOrderDetails
+FAIL	github.com/yumyums/hq/internal/toast [build failed]
+# github.com/yumyums/hq/internal/marketing [github.com/yumyums/hq/internal/marketing.test]
+internal/marketing/mirror_test.go:273:16: undefined: MirrorPollOnce
+internal/marketing/mirror_test.go:277:86: undefined: mirrorCursorLog
+internal/marketing/mirror_test.go:281:13: undefined: MirrorPollOnce
+internal/marketing/mirror_test.go:289:49: undefined: mirrorCursorLog
+internal/marketing/mirror_test.go:302:13: undefined: MirrorPollOnce
+internal/marketing/mirror_test.go:307:83: undefined: mirrorCursorLog
+internal/marketing/mirror_test.go:314:49: undefined: mirrorCursorLog
+internal/marketing/mirror_test.go:368:2: undefined: MirrorStart
+internal/marketing/mirror_test.go:370:15: undefined: MirrorPollOnce
+internal/marketing/mirror_test.go:373:15: undefined: MirrorPollOnce
+internal/marketing/mirror_test.go:373:15: too many errors
+FAIL	github.com/yumyums/hq/internal/marketing [build failed]
+2026/10/01 21:03:37 goose: no migrations to run. current version: 84
+2026/10/01 21:03:37 INFO database migrations applied successfully
+2026/10/01 21:03:37 WARN RaceLostReconciled code_token_hash=f4-code-hash device_id=device-b staff=manager@yumyums.kitchen order_number=4021 scanned_at=2026-09-04T19:42:00.000Z value_known=true value=2.5 unverified_code=true
+2026/10/01 21:03:40 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+--- FAIL: TestRaceLostNotificationDedupe (0.05s)
+    racelost_dedupe_test.go:48: replayed emit must not ERROR (the unique index needs the ON CONFLICT DO NOTHING clause to absorb it): insert race_lost_notifications: ERROR: duplicate key value violates unique constraint "race_lost_notifications_dedupe_uq" (SQLSTATE 23505)
+FAIL
+FAIL	github.com/yumyums/hq/internal/redemption	2.810s
+FAIL
+EXIT=1

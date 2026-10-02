@@ -45,13 +45,18 @@ func TestMigration0083DownAndUpRoundTrip(t *testing.T) {
 		}
 	}
 
-	if err := db.MigrateTo(pool, 83); err != nil {
-		t.Fatalf("migrate back up to 83: %v", err)
+	// Back up to the LATEST, not to 83: later cards add migrations above this
+	// one (H3a's 0084 is the first), and leaving the schema pinned at 83 would
+	// hand the next package under -p 1 a database missing their tables. The
+	// promise this test makes is "no other test sees a half-migrated database",
+	// and db.Migrate is what keeps it true as the stack grows. (card H3a)
+	if err := db.Migrate(pool); err != nil {
+		t.Fatalf("migrate back up to latest: %v", err)
 	}
 	for _, tb := range tables {
 		if !exists(tb) {
 			t.Errorf("%s did not come back on re-apply", tb)
 		}
 	}
-	t.Log("0083 Down/Up round-trip clean; schema left at version 83")
+	t.Log("0083 Down/Up round-trip clean; schema left fully migrated")
 }
