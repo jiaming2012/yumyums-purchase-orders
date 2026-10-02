@@ -1,0 +1,253 @@
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_h6_20261002" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_h6_20261002 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.132357346-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.132636152-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.15010564-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.218167639-04:00","level":"INFO","msg":"OK   0001_users.sql (41.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.273323276-04:00","level":"INFO","msg":"OK   0002_sessions.sql (54.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.321454744-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (47.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.360812816-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (39.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.42075322-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (59.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.468539969-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (47.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.520119644-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (49.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.584018976-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (63.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.63293397-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (43.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.670520945-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (37.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.720797218-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (50.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.779817796-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (58.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.832907154-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (52.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.878158098-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (45.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.961502263-04:00","level":"INFO","msg":"OK   0015_ops.sql (83.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:07.981595643-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (19.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.021139028-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (39.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.080618014-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (59.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.147516115-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (66.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.197676746-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (50.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.239268624-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (41.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.285462808-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (46.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.352884147-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (67.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.570873243-04:00","level":"INFO","msg":"OK   0024_inventory.sql (217.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.621633311-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (50.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.62987691-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.637027744-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.651890191-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (14.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.658932064-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.687392765-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (28.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.696520667-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (8.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.709535456-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (12.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.739879525-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (30.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.815660647-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (75.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.8297214-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (13.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.842274809-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.874153794-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (31.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.891361395-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (17.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:08.915285004-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (23.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.044463844-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (129.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.057101905-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.117126079-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (59.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.165385561-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (48.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.216925139-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (51.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.2647429-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (47.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.273554437-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (8.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.327075606-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (53.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.335001969-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.375676987-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (40.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.383463233-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (7.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.390525386-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.407056111-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.414847242-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.421904815-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (6.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.428851983-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.44286863-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (13.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.456396952-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (13.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.470392739-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.477835152-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.53649987-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (58.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.56759072-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (30.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.61086-04:00","level":"INFO","msg":"OK   0062_recipes.sql (43.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.640873562-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (29.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.654733811-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (13.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.666668027-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (11.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.678401276-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (11.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.728497347-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (50ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.750776355-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (22.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.762216955-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (11.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.774600626-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (12.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.795255002-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (20.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.810228458-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (14.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.831815731-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (21.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.841713815-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (9.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.907964625-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (66.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.940545077-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (32.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.984855929-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (44.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:09.999015848-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (14.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.022001708-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (22.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.03581414-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (13.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.05958736-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (23.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.076754487-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (16.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.188761385-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (111.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.314453909-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (125.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.416432444-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (101.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.416507246-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 85","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.416519866-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.504025777-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.538706869-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"d3111953-20a3-4dee-82b8-1d9cddf68785"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.53876325-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.571289737-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"6c058665-a196-40ab-a25d-f0f737235dad"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.596268847-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.681919565-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:10.810937371-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.307605103-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.307679101-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.307740986-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.307795035-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.307844095-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.30824462-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308342233-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308387527-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308401777-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308410836-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308422643-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.308519034-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.331833684-04:00","level":"INFO","msg":"server listening","port":"8581"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.342154822-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8581"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.342225461-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8581"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.342238286-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8581"}
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:11.342252333-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 6 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:15.114939142-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  1 [chromium] › tests/marketing.spec.js:1274:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds (5.9s)
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:22.906554262-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  2 [chromium] › tests/marketing.spec.js:1323:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-01b] an offline-ELIGIBLE campaign keeps its order-# field and override path (1.2s)
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:23.946149602-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  3 [chromium] › tests/marketing.spec.js:1346:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02] the offer card names the campaign and the code last-4, not a bare UUID (5.9s)
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:31.668634711-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  4 [chromium] › tests/marketing.spec.js:1369:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02b] a campaign row with no name degrades to its id prefix, never "undefined" (6.1s)
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:39.51202583-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  5 [chromium] › tests/marketing.spec.js:1400:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code (5.9s)
+[2m[WebServer] [22m{"time":"2026-10-02T00:08:46.387440425-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  6 [chromium] › tests/marketing.spec.js:1437:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03b] decision 166 survives the no-source device: a code naming NO campaign keeps its override (836ms)
+
+
+  1) [chromium] › tests/marketing.spec.js:1274:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds 
+
+    Error: the refusal renders at scan-resolve, with zero taps
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#ms-gate')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - the refusal renders at scan-resolve, with zero taps with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-gate')[22m
+
+
+      1288 |
+      1289 |     const gate = page.locator('#ms-gate');
+    > 1290 |     await expect(gate, 'the refusal renders at scan-resolve, with zero taps').toBeVisible();
+           |                                                                               ^
+      1291 |     await expect(gate).toHaveAttribute('data-branch', 'requires-online');
+      1292 |     await expect(gate).toContainText(/can.t verify/i);
+      1293 |     await expect(gate).toContainText('try again');
+        at /home/jcole/projects/hq-worktrees/h6-scanner-polish/tests/marketing.spec.js:1290:79
+
+    Error Context: test-results/marketing-Scanner-polish-c-b9090-st-submit-guard-still-holds-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:1346:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02] the offer card names the campaign and the code last-4, not a bare UUID 
+
+    Error: the campaign NAME, from the replica row
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#scan-offer-list .offer-row').first().locator('.offer-sub')
+    Expected substring: [32m"Free side of wings"[39m
+    Received string:    [31m"Expires Dec 31, 2027, 7:00 PM · campaign a0000000"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - the campaign NAME, from the replica row with timeout 5000ms[22m
+    [2m  - waiting for locator('#scan-offer-list .offer-row').first().locator('.offer-sub')[22m
+    [2m    9 × locator resolved to <div class="offer-sub">Expires Dec 31, 2027, 7:00 PM · campaign a0000000</div>[22m
+    [2m      - unexpected value "Expires Dec 31, 2027, 7:00 PM · campaign a0000000"[22m
+
+
+      1355 |     const sub = page.locator('#scan-offer-list .offer-row').first().locator('.offer-sub');
+      1356 |     await expect(sub).toBeVisible();
+    > 1357 |     await expect(sub, 'the campaign NAME, from the replica row').toContainText('Free side of wings');
+           |                                                                  ^
+      1358 |     // The code identifier: the last four of the code row's id — the same
+      1359 |     // value scan_attempts.code_id carries, so a manager reconciling in HQ can
+      1360 |     // match what the crew member saw.
+        at /home/jcole/projects/hq-worktrees/h6-scanner-polish/tests/marketing.spec.js:1357:66
+
+    Error Context: test-results/marketing-Scanner-polish-c-e58b4-code-last-4-not-a-bare-UUID-chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:1369:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02b] a campaign row with no name degrades to its id prefix, never "undefined" 
+
+    Error: the code last-4 is independent of the name
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#scan-offer-list .offer-row').first().locator('.offer-sub')
+    Expected substring: [32m"Code ····0005"[39m
+    Received string:    [31m"Expires Dec 31, 2027, 7:00 PM · campaign a0000000"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - the code last-4 is independent of the name with timeout 5000ms[22m
+    [2m  - waiting for locator('#scan-offer-list .offer-row').first().locator('.offer-sub')[22m
+    [2m    9 × locator resolved to <div class="offer-sub">Expires Dec 31, 2027, 7:00 PM · campaign a0000000</div>[22m
+    [2m      - unexpected value "Expires Dec 31, 2027, 7:00 PM · campaign a0000000"[22m
+
+
+      1387 |     await expect(sub).not.toContainText('undefined');
+      1388 |     await expect(sub, 'falls back to the id prefix, honestly').toContainText('a0000000');
+    > 1389 |     await expect(sub, 'the code last-4 is independent of the name').toContainText('Code \u00b7\u00b7\u00b7\u00b70005');
+           |                                                                     ^
+      1390 |   });
+      1391 |
+      1392 |   // ── [SP-03] / B-436, decision 191: no policy source fails CLOSED ──────────
+        at /home/jcole/projects/hq-worktrees/h6-scanner-polish/tests/marketing.spec.js:1389:69
+
+    Error Context: test-results/marketing-Scanner-polish-c-79e65--id-prefix-never-undefined--chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:1400:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code 
+
+    Error: a no-source device refuses, loudly
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#ms-gate')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - a no-source device refuses, loudly with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-gate')[22m
+
+
+      1415 |
+      1416 |     const gate = page.locator('#ms-gate');
+    > 1417 |     await expect(gate, 'a no-source device refuses, loudly').toBeVisible();
+           |                                                              ^
+      1418 |     await expect(gate).toContainText(/can.t verify/i);
+      1419 |     await expect(gate).toContainText('try again');
+      1420 |     await expect(
+        at /home/jcole/projects/hq-worktrees/h6-scanner-polish/tests/marketing.spec.js:1417:62
+
+    Error Context: test-results/marketing-Scanner-polish-c-e54a7-nce-exists-for-a-known-code-chromium/error-context.md
+
+  4 failed
+    [chromium] › tests/marketing.spec.js:1274:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds 
+    [chromium] › tests/marketing.spec.js:1346:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02] the offer card names the campaign and the code last-4, not a bare UUID 
+    [chromium] › tests/marketing.spec.js:1369:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-02b] a campaign row with no name degrades to its id prefix, never "undefined" 
+    [chromium] › tests/marketing.spec.js:1400:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code 
+  2 passed (3.0m)
+EXIT=1

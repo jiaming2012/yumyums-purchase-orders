@@ -1,0 +1,166 @@
+=== F1/F2 GREEN — card h4-stats-tab-ui, fix round (run 20261002) ===
+Confined to the specs the fix touches. The old confident-negative copy is
+gone from the module: 0 occurrence(s) (expect 0).
+Both files run BOTH orders below, because the MS-03 correction in this
+round was a latent ORDER/TIMING race and one ordering is not a proof.
+2026-10-02T02:51:20-04:00
+--- pass 1: states first ---
+
+Running 26 tests using 1 worker
+
+[1A[2K[1/26] [chromium] › tests/marketing-stats.spec.js:268:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line
+[1A[2K[2/26] [chromium] › tests/marketing-stats.spec.js:332:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible
+[1A[2K[3/26] [chromium] › tests/marketing-stats.spec.js:378:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both
+[1A[2K[4/26] [chromium] › tests/marketing-stats.spec.js:447:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue
+[1A[2K[5/26] [chromium] › tests/marketing-stats.spec.js:486:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue
+[1A[2K[6/26] [chromium] › tests/marketing-stats.spec.js:508:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue
+[1A[2K[7/26] [chromium] › tests/marketing-stats.spec.js:560:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only
+[1A[2K[8/26] [chromium] › tests/marketing-stats.spec.js:571:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row
+[1A[2K[9/26] [chromium] › tests/marketing-stats.spec.js:608:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open
+[1A[2K[10/26] [chromium] › tests/marketing-stats.spec.js:623:3 › Marketing stats — card H4 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate
+[1A[2K[11/26] [chromium] › tests/states-marketing-stats.spec.js:288:3 › States · BI Campaigns report › BI success (REAL): funnel, money, the split line, the unknown-rows note, the health card and both slice rows
+[1A[2K[12/26] [chromium] › tests/states-marketing-stats.spec.js:301:3 › States · BI Campaigns report › BI empty (REAL): "No redemptions yet", and NO money figures at all
+[1A[2K[13/26] [chromium] › tests/states-marketing-stats.spec.js:313:3 › States · BI Campaigns report › BI loading (FIXTURE): skeletons, and no figure on screen before one is known
+[1A[2K[14/26] [chromium] › tests/states-marketing-stats.spec.js:324:3 › States · BI Campaigns report › BI error (FIXTURE): one honest failure card with a Retry, and NOT a figure beside it
+[1A[2K[15/26] [chromium] › tests/states-marketing-stats.spec.js:340:3 › States · BI Campaigns report › BI no-bi-grant (FIXTURE): a 403 names the missing grant instead of an empty report
+[1A[2K[16/26] [chromium] › tests/states-marketing-stats.spec.js:350:3 › States · BI Campaigns report › BI offline (FIXTURE): the failure says it is the network and stays retryable
+[1A[2K[17/26] [chromium] › tests/states-marketing-stats.spec.js:367:3 › States · BI Campaigns report › BI unavailable basis (FIXTURE): an unavailable figure is an em dash with a reason, never 0
+[1A[2K[18/26] [chromium] › tests/states-marketing-stats.spec.js:382:3 › States · BI Campaigns report › BI long content (FIXTURE): 40 slices with 90-char labels — no clipped word, no sideways scroll
+[1A[2K[19/26] [chromium] › tests/states-marketing-stats.spec.js:397:3 › States · Marketing reconciliation queue › MS success (REAL): the header count, the health card, and all three buckets in ladder order
+[1A[2K[20/26] [chromium] › tests/states-marketing-stats.spec.js:413:3 › States · Marketing reconciliation queue › MS empty (REAL): "No redemptions yet" and no health figures
+[1A[2K[21/26] [chromium] › tests/states-marketing-stats.spec.js:424:3 › States · Marketing reconciliation queue › MS locked (REAL): a team_member gets Managers only, and the section still names itself
+[1A[2K[22/26] [chromium] › tests/states-marketing-stats.spec.js:439:3 › States · Marketing reconciliation queue › MS loading (FIXTURE): skeletons, and no count claimed before one is known
+[1A[2K[23/26] [chromium] › tests/states-marketing-stats.spec.js:451:3 › States · Marketing reconciliation queue › MS error (FIXTURE): one failure card with a Retry, no "No redemptions yet", no zeros
+[1A[2K[24/26] [chromium] › tests/states-marketing-stats.spec.js:465:3 › States · Marketing reconciliation queue › MS offline (FIXTURE): the failure says it is the network and stays retryable
+[1A[2K[25/26] [chromium] › tests/states-marketing-stats.spec.js:476:3 › States · Marketing reconciliation queue › MS long content (FIXTURE): 30 rows with 90-char names — the row keeps both buttons reachable
+[1A[2K[26/26] [chromium] › tests/states-marketing-stats.spec.js:493:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does
+[1A[2K  26 passed (34.4s)
+PASS1_EXIT=0
+--- pass 2: behavioural first ---
+
+Running 26 tests using 1 worker
+
+[1A[2K[1/26] [chromium] › tests/marketing-stats.spec.js:268:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line
+[1A[2K[2/26] [chromium] › tests/marketing-stats.spec.js:332:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible
+[1A[2K[3/26] [chromium] › tests/marketing-stats.spec.js:378:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both
+[1A[2K[4/26] [chromium] › tests/marketing-stats.spec.js:447:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue
+[1A[2K[5/26] [chromium] › tests/marketing-stats.spec.js:486:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue
+[1A[2K[6/26] [chromium] › tests/marketing-stats.spec.js:508:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue
+[1A[2K[7/26] [chromium] › tests/marketing-stats.spec.js:560:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only
+[1A[2K[8/26] [chromium] › tests/marketing-stats.spec.js:571:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row
+[1A[2K[9/26] [chromium] › tests/marketing-stats.spec.js:608:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open
+[1A[2K[10/26] [chromium] › tests/marketing-stats.spec.js:623:3 › Marketing stats — card H4 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate
+[1A[2K[11/26] [chromium] › tests/states-marketing-stats.spec.js:288:3 › States · BI Campaigns report › BI success (REAL): funnel, money, the split line, the unknown-rows note, the health card and both slice rows
+[1A[2K[12/26] [chromium] › tests/states-marketing-stats.spec.js:301:3 › States · BI Campaigns report › BI empty (REAL): "No redemptions yet", and NO money figures at all
+[1A[2K[13/26] [chromium] › tests/states-marketing-stats.spec.js:313:3 › States · BI Campaigns report › BI loading (FIXTURE): skeletons, and no figure on screen before one is known
+[1A[2K[14/26] [chromium] › tests/states-marketing-stats.spec.js:324:3 › States · BI Campaigns report › BI error (FIXTURE): one honest failure card with a Retry, and NOT a figure beside it
+[1A[2K[15/26] [chromium] › tests/states-marketing-stats.spec.js:340:3 › States · BI Campaigns report › BI no-bi-grant (FIXTURE): a 403 names the missing grant instead of an empty report
+[1A[2K[16/26] [chromium] › tests/states-marketing-stats.spec.js:350:3 › States · BI Campaigns report › BI offline (FIXTURE): the failure says it is the network and stays retryable
+[1A[2K[17/26] [chromium] › tests/states-marketing-stats.spec.js:367:3 › States · BI Campaigns report › BI unavailable basis (FIXTURE): an unavailable figure is an em dash with a reason, never 0
+[1A[2K[18/26] [chromium] › tests/states-marketing-stats.spec.js:382:3 › States · BI Campaigns report › BI long content (FIXTURE): 40 slices with 90-char labels — no clipped word, no sideways scroll
+[1A[2K[19/26] [chromium] › tests/states-marketing-stats.spec.js:397:3 › States · Marketing reconciliation queue › MS success (REAL): the header count, the health card, and all three buckets in ladder order
+[1A[2K[20/26] [chromium] › tests/states-marketing-stats.spec.js:413:3 › States · Marketing reconciliation queue › MS empty (REAL): "No redemptions yet" and no health figures
+[1A[2K[21/26] [chromium] › tests/states-marketing-stats.spec.js:424:3 › States · Marketing reconciliation queue › MS locked (REAL): a team_member gets Managers only, and the section still names itself
+[1A[2K[22/26] [chromium] › tests/states-marketing-stats.spec.js:439:3 › States · Marketing reconciliation queue › MS loading (FIXTURE): skeletons, and no count claimed before one is known
+[1A[2K[23/26] [chromium] › tests/states-marketing-stats.spec.js:451:3 › States · Marketing reconciliation queue › MS error (FIXTURE): one failure card with a Retry, no "No redemptions yet", no zeros
+[1A[2K[24/26] [chromium] › tests/states-marketing-stats.spec.js:465:3 › States · Marketing reconciliation queue › MS offline (FIXTURE): the failure says it is the network and stays retryable
+[1A[2K[25/26] [chromium] › tests/states-marketing-stats.spec.js:476:3 › States · Marketing reconciliation queue › MS long content (FIXTURE): 30 rows with 90-char names — the row keeps both buttons reachable
+[1A[2K[26/26] [chromium] › tests/states-marketing-stats.spec.js:493:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does
+[1A[2K  26 passed (33.7s)
+PASS2_EXIT=0
+--- pass 3: the hub + the regression canaries ---
+
+Running 89 tests using 1 worker
+
+[1A[2K[1/89] [chromium] › tests/marketing.spec.js:106:3 › Marketing tile + permission seed (card marketing-tile-and-page) › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants
+[1A[2K[2/89] [chromium] › tests/marketing.spec.js:130:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a team_member with the app grant sees the Marketing tile on the launcher
+[1A[2K[3/89] [chromium] › tests/marketing.spec.js:150:3 › Marketing tile + permission seed (card marketing-tile-and-page) › marketing.html shows Scan live and Campaigns, Subscribers and Stats all gated to their designed Locked state
+[1A[2K[4/89] [chromium] › tests/marketing.spec.js:221:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a user without the marketing grant sees NO Marketing tile
+[1A[2K[5/89] [chromium] › tests/marketing.spec.js:253:3 › Marketing tile + permission seed (card marketing-tile-and-page) › the offline_override entitlement renders as a grantable row in the Users access editor
+[1A[2K[6/89] [chromium] › tests/marketing.spec.js:277:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a per-user offline_override grant round-trips to that user's /me/apps
+[1A[2K[7/89] [chromium] › tests/marketing.spec.js:444:3 › Camera scanner decode (card camera-scanner-decode) › a printed QR decodes from an image and its on-device hash equals the committed seed literal
+[1A[2K[8/89] [chromium] › tests/marketing.spec.js:462:3 › Camera scanner decode (card camera-scanner-decode) › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode)
+[1A[2K[9/89] [chromium] › tests/marketing.spec.js:484:3 › Camera scanner decode (card camera-scanner-decode) › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode)
+[1A[2K[10/89] [chromium] › tests/marketing.spec.js:503:3 › Camera scanner decode (card camera-scanner-decode) › resolution order: the local replica beats the QR-embedded offer when both exist
+[1A[2K[11/89] [chromium] › tests/marketing.spec.js:517:3 › Camera scanner decode (card camera-scanner-decode) › a token in neither replica with no descriptor resolves unknownCode (F2 display)
+[1A[2K[12/89] [chromium] › tests/marketing.spec.js:525:3 › Camera scanner decode (card camera-scanner-decode) › a payload that is not a Yumyums code resolves invalidPayload, loudly
+[1A[2K[13/89] [chromium] › tests/marketing.spec.js:535:3 › Camera scanner decode (card camera-scanner-decode) › F3 offline: a locally-redeemed code rejects immediately as spentLocally
+[1A[2K[14/89] [chromium] › tests/marketing.spec.js:553:3 › Camera scanner decode (card camera-scanner-decode) › F3 online: the local redeemed flag does NOT reject — the server decides at submit
+[1A[2K[15/89] [chromium] › tests/marketing.spec.js:576:3 › Camera scanner decode (card camera-scanner-decode) › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live
+[1A[2K[16/89] [chromium] › tests/marketing.spec.js:596:3 › Camera scanner decode (card camera-scanner-decode) › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset
+[1A[2K[17/89] [chromium] › tests/marketing.spec.js:620:3 › Camera scanner decode (card camera-scanner-decode) › hash caching: repeated scans of one token digest once
+[1A[2K[18/89] [chromium] › tests/marketing.spec.js:629:3 › Camera scanner decode (card camera-scanner-decode) › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt
+[1A[2K[19/89] [chromium] › tests/marketing.spec.js:646:3 › Camera scanner decode (card camera-scanner-decode) › F6: re-scanning the same code re-shows the result instead of erroring or duplicating
+[1A[2K[20/89] [chromium] › tests/marketing.spec.js:658:3 › Camera scanner decode (card camera-scanner-decode) › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check)
+[1A[2K[21/89] [chromium] › tests/marketing.spec.js:688:3 › Camera scanner decode (card camera-scanner-decode) › a live camera hides the Start camera control and shows no error
+[1A[2K[22/89] [chromium] › tests/marketing.spec.js:699:3 › Camera scanner decode (card camera-scanner-decode) › starting the camera twice does not report it unavailable
+[1A[2K[23/89] [chromium] › tests/marketing.spec.js:713:3 › Camera scanner decode (card camera-scanner-decode) › a camera failure names the real reason, even when the library throws a string
+[1A[2K[24/89] [chromium] › tests/marketing.spec.js:808:3 › Redemption submit flow (card redemption-submit-flow) › a persistent online/offline indicator renders from boot and reads online on a live probe
+[1A[2K[25/89] [chromium] › tests/marketing.spec.js:822:3 › Redemption submit flow (card redemption-submit-flow) › confirm-then-burn: no path to redeemed without a validator-passing Toast order number
+[1A[2K[26/89] [chromium] › tests/marketing.spec.js:865:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance
+[1A[2K[27/89] [chromium] › tests/marketing.spec.js:884:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation
+[1A[2K[28/89] [chromium] › tests/marketing.spec.js:927:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)
+[1A[2K[29/89] [chromium] › tests/marketing.spec.js:972:3 › Redemption submit flow (card redemption-submit-flow) › B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)
+[1A[2K[30/89] [chromium] › tests/marketing.spec.js:1002:3 › Redemption submit flow (card redemption-submit-flow) › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction
+[1A[2K[31/89] [chromium] › tests/marketing.spec.js:1027:3 › Redemption submit flow (card redemption-submit-flow) › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true
+[1A[2K[32/89] [chromium] › tests/marketing.spec.js:1089:3 › Redemption submit flow (card redemption-submit-flow) › done_when(2): a replica-FAILURE override lands policy_unresolved=true, distinguishable from the genuinely-unknown one
+[1A[2K[33/89] [chromium] › tests/marketing.spec.js:1138:3 › Redemption submit flow (card redemption-submit-flow) › B-434(c): the policy predicate — resolved flag / KNOWN-but-unresolved fails closed / no campaign stays null (decision 166)
+[1A[2K[34/89] [chromium] › tests/marketing.spec.js:1182:3 › Redemption submit flow (card redemption-submit-flow) › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state
+[1A[2K[35/89] [chromium] › tests/marketing.spec.js:1223:3 › Redemption submit flow (card redemption-submit-flow) › already_used verdict renders when + which device from the local codes replica
+[1A[2K[36/89] [chromium] › tests/marketing.spec.js:1243:3 › Redemption submit flow (card redemption-submit-flow) › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor
+[1A[2K[37/89] [chromium] › tests/marketing.spec.js:1354:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut
+[1A[2K[38/89] [chromium] › tests/marketing.spec.js:1389:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed
+[1A[2K[39/89] [chromium] › tests/marketing.spec.js:1406:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub
+[1A[2K[40/89] [chromium] › tests/marketing.spec.js:1454:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false
+[1A[2K[41/89] [chromium] › tests/marketing.spec.js:1481:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false
+[1A[2K[42/89] [chromium] › tests/marketing.spec.js:1507:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch
+[1A[2K[43/89] [chromium] › tests/marketing.spec.js:1559:3 › Boot without SubtleCrypto (plain-http LAN origin) › both flows boot with NO crypto.subtle, and the token hash still equals the WebCrypto seed literal
+[1A[2K[44/89] [chromium] › tests/marketing.spec.js:1570:3 › Boot without SubtleCrypto (plain-http LAN origin) › a boot failure reads as a plain sentence with the technical detail tucked away — not an exception dump
+[1A[2K[45/89] [chromium] › tests/marketing.spec.js:1594:3 › Boot without SubtleCrypto (plain-http LAN origin) › on a LAN/dev address the hint says https, NOT "go to hq.yumyums.kitchen"
+[1A[2K[46/89] [chromium] › tests/marketing.spec.js:1613:3 › Boot without SubtleCrypto (plain-http LAN origin) › the Details cause reads as a sentence, not an internal symbol name
+[1A[2K[47/89] [chromium] › tests/marketing.spec.js:1628:3 › Boot without SubtleCrypto (plain-http LAN origin) › camera failure on an insecure origin names the fix: open the https address, or scan from a photo
+[1A[2K[48/89] [chromium] › tests/states-bi-hub.spec.js:149:3 › BI hub — B-455 WO-2b state table › Loading: both badges are skeletons and subtitles read Loading…
+[1A[2K[49/89] [chromium] › tests/states-bi-hub.spec.js:165:3 › BI hub — B-455 WO-2b state table › Empty: no badge on either row, descriptive subtitles, rows still open
+[1A[2K[50/89] [chromium] › tests/states-bi-hub.spec.js:184:3 › BI hub — B-455 WO-2b state table › Populated: latest-week spend and average food cost as muted readings; subtitles are plain text
+[1A[2K[51/89] [chromium] › tests/states-bi-hub.spec.js:208:3 › BI hub — B-455 WO-2b state table › Error: both calls fail → "Status unavailable", no badge, and the row still opens to the error card
+[1A[2K[52/89] [chromium] › tests/states-bi-hub.spec.js:225:3 › BI hub — B-455 WO-2b state table › Edge: one call fails — that row says so, the other keeps its reading
+[1A[2K[53/89] [chromium] › tests/states-bi-hub.spec.js:237:3 › BI hub — B-455 WO-2b state table › Edge: deep link #tab=2 opens Food cost with the BI · Food cost back link; back gesture returns to the hub
+[1A[2K[54/89] [chromium] › tests/states-bi-hub.spec.js:258:3 › BI hub — B-455 WO-2b state table › Edge: 393px — every row is a ≥44px target and the badge never overlaps the title
+[1A[2K[55/89] [chromium] › tests/states-bi-hub.spec.js:276:3 › BI hub — B-455 WO-2b state table › Edge: retry — a Retry that succeeds inside a section refreshes its hub row
+[1A[2K[56/89] [chromium] › tests/states-bi-hub.spec.js:299:3 › BI hub — B-455 WO-2b state table › Edge: contrast — the muted badge reads at ≥4.5:1 in dark mode
+[1A[2K[57/89] [chromium] › tests/states-bi-hub.spec.js:323:3 › BI hub — B-455 WO-2b state table › Edge: the Campaigns row opens #tab=3 with the BI · Campaigns back link, and back returns to the hub
+[1A[2K[58/89] [chromium] › tests/states-bi-hub.spec.js:343:3 › BI hub — B-455 WO-2b state table › Edge: Trends and Food cost are unchanged by the third row
+[1A[2K[59/89] [chromium] › tests/states-cost.spec.js:187:3 › Food cost (bi.html #s2) — State Enumeration › Empty — no sales data renders the honest low-data card
+[1A[2K[60/89] [chromium] › tests/states-cost.spec.js:207:3 › Food cost (bi.html #s2) — State Enumeration › Loading — skeleton shown in #s2 while the request is in flight
+[1A[2K[61/89] [chromium] › tests/states-cost.spec.js:218:3 › Food cost (bi.html #s2) — State Enumeration › Error — inline error card + Retry, never a blank tab
+[1A[2K[62/89] [chromium] › tests/states-cost.spec.js:228:3 › Food cost (bi.html #s2) — State Enumeration › Populated — sortable table + two movers strips
+[1A[2K[63/89] [chromium] › tests/states-cost.spec.js:276:3 › Food cost (bi.html #s2) — State Enumeration › Populated — table sorts on header click
+[1A[2K[64/89] [chromium] › tests/states-cost.spec.js:303:3 › Food cost (bi.html #s2) — State Enumeration › Edge: no recipe — revenue + units shown, cost/margin/% marked, never a silent 0
+[1A[2K[65/89] [chromium] › tests/states-cost.spec.js:324:3 › Food cost (bi.html #s2) — State Enumeration › Edge: zero revenue — % renders "—", units + cost + negative margin still shown
+[1A[2K[66/89] [chromium] › tests/states-cost.spec.js:343:3 › Food cost (bi.html #s2) — State Enumeration › Edge: partially-sparse — reads as "no sales data yet", not "everything is losing money"
+[1A[2K[67/89] [chromium] › tests/states-cost.spec.js:372:3 › Food cost (bi.html #s2) — State Enumeration › Loss-red marks a REAL loss in a populated window
+[1A[2K[68/89] [chromium] › tests/states-cost.spec.js:388:3 › Food cost (bi.html #s2) — State Enumeration › Loss-red is WITHHELD when the window has no sales at all
+[1A[2K[69/89] [chromium] › tests/states-cost.spec.js:403:3 › Food cost (bi.html #s2) — State Enumeration › Edge: one rankable row — shown once as Best, never mirrored into Worst
+[1A[2K[70/89] [chromium] › tests/states-cost.spec.js:421:3 › Food cost (bi.html #s2) — State Enumeration › Edge: long menu item name — does not blow out the 480px mobile shell
+[1A[2K[71/89] [chromium] › tests/states-cost.spec.js:443:3 › Food cost (bi.html #s2) — State Enumeration › Edge: known 0%-food-cost gap — rendered as the data says, not papered over
+[1A[2K[72/89] [chromium] › tests/states-cost.spec.js:553:3 › Food cost — gating (the `bi` grant, B-455 / WO-2b) › Edge: ungated user — GET /inventory/cost 403s naming `bi`, no BI tile, no Cost row in Inventory
+[1A[2K[73/89] [chromium] › tests/states-cost.spec.js:587:3 › Food cost — gating (the `bi` grant, B-455 / WO-2b) › Ungated deep link (inventory.html#tab=6) redirects to bi.html and shows the error card, not a blank page
+[1A[2K[74/89] [chromium] › tests/states-cost.spec.js:605:3 › Food cost — gating (the `bi` grant, B-455 / WO-2b) › Granted user — the BI tile shows, bi.html#tab=2 renders, GET /inventory/cost returns 200
+[1A[2K[75/89] [chromium] › tests/states-cost.spec.js:624:3 › Food cost — gating (the `bi` grant, B-455 / WO-2b) › Superadmin with zero explicit grants sees the BI hub and gets 200 from both reports
+[1A[2K[76/89] [chromium] › tests/states-trends.spec.js:227:3 › Trends (bi.html #s1) — State Enumeration › Empty — no confirmed COGS in the window renders the honest empty card
+[1A[2K[77/89] [chromium] › tests/states-trends.spec.js:242:3 › Trends (bi.html #s1) — State Enumeration › Loading — skeleton shown in #s1 while the request is in flight
+[1A[2K[78/89] [chromium] › tests/states-trends.spec.js:252:3 › Trends (bi.html #s1) — State Enumeration › Error — 500 renders an inline error with Retry, never a zeroed chart
+[1A[2K[79/89] [chromium] › tests/states-trends.spec.js:265:3 › Trends (bi.html #s1) — State Enumeration › Populated — chart, legend, completeness block and table all render
+[1A[2K[80/89] [chromium] › tests/states-trends.spec.js:306:3 › Trends (bi.html #s1) — State Enumeration › Populated — tapping a column opens that week’s per-group breakdown
+[1A[2K[81/89] [chromium] › tests/states-trends.spec.js:321:3 › Trends (bi.html #s1) — State Enumeration › Edge: net-zero cell — omitted cells are disclosed, never drawn as $0.00
+[1A[2K[82/89] [chromium] › tests/states-trends.spec.js:343:3 › Trends (bi.html #s1) — State Enumeration › Edge: offsetting unitemized — near-zero net is labelled net, not clean
+[1A[2K[83/89] [chromium] › tests/states-trends.spec.js:364:3 › Trends (bi.html #s1) — State Enumeration › Edge: rounding drift — hero stays the payroll figure and the gap is named
+[1A[2K[84/89] [chromium] › tests/states-trends.spec.js:382:3 › Trends (bi.html #s1) — State Enumeration › Edge: all-unlinked — unlinked-only window is a chart, not the empty card
+[1A[2K[85/89] [chromium] › tests/states-trends.spec.js:395:3 › Trends (bi.html #s1) — State Enumeration › Edge: long group name — the 480px shell does not scroll horizontally
+[1A[2K[86/89] [chromium] › tests/states-trends.spec.js:511:3 › Trends — gating (the `bi` grant, B-455 / WO-2b) › Edge: ungated user — GET /inventory/trends 403s naming `bi`, no BI tile, no Trends row in Inventory
+[1A[2K[87/89] [chromium] › tests/states-trends.spec.js:547:3 › Trends — gating (the `bi` grant, B-455 / WO-2b) › Ungated deep link (inventory.html#tab=5) redirects to bi.html and shows the error card, not a blank page
+[1A[2K[88/89] [chromium] › tests/states-trends.spec.js:565:3 › Trends — gating (the `bi` grant, B-455 / WO-2b) › Granted user — the BI tile shows, bi.html#tab=1 renders, GET /inventory/trends returns 200
+[1A[2K[89/89] [chromium] › tests/states-trends.spec.js:583:3 › Trends — gating (the `bi` grant, B-455 / WO-2b) › Retired umbrella: a whole-app `inventory` grant alone no longer opens Trends or Cost
+[1A[2K  89 passed (1.6m)
+PASS3_EXIT=0
+EXIT=0

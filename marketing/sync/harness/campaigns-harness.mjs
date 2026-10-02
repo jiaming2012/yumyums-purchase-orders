@@ -20,8 +20,9 @@
 //      PRODUCTION policy source): createCampaignPolicySource feeds the
 //      SHIPPED submit-machine on the SHIPPED vendored xstate, mode 'throw' —
 //      HIGH (requires_online=true) refuses the override even with
-//      canOverride:true; LOW offers it; with NO policy source both are
-//      overridable (the negative that makes it a proof). Zero undeclared
+//      canOverride:true; LOW offers it; with NO policy source BOTH are
+//      REFUSED — flipped by B-436 / decision 191 (card scanner-polish, run
+//      20261002); it used to assert both overridable. Zero undeclared
 //      (state,event) pairs, actor alive — Card 6's 460-pair strictness proof
 //      survives the swap.
 //   4. THE FLIP RE-DELIVERS (done_when clause 3): a POST-sync campaign
@@ -41,6 +42,7 @@ import { Subject } from 'rxjs';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { REST_PORT } from '../../../.night-crew/qa/spike-supabase/rxdb/spike-env.js';
@@ -126,6 +128,13 @@ console.log('\n── leg 1: optional expiry bound — campaigns unbounded, code
 // replicas for codes + campaigns.
 // ---------------------------------------------------------------------------
 addRxPlugin(RxDBDevModePlugin);
+// 🛑 REQUIRED since CAMPAIGNS_REPLICA_SCHEMA went to version 1 (card
+// scanner-polish, run 20261002, B-447: + name). rxdb runs
+// `autoMigrate && version !== 0 && await migratePromise()` on every
+// collection creation, and without this plugin that call THROWS — this
+// harness would die before its first leg. The browser gets the same
+// registration in marketing/scan-page.js. No leg or assertion changed.
+addRxPlugin(RxDBMigrationSchemaPlugin);
 const db = await createRxDatabase({
   name: `c8_${Date.now()}`,
   storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
@@ -177,12 +186,24 @@ const policySource = createCampaignPolicySource(db[CAMPAIGNS_COLLECTION]);
 await until(() => policySource.size() === 2, 5000, 'policy source never saw the synced campaigns');
 
 // submit-flow.js's policyFor, verbatim in behavior — the seam the card feeds.
+//
+// B-436 / decision 191 (card scanner-polish, run 20261002): the
+// `!CAMPAIGN_POLICY` arm FAILS CLOSED, uniform with
+// createCampaignPolicySource's own predicate — refuse for a code that NAMES a
+// campaign, stay silent (false) for one that names none, which is what keeps
+// decision 166's F2 override alive by construction. Mirrors
+// marketing/submit-flow.js's failClosed(); if the two ever disagree, leg 3
+// stops measuring the shipped behavior and this comment is the thing that was
+// wrong.
+const namesNoCampaign = (campaignId) =>
+  campaignId === null || campaignId === undefined || campaignId === '';
+const failClosed = (campaignId) => !namesNoCampaign(campaignId);
 function policyFor(CAMPAIGN_POLICY, campaignId) {
-  if (!CAMPAIGN_POLICY) return false;
+  if (!CAMPAIGN_POLICY) return failClosed(campaignId);
   try {
     const p = CAMPAIGN_POLICY(campaignId);
     return !!(p && p.requiresOnline);
-  } catch (e) { return false; }
+  } catch (e) { return failClosed(campaignId); }
 }
 
 async function run(label, fixture, source) {
@@ -224,11 +245,35 @@ for (const r of runs) {
   if (rLow.requiresOnline !== false || rLow.overrideAvailable !== true || rLow.after !== 'overrideConfirm') {
     problems.push('replica + LOW: the offline-eligible campaign was over-refused');
   }
-  if (nHigh.overrideAvailable !== true || nLow.overrideAvailable !== true) {
-    problems.push('no-policy negative: expected BOTH overridable (the honest unknown→false default)');
+  // ── B-436 / decision 191 (card scanner-polish, run 20261002) ──────────────
+  // THIS ASSERTION IS FLIPPED. It used to read "expected BOTH overridable
+  // (the honest unknown→false default)" — the landed negative that made the
+  // refusal a proof, and simultaneously the window B-436 filed: a device that
+  // cannot CONSTRUCT a policy source left every KNOWN code offline-
+  // overridable, a requires_online=true one included. B-432's harm, one layer
+  // up, through a narrower door. Decision 191 closes it fail-closed, so the
+  // negative moves with the shape it measures.
+  if (nHigh.overrideAvailable !== false || nLow.overrideAvailable !== false) {
+    problems.push('no-source fail-closed (B-436, decision 191): expected BOTH refused — a device that cannot build a policy source gets no offline override for a code that NAMES a campaign');
+  }
+  if (nHigh.after !== 'blockedOffline' || nLow.after !== 'blockedOffline') {
+    problems.push(`no-source fail-closed: expected both to sit at blockedOffline, got ${nHigh.after}/${nLow.after}`);
+  }
+  // …and the OTHER half of "uniform with the source's own predicate": a code
+  // that names NO campaign is not fail-closed, with or without a source.
+  // createCampaignPolicySource answers null for it (decision 166's ratified
+  // F2 affordance, preserved by construction), and the no-source arm must
+  // answer the same way or decision 166 is silently repealed on exactly the
+  // devices least able to recover it.
+  if (policyFor(null, null) !== false) {
+    problems.push('decision 166: a code that names NO campaign must stay overridable on a no-source device');
+  }
+  if (policyFor(policySource.policyFor, null) !== false) {
+    problems.push('decision 166: a code that names NO campaign must stay overridable with a HEALTHY source');
   }
   if (problems.length) { for (const p of problems) console.error(`  ✗ ${p}`); fail(`${problems.length} disagreement(s) in leg 3`); }
-  console.log('  → armed on real data, not over-refusing, provably dead without a source, zero new pairs');
+  console.log('  → armed on real data, not over-refusing, FAIL-CLOSED without a source (B-436/191)');
+  console.log('    while a code naming no campaign keeps its override (decision 166), zero new pairs');
 }
 
 // ---------------------------------------------------------------------------

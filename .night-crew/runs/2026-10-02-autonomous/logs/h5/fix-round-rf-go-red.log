@@ -1,0 +1,29 @@
+# FIX ROUND red-first (G6 F2, F4, E.164 low) — card h5-subscribers-tab, run 20261002
+# The importResultDTO.Unchanged FIELD is added first so the package compiles and the
+# red is BEHAVIOURAL rather than a build failure. No behaviour is changed by that field.
+# cmd: go test -p 1 -count=1 ./internal/marketing/... -run '<the three new tests>' -v
+---
+2026/10/01 23:24:37 goose: no migrations to run. current version: 85
+2026/10/01 23:24:37 INFO database migrations applied successfully
+=== RUN   TestToastGuestIDAliasDoesNotMergeTwoPeople
+    subscribers_test.go:721: 1 subscribers after two exports, want 2 — Alice and Bob are different people
+--- FAIL: TestToastGuestIDAliasDoesNotMergeTwoPeople (0.63s)
+=== RUN   TestReImportConvergesCorrectedFieldsAndCountsHonestly
+    subscribers_test.go:780: 🛑 unchanged re-import reports updated=1, want 0 — the count claims an update that did not happen
+    subscribers_test.go:783: unchanged re-import reports unchanged=0, want 1
+    subscribers_test.go:799: 🛑 display_name = "Dana", want "Dana Reyes" — an upstream correction was silently discarded
+    subscribers_test.go:802: 🛑 email = "dana@example.com", want the corrected address
+--- FAIL: TestReImportConvergesCorrectedFieldsAndCountsHonestly (0.36s)
+=== RUN   TestNormalizeE164RejectsImpossibleAreaCodes
+    subscribers_test.go:825: NormalizeE164("1 773 555 482") = "+11773555482", want "" — no NANP area code starts with 0 or 1
+    subscribers_test.go:825: NormalizeE164("1773555482") = "+11773555482", want "" — no NANP area code starts with 0 or 1
+    subscribers_test.go:825: NormalizeE164("0773555482") = "+10773555482", want "" — no NANP area code starts with 0 or 1
+    subscribers_test.go:825: NormalizeE164("(177) 355-5482") = "+11773555482", want "" — no NANP area code starts with 0 or 1
+--- FAIL: TestNormalizeE164RejectsImpossibleAreaCodes (0.00s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	1.026s
+testing: warning: no tests to run
+PASS
+ok  	github.com/yumyums/hq/internal/marketing/sources	0.017s [no tests to run]
+FAIL
+EXIT=1

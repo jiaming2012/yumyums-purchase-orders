@@ -1,0 +1,16 @@
+=== G4 re-check after the G6 fix round (build-sw.js reads git HEAD) ===
+HEAD=b883eb294941b03ac9cc9eda38da89b0ec704cff
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2990.0 KB)
+Frontend version: 1.10.2
+RUN1_EXIT=0
+ M sw.js
+?? .night-crew/runs/2026-10-02-autonomous/logs/h2/G4-sw-after-g6-fixes.log
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2990.0 KB)
+Frontend version: 1.10.2
+RUN2_EXIT=0
+git status after run 2:
+ M sw.js
+?? .night-crew/runs/2026-10-02-autonomous/logs/h2/G4-sw-after-g6-fixes.log
+EXIT=0

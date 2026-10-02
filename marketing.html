@@ -147,31 +147,302 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </div>
   </div>
 
-  <!-- ═══ SECTION 2: CAMPAIGNS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 2: CAMPAIGNS — card h2-campaigns-tab-ui (run 20261002) ═══
+       Design of record: *Current Campaigns 1–8*. Contract: the handoff
+       docs/handoffs/HANDOFF-marketing-campaigns-subscribers-stats.md §5,
+       served by backend/internal/marketing (card H1).
+
+       🛑 THIS CARD OWNS #s2 AND ONLY #s2. The style block and the module tag
+       below live INSIDE this wrapper on purpose: #s3 (Subscribers, card H5)
+       and #s4 (the reconciliation queue, card H4) are two other cards' and
+       must not lose theirs at merge. Every class here is `mc-`-prefixed and
+       every selector campaigns.js reads is under #mc-root, so three sections
+       can carry three style blocks in one file without reaching each other.
+
+       #mc-root is the ONE delegation container (one click + one input
+       listener, routed by data-action / data-field) and the ONE state
+       projection: data-view ∈ list|create|ready|detail|code, data-status ∈
+       idle|loading|ok|empty|error|offline|locked. The specs read both. ═══ -->
   <div id="s2" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Campaigns</h1><div class="sub">Create offers and generate codes</div></div>
-      <div class="bd">Campaign creation and code generation will live here. Manager-only.</div>
+    <style>
+#mc-root{display:flex;flex-direction:column;gap:8px}
+#mc-root .card{margin-bottom:0}
+.mc-chrome{display:flex;gap:8px;align-items:stretch}
+.mc-seg{flex:1;display:flex;gap:2px;background:var(--card);border-radius:10px;padding:3px}
+.mc-seg button{flex:1;border:none;background:transparent;color:var(--txt);font-size:13px;font-weight:500;border-radius:7px;min-height:38px;padding:4px 2px}
+.mc-seg button.on{background:var(--info-bg);color:var(--info-tx)}
+.mc-btn{min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;padding:10px 12px;width:100%;display:flex;align-items:center;justify-content:center;gap:4px}
+.mc-btn[disabled]{opacity:.45;cursor:default}
+.mc-btn-go{background:var(--info-bg);color:var(--info-tx)}
+.mc-btn-quiet{background:var(--card);color:var(--txt);border:1px solid var(--brd)}
+.mc-icon{width:48px;flex:none;font-size:19px;padding:0}
+.mc-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--info-tx);font-size:16px;font-weight:500;min-height:44px;padding:4px 8px 4px 0;cursor:pointer;align-self:flex-start}
+.mc-back::before{content:'\2039';font-size:20px;line-height:1}
+.mc-banner{border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45}
+.mc-banner-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.mc-banner-bad{background:var(--bad-bg);color:var(--bad-tx)}
+.mc-banner-t{font-size:15px;font-weight:700}
+.mc-banner-s{opacity:.9}
+.mc-banner .mc-btn{background:rgba(255,255,255,.7);color:var(--txt);border:none}
+@media(prefers-color-scheme:dark){.mc-banner .mc-btn{background:rgba(0,0,0,.3);color:#f0f0f0}}
+.mc-cards{display:flex;flex-direction:column;gap:8px}
+.mc-card{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.mc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-height:30px;cursor:pointer}
+.mc-name{font-size:16px;font-weight:700;line-height:1.25;flex:1;min-width:0;overflow-wrap:anywhere}
+.mc-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.mc-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+.mc-pill-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.mc-pill-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.mc-pill-info{background:var(--info-bg);color:var(--info-tx)}
+.mc-pill-mut{background:var(--brd);color:var(--mut)}
+.mc-pill-np{background:var(--warn-bg);color:var(--warn-tx)}
+/* .mc-pill is nowrap because a status chip must never break; the BLOCK variant
+   is a sentence, so it has to undo that or it clips at the card edge — which is
+   exactly what the first states screenshot of the "N codes ready" screen
+   showed. */
+.mc-pill-block{display:block;text-transform:none;letter-spacing:0;font-size:12px;font-weight:600;padding:8px 10px;line-height:1.4;text-align:left;margin:4px 0 0;white-space:normal;overflow-wrap:anywhere}
+.mc-offer{font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.mc-offer-tap{cursor:pointer}
+.mc-more{font-size:12px;font-weight:600;color:var(--info-tx);margin-left:6px;white-space:nowrap}
+.mc-meta{font-size:12px;color:var(--mut);line-height:1.5}
+.mc-funnel{display:flex;align-items:center;gap:2px;background:var(--bg);border-radius:10px;padding:10px 6px}
+.mc-leg{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.mc-leg .mc-n{font-size:19px;font-weight:700;line-height:1}
+.mc-leg .mc-l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.mc-arrow{color:var(--mut);font-size:15px;flex:none}
+.mc-money{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.mc-cell{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mc-cell .mc-l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.mc-cell .mc-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.mc-per{margin-left:auto;font-size:12px;font-weight:700;padding:5px 9px;border-radius:8px;background:var(--info-bg);color:var(--info-tx);white-space:nowrap}
+.mc-basis{font-size:11px;color:var(--mut)}
+.mc-skel{height:118px;border-radius:12px;background:var(--card);position:relative;overflow:hidden}
+.mc-skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--brd),transparent);animation:mc-sh 1.1s infinite}
+@keyframes mc-sh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.mc-empty-h{font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.mc-form{display:flex;flex-direction:column;gap:12px}
+.mc-field{display:flex;flex-direction:column;gap:5px}
+.mc-field>label{font-size:12px;font-weight:700;letter-spacing:.2px}
+.mc-field input,.mc-field select{min-height:44px;border:1px solid var(--brd);border-radius:10px;padding:8px 12px;font-size:16px;background:var(--card);color:var(--txt);width:100%;font-family:inherit}
+.mc-field select[disabled],.mc-field input[disabled]{opacity:.6}
+.mc-two{display:flex;gap:10px}
+.mc-two>.mc-field{flex:1;min-width:0}
+.mc-money-in{display:flex;align-items:center;gap:6px}
+.mc-money-in span{font-size:15px;color:var(--mut);flex:none}
+.mc-hint{font-size:11px;color:var(--mut);line-height:1.45}
+.mc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mc-chip{min-height:38px;border:1px solid var(--brd);border-radius:19px;background:var(--card);color:var(--txt);font-size:13px;font-weight:500;padding:6px 13px;cursor:pointer}
+.mc-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:700}
+.mc-preview{background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.mc-preview-row{display:flex;align-items:baseline;gap:8px;font-size:12px}
+.mc-preview-row.mut{color:var(--mut)}
+.mc-preview-ch{font-weight:700;flex:none}
+.mc-preview-row code{font-size:11px;color:var(--mut);word-break:break-all}
+.mc-err{background:var(--bad-bg);color:var(--bad-tx);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.45}
+.mc-ready{text-align:center}
+.mc-ready .bd{display:flex;flex-direction:column;gap:10px;color:var(--txt)}
+.mc-ready-tick{width:52px;height:52px;margin:4px auto 0;border-radius:50%;background:var(--ok-bg);color:var(--ok-tx);font-size:28px;line-height:52px;font-weight:700}
+.mc-ready-h{font-size:22px;font-weight:700}
+.mc-ready-s{font-size:13px;color:var(--mut);line-height:1.45}
+.mc-ready-list{display:flex;flex-direction:column;gap:6px;text-align:left}
+.mc-ready-row,.mc-code-row{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:10px;padding:11px 12px;min-height:48px;cursor:pointer}
+.mc-ready-ch,.mc-code-ch{font-size:14px;font-weight:600;flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mc-code-pl{font-size:11px;font-weight:400;color:var(--mut)}
+.mc-short{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;letter-spacing:1px}
+.mc-code-sc{font-size:11px;color:var(--mut);white-space:nowrap}
+.mc-go{color:var(--mut);font-size:17px;flex:none}
+.mc-codes{display:flex;flex-direction:column;gap:6px;padding:12px 16px 16px}
+.mc-money-card{display:flex;flex-direction:column;gap:0;color:var(--txt)}
+.mc-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:.5px solid var(--brd)}
+.mc-row:last-child{border-bottom:none}
+.mc-row .mc-l{font-size:13px;color:var(--mut)}
+.mc-row .mc-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mc-row.mc-strong .mc-v{font-size:19px;font-weight:700}
+.mc-code-sheet{display:flex;flex-direction:column;gap:10px}
+.mc-qr{width:100%;max-width:280px;aspect-ratio:1;align-self:center;background:#fff;border-radius:12px;padding:10px;display:block}
+.mc-payload{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--mut);text-align:center;word-break:break-all;line-height:1.5}
+.mc-note{background:var(--info-bg);color:var(--info-tx);border-radius:8px;padding:9px 11px;font-size:13px;text-align:center;line-height:1.45}
+/* A failed WRITE is loud but NOT destructive — it sits above the card it
+   failed on, it never replaces it (G6 F2). */
+.mc-note-bad{background:var(--bad-bg);color:var(--bad-tx);text-align:left;font-weight:600}
+.mc-actions{display:flex;gap:6px}
+.mc-actions .mc-btn{flex:1;font-size:13px;padding:10px 6px}
+    </style>
+    <div id="mc-root" data-view="list" data-status="idle">
+      <div id="mc-banner" hidden></div>
+      <section id="mc-view-list"></section>
+      <section id="mc-view-create" hidden></section>
+      <section id="mc-view-ready" hidden></section>
+      <section id="mc-view-detail" hidden></section>
+      <section id="mc-view-code" hidden></section>
     </div>
+    <script src="marketing/campaigns.js" defer></script>
   </div>
 
-  <!-- ═══ SECTION 3: SUBSCRIBERS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 3: SUBSCRIBERS — card H5 `subscribers-tab` (run 20261002) ═══
+       Design "Current Subscribers 1–2"; wire shapes HANDOFF §5.
+       #subs-root is the contract with marketing/subscribers.js: that module
+       owns everything inside it, holds the ONE delegated click listener and the
+       ONE delegated input listener, and renders from state. Keep the id stable.
+       The <style> below lives INSIDE this section deliberately — a style
+       element applies document-wide wherever it sits, and keeping it here means
+       this card's whole marketing.html diff is inside #s3, which is what Cards
+       2 and 5 (owners of #s2 and #s4 tonight) need it to be. -->
   <div id="s3" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Subscribers</h1><div class="sub">Web signups, SMS opt-ins and Toast imports</div></div>
-      <div class="bd">The mailing list, read-only, will live here.</div>
-    </div>
+    <style>
+    .subs-counts{display:flex;border-top:0.5px solid var(--brd)}
+    .subs-stat{flex:1;padding:12px 8px;text-align:center;border-right:0.5px solid var(--brd)}
+    .subs-stat:last-child{border-right:none}
+    .subs-stat b{display:block;font-size:19px;font-weight:700;line-height:1.2}
+    .subs-stat span{font-size:11px;color:var(--mut)}
+    .subs-banner{border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.45;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .subs-banner-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .subs-banner-warn{background:var(--warn-bg);color:var(--warn-tx)}
+    .subs-refused{display:block;width:100%;line-height:1.45}
+    .subs-retry{margin-left:auto;min-height:36px;padding:6px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;background:rgba(0,0,0,0.12);color:inherit;cursor:pointer}
+    .subs-controls{padding:12px;display:flex;flex-direction:column;gap:8px}
+    #subs-q,#subs-source{min-height:44px;width:100%;border:1px solid var(--brd);border-radius:10px;padding:8px 12px;font-size:16px;background:var(--bg);color:var(--txt);-webkit-appearance:none}
+    .subs-chips{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .subs-chip{flex:none;min-height:36px;padding:7px 13px;border:1px solid var(--brd);border-radius:18px;background:transparent;color:var(--txt);font-size:13px;font-weight:500;cursor:pointer}
+    .subs-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+    .subs-row{display:flex;align-items:flex-start;gap:10px;width:100%;min-height:60px;padding:12px 14px;border:none;border-bottom:0.5px solid var(--brd);background:transparent;color:var(--txt);text-align:left;font-family:inherit;cursor:pointer}
+    .subs-row:last-child{border-bottom:none}
+    .subs-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    /* long content: the name and the contact line clamp to one line each with
+       an ellipsis; the full value is on the detail sheet, which is what the tap
+       opens. Nothing is ever hidden with no way to read it. */
+    .subs-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .subs-meta{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .subs-dot{margin:0 5px}
+    .subs-none{opacity:0.75;font-style:italic}
+    .subs-row-side{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+    .subs-consent{font-size:10px;font-weight:700;letter-spacing:0.3px;padding:2px 7px;border-radius:8px}
+    .subs-pill-ok{background:var(--ok-bg);color:var(--ok-tx)}
+    .subs-pill-info{background:var(--info-bg);color:var(--info-tx)}
+    .subs-pill-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .subs-pill-mut{background:var(--brd);color:var(--mut)}
+    .subs-joined,.subs-visits{font-size:11px;color:var(--mut)}
+    .subs-empty .bd{color:var(--txt)}
+    .subs-empty .bd b{display:inline-block;margin-bottom:4px}
+    .subs-skel{display:inline-block;height:13px;width:60%;border-radius:4px;background:var(--brd)}
+    .subs-skel-sm{width:35%;height:11px}
+    .subs-skel-lg{height:19px;width:45%;margin-bottom:8px}
+    .subs-row-skel{flex-direction:column;gap:6px;align-items:flex-start}
+    /* The sheet is a real modal. Its bottom padding clears the home indicator
+       and its way out is labeled and 44px (UI-R1 / UI-R2). */
+    .subs-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;z-index:70;padding:24px 0 0}
+    .subs-sheet-card{background:var(--card);color:var(--txt);border-radius:14px 14px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .subs-close{float:right;min-height:44px;padding:8px 14px;border:none;border-radius:10px;background:var(--brd);color:var(--txt);font-size:14px;font-weight:600;cursor:pointer}
+    .subs-sheet-name{font-size:19px;font-weight:700;margin:4px 0 6px}
+    .subs-block{margin-top:16px;padding-top:12px;border-top:0.5px solid var(--brd)}
+    .subs-block h3{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin:0 0 8px}
+    .subs-block>div{font-size:14px;line-height:1.55}
+    .subs-sub{font-size:12px;color:var(--mut);line-height:1.45;margin-top:4px}
+    #subs-resend{margin-top:10px;width:100%;min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;background:var(--info-bg);color:var(--info-tx);cursor:pointer}
+    #subs-resend[disabled]{opacity:0.45;cursor:default}
+    .subs-evidence,.subs-stop{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.45}
+    .subs-stop{color:var(--bad-tx);font-weight:600}
+    .subs-event{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+    .subs-event:last-child{border-bottom:none}
+    .subs-event-at{flex:none;color:var(--mut);font-size:12px}
+    .subs-offer{display:flex;flex-direction:column;padding:7px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+    .subs-offer:last-child{border-bottom:none}
+    .subs-offer span{color:var(--mut);font-size:12px}
+    </style>
+    <div id="subs-root" data-state="loading"></div>
   </div>
 
-  <!-- ═══ SECTION 4: REDEMPTION STATS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 4: REDEMPTION STATS — card H4 `stats-tab-ui` (run 20261002) ═══
+       Roadmap H4 as rewritten for DECISION 192: the campaign REPORTS went to the
+       BI hub (bi.html #s3, the `bi` grant); what stayed here is the
+       RECONCILIATION QUEUE — writes, not a report — behind the manager tier.
+       Design "Current Stats 6–8"; wire shapes HANDOFF §5.
+
+       #ms-stats-root is the contract with marketing/stats.js: that module owns
+       everything inside it, holds the ONE delegated click listener and the ONE
+       delegated input listener, and renders from state. Keep the id stable.
+
+       The <style> below lives INSIDE this section deliberately — a style element
+       applies document-wide wherever it sits, and keeping it here means this
+       card's whole marketing.html diff is inside #s4, which is what cards H2 and
+       H5 (owners of #s2 and #s3) need it to be. -->
   <div id="s4" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Redemption stats</h1><div class="sub">Counts and orphan rate</div></div>
-      <div class="bd">Redemption counts and reconciliation health will live here. Manager-only.</div>
-    </div>
+    <style>
+    @keyframes msq-pulse{0%,100%{opacity:1}50%{opacity:0.45}}
+    #ms-stats-root .card{padding:0;overflow:hidden}
+    #ms-stats-root .bd b{display:inline-block;margin-bottom:4px}
+    .msq-kicker{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+    #msq-head-card h1{font-size:17px}
+    .msq-hs{display:flex;border-bottom:0.5px solid var(--brd)}
+    .msq-h{flex:1;min-width:0;padding:12px 4px;text-align:center;border-right:0.5px solid var(--brd)}
+    .msq-h:last-child{border-right:none}
+    .msq-h b{display:block;font-size:19px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+    .msq-h span{font-size:11px;color:var(--mut)}
+    .msq-orphan-wrap{padding:13px 16px}
+    .msq-orphan{font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+    .msq-orphan-target{font-size:12px;color:var(--mut);margin-left:7px}
+    /* D-5 is PARKED: the server's own numerator/denominator and the basis string
+       ride beside the rate, so the 10% line is never a bare claim. */
+    .msq-orphan-basis{font-size:11px;color:var(--mut);margin-top:5px;line-height:1.5;overflow-wrap:anywhere}
+    .msq-orphan-basis code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;overflow-wrap:anywhere}
+    #msq-health.over .msq-orphan{color:var(--bad-tx)}
+    .msq-section-h h1{font-size:14px}
+    /* A queue row stacks on a phone: the identity above, the two actions below,
+       so a 90-character campaign name can never push a button off screen. */
+    .msq-row{display:flex;flex-direction:column;gap:9px;padding:12px 14px;border-bottom:0.5px solid var(--brd)}
+    .msq-row:last-child{border-bottom:none}
+    .msq-row-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+    .msq-name{font-size:15px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+    .msq-meta{font-size:12px;color:var(--mut);overflow-wrap:anywhere}
+    .msq-prov{font-size:11px;color:var(--mut);overflow-wrap:anywhere}
+    .msq-flags{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+    .msq-flag{font-size:10px;font-weight:700;letter-spacing:0.2px;padding:2px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx)}
+    .msq-flag-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .msq-decl-reason{font-size:13px;font-weight:600}
+    .msq-decl-note{font-size:13px;color:var(--txt);line-height:1.45;overflow-wrap:anywhere;background:var(--brd);border-radius:8px;padding:7px 10px;margin-top:2px}
+    .msq-actions{display:flex;gap:7px;flex-wrap:wrap}
+    .msq-actions button{flex:1 1 auto;min-height:44px;min-width:120px;padding:10px 12px;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-fix{background:var(--info-bg);color:var(--info-tx)}
+    .msq-decline,.msq-reject{background:var(--card);border:1px solid var(--brd) !important;color:var(--txt);font-weight:500 !important}
+    .msq-reopen{background:var(--info-bg);color:var(--info-tx)}
+    .msq-retry{min-height:44px;padding:10px 18px;border:none;border-radius:10px;background:var(--info-bg);color:var(--info-tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-error-foot{padding:0 16px 16px}
+    .msq-skel-rows{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+    .msq-skel{height:18px;border-radius:6px;background:var(--brd);animation:msq-pulse 1.2s infinite}
+    /* Both sheets are real modals: bottom padding clears the home indicator and
+       the way out is labeled and 44px (UI-R1 / UI-R2). */
+    .msq-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;z-index:70;padding:24px 0 0}
+    .msq-sheet-card{background:var(--card);color:var(--txt);border-radius:14px 14px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .msq-close{float:right;min-height:44px;padding:8px 14px;border:none;border-radius:10px;background:var(--brd);color:var(--txt);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-sheet-title{font-size:19px;font-weight:700;margin:4px 0 4px}
+    .msq-sheet-sub{font-size:12px;color:var(--mut);line-height:1.45;margin-bottom:12px;overflow-wrap:anywhere}
+    .msq-decline-what{background:var(--info-bg);color:var(--info-tx);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.55;margin-bottom:12px}
+    .msq-sugs{margin-bottom:12px}
+    .msq-sug-head{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px}
+    /* D-3: a suggestion carries its BASIS and its GAP. The advisory rung
+       (business_date, outside the ±30-minute window) is toned differently so a
+       far-away order is never presented as a confident nearest match. */
+    .msq-sug{display:flex;flex-direction:column;gap:2px;width:100%;min-height:44px;padding:11px 13px;border:1px solid var(--brd);border-radius:10px;background:var(--card);color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+    .msq-sug b{font-size:15px}
+    .msq-sug span{font-size:12px;color:var(--mut)}
+    .msq-sug-basis{font-weight:600}
+    .msq-sug-advisory{background:var(--warn-bg);color:var(--warn-tx);border-color:transparent}
+    .msq-sug-advisory span{color:inherit;opacity:.9}
+    .msq-sug-why{font-size:12px;color:var(--mut);line-height:1.5;margin-top:7px}
+    .msq-reasons{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .msq-reason{min-height:40px;padding:8px 13px;border:1px solid var(--brd);border-radius:20px;background:var(--card);color:var(--txt);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+    .msq-reason.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+    .msq-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+    .msq-field span{font-size:12px;font-weight:600}
+    .msq-field input,.msq-field textarea{min-height:44px;width:100%;border:1px solid var(--brd);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:17px;background:var(--bg);color:var(--txt);-webkit-appearance:none}
+    .msq-field textarea{font-size:16px;line-height:1.45;resize:vertical}
+    .msq-hint{font-size:12px;color:var(--mut);margin-bottom:9px;line-height:1.45}
+    .msq-err{font-size:13px;color:var(--bad-tx);background:var(--bad-bg);border-radius:9px;padding:9px 11px;margin-bottom:10px;line-height:1.45}
+    .msq-primary{width:100%;min-height:48px;border:none;border-radius:10px;background:var(--info-bg);color:var(--info-tx);font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+    .msq-primary[disabled]{opacity:0.45;cursor:default}
+    .msq-danger{background:var(--bad-bg);color:var(--bad-tx)}
+    </style>
+    <div id="ms-stats-root" data-state="loading"></div>
   </div>
 </div>
 <script>
@@ -215,6 +486,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 <script src="lib/xstate.umd.min.js" defer></script>
 <script type="module" src="marketing/scan-page.js"></script>
 <script type="module" src="marketing/submit-flow.js"></script>
+<!-- The Subscribers tab (card H5): owns #s3 and nothing else. -->
+<script type="module" src="marketing/subscribers.js"></script>
+<!-- The reconciliation queue (card H4): owns #s4 and nothing else. The SAME
+     module serves bi.html's Campaigns report — it mounts by which root element
+     the page has, so neither page can reach the other's DOM. -->
+<script type="module" src="marketing/stats.js"></script>
 <script src="health-banner.js"></script>
 <script>initHealthBanners('health-banners',["server", "substrate"]);</script>
 <script src="log.js"></script><script src="ptr.js"></script>

@@ -81,19 +81,63 @@ export const MARKETING_REPLICA_SCHEMA = {
  * pull-replication.js, never removed from codes/offers).
  */
 export const CAMPAIGNS_REPLICA_SCHEMA = {
-  version: 0,
+  // v1 (card scanner-polish, run 20261002, B-447): + name.
+  //
+  // 🛑 THE SECOND RxDB SCHEMA MIGRATION IN THIS TREE, and it has the same
+  // three-part shape as the first (SCAN_ATTEMPTS_SCHEMA, card
+  // refusal-holds-before-sync). All three move together or the Scan page
+  // bricks:
+  //   1. `version: 1` here;
+  //   2. CAMPAIGNS_MIGRATION_STRATEGIES below, passed to addCollections by
+  //      marketingCollectionSpec();
+  //   3. `RxDBMigrationSchemaPlugin` registered by every caller that builds
+  //      this collection — marketing/scan-page.js already does; the four
+  //      harnesses under marketing/sync/harness/ that build it got the
+  //      registration in the same change set.
+  // Miss (3) and rxdb's `autoMigrate && version !== 0 && await
+  // migratePromise()` hits the un-plugged prototype stub and THROWS;
+  // addCollections rejects and the crew's phone shows "Scanner failed to
+  // start". Miss (2) and RxDB refuses the collection outright.
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
     id: { type: 'string', maxLength: 100 },
+    // B-447: the human-readable campaign label. NOT in `required` on purpose
+    // — a device row written before this card has none, and the offer card
+    // degrades to the id prefix rather than rendering "Campaign undefined"
+    // (UI-R3: a render that states a fact the app does not have is a defect).
+    name: { type: 'string' },
     requires_online: { type: 'boolean' },
     updated_at: { type: 'string' },
   },
   required: ['id', 'requires_online', 'updated_at'],
 };
 
-/** The columns the campaigns replica pulls — mirrors the schema exactly. */
-export const CAMPAIGNS_SELECT = 'id,requires_online,updated_at';
+/**
+ * Total and lossless (the SCAN_ATTEMPTS_MIGRATION_STRATEGIES precedent):
+ * `name` is optional, so a v0 row migrates unchanged and simply has no label
+ * until the next pull delivers one. Returning `null` — RxDB's "drop this
+ * document" — would be WRONG here in a way worth naming: the campaigns
+ * collection is what the §8 fail-closed predicate reads, and a dropped row
+ * turns every code of that campaign into "KNOWN but absent", i.e. refused
+ * offline. Fail-safe in direction, but it would silently cost the crew the
+ * override on a schema bump. Keep the row.
+ */
+export const CAMPAIGNS_MIGRATION_STRATEGIES = {
+  1: (oldDoc) => oldDoc,
+};
+
+/**
+ * The columns the campaigns replica pulls — mirrors the schema exactly.
+ *
+ * B-447 (card scanner-polish): `name` joined this selection. It is NOT a
+ * schema or RLS card — spike `campaign-name-selectable-by-device` measured
+ * the device (authenticated) role selecting `id,name,requires_online,
+ * updated_at` against the local PostgREST: HTTP 200, `name` non-null on every
+ * row. The Activity A grant is table-wide, not column-scoped.
+ */
+export const CAMPAIGNS_SELECT = 'id,name,requires_online,updated_at';
 
 /** Collection names the browser database and the harness share. */
 export const CODES_COLLECTION = 'codes';
@@ -105,7 +149,11 @@ export function marketingCollectionSpec() {
   return {
     [CODES_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
     [OFFERS_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
-    [CAMPAIGNS_COLLECTION]: { schema: CAMPAIGNS_REPLICA_SCHEMA },
+    [CAMPAIGNS_COLLECTION]: {
+      schema: CAMPAIGNS_REPLICA_SCHEMA,
+      // Part (2) of the three-part migration — see CAMPAIGNS_REPLICA_SCHEMA.
+      migrationStrategies: CAMPAIGNS_MIGRATION_STRATEGIES,
+    },
   };
 }
 
@@ -307,16 +355,23 @@ export const POLICY_SETTLE_MS = 150;
  * @param {object} campaignsCollection  the CAMPAIGNS_COLLECTION RxCollection
  * @param {{settleMs?: number}} [opts]
  * @returns {{policyFor: function(string): ({requiresOnline: boolean, unresolved: boolean}|null),
+ *            nameFor: function(string): (string|null),
  *            attach: function(object): object, unresolved: function(): boolean,
  *            ready: function(): boolean, attached: function(): boolean,
  *            lastError: function(): (string|null),
  *            size: function(): number, stop: function(): void}}
  */
 export function createCampaignPolicySource(campaignsCollection, { settleMs = POLICY_SETTLE_MS } = {}) {
+  // id → { requiresOnline, name }. The VALUE grew a field in card
+  // scanner-polish (B-447): the offer card needs the campaign's name
+  // synchronously at render time and this Map is already a live mirror of the
+  // local collection, so there is no second lookup to build. `name` is
+  // undefined for a pre-B-447 row — callers must treat absence as "no label",
+  // never render it.
   const byId = new Map();
   const sub = campaignsCollection.find().$.subscribe((docs) => {
     byId.clear();
-    for (const d of docs) byId.set(d.id, !!d.requires_online);
+    for (const d of docs) byId.set(d.id, { requiresOnline: !!d.requires_online, name: d.name || null });
   });
 
   let attached = false;
@@ -365,8 +420,19 @@ export function createCampaignPolicySource(campaignsCollection, { settleMs = POL
       // Decision 166: a genuinely-unknown CODE names no campaign. Answering
       // null here is what keeps its offline override alive.
       if (campaignId === null || campaignId === undefined || campaignId === '') return null;
-      if (byId.has(campaignId)) return { requiresOnline: byId.get(campaignId), unresolved: false };
+      if (byId.has(campaignId)) {
+        return { requiresOnline: byId.get(campaignId).requiresOnline, unresolved: false };
+      }
       return { requiresOnline: true, unresolved: true };   // fail closed — B-432
+    },
+    // B-447: the campaign's human-readable name, or null when the replica has
+    // no row for it (or has a pre-B-447 row with no name). NEVER a fallback
+    // string — the caller owns how absence renders, because only the caller
+    // knows what else is on the line.
+    nameFor(campaignId) {
+      if (campaignId === null || campaignId === undefined || campaignId === '') return null;
+      const hit = byId.get(campaignId);
+      return (hit && hit.name) || null;
     },
     attach,
     // Source-level: has the campaigns replica delivered? Sticky on error until

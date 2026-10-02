@@ -138,7 +138,16 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(tile.locator('.tile-title')).toHaveText('Marketing');
   });
 
-  test('marketing.html shows Scan live and the other three sub-sections as labeled placeholders', async ({ page }) => {
+  // Updated by TWO cards in run 20261002, and the union is deliberate:
+  //   * `h2-campaigns-tab-ui` (roadmap H2) made Campaigns (#s2) live;
+  //   * `h5-subscribers-tab` (roadmap H5) made Subscribers (#s3) live.
+  //   * `h4-stats-tab-ui`   (roadmap H4) made Stats (#s4) live.
+  // There is no placeholder left on this page; all four sections are built, and
+  // for a team_member the three manager-tier ones render their Locked state.
+  // The user here is a team_member, so both live sections render their designed
+  // Locked state from a real 403 managers_only — never a blank panel, and never
+  // a "Soon" badge on something that is actually built.
+  test('marketing.html shows Scan live and Campaigns, Subscribers and Stats all gated to their designed Locked state', async ({ page }) => {
     const user = await makeUser(page, 'scan', ['team_member']);
     await loginAs(page, user.email, USER_PASSWORD);
     await page.goto('/marketing.html');
@@ -157,24 +166,54 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#scanner-host')).toHaveCount(1);
     await expect(page.locator('#s2')).toBeHidden();
 
-    // The other three are labeled placeholders, not blank space (UI-R rule:
-    // blank render = defect) — each names what it will hold and carries the
-    // launcher's "Soon" badge convention.
+    // Campaigns (#s2) and Subscribers (#s3) are both LIVE. For a team_member the
+    // manager tier refuses each one inside its handler, so each renders its
+    // designed Locked state — never a blank panel and never a "Soon" badge on
+    // something that is built.
+    // Nothing on this page is a placeholder any more (card H4 landed #s4), and
+    // the UI-R rule the block enforces is unchanged: every gated section still
+    // NAMES itself — blank render = defect.
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
-    await expect(page.locator('#s2 .badge')).toHaveText('Soon');
-    await expect(page.locator('#s2')).toContainText('Campaigns');
+    await expect(page.locator('#mc-root')).toHaveCount(1);
+    await expect(page.locator('#s2 .badge')).toHaveCount(0);
+    await expect(page.locator('#mc-locked')).toContainText('Managers only');
     await expect(page.locator('#s1')).toBeHidden();
 
+    // 🛑 #s3 IS NO LONGER A PLACEHOLDER. Card H5 `subscribers-tab` (run
+    // 20261002) built it, so the "Soon" badge this test used to assert here is
+    // false by construction. Narrowly updated by that card — ONLY the three
+    // #s3 lines. (Card H4 then did the same for #s4, below, and left these
+    // three byte-identical.)
+    //
+    // This test's user is a team_member, and the mailing list is manager-tier
+    // (handoff §16), so what they correctly see is the designed LOCKED state:
+    // the section still names itself "Subscribers" — the UI-R "blank render =
+    // defect" rule this block exists to enforce still holds — but it now says
+    // who may see the list instead of "Soon", and offers no control at all.
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
-    await expect(page.locator('#s3 .badge')).toHaveText('Soon');
     await expect(page.locator('#s3')).toContainText('Subscribers');
+    await expect(page.locator('#subs-root')).toHaveAttribute('data-state', 'locked');
+    await expect(page.locator('#s3 .subs-locked')).toContainText('Managers only');
+    await expect(page.locator('#s3 .badge')).toHaveCount(0);
 
+    // 🛑 #s4 IS NO LONGER A PLACEHOLDER. Card H4 `stats-tab-ui` (run
+    // 20261002) built it — the reconciliation queue, decision 192 — so the
+    // "Soon" badge this test used to assert here is false by construction.
+    // Narrowly updated by that card: ONLY these #s4 lines. The #s2 / #s3
+    // assertions above are byte-identical to what cards H2 and H5 left.
+    //
+    // This test's user is a team_member and the queue is manager-tier
+    // (handoff §16), so what they correctly see is the designed LOCKED state:
+    // the section still names itself "Redemption stats" — the UI-R
+    // "blank render = defect" rule this block exists to enforce still holds —
+    // but it now says who may act instead of "Soon", and offers no control.
     await page.click('#t4');
     await expect(page.locator('#s4')).toBeVisible();
-    await expect(page.locator('#s4 .badge')).toHaveText('Soon');
     await expect(page.locator('#s4')).toContainText('Redemption stats');
+    await expect(page.locator('#s4 .ms-locked')).toContainText('Managers only');
+    await expect(page.locator('#s4 .badge')).toHaveCount(0);
   });
 
   // ── done_when (b): a non-granted user sees no tile ─────────────────────────
@@ -347,6 +386,10 @@ function fixture5HighRow(overrides = {}) {
 function campaignHighRow(overrides = {}) {
   return Object.assign({
     id: 'a0000000-0000-4000-8000-000000000002',
+    // B-447 (card scanner-polish): `name` joined CAMPAIGNS_SELECT and the
+    // replica schema, so a row the pull replica lands now carries it. The
+    // value is the committed supabase/seed.sql literal.
+    name: '$40 catering credit',
     requires_online: true,
     updated_at: '2026-09-01T00:00:00.000Z',
   }, overrides);
@@ -363,6 +406,7 @@ function campaignHighRow(overrides = {}) {
 function campaignLowRow(overrides = {}) {
   return Object.assign({
     id: 'a0000000-0000-4000-8000-000000000001',
+    name: 'Free side of wings',          // B-447, as the pull now lands it
     requires_online: false,
     updated_at: '2026-09-01T00:00:00.000Z',
   }, overrides);
@@ -901,14 +945,34 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       campaigns: [campaignHighRow()],
     });
     await killProbe(page);
-    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
-    await page.click('[data-action="ms-submit"]');
+    // 🛑 B-446 (card scanner-polish, run 20261002) CHANGED THE SHAPE OF THIS
+    // TEST, NOT ITS CLAIM. It used to reach the gate through
+    // `scanAndReady(...)` + a click on [data-action="ms-submit"]; under B-446
+    // the refusal renders at scan-resolve and that control no longer exists on
+    // a refused scan, so there is nothing left to click. Every original
+    // assertion below is intact — data-branch, both copy fragments, no
+    // override affordance, zero POSTs — and the refusal is now proved to
+    // arrive with ZERO taps, which is strictly stronger. The post-submit belt
+    // is asserted at the bottom of this test and again in [SP-01].
+    await scanText(page, FIXTURE_5_PAYLOAD);
 
     const gate = page.locator('#ms-gate');
     await expect(gate).toHaveAttribute('data-branch', 'requires-online');
     await expect(gate).toContainText(/can.t verify/i);
     await expect(gate).toContainText('try again');
     await expect(page.locator('[data-action="ms-override"]'), 'no override even for a holder of the entitlement').toHaveCount(0);
+    expect(calls.length).toBe(0);
+
+    // THE BELT — the post-submit guard §8 has always had. Driven through the
+    // machine because B-446 deliberately removed the DOM controls above; both
+    // events are DECLARED pairs, so a trip here would be a new one.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
     expect(calls.length).toBe(0);
   });
 
@@ -939,8 +1003,8 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       // NO campaigns row — the campaigns replica has not delivered.
     });
     await killProbe(page);
-    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
-    await page.click('[data-action="ms-submit"]');
+    // Shape changed by B-446 (see the branch-3 test above); claim unchanged.
+    await scanText(page, FIXTURE_5_PAYLOAD);
 
     const gate = page.locator('#ms-gate');
     await expect(gate).toBeVisible();
@@ -955,6 +1019,16 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       page.locator('[data-action="ms-override"]'),
       'no override for a KNOWN code whose campaign has not replicated',
     ).toHaveCount(0);
+    expect(calls.length).toBe(0);
+
+    // The belt, as above: the post-submit guard still refuses.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
     expect(calls.length).toBe(0);
   });
 
@@ -1216,6 +1290,212 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
     // Retryable: back to the interrupted state, session intact.
     await page.click('[data-action="ms-retry"]');
     await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Scanner polish — card scanner-polish (run 20261002, roadmap H6; HANDOFF
+// §6 row H6 / §7; B-446, B-447, B-440, B-436 + decision 191)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST: all four tests below were written and RUN against the pre-change
+// tree (Cards 1/2/3/6 of run 20261002 merged, no scanner-polish). Evidence:
+// .night-crew/runs/2026-10-02-autonomous/logs/h6/sp-red.log and the
+// ## Red-first section of merge-intents/h6-scanner-polish.md.
+//
+// 🛑 What these tests must NEVER be allowed to weaken: the `requires_online
+// = true` refusal itself, and the B-432 fail-closed predicate. B-446 moves
+// the refusal EARLIER (scan-resolve instead of post-Submit) and the
+// post-Submit guard stays as the belt — [SP-01] asserts BOTH halves, so a
+// future change that trades one for the other reds here.
+test.describe('Scanner polish (card scanner-polish, roadmap H6)', () => {
+
+  // ── [SP-01] / B-446: the refusal lands before any tap ─────────────────────
+  //
+  // The operator's words at the leg-3 attestation sitting: "ideally it could
+  // tell the customer that they're not able to override the code without
+  // having to hit submit (since it already has that information stored),
+  // which is one less button that the employee has to hit." The policy bit IS
+  // in the synced campaigns replica at scan-resolve time, so the outcome is
+  // knowable before the order-# field is ever drawn.
+  test('[SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds', async ({ page }) => {
+    await openSubmitScanner(page); // admin — entitlement HELD, and still refused
+    const calls = await mockRedeem(page);
+    // REAL DATA, the branch-3 fixtures: code …0005 → campaign …0002,
+    // requires_online=true, exactly as the campaigns pull replica lands it.
+    await seedLocal(page, {
+      offers: [fixture5HighRow()],
+      codes: [fixture5HighRow()],
+      campaigns: [campaignHighRow()],
+    });
+    await killProbe(page);
+
+    // ONE action: the scan. No fill, no tap.
+    await scanText(page, FIXTURE_5_PAYLOAD);
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate, 'the refusal renders at scan-resolve, with zero taps').toBeVisible();
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online');
+    await expect(gate).toContainText(/can.t verify/i);
+    await expect(gate).toContainText('try again');
+    // …and the affordances the crew member would otherwise have to work
+    // through are GONE (B-446's "one less button"):
+    await expect(page.locator('#ms-order'), 'no order-# field on a refused scan').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]'), 'no Submit on a refused scan').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]'), 'no override, entitlement or not').toHaveCount(0);
+    expect(calls.length, 'nothing posted').toBe(0);
+
+    // THE BELT (B-446 keeps the post-submit guard as the guard of last
+    // resort). Driven through the machine because the DOM controls are
+    // deliberately absent above — ORDER_OK then SUBMIT are both DECLARED
+    // pairs, so a trip here would mean a new undeclared pair.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
+    await expect(page.locator('#ms-unexpected'), 'no undeclared pair').toHaveCount(0);
+    expect(await page.evaluate(() => window.MarketingSubmit.machine.alive())).toBe(true);
+    expect(calls.length).toBe(0);
+  });
+
+  // ── [SP-01b] the refusal must NOT swallow an offline-ELIGIBLE campaign ────
+  //
+  // The failure mode this guards: "refuse early" over-applied. A
+  // requires_online=false campaign keeps the order-# field, Submit, and the
+  // §13 override path exactly as before — B-446 narrows to the
+  // requires_online case and nothing else.
+  test('[SP-01b] an offline-ELIGIBLE campaign keeps its order-# field and override path', async ({ page }) => {
+    await openSubmitScanner(page);
+    await mockRedeem(page);
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()],
+    });
+    await killProbe(page);
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(page.locator('#ms-order'), 'the LOW campaign is unchanged').toBeVisible();
+    await expect(page.locator('#ms-gate')).toHaveCount(0);
+    await page.fill('#ms-order', '4321');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'override');
+  });
+
+  // ── [SP-02] / B-447: the offer card names the campaign and the code ───────
+  //
+  // Filed as: 'The offer card names a campaign UUID, not the campaign or the
+  // code — "doesn\'t say the code"'. The crew member verifying against a
+  // customer's claim had nothing human-readable to compare. The campaign
+  // `name` reaches the device through CAMPAIGNS_SELECT (spike
+  // campaign-name-selectable-by-device: the device role may select it — the
+  // Activity A grant is table-wide, not column-scoped).
+  test('[SP-02] the offer card names the campaign and the code last-4, not a bare UUID', async ({ page }) => {
+    await openSubmitScanner(page);
+    await mockRedeem(page);
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()],
+      campaigns: [campaignLowRow({ name: 'Free side of wings' })],
+    });
+    await scanText(page, FIXTURE_1_PAYLOAD);
+
+    const sub = page.locator('#scan-offer-list .offer-row').first().locator('.offer-sub');
+    await expect(sub).toBeVisible();
+    await expect(sub, 'the campaign NAME, from the replica row').toContainText('Free side of wings');
+    // The code identifier: the last four of the code row's id — the same
+    // value scan_attempts.code_id carries, so a manager reconciling in HQ can
+    // match what the crew member saw.
+    await expect(sub, 'the code last-4').toContainText('Code \u00b7\u00b7\u00b7\u00b70001');
+    await expect(sub, 'no bare campaign UUID prefix any more').not.toContainText('a0000000');
+  });
+
+  // ── [SP-02b] honest degradation when the replica row carries no name ──────
+  //
+  // UI-R3: a render that states a fact the app does not have is a defect, and
+  // "Campaign undefined" is the classic shape of it.
+  test('[SP-02b] a campaign row with no name degrades to its id prefix, never "undefined"', async ({ page }) => {
+    await openSubmitScanner(page);   // ONLINE on purpose: requires_online is
+    await mockRedeem(page);          // irrelevant to the card's labelling
+    await seedLocal(page, {
+      offers: [fixture5HighRow()], codes: [fixture5HighRow()],
+    });
+    // A campaign row with NO name — what a device row written before B-447
+    // (or by a pull whose selection predates it) actually looks like.
+    await page.evaluate(async () => {
+      await window.MarketingScan.collections.campaigns.upsert({
+        id: 'a0000000-0000-4000-8000-000000000002',
+        requires_online: true,
+        updated_at: '2026-09-01T00:00:00.000Z',
+      });
+    });
+    await scanText(page, FIXTURE_5_PAYLOAD);
+    const sub = page.locator('#scan-offer-list .offer-row').first().locator('.offer-sub');
+    await expect(sub).toBeVisible();
+    await expect(sub).not.toContainText('undefined');
+    await expect(sub, 'falls back to the id prefix, honestly').toContainText('a0000000');
+    await expect(sub, 'the code last-4 is independent of the name').toContainText('Code \u00b7\u00b7\u00b7\u00b70005');
+  });
+
+  // ── [SP-03] / B-436, decision 191: no policy source fails CLOSED ──────────
+  //
+  // B-436: on a device where the policy SOURCE could not be built (a
+  // stale-cached scan-page with no `campaigns` collection, or
+  // createCampaignPolicySource throwing) EVERY known code stayed
+  // offline-overridable — including a requires_online=true one. B-432's harm,
+  // one layer up. Decision 191 closes it: no policy source → no offline
+  // override, uniform with the source's OWN predicate.
+  test('[SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code', async ({ page }) => {
+    await openSubmitScanner(page);
+    const calls = await mockRedeem(page);
+    await seedLocal(page, {
+      offers: [fixture5HighRow()], codes: [fixture5HighRow()], campaigns: [campaignHighRow()],
+    });
+    // THE no-source device: the seam is emptied, which is what submit-flow's
+    // own `!CAMPAIGN_POLICY` arm sees when the source cannot be constructed.
+    await page.evaluate(() => { window.MarketingSubmit.setCampaignPolicy(null); });
+    expect(await page.evaluate(() => window.MarketingSubmit.campaignPolicyFor(
+      'a0000000-0000-4000-8000-000000000002',
+    )), 'no source is wired').toBeNull();
+
+    await killProbe(page);
+    await scanText(page, FIXTURE_5_PAYLOAD);
+
+    const gate = page.locator('#ms-gate');
+    await expect(gate, 'a no-source device refuses, loudly').toBeVisible();
+    await expect(gate).toContainText(/can.t verify/i);
+    await expect(gate).toContainText('try again');
+    await expect(
+      page.locator('[data-action="ms-override"]'),
+      'decision 191: no policy source → no offline override for a code that names a campaign',
+    ).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]')).toHaveCount(0);
+    expect(calls.length).toBe(0);
+  });
+
+  // ── [SP-03b] …and decision 166 survives it, by construction ───────────────
+  //
+  // "uniform with the source's own predicate" (decision 191) is the operative
+  // half: createCampaignPolicySource answers `null` for a code that names NO
+  // campaign, and that is what keeps F2's ratified offline override alive
+  // (decision 166). A fail-closed arm that also swallowed the
+  // genuinely-unknown code would delete that affordance on exactly the
+  // devices least able to recover it — an operator-level change nobody
+  // decided. Pinned here so the choice is visible rather than implied.
+  test('[SP-03b] decision 166 survives the no-source device: a code naming NO campaign keeps its override', async ({ page }) => {
+    await openSubmitScanner(page);
+    const calls = await mockRedeem(page);
+    await page.evaluate(() => { window.MarketingSubmit.setCampaignPolicy(null); });
+    await killProbe(page);
+    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
+    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'unknownCode');
+    await page.fill('#ms-order', '55');
+    await page.click('[data-action="ms-submit"]');
+    await expect(
+      page.locator('#ms-gate'),
+      'decision 166: a genuinely-unknown code is not fail-closed, even with no source',
+    ).toHaveAttribute('data-branch', 'override');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(1);
+    expect(calls.length).toBe(0);
   });
 });
 

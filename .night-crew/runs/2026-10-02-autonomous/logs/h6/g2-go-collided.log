@@ -1,0 +1,552 @@
+# HQ_SYNC_SUBSTRATE_OPTIONAL=UNSET HQ_SYNC_GATE_CHILD=UNSET
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+ok  	github.com/yumyums/hq/cmd/server	0.030s
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.005s
+ok  	github.com/yumyums/hq/internal/auth	4.856s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	66.046s
+ok  	github.com/yumyums/hq/internal/marketing	8.764s
+ok  	github.com/yumyums/hq/internal/marketing/sources	0.005s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+ok  	github.com/yumyums/hq/internal/onboarding	0.422s
+ok  	github.com/yumyums/hq/internal/photos	1.555s
+ok  	github.com/yumyums/hq/internal/purchasing	12.851s
+ok  	github.com/yumyums/hq/internal/receipt	42.629s
+ok  	github.com/yumyums/hq/internal/recipes	49.714s
+ok  	github.com/yumyums/hq/internal/redemption	2.868s
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/../../admin
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/..%2f..%2fadmin
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest%2f..%2f..%2fadmin
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/realtime/../rest/spike_notes
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/./spike_notes
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest/..%5c..%5cadmin
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7B
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7D
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7C
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5E
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5C
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%22
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3C
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3E
+2026/10/02 00:34:26 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest%5Cadmin%7B
+2026/10/02 00:34:26 ERROR sync proxy upstream error upstream=rest target=internal-rest.sync.local:1 path=/spike_notes error="dial tcp: lookup internal-rest.sync.local on 10.255.255.254:53: no such host"
+2026/10/02 00:34:27 "GET http://127.0.0.1:51750/sync/rest/spike_notes?select=id HTTP/1.1" from 127.0.0.1:53399 - 200 14B in 1.370427ms
+2026/10/02 00:34:27 "GET http://127.0.0.1:51750/sync/realtime/socket/websocket?vsn=1.0.0 HTTP/1.1" from 127.0.0.1:53401 - 000 0B in 4.639746ms
+2026/10/02 00:34:36 OK   0001_users.sql (54.75ms)
+2026/10/02 00:34:36 OK   0002_sessions.sql (67.24ms)
+2026/10/02 00:34:36 OK   0003_invite_tokens.sql (48.54ms)
+2026/10/02 00:34:36 OK   0004_hq_apps.sql (62.09ms)
+2026/10/02 00:34:36 OK   0005_app_permissions.sql (67.3ms)
+2026/10/02 00:34:36 OK   0006_checklist_templates.sql (36.04ms)
+2026/10/02 00:34:36 OK   0007_checklist_schedules.sql (42.5ms)
+2026/10/02 00:34:36 OK   0008_template_assignments.sql (52.74ms)
+2026/10/02 00:34:37 OK   0009_checklist_sections.sql (32.06ms)
+2026/10/02 00:34:37 OK   0010_checklist_fields.sql (27.53ms)
+2026/10/02 00:34:37 OK   0011_checklist_submissions.sql (154.22ms)
+2026/10/02 00:34:37 OK   0012_submission_responses.sql (131.02ms)
+2026/10/02 00:34:37 OK   0013_submission_fail_notes.sql (72.67ms)
+2026/10/02 00:34:37 OK   0014_submission_rejections.sql (49.26ms)
+2026/10/02 00:34:37 OK   0015_ops.sql (73.56ms)
+2026/10/02 00:34:37 OK   0016_lamport_ts.sql (18.01ms)
+2026/10/02 00:34:37 OK   0017_users_naming.sql (23.29ms)
+2026/10/02 00:34:37 OK   0018_ob_templates.sql (90.95ms)
+2026/10/02 00:34:37 OK   0019_ob_items.sql (96.96ms)
+2026/10/02 00:34:37 OK   0020_ob_progress.sql (61.19ms)
+2026/10/02 00:34:37 OK   0021_ob_signoffs.sql (58.41ms)
+2026/10/02 00:34:37 OK   0022_ob_template_assignments.sql (55.42ms)
+2026/10/02 00:34:38 OK   0023_multi_role.sql (95.19ms)
+2026/10/02 00:34:38 OK   0024_inventory.sql (320.84ms)
+2026/10/02 00:34:38 OK   0025_pending_purchases.sql (49.4ms)
+2026/10/02 00:34:38 OK   0026_ob_progress_faq.sql (8.58ms)
+2026/10/02 00:34:38 OK   0027_ob_section_signoff_roles.sql (7.48ms)
+2026/10/02 00:34:38 OK   0028_ob_video_upgrade.sql (18.51ms)
+2026/10/02 00:34:38 OK   0029_ob_templates_archived_at.sql (10.27ms)
+2026/10/02 00:34:38 OK   0030_item_groups_unique_name.sql (36.94ms)
+2026/10/02 00:34:38 OK   0031_remove_placeholder_items.sql (16ms)
+2026/10/02 00:34:38 OK   0032_item_group_thresholds.sql (20.45ms)
+2026/10/02 00:34:38 OK   0033_stock_count_overrides.sql (59.55ms)
+2026/10/02 00:34:38 OK   0034_purchase_orders.sql (113.74ms)
+2026/10/02 00:34:38 OK   0035_purchase_items_photo_store.sql (19.27ms)
+2026/10/02 00:34:38 OK   0036_purchase_items_full_name.sql (18.8ms)
+2026/10/02 00:34:38 OK   0037_cutoff_config.sql (47.25ms)
+2026/10/02 00:34:38 OK   0038_po_status_extend.sql (23.45ms)
+2026/10/02 00:34:38 OK   0039_purchase_items_vendor.sql (43.62ms)
+2026/10/02 00:34:39 OK   0040_shopping_lists.sql (249.17ms)
+2026/10/02 00:34:39 OK   0041_notification_channel.sql (25.59ms)
+2026/10/02 00:34:39 OK   0042_repurchase_tracking.sql (84.52ms)
+2026/10/02 00:34:39 OK   0043_alert_log.sql (71.3ms)
+2026/10/02 00:34:39 OK   0044_low_stock_alert_log.sql (69.27ms)
+2026/10/02 00:34:39 OK   0045_notification_channel_array.sql (70.44ms)
+2026/10/02 00:34:39 OK   0046_user_timezone.sql (8.22ms)
+2026/10/02 00:34:39 OK   0047_employee_fields.sql (79.32ms)
+2026/10/02 00:34:39 OK   0048_notification_default_both.sql (8.87ms)
+2026/10/02 00:34:39 OK   0049_ob_sub_items.sql (57.11ms)
+2026/10/02 00:34:39 OK   0050_ob_progress_sub_item.sql (7.58ms)
+2026/10/02 00:34:39 OK   0051_rejection_field_fk.sql (6.89ms)
+2026/10/02 00:34:39 OK   0052_template_name_unique.sql (16.08ms)
+2026/10/02 00:34:39 OK   0053_response_field_fk.sql (6.55ms)
+2026/10/02 00:34:39 OK   0054_failnote_field_fk.sql (7.1ms)
+2026/10/02 00:34:39 OK   0055_item_location_in_store.sql (6.01ms)
+2026/10/02 00:34:39 OK   0056_ob_progress_photo.sql (16.85ms)
+2026/10/02 00:34:39 OK   0057_ob_items_photo_type.sql (15.75ms)
+2026/10/02 00:34:39 OK   0058_ob_sub_items_photos.sql (16.26ms)
+2026/10/02 00:34:39 OK   0059_cleanup_photo_items.sql (9.15ms)
+2026/10/02 00:34:39 OK   0060_menu_items.sql (85.1ms)
+2026/10/02 00:34:39 OK   0061_daily_menu_sales.sql (40.69ms)
+2026/10/02 00:34:39 OK   0062_recipes.sql (61.71ms)
+2026/10/02 00:34:39 OK   0063_drift_check_results.sql (47.39ms)
+2026/10/02 00:34:39 OK   0064_no_itemized_receipt_seed.sql (15.83ms)
+2026/10/02 00:34:39 OK   0065_mercury_category_on_purchase_events.sql (17.01ms)
+2026/10/02 00:34:39 OK   0066_mercury_category_on_pending_purchases.sql (16.7ms)
+2026/10/02 00:34:40 OK   0067_receipt_sync_runs.sql (66.25ms)
+2026/10/02 00:34:40 OK   0068_pending_purchases_bank_tx_uniq.sql (27.99ms)
+2026/10/02 00:34:40 OK   0069_pending_purchases_parse_error.sql (17.13ms)
+2026/10/02 00:34:40 OK   0070_receipt_urls.sql (18.76ms)
+2026/10/02 00:34:40 OK   0071_submission_fail_notes_unique.sql (24.86ms)
+2026/10/02 00:34:40 OK   0072_app_timezone_new_york.sql (25.66ms)
+2026/10/02 00:34:40 OK   0073_sync_fdw_views.sql (25.7ms)
+2026/10/02 00:34:40 OK   0074_sync_fdw_approver_view.sql (11.06ms)
+2026/10/02 00:34:40 OK   0075_item_aliases.sql (89.7ms)
+2026/10/02 00:34:40 OK   0076_checklist_template_app.sql (33.1ms)
+2026/10/02 00:34:40 OK   0077_race_lost_notifications.sql (63.58ms)
+2026/10/02 00:34:40 OK   0078_card_holder_on_purchases.sql (21.72ms)
+2026/10/02 00:34:40 OK   0079_pending_purchases_retry_requested.sql (29.04ms)
+2026/10/02 00:34:40 OK   0080_receipt_sync_runs_cancelled.sql (15.29ms)
+2026/10/02 00:34:40 OK   0081_item_alias_display.sql (33.12ms)
+2026/10/02 00:34:40 OK   0082_bi_grants.sql (18.99ms)
+2026/10/02 00:34:40 OK   0083_campaigns_admin.sql (145.56ms)
+2026/10/02 00:34:40 OK   0084_toast_orders_reconciliation.sql (180.45ms)
+2026/10/02 00:34:40 OK   0085_subscribers.sql (149.34ms)
+2026/10/02 00:34:40 goose: successfully migrated database to version: 85
+2026/10/02 00:34:40 INFO database migrations applied successfully
+--- FAIL: TestRowVisibilityRLS (9.00s)
+    --- FAIL: TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED (0.01s)
+        rowvisibility_rls_test.go:2236: seed W16's row: ERROR: duplicate key value violates unique constraint "submission_rejections_pkey" (SQLSTATE 23505)
+    --- FAIL: TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve (0.03s)
+        rowvisibility_rls_test.go:2312: ADMITTED W17 control — alice SEES the row she is about to be refused [w17-rej-using-axis]
+        rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [representation] HTTP 200 []
+        rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [minimal] HTTP 204 
+        rowvisibility_rls_test.go:2325: read back W17's row: no rows in result set
+    --- FAIL: TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ (0.11s)
+        rowvisibility_rls_test.go:2467: ADMITTED W14 before revocation                                    HTTP 201 [{"id":"w14-before","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000006","value":true,"answered_by":"11111111-1111-4111-8111-000000000001","answered_at":"2026-10-02T04:34:44.653296+00:00","_deleted":false,"_modified":"2026-10-02T04:34:44.653296+00:00"}]
+        rowvisibility_rls_test.go:2482: 🛑 VARIANT "W14 after revocation, SAME unexpired token [representation]" LANDED IN THE TABLE — 1 row(s) match the attack's own signature despite the response being HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}. The status code is never the proof.
+              verification: select count(*) from public.submission_responses where id = 'w14-during'
+        rowvisibility_rls_test.go:2482: 🛑 VARIANT "W14 after revocation, SAME unexpired token [minimal]" LANDED IN THE TABLE — 1 row(s) match the attack's own signature despite the response being HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}. The status code is never the proof.
+              verification: select count(*) from public.submission_responses where id = 'w14-during'
+        rowvisibility_rls_test.go:2502: 🛑 W14 after restore, still the SAME token: a LEGITIMATE write was REFUSED (HTTP 409 {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"submission_responses_draft_idx\""}).
+              This is the half that tells a working WITH CHECK apart from deny-all. Deny-all passes every attack variant in this file.
+        rowvisibility_rls_test.go:2502: 🛑 W14 after restore, still the SAME token: expected exactly 1 row in the table after the write, found 0. Response was HTTP 409 {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"submission_responses_draft_idx\""}.
+              verification: select count(*) from public.submission_responses where id = 'w14-after'
+    --- FAIL: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.05s)
+        rowvisibility_rls_test.go:2567: ADMITTED templates still all there                      [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+        rowvisibility_rls_test.go:2568: ADMITTED submissions still all there                    [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+        rowvisibility_rls_test.go:2569: responses still all there: expected rows [resp-alice resp-approver resp-bob resp-byrole resp-ghost], got [resp-alice resp-approver resp-bob resp-byrole resp-ghost w14-during]
+              response: HTTP 200 [{"id":"resp-alice"}, 
+             {"id":"resp-approver"}, 
+             {"id":"resp-bob"}, 
+             {"id":"resp-byrole"}, 
+             {"id":"resp-ghost"}, 
+             {"id":"w14-during"}]
+        rowvisibility_rls_test.go:2576: ADMITTED rejections are back to exactly the seeded one  [rej-alice]
+        rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_assignees       4 rows
+        rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_user_roles               4 rows
+        rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_field_templates          8 rows
+        rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_approvers       2 rows
+        rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_assignees            4 rows across the wire
+        rowvisibility_rls_test.go:2579: FDW POPULATION  hq_user_roles                    4 rows across the wire
+        rowvisibility_rls_test.go:2579: FDW POPULATION  hq_field_templates               8 rows across the wire
+        rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_approvers            2 rows across the wire
+--- FAIL: TestRowVisibilitySubtestCount_Executed (10.38s)
+    spikestack_gate_test.go:1153: 🛑 the nested TestRowVisibilityRLS run exited 1 — the count below (59) is not evidence of anything until the suite is green again:
+        === RUN   TestRowVisibilityRLS
+        2026/10/02 00:34:46 OK   0001_users.sql (54.64ms)
+        2026/10/02 00:34:46 OK   0002_sessions.sql (69.66ms)
+        2026/10/02 00:34:46 OK   0003_invite_tokens.sql (56.26ms)
+        2026/10/02 00:34:46 OK   0004_hq_apps.sql (62.89ms)
+        2026/10/02 00:34:46 OK   0005_app_permissions.sql (68.29ms)
+        2026/10/02 00:34:47 OK   0006_checklist_templates.sql (43.59ms)
+        2026/10/02 00:34:47 OK   0007_checklist_schedules.sql (44.1ms)
+        2026/10/02 00:34:47 OK   0008_template_assignments.sql (57.03ms)
+        2026/10/02 00:34:47 OK   0009_checklist_sections.sql (41.86ms)
+        2026/10/02 00:34:47 OK   0010_checklist_fields.sql (42.42ms)
+        2026/10/02 00:34:47 OK   0011_checklist_submissions.sql (59.58ms)
+        2026/10/02 00:34:47 OK   0012_submission_responses.sql (69.71ms)
+        2026/10/02 00:34:47 OK   0013_submission_fail_notes.sql (42.23ms)
+        2026/10/02 00:34:47 OK   0014_submission_rejections.sql (37.75ms)
+        2026/10/02 00:34:47 OK   0015_ops.sql (69.86ms)
+        2026/10/02 00:34:47 OK   0016_lamport_ts.sql (15.36ms)
+        2026/10/02 00:34:47 OK   0017_users_naming.sql (20.99ms)
+        2026/10/02 00:34:47 OK   0018_ob_templates.sql (82.24ms)
+        2026/10/02 00:34:47 OK   0019_ob_items.sql (98.9ms)
+        2026/10/02 00:34:47 OK   0020_ob_progress.sql (69ms)
+        2026/10/02 00:34:47 OK   0021_ob_signoffs.sql (58.72ms)
+        2026/10/02 00:34:47 OK   0022_ob_template_assignments.sql (60.05ms)
+        2026/10/02 00:34:48 OK   0023_multi_role.sql (89.66ms)
+        2026/10/02 00:34:48 OK   0024_inventory.sql (310.63ms)
+        2026/10/02 00:34:48 OK   0025_pending_purchases.sql (53.73ms)
+        2026/10/02 00:34:48 OK   0026_ob_progress_faq.sql (8.66ms)
+        2026/10/02 00:34:48 OK   0027_ob_section_signoff_roles.sql (10.19ms)
+        2026/10/02 00:34:48 OK   0028_ob_video_upgrade.sql (16.85ms)
+        2026/10/02 00:34:48 OK   0029_ob_templates_archived_at.sql (9.37ms)
+        2026/10/02 00:34:48 OK   0030_item_groups_unique_name.sql (33.65ms)
+        2026/10/02 00:34:48 OK   0031_remove_placeholder_items.sql (10.71ms)
+        2026/10/02 00:34:48 OK   0032_item_group_thresholds.sql (23.29ms)
+        2026/10/02 00:34:48 OK   0033_stock_count_overrides.sql (48.27ms)
+        2026/10/02 00:34:48 OK   0034_purchase_orders.sql (118.72ms)
+        2026/10/02 00:34:48 OK   0035_purchase_items_photo_store.sql (22.87ms)
+        2026/10/02 00:34:48 OK   0036_purchase_items_full_name.sql (25.31ms)
+        2026/10/02 00:34:48 OK   0037_cutoff_config.sql (45.3ms)
+        2026/10/02 00:34:48 OK   0038_po_status_extend.sql (28.06ms)
+        2026/10/02 00:34:48 OK   0039_purchase_items_vendor.sql (33.55ms)
+        2026/10/02 00:34:49 OK   0040_shopping_lists.sql (239.41ms)
+        2026/10/02 00:34:49 OK   0041_notification_channel.sql (66.88ms)
+        2026/10/02 00:34:49 OK   0042_repurchase_tracking.sql (138.26ms)
+        2026/10/02 00:34:49 OK   0043_alert_log.sql (72.67ms)
+        2026/10/02 00:34:49 OK   0044_low_stock_alert_log.sql (62.8ms)
+        2026/10/02 00:34:49 OK   0045_notification_channel_array.sql (61.42ms)
+        2026/10/02 00:34:49 OK   0046_user_timezone.sql (7.99ms)
+        2026/10/02 00:34:49 OK   0047_employee_fields.sql (66.23ms)
+        2026/10/02 00:34:49 OK   0048_notification_default_both.sql (10.97ms)
+        2026/10/02 00:34:49 OK   0049_ob_sub_items.sql (50.23ms)
+        2026/10/02 00:34:49 OK   0050_ob_progress_sub_item.sql (9.66ms)
+        2026/10/02 00:34:49 OK   0051_rejection_field_fk.sql (9.14ms)
+        2026/10/02 00:34:49 OK   0052_template_name_unique.sql (16.68ms)
+        2026/10/02 00:34:49 OK   0053_response_field_fk.sql (8.72ms)
+        2026/10/02 00:34:49 OK   0054_failnote_field_fk.sql (10.72ms)
+        2026/10/02 00:34:49 OK   0055_item_location_in_store.sql (10.44ms)
+        2026/10/02 00:34:49 OK   0056_ob_progress_photo.sql (21.76ms)
+        2026/10/02 00:34:49 OK   0057_ob_items_photo_type.sql (18.3ms)
+        2026/10/02 00:34:49 OK   0058_ob_sub_items_photos.sql (17.98ms)
+        2026/10/02 00:34:49 OK   0059_cleanup_photo_items.sql (8.03ms)
+        2026/10/02 00:34:49 OK   0060_menu_items.sql (83.38ms)
+        2026/10/02 00:34:49 OK   0061_daily_menu_sales.sql (42.98ms)
+        2026/10/02 00:34:49 OK   0062_recipes.sql (51.32ms)
+        2026/10/02 00:34:49 OK   0063_drift_check_results.sql (42.9ms)
+        2026/10/02 00:34:49 OK   0064_no_itemized_receipt_seed.sql (17.12ms)
+        2026/10/02 00:34:49 OK   0065_mercury_category_on_purchase_events.sql (12.29ms)
+        2026/10/02 00:34:49 OK   0066_mercury_category_on_pending_purchases.sql (16.68ms)
+        2026/10/02 00:34:50 OK   0067_receipt_sync_runs.sql (69.54ms)
+        2026/10/02 00:34:50 OK   0068_pending_purchases_bank_tx_uniq.sql (28.09ms)
+        2026/10/02 00:34:50 OK   0069_pending_purchases_parse_error.sql (12.86ms)
+        2026/10/02 00:34:50 OK   0070_receipt_urls.sql (19.06ms)
+        2026/10/02 00:34:50 OK   0071_submission_fail_notes_unique.sql (33.74ms)
+        2026/10/02 00:34:50 OK   0072_app_timezone_new_york.sql (18.11ms)
+        2026/10/02 00:34:50 OK   0073_sync_fdw_views.sql (22.25ms)
+        2026/10/02 00:34:50 OK   0074_sync_fdw_approver_view.sql (11.57ms)
+        2026/10/02 00:34:50 OK   0075_item_aliases.sql (67.15ms)
+        2026/10/02 00:34:50 OK   0076_checklist_template_app.sql (28.15ms)
+        2026/10/02 00:34:50 OK   0077_race_lost_notifications.sql (60.12ms)
+        2026/10/02 00:34:50 OK   0078_card_holder_on_purchases.sql (19.12ms)
+        2026/10/02 00:34:50 OK   0079_pending_purchases_retry_requested.sql (32.25ms)
+        2026/10/02 00:34:50 OK   0080_receipt_sync_runs_cancelled.sql (17.83ms)
+        2026/10/02 00:34:50 OK   0081_item_alias_display.sql (29.24ms)
+        2026/10/02 00:34:50 OK   0082_bi_grants.sql (21.5ms)
+        2026/10/02 00:34:50 OK   0083_campaigns_admin.sql (157.55ms)
+        2026/10/02 00:34:50 OK   0084_toast_orders_reconciliation.sql (171.24ms)
+        2026/10/02 00:34:50 OK   0085_subscribers.sql (137.2ms)
+        2026/10/02 00:34:50 goose: successfully migrated database to version: 85
+        2026/10/02 00:34:50 INFO database migrations applied successfully
+        === RUN   TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated
+            rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_template_assignees       4 rows
+            rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_user_roles               4 rows
+            rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_field_templates          8 rows
+            rowvisibility_rls_test.go:1111: HQ POPULATION   hq_sync_template_approvers       2 rows
+        === RUN   TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire
+            rowvisibility_rls_test.go:1114: FDW POPULATION  hq_template_assignees            4 rows across the wire
+            rowvisibility_rls_test.go:1114: FDW POPULATION  hq_user_roles                    4 rows across the wire
+            rowvisibility_rls_test.go:1114: FDW POPULATION  hq_field_templates               8 rows across the wire
+            rowvisibility_rls_test.go:1114: FDW POPULATION  hq_template_approvers            2 rows across the wire
+        === RUN   TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there
+            rowvisibility_rls_test.go:1125: ADMITTED service_role sees ALL templates                [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:1126: ADMITTED service_role sees ALL submissions              [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+            rowvisibility_rls_test.go:1127: ADMITTED service_role sees ALL responses                [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+            rowvisibility_rls_test.go:1129: ADMITTED service_role sees ALL rejections               [rej-alice]
+        === RUN   TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template
+            rowvisibility_rls_test.go:1143: ADMITTED alice                                          [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+        === RUN   TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one
+            rowvisibility_rls_test.go:1147: ADMITTED bob                                            [22222222-2222-4222-8222-000000000002]
+        === RUN   TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment
+            rowvisibility_rls_test.go:1153: ADMITTED dave (role=manager)                            [22222222-2222-4222-8222-000000000003]
+        === RUN   TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan
+            rowvisibility_rls_test.go:1161: ADMITTED carol (admin)                                  [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+        === RUN   TestRowVisibilityRLS/V1/anon_(no_token_at_all)
+            rowvisibility_rls_test.go:1170: REFUSED  V1 anon                                              HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_templates"}
+        === RUN   TestRowVisibilityRLS/V2/wrong_signature
+            rowvisibility_rls_test.go:1181: REFUSED  V2 wrong signature                                   HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+        === RUN   TestRowVisibilityRLS/V3/expired_token
+            rowvisibility_rls_test.go:1190: REFUSED  V3 expired token                                     HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+        === RUN   TestRowVisibilityRLS/V4/tampered_payload,_original_signature
+            rowvisibility_rls_test.go:1211: REFUSED  V4 tampered payload                                  HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+        === RUN   TestRowVisibilityRLS/V5/missing_sub_claim
+            rowvisibility_rls_test.go:1226: REFUSED  V5 missing sub                                       HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id
+            rowvisibility_rls_test.go:1234: REFUSED  V6 alice -> tplBob                                   HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise
+            rowvisibility_rls_test.go:1245: ADMITTED alice with a LYING admin claim                 [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:1246: REFUSED  V7 claim injection (orphan must stay hidden)         HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ
+            rowvisibility_rls_test.go:1263: ADMITTED before revocation                              [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:1270: ADMITTED after revocation, SAME token                   [22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:1271: REFUSED  V8 revocation replay                                 HTTP 200 []
+            rowvisibility_rls_test.go:1281: ADMITTED after restore, still the SAME token            [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+        === RUN   TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything
+            rowvisibility_rls_test.go:1288: ADMITTED bob before                                     [22222222-2222-4222-8222-000000000002]
+            rowvisibility_rls_test.go:1295: ADMITTED bob after, SAME token                          [22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000004]
+            rowvisibility_rls_test.go:1302: ADMITTED bob restored                                   [22222222-2222-4222-8222-000000000002]
+        === RUN   TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template
+            rowvisibility_rls_test.go:1319: REFUSED  V10 forged insert                                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+        === RUN   TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template
+            rowvisibility_rls_test.go:1338: REFUSED  V11 forged update                                    HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template
+            rowvisibility_rls_test.go:1353: ADMITTED alice's submissions                            [55555555-5555-4555-8555-000000000001]
+            rowvisibility_rls_test.go:1354: REFUSED  V12 alice -> bob's submission                        HTTP 200 []
+            rowvisibility_rls_test.go:1356: ADMITTED carol (admin) sees all submissions             [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+        === RUN   TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission
+            rowvisibility_rls_test.go:1366: ADMITTED alice's drafts                                 [resp-alice resp-approver]
+            rowvisibility_rls_test.go:1368: ADMITTED dave's draft (reached by role)                 [resp-byrole]
+            rowvisibility_rls_test.go:1370: REFUSED  V13 alice -> bob's draft                             HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included
+            rowvisibility_rls_test.go:1381: ADMITTED carol sees every RESOLVABLE response           [resp-alice resp-approver resp-bob resp-byrole]
+            rowvisibility_rls_test.go:1384: REFUSED  V14 orphan response, asked by an ADMIN               HTTP 200 []
+        === RUN   TestRowVisibilityRLS/V15-17,20/V15_hq_user_roles_is_not_readable_over_PostgREST
+            rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / anon                             HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+            rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / alice                            HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+            rowvisibility_rls_test.go:1423: REFUSED  V15 hq_user_roles / carol the admin                  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+        === RUN   TestRowVisibilityRLS/V15-17,20/V16_hq_template_assignees_is_not_readable_over_PostgREST
+            rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / anon                     HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+            rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / alice                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+            rowvisibility_rls_test.go:1423: REFUSED  V16 hq_template_assignees / carol the admin          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+        === RUN   TestRowVisibilityRLS/V15-17,20/V17_hq_field_templates_is_not_readable_over_PostgREST
+            rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / anon                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+            rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / alice                       HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+            rowvisibility_rls_test.go:1423: REFUSED  V17 hq_field_templates / carol the admin             HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+        === RUN   TestRowVisibilityRLS/V15-17,20/V20_hq_template_approvers_is_not_readable_over_PostgREST
+            rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / anon                     HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+            rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / alice                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+            rowvisibility_rls_test.go:1423: REFUSED  V20 hq_template_approvers / carol the admin          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_approvers"}
+        === RUN   TestRowVisibilityRLS/V18/submission_rejections_READ_is_field-scoped_—_the_deny-all_is_deliberately_gone
+            rowvisibility_rls_test.go:1462: ADMITTED alice reads the rejection on HER OWN field     [rej-alice]
+            rowvisibility_rls_test.go:1464: ADMITTED carol the admin reads it too                   [rej-alice]
+            rowvisibility_rls_test.go:1469: REFUSED  V18 bob -> a rejection on a field he cannot see      HTTP 200 []
+            rowvisibility_rls_test.go:1471: REFUSED  V18 anon -> rejections                               HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table submission_rejections"}
+            rowvisibility_rls_test.go:1476: ADMITTED service_role sees every rejection              [rej-alice]
+        === RUN   TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates
+            rowvisibility_rls_test.go:1495: ADMITTED plural GUC (this card) DISCRIMINATES           [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:1505: REFUSED  V19 auth.uid() policy returns NOTHING                HTTP 200 []
+            rowvisibility_rls_test.go:1514: CONTROL  V19 trap is NOT empty                                [trap-alice-1 trap-bob-1]
+        === RUN   TestRowVisibilityRLS/LIST-1/THE_LIST_SCOPE_DISCRIMINATES_—_three_users,_three_disjoint_lists
+            rowvisibility_rls_test.go:1563: ADMITTED LIST-1 alice's own list                        [55555555-5555-4555-8555-000000000001]
+            rowvisibility_rls_test.go:1565: ADMITTED LIST-1 bob's own list                          [55555555-5555-4555-8555-000000000002]
+            rowvisibility_rls_test.go:1567: ADMITTED LIST-1 dave's own list — reached by ROLE, holding no direct assignment [55555555-5555-4555-8555-000000000003]
+            rowvisibility_rls_test.go:1573: ADMITTED LIST-1 service_role sees every submission in the union [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+        === RUN   TestRowVisibilityRLS/LIST-2/AND_IT_REFUSES_—_alice_issues_BOB'S_list_scope_verbatim_and_gets_nothing
+            rowvisibility_rls_test.go:1587: REFUSED  LIST-2 alice asks for bob's list                     HTTP 200 []
+            rowvisibility_rls_test.go:1589: REFUSED  LIST-2 bob asks for alice's list                     HTTP 200 []
+            rowvisibility_rls_test.go:1591: REFUSED  LIST-2 anon asks for anyone's list                   HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_submissions"}
+            rowvisibility_rls_test.go:1596: ADMITTED LIST-2 control — the row alice was refused IS there [55555555-5555-4555-8555-000000000002]
+        === RUN   TestRowVisibilityRLS/LIST-3/THE_DATE_FLOOR_IS_DOING_WORK_—_the_same_user,_the_same_templates,_one_day_apart
+            rowvisibility_rls_test.go:1617: ADMITTED LIST-3 alice's list WITH the floor excludes the 90-day-old submission [55555555-5555-4555-8555-000000000001]
+            rowvisibility_rls_test.go:1627: ADMITTED LIST-3 the SAME query with NO floor pulls history [55555555-5555-4555-8555-000000000001 list3-old-submission]
+        === RUN   TestRowVisibilityRLS/LIST-4/THE_APPROVALS_RESIDUAL_—_the_client_scope_is_the_floor_ALONE,_and_the_SERVER_is_what_refuses
+            rowvisibility_rls_test.go:1651: ADMITTED LIST-4 alice's approvals list is her own feedback only [rej-alice]
+            rowvisibility_rls_test.go:1653: ADMITTED LIST-4 bob's approvals list is HIS own feedback only [list4-rej-bob]
+            rowvisibility_rls_test.go:1658: ADMITTED LIST-4 control — both rejections are above the floor [list4-rej-bob rej-alice]
+        === RUN   TestRowVisibilityRLS/WP1/alice_PUSHES_a_submission_under_her_own_template
+            rowvisibility_rls_test.go:1696: ADMITTED WP1 alice -> her own template                            HTTP 201 [{"id":"wp1-sub-alice","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000001","submitted_at":"2026-10-02T04:34:53.512241+00:00","status":"pending","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-10-02T04:34:53.512241+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.512241+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP1b/a_peer's_row_inside_a_template_you_CAN_see_is_admitted_—_decision_111,_asserted
+            rowvisibility_rls_test.go:1718: ADMITTED WP1b alice -> a row attributed to bob, in HER template   HTTP 201 [{"id":"wp1b-sub-peer","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000002","submitted_at":"2026-10-02T04:34:53.542036+00:00","status":"pending","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-10-02T04:34:53.542036+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.542036+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP2/alice_UPDATES_her_own_submission
+            rowvisibility_rls_test.go:1726: ADMITTED WP2 alice updates subAlice                               HTTP 200 [{"id":"55555555-5555-4555-8555-000000000001","template_id":"22222222-2222-4222-8222-000000000001","template_snapshot":{},"submitted_by":"11111111-1111-4111-8111-000000000001","submitted_at":"2026-10-02T04:34:51.134346+00:00","status":"completed","reviewed_by":null,"reviewed_at":null,"idempotency_key":null,"updated_by":null,"updated_at":"2026-10-02T04:34:51.134346+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.5682+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP3/alice_PUSHES_an_OFFLINE_DRAFT_—_submission_id_IS_NULL
+            rowvisibility_rls_test.go:1752: ADMITTED WP3 alice -> a draft with a NULL submission_id           HTTP 201 [{"id":"wp3-resp-draft","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000006","value":true,"answered_by":"11111111-1111-4111-8111-000000000001","answered_at":"2026-10-02T04:34:53.612353+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.612353+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP4/dave_PUSHES_a_draft_on_a_field_he_reaches_by_ROLE_ONLY
+            rowvisibility_rls_test.go:1767: ADMITTED WP4 dave (role=manager) -> a draft                       HTTP 201 [{"id":"wp4-resp-role","submission_id":null,"field_id":"44444444-4444-4444-8444-000000000007","value":true,"answered_by":"11111111-1111-4111-8111-000000000004","answered_at":"2026-10-02T04:34:53.650639+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.650639+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP5/alice_writes_an_approval_on_the_template_she_APPROVES
+            rowvisibility_rls_test.go:1787: ADMITTED WP5 alice the APPROVER -> a rejection                    HTTP 201 [{"id":"wp5-rej-approver","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000005","comment":"redo the temp log","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000001","rejected_at":"2026-10-02T04:34:53.681494+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.681494+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP5b/dave_approves_by_ROLE_—_the_approver_view_carries_BOTH_disjuncts
+            rowvisibility_rls_test.go:1803: ADMITTED WP5b dave the ROLE-approver -> a rejection               HTTP 201 [{"id":"wp5b-rej-role-approver","submission_id":"55555555-5555-4555-8555-000000000003","field_id":"44444444-4444-4444-8444-000000000003","comment":"role-reached approval","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000004","rejected_at":"2026-10-02T04:34:53.729697+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.729697+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP6/carol_the_admin_writes_an_approval_on_a_template_she_approves_NOTHING_on
+            rowvisibility_rls_test.go:1817: ADMITTED WP6 carol the admin -> a rejection on bob's field        HTTP 201 [{"id":"wp6-rej-admin","submission_id":"55555555-5555-4555-8555-000000000002","field_id":"44444444-4444-4444-8444-000000000002","comment":"admin arm","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000003","rejected_at":"2026-10-02T04:34:53.785515+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.785515+00:00"}]
+        === RUN   TestRowVisibilityRLS/WP7/the_assignee_READS_BACK_the_feedback_an_approver_wrote_—_push+pull_closes
+            rowvisibility_rls_test.go:1834: ADMITTED WP7 carol writes the feedback                            HTTP 201 [{"id":"wp7-rej-roundtrip","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000001","comment":"photo is blurry","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000003","rejected_at":"2026-10-02T04:34:53.824257+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.824257+00:00"}]
+            rowvisibility_rls_test.go:1839: ADMITTED WP7 alice pulls her own feedback back          [wp7-rej-roundtrip]
+            rowvisibility_rls_test.go:1843: REFUSED  WP7 bob does NOT receive alice's feedback            HTTP 200 []
+        === RUN   TestRowVisibilityRLS/WP8/an_APPROVER_MOVES_a_rejection_to_another_field_of_the_template_she_approves
+            rowvisibility_rls_test.go:1878: ADMITTED WP8 alice the APPROVER moves a rejection within her template HTTP 200 [{"id":"wp8-rej-move","submission_id":"55555555-5555-4555-8555-000000000001","field_id":"44444444-4444-4444-8444-000000000008","comment":"move me","require_photo":false,"rejected_by":"11111111-1111-4111-8111-000000000001","rejected_at":"2026-10-02T04:34:53.924654+00:00","_deleted":false,"_modified":"2026-10-02T04:34:53.929952+00:00"}]
+        === RUN   TestRowVisibilityRLS/W1/templates:_alice's_forged_INSERT_is_still_refused_after_0004
+            rowvisibility_rls_test.go:1914: REFUSED  W1 alice inserts a template [representation]             HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+            rowvisibility_rls_test.go:1914: REFUSED  W1 alice inserts a template [minimal]                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+        === RUN   TestRowVisibilityRLS/W2/templates:_alice's_forged_UPDATE_of_bob's_template_is_still_refused
+            rowvisibility_rls_test.go:1921: REFUSED  W2 alice renames bob's template [representation]         HTTP 200 []
+            rowvisibility_rls_test.go:1921: REFUSED  W2 alice renames bob's template [minimal]                HTTP 204 
+        === RUN   TestRowVisibilityRLS/W3/templates:_CAROL_THE_ADMIN_cannot_write_one_either
+            rowvisibility_rls_test.go:1938: REFUSED  W3 carol the admin inserts a template [representation]   HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+            rowvisibility_rls_test.go:1938: REFUSED  W3 carol the admin inserts a template [minimal]          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+            rowvisibility_rls_test.go:1943: REFUSED  W3 carol the admin renames a template [representation]   HTTP 200 []
+            rowvisibility_rls_test.go:1943: REFUSED  W3 carol the admin renames a template [minimal]          HTTP 204 
+        === RUN   TestRowVisibilityRLS/W4/alice_pushes_a_submission_claiming_a_template_she_CANNOT_see
+            rowvisibility_rls_test.go:1956: REFUSED  W4 alice -> a submission under tplBob [representation]   HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+            rowvisibility_rls_test.go:1956: REFUSED  W4 alice -> a submission under tplBob [minimal]          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+            rowvisibility_rls_test.go:1964: REFUSED  W4 alice -> a submission under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+            rowvisibility_rls_test.go:1964: REFUSED  W4 alice -> a submission under the orphan [minimal]      HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+        === RUN   TestRowVisibilityRLS/W5/ESCALATION_BY_UPDATE_—_alice_moves_her_own_row_into_a_template_she_cannot_see
+            rowvisibility_rls_test.go:2009: REFUSED  W5 alice re-parents subAlice under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+            rowvisibility_rls_test.go:2009: REFUSED  W5 alice re-parents subAlice under the orphan [minimal]  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+        === RUN   TestRowVisibilityRLS/W6/alice_pushes_a_response_on_a_field_she_cannot_see
+            rowvisibility_rls_test.go:2030: REFUSED  W6 alice -> a response on fldBob [representation]        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+            rowvisibility_rls_test.go:2030: REFUSED  W6 alice -> a response on fldBob [minimal]               HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+        === RUN   TestRowVisibilityRLS/W7/ESCALATION_BY_UPDATE_—_alice_repoints_her_own_response_at_dave's_field
+            rowvisibility_rls_test.go:2062: REFUSED  W7 alice repoints resp-alice at fldByRole [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+            rowvisibility_rls_test.go:2062: REFUSED  W7 alice repoints resp-alice at fldByRole [minimal]      HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+        === RUN   TestRowVisibilityRLS/W8/an_UNRESOLVABLE_field_is_UNWRITABLE_for_everyone,_ADMINS_INCLUDED
+            rowvisibility_rls_test.go:2087: REFUSED  W8 carol the admin -> a response on a GHOST field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+            rowvisibility_rls_test.go:2087: REFUSED  W8 carol the admin -> a response on a GHOST field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}
+            rowvisibility_rls_test.go:2106: REFUSED  W8 carol the admin -> a rejection on a GHOST field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2106: REFUSED  W8 carol the admin -> a rejection on a GHOST field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+        === RUN   TestRowVisibilityRLS/W9/🛑_THE_ASYMMETRY_—_an_ASSIGNEE_cannot_reject_their_own_work
+            rowvisibility_rls_test.go:2130: REFUSED  W9 alice the ASSIGNEE -> a rejection on her own field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2130: REFUSED  W9 alice the ASSIGNEE -> a rejection on her own field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2141: ADMITTED W9 control — the same alice READS rejections on this field [rej-alice]
+        === RUN   TestRowVisibilityRLS/W10/an_approver_cannot_reach_OUTSIDE_the_template_they_approve
+            rowvisibility_rls_test.go:2152: REFUSED  W10 alice the approver -> a rejection on bob's field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2152: REFUSED  W10 alice the approver -> a rejection on bob's field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+        === RUN   TestRowVisibilityRLS/W11/READ_≠_WRITE_ON_ONE_ROW_—_alice_can_pull_rej-alice_and_cannot_edit_it
+            rowvisibility_rls_test.go:2192: REFUSED  W11 alice edits the rejection written about her [representation] HTTP 200 []
+            rowvisibility_rls_test.go:2192: REFUSED  W11 alice edits the rejection written about her [minimal] HTTP 204 
+        === RUN   TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED
+            rowvisibility_rls_test.go:2239: REFUSED  W16 alice moves a rejection onto her OWN assigned field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2239: REFUSED  W16 alice moves a rejection onto her OWN assigned field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+        === RUN   TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve
+            rowvisibility_rls_test.go:2312: ADMITTED W17 control — alice SEES the row she is about to be refused [w17-rej-using-axis]
+            rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [representation] HTTP 200 []
+            rowvisibility_rls_test.go:2315: REFUSED  W17 alice moves a rejection OFF her own field onto one she approves [minimal] HTTP 204 
+        === RUN   TestRowVisibilityRLS/W12/DELETE_is_deny-all_on_every_replicated_table
+            rowvisibility_rls_test.go:2394: GATE  public.checklist_templates    authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+            rowvisibility_rls_test.go:2394: GATE  public.checklist_submissions  authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+            rowvisibility_rls_test.go:2394: GATE  public.submission_responses   authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+            rowvisibility_rls_test.go:2394: GATE  public.submission_rejections  authenticated=[DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE]  delete-capable policies=[-]
+            rowvisibility_rls_test.go:2420: REFUSED  W12 submission                                           HTTP 204 
+            rowvisibility_rls_test.go:2420: REFUSED  W12 response                                             HTTP 204 
+            rowvisibility_rls_test.go:2420: REFUSED  W12 rejection                                            HTTP 204 
+        === RUN   TestRowVisibilityRLS/W13/claim_injection_on_the_WRITE_path_—_a_token_that_ASSERTS_admin
+            rowvisibility_rls_test.go:2435: REFUSED  W13 lying admin -> a template [representation]           HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+            rowvisibility_rls_test.go:2435: REFUSED  W13 lying admin -> a template [minimal]                  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_templates\""}
+            rowvisibility_rls_test.go:2440: REFUSED  W13 lying admin -> a rejection on her own field [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2440: REFUSED  W13 lying admin -> a rejection on her own field [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_rejections\""}
+            rowvisibility_rls_test.go:2446: REFUSED  W13 lying admin -> a submission under the orphan [representation] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+            rowvisibility_rls_test.go:2446: REFUSED  W13 lying admin -> a submission under the orphan [minimal] HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"checklist_submissions\""}
+        === RUN   TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ
+            rowvisibility_rls_test.go:2467: 🛑 W14 before revocation: a LEGITIMATE write was REFUSED (HTTP 409 {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"submission_responses_draft_idx\""}).
+                  This is the half that tells a working WITH CHECK apart from deny-all. Deny-all passes every attack variant in this file.
+            rowvisibility_rls_test.go:2467: 🛑 W14 before revocation: expected exactly 1 row in the table after the write, found 0. Response was HTTP 409 {"code":"23505","details":null,"hint":null,"message":"duplicate key value violates unique constraint \"submission_responses_draft_idx\""}.
+                  verification: select count(*) from public.submission_responses where id = 'w14-before'
+            rowvisibility_rls_test.go:2482: 🛑 VARIANT "W14 after revocation, SAME unexpired token [representation]" LANDED IN THE TABLE — 1 row(s) match the attack's own signature despite the response being HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}. The status code is never the proof.
+                  verification: select count(*) from public.submission_responses where id = 'w14-during'
+            rowvisibility_rls_test.go:2482: 🛑 VARIANT "W14 after revocation, SAME unexpired token [minimal]" LANDED IN THE TABLE — 1 row(s) match the attack's own signature despite the response being HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}. The status code is never the proof.
+                  verification: select count(*) from public.submission_responses where id = 'w14-during'
+            rowvisibility_rls_test.go:2502: 🛑 W14 after restore, still the SAME token: a LEGITIMATE write was REFUSED (HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}).
+                  This is the half that tells a working WITH CHECK apart from deny-all. Deny-all passes every attack variant in this file.
+            rowvisibility_rls_test.go:2502: 🛑 W14 after restore, still the SAME token: expected exactly 1 row in the table after the write, found 0. Response was HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"submission_responses\""}.
+                  verification: select count(*) from public.submission_responses where id = 'w14-after'
+        === RUN   TestRowVisibilityRLS/W15/the_JWT_layer_refuses_writes_too_—_anon,_expired,_unsigned
+            rowvisibility_rls_test.go:2524: REFUSED  W15 anon POST                                            HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_submissions"}
+            rowvisibility_rls_test.go:2532: REFUSED  W15 expired token POST                                   HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+            rowvisibility_rls_test.go:2545: REFUSED  W15 wrong-signature POST                                 HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+        === RUN   TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants
+            rowvisibility_rls_test.go:2567: ADMITTED templates still all there                      [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+            rowvisibility_rls_test.go:2568: ADMITTED submissions still all there                    [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+            rowvisibility_rls_test.go:2569: responses still all there: expected rows [resp-alice resp-approver resp-bob resp-byrole resp-ghost], got [resp-alice resp-approver resp-bob resp-byrole resp-ghost w14-during]
+                  response: HTTP 200 [{"id":"resp-alice"}, 
+                 {"id":"resp-approver"}, 
+                 {"id":"resp-bob"}, 
+                 {"id":"resp-byrole"}, 
+                 {"id":"resp-ghost"}, 
+                 {"id":"w14-during"}]
+            rowvisibility_rls_test.go:2576: ADMITTED rejections are back to exactly the seeded one  [rej-alice]
+            rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_assignees       4 rows
+            rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_user_roles               4 rows
+            rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_field_templates          8 rows
+            rowvisibility_rls_test.go:2578: HQ POPULATION   hq_sync_template_approvers       2 rows
+            rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_assignees            4 rows across the wire
+            rowvisibility_rls_test.go:2579: FDW POPULATION  hq_user_roles                    4 rows across the wire
+            rowvisibility_rls_test.go:2579: FDW POPULATION  hq_field_templates               8 rows across the wire
+            rowvisibility_rls_test.go:2579: FDW POPULATION  hq_template_approvers            2 rows across the wire
+        --- FAIL: TestRowVisibilityRLS (8.84s)
+            --- PASS: TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated (0.01s)
+            --- PASS: TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire (0.08s)
+            --- PASS: TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there (0.05s)
+            --- PASS: TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template (0.10s)
+            --- PASS: TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one (0.05s)
+            --- PASS: TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment (0.06s)
+            --- PASS: TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan (0.03s)
+            --- PASS: TestRowVisibilityRLS/V1/anon_(no_token_at_all) (0.00s)
+            --- PASS: TestRowVisibilityRLS/V2/wrong_signature (0.00s)
+            --- PASS: TestRowVisibilityRLS/V3/expired_token (0.00s)
+            --- PASS: TestRowVisibilityRLS/V4/tampered_payload,_original_signature (0.00s)
+            --- PASS: TestRowVisibilityRLS/V5/missing_sub_claim (0.05s)
+            --- PASS: TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id (0.02s)
+            --- PASS: TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise (0.08s)
+            --- PASS: TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ (0.20s)
+            --- PASS: TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything (0.17s)
+            --- PASS: TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template (0.01s)
+            --- PASS: TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template (0.01s)
+            --- PASS: TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template (0.07s)
+            --- PASS: TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission (0.16s)
+            --- PASS: TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included (0.07s)
+            --- PASS: TestRowVisibilityRLS/V15-17,20/V15_hq_user_roles_is_not_readable_over_PostgREST (0.01s)
+            --- PASS: TestRowVisibilityRLS/V15-17,20/V16_hq_template_assignees_is_not_readable_over_PostgREST (0.01s)
+            --- PASS: TestRowVisibilityRLS/V15-17,20/V17_hq_field_templates_is_not_readable_over_PostgREST (0.01s)
+            --- PASS: TestRowVisibilityRLS/V15-17,20/V20_hq_template_approvers_is_not_readable_over_PostgREST (0.01s)
+            --- PASS: TestRowVisibilityRLS/V18/submission_rejections_READ_is_field-scoped_—_the_deny-all_is_deliberately_gone (0.08s)
+            --- PASS: TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates (0.09s)
+            --- PASS: TestRowVisibilityRLS/LIST-1/THE_LIST_SCOPE_DISCRIMINATES_—_three_users,_three_disjoint_lists (0.09s)
+            --- PASS: TestRowVisibilityRLS/LIST-2/AND_IT_REFUSES_—_alice_issues_BOB'S_list_scope_verbatim_and_gets_nothing (0.05s)
+            --- PASS: TestRowVisibilityRLS/LIST-3/THE_DATE_FLOOR_IS_DOING_WORK_—_the_same_user,_the_same_templates,_one_day_apart (0.07s)
+            --- PASS: TestRowVisibilityRLS/LIST-4/THE_APPROVALS_RESIDUAL_—_the_client_scope_is_the_floor_ALONE,_and_the_SERVER_is_what_refuses (0.10s)
+            --- PASS: TestRowVisibilityRLS/WP1/alice_PUSHES_a_submission_under_her_own_template (0.03s)
+            --- PASS: TestRowVisibilityRLS/WP1b/a_peer's_row_inside_a_template_you_CAN_see_is_admitted_—_decision_111,_asserted (0.03s)
+            --- PASS: TestRowVisibilityRLS/WP2/alice_UPDATES_her_own_submission (0.04s)
+            --- PASS: TestRowVisibilityRLS/WP3/alice_PUSHES_an_OFFLINE_DRAFT_—_submission_id_IS_NULL (0.04s)
+            --- PASS: TestRowVisibilityRLS/WP4/dave_PUSHES_a_draft_on_a_field_he_reaches_by_ROLE_ONLY (0.03s)
+            --- PASS: TestRowVisibilityRLS/WP5/alice_writes_an_approval_on_the_template_she_APPROVES (0.05s)
+            --- PASS: TestRowVisibilityRLS/WP5b/dave_approves_by_ROLE_—_the_approver_view_carries_BOTH_disjuncts (0.06s)
+            --- PASS: TestRowVisibilityRLS/WP6/carol_the_admin_writes_an_approval_on_a_template_she_approves_NOTHING_on (0.04s)
+            --- PASS: TestRowVisibilityRLS/WP7/the_assignee_READS_BACK_the_feedback_an_approver_wrote_—_push+pull_closes (0.10s)
+            --- PASS: TestRowVisibilityRLS/WP8/an_APPROVER_MOVES_a_rejection_to_another_field_of_the_template_she_approves (0.09s)
+            --- PASS: TestRowVisibilityRLS/W1/templates:_alice's_forged_INSERT_is_still_refused_after_0004 (0.01s)
+            --- PASS: TestRowVisibilityRLS/W2/templates:_alice's_forged_UPDATE_of_bob's_template_is_still_refused (0.01s)
+            --- PASS: TestRowVisibilityRLS/W3/templates:_CAROL_THE_ADMIN_cannot_write_one_either (0.02s)
+            --- PASS: TestRowVisibilityRLS/W4/alice_pushes_a_submission_claiming_a_template_she_CANNOT_see (0.09s)
+            --- PASS: TestRowVisibilityRLS/W5/ESCALATION_BY_UPDATE_—_alice_moves_her_own_row_into_a_template_she_cannot_see (0.07s)
+            --- PASS: TestRowVisibilityRLS/W6/alice_pushes_a_response_on_a_field_she_cannot_see (0.05s)
+            --- PASS: TestRowVisibilityRLS/W7/ESCALATION_BY_UPDATE_—_alice_repoints_her_own_response_at_dave's_field (0.09s)
+            --- PASS: TestRowVisibilityRLS/W8/an_UNRESOLVABLE_field_is_UNWRITABLE_for_everyone,_ADMINS_INCLUDED (0.06s)
+            --- PASS: TestRowVisibilityRLS/W9/🛑_THE_ASYMMETRY_—_an_ASSIGNEE_cannot_reject_their_own_work (0.09s)
+            --- PASS: TestRowVisibilityRLS/W10/an_approver_cannot_reach_OUTSIDE_the_template_they_approve (0.06s)
+            --- PASS: TestRowVisibilityRLS/W11/READ_≠_WRITE_ON_ONE_ROW_—_alice_can_pull_rej-alice_and_cannot_edit_it (0.07s)
+            --- PASS: TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED (0.14s)
+            --- PASS: TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve (0.09s)
+            --- PASS: TestRowVisibilityRLS/W12/DELETE_is_deny-all_on_every_replicated_table (0.04s)
+            --- PASS: TestRowVisibilityRLS/W13/claim_injection_on_the_WRITE_path_—_a_token_that_ASSERTS_admin (0.12s)
+            --- FAIL: TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ (0.12s)
+            --- PASS: TestRowVisibilityRLS/W15/the_JWT_layer_refuses_writes_too_—_anon,_expired,_unsigned (0.01s)
+            --- FAIL: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.07s)
+        FAIL
+        FAIL	github.com/yumyums/hq/internal/sync	8.854s
+        FAIL
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	66.814s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.591s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	2.021s
+FAIL
+EXIT=1

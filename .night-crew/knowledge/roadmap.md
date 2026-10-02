@@ -666,7 +666,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > (H3a — ingest + mirror + migration 0084 + B-424) and `reconciliation-and-stats-engine` (H3b — the
 > engine and its endpoints). Both are children of the `toast-orders-and-reconciliation` goal ledger.
 
-- **`campaign-codes-api`** · **PLANNED** · (H1, track A — backend) Campaign admin in HQ Go +
+- **`campaign-codes-api`** · **LANDED** (run `20261002`, branch `card/h1-campaign-codes-api`) · (H1, track A — backend) Campaign admin in HQ Go +
   Postgres (decision 187): migration `0083_campaigns_admin` (`campaigns_admin`, `qr_codes`,
   `qr_scans`), `POST /api/v1/marketing/campaigns` mints **one `qr_codes` row per channel** in
   one transaction, projects the four tablet columns to Supabase `campaigns` over PostgREST
@@ -682,8 +682,21 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `go.mod`. Also lands the no-op `marketing.MountReports(r)` seam inside the BI
   route block (`RequirePermission(pool,"bi")`) so H3b's report reads mount there without touching
   `main.go` again (decision 192).
+  **Landed as slated**, with four things stated rather than assumed: (1) `main.go` has THREE call
+  sites, not two — `Mount`, `MountReports` and `MountPublic`, because the public `/q/{short}`
+  cannot live inside either gated block; (2) `MountReports` sits in a `bi` `r.Group` of its own,
+  not inside the `/inventory` Route, whose prefix would have made the contract
+  `/api/v1/inventory/bi/*`; (3) `marketing_settings` is a **Supabase** table with no HQ copy, so
+  the #5 threshold is read over PostgREST when the projection is configured and falls back to the
+  substrate's own seeded 2000 cents at WARN — a dead substrate never blocks a save; (4) the
+  projection writes **four** columns (`id, name, face_value, requires_online`), which is what
+  Supabase `public.campaigns` has — decision 187's "`expires_at`-equivalent" has no column to land
+  in, expiry living on `codes`. `funnel.signups` / `funnel.redeemed` and the whole `money` block
+  ship as the stated zero shapes H5 / H3a / H3b fill. The CONFIGURED projection path is proven
+  against the local `spike-supabase` substrate from Go, not stubbed
+  (`TestProjectionConfiguredUpsertsToSubstrate`).
 
-- **`campaigns-tab-ui`** · **PLANNED** · (H2, track B — UI) The Campaigns section of
+- **`campaigns-tab-ui`** · **LANDED** · (H2, track B — UI) The Campaigns section of
   `marketing.html` per Current Campaigns 1–8: list as funnel cards with the money strip
   (revenue / discount / net / Per $1 pill), the one-sheet create (channels as chips, Value and
   Item visible, payload preview, "Create campaign + N codes"), the "N codes ready" screen,
@@ -695,8 +708,24 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   the PNGs are read back; `sw.js` regenerated + committed, precache count stated. Footprint:
   `marketing.html`, `marketing/campaigns.js` (new), `tests/marketing-campaigns.spec.js` (new),
   `tests/states-marketing-campaigns.spec.js` (new), `sw.js`, `night-crew.toml` (+seam rows).
+  **Landed as slated**, built against H1's REAL endpoints rather than a fixture server (H1 had
+  merged when this started), with four things stated rather than assumed: (1) the State
+  Enumeration rows split **5 real / 3 fixture** — success, locked, offline, not-projected and
+  long-content hit the real endpoints, while empty / loading / error ride `page.route` because a
+  shared e2e database and a real server cannot produce "no campaigns", "slow" or "500" on demand;
+  (2) `not projected` needed **no** fixture at all — `HQ_SYNC_REST_URL` is unset on the test
+  stack, so the handler genuinely returns `projected_at: null` + `warnings:["not_projected"]`;
+  (3) Share is feature-detected per PAYLOAD at sheet-open time with a real `image/png` File, and
+  when the probe says no there is **no Share button** — Save PNG becomes primary — which is the
+  branch `[MC-03b]` asserts un-stubbed beside `[MC-03a]`'s installed-API observation; (4) the
+  create sheet's **Item** field degrades to "Any item · needs Inventory access" for a manager
+  without the `inventory` grant, because the dish catalog read is the Inventory app's — noted as
+  a deviation rather than solved by a backend route in another card's footprint. `night-crew.toml`
+  took a **roll-call comment only** (no new key, no new token): the existing `marketing` token
+  now selects 3 specs, not 1. Precache **48 → 49** (`marketing/campaigns.js`; no `globPatterns`
+  change — `marketing/*.js` already matched it).
 
-- **`toast-orders-and-mirror`** · **PLANNED** · (H3a, track C — backend; the first half of the
+- **`toast-orders-and-mirror`** · **LANDED** (run `20261002`, branch `card/h3a-toast-orders-and-mirror`) · (H3a, track C — backend; the first half of the
   `toast-orders-and-reconciliation` goal, split at the slate sitting 2026-10-01) Supersedes
   `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync fetches `OrderDetails.csv` beside
   `ItemSelectionDetails.csv` and upserts `toast_orders` keyed `(business_date, order_number)` —
@@ -709,7 +738,16 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   migration. B-424: unique index on `race_lost_notifications (code_id, losing_device, scanned_at)`
   (store insert becomes `ON CONFLICT DO NOTHING`) and the F4 status bullet owned here.
   done_when: `TestOrderDetailsUpsertIsIdempotent`, `TestScanAttemptsMirrorKeysetResumes`,
-  `TestRaceLostNotificationDedupe` red → green; Go suite counts checked. Footprint:
+  `TestRaceLostNotificationDedupe` red → green; Go suite counts checked. **Landed as planned, with
+  four stated engineer-level calls** (full text in the card's merge-intent): `scan_attempts_mirror.code_id`
+  ships NULLABLE and gains `token_hash`, because upstream dropped that NOT NULL for F2 and a
+  verbatim §4 NOT NULL would have silently refused exactly the unverified-code attempts F4 cares
+  about most; `campaign_id` mirrors as NULL (upstream has no such column and no FK to embed
+  through); B-424's index is on 0077's real column names `(code_token_hash, device_id, scanned_at)`;
+  and the keyset's one real gap — a late-arriving offline attempt whose `scanned_at` predates the
+  cursor is never mirrored — is named in `mirror.go` with its fix rather than left to be
+  rediscovered. `TestScanAttemptsMirrorKeysetResumes` ran against the **LIVE** `spike-supabase`
+  substrate, not a fixture. Footprint:
   `backend/internal/toast/` (+`orderdetails.go`, `sync.go`), `backend/internal/marketing/mirror.go`,
   migration 0084, `backend/internal/redemption/store.go`, `backend/cmd/server/main.go` (poller
   start beside the Toast worker → undeclared seam → full Playwright suite).

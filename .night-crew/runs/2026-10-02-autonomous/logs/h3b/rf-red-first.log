@@ -1,0 +1,19 @@
+# RF (red-first) — card h3b, run 20261002
+# cmd: (from backend/) go test -p 1 -count=1 ./internal/marketing/ -run 'TestQueueOrders...|TestDeclineOtherRequiresNote|TestOrphanRateCountsDeclinesExceptDuplicateScan|TestSlicesReconcileToOverview'
+# DB_TEST_URL set; HQ_SYNC_SUBSTRATE_OPTIONAL and HQ_SYNC_GATE_CHILD both UNSET
+
+# github.com/yumyums/hq/internal/marketing [github.com/yumyums/hq/internal/marketing.test]
+internal/marketing/reconciliation_test.go:38:10: undefined: ReconQueueResponse
+internal/marketing/reconciliation_test.go:80:10: undefined: ReconQueueResponse
+internal/marketing/reconciliation_test.go:153:15: undefined: ReconDeclinedResponse
+internal/marketing/reconciliation_test.go:214:12: undefined: ReconQueueResponse
+internal/marketing/reconciliation_test.go:240:12: undefined: ReconQueueResponse
+internal/marketing/reconciliation_test.go:280:12: undefined: ReconQueueResponse
+internal/marketing/stats_test.go:23:42: undefined: MountReportsDeps
+internal/marketing/stats_test.go:131:9: undefined: StatsOverviewResponse
+internal/marketing/stats_test.go:174:10: undefined: StatsByResponse
+internal/marketing/stats_test.go:229:9: undefined: StatsOverviewResponse
+internal/marketing/stats_test.go:229:9: too many errors
+FAIL	github.com/yumyums/hq/internal/marketing [build failed]
+FAIL
+EXIT=1

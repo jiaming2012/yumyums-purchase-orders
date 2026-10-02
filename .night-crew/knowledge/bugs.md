@@ -35,6 +35,138 @@ worktree before blaming a card; if they are red there, the card is not the
 cause. Diagnose from the snapshot (route hit count vs. page fetch), not from
 the assertion.
 
+*Re-measured 2026-10-01 at the launch of run `20261002`* — the base-reds leg this
+entry's handling note prescribes, run for real on a detached `dev` worktree at
+`c4f6db4` (`logs/base-pw.log`, one summary block, `EXIT_PW=1`): **24 failed / 965
+passed in 34.8m.** The Go suite on the same tree is **clean** (368 top-level tests,
+0 fail, 2 opt-in skips) — so this is a browser-surface condition only.
+
+The 24 decompose as: this entry's cluster, still red and still undiagnosed; the
+**three** surviving reds of B-433's stale four (`SYNC-FC-01`, `SYNC-RF-01`,
+`SYNC-RF-02` — `B1-XT-01` passed, consistent with 20260906-2 and 20260907);
+`store_location` (B-453, named flaky above); and **four this record did not carry**:
+
+| Test | Note |
+|---|---|
+| `tests/receipt-carousel.spec.js:54` — single attachment renders simple iframe overlay without carousel nav | new to the record |
+| `tests/receipt-carousel.spec.js:123` — multi attachment renders carousel with prev/next and counter | new to the record |
+| `tests/purchasing.spec.js:455` — No photo badge shows on checked item without photo and disappears after photo upload | new to the record |
+| `tests/workflows.spec.js:1641` — Tab Persistence › inventory tab persists on reload | new to the record; names the Inventory tab, so plausibly the same hub cause |
+
+Three of those four touch the same receipt/attachment and Inventory-tab surfaces as
+the cluster, which is suggestive but **not diagnosed** — recorded, not concluded.
+`inventory.spec.js:1404` (B-437) and `FILL-04` (B-443) were **green** on this base.
+
+🛑 **This set of 24 is run `20261002`'s no-new-reds baseline.** A card tonight is
+judged against it, never against green, and a red inside it is not that card's.
+
+### One member of the cluster is now DIAGNOSED — `inventory.spec.js:2186` (Setup alias chips)
+
+Named by Card 2's G6 on 2026-10-01, and it is **a real race in pre-existing Inventory
+code, not load flake**. The test fails as `expect('.alias-chip').toHaveCount(2)` →
+`Received: 1`, and it flips **both ways in isolation on a quiet box**, which load
+contention cannot explain.
+
+**Mechanism.** `ALL_ITEMS` has **three unsequenced writers**, all last-write-wins with no
+request versioning: `inventory.html:2179` (`loadItems()`), `:2835` (the `DOMContentLoaded`
+preload) and `:2550` (the alias handler's own refetch). The test does `reload()` →
+`waitForLoadState('networkidle')` → `goTab(7)`, and **`goTab(7)` fires a fresh `GET /items`
+that `networkidle` does not cover**. The Add handler then runs `POST /items/aliases` →
+`GET /items` → `ALL_ITEMS` becomes the 2-alias snapshot → `refreshAliasChips()` paints 2
+chips. If the *earlier* in-flight `GET` — issued before the POST — resolves **last**, it
+overwrites `ALL_ITEMS` with the 1-alias snapshot and `loadItems()` re-renders the list from
+it, producing exactly the observed count of 1. Timing-dependent on response ordering, hence
+both-ways.
+
+**Fix direction:** sequence or version the items fetch (ignore a response older than the
+latest issued request), rather than retrying the test.
+
+**Proven NOT attributable to any card tonight:** `playwright.config.js:65` sets
+`serviceWorkers: 'block'` repo-wide, so a `sw.js` change has no path to it; `inventory.spec.js`
+loads neither `marketing.html` nor `marketing/campaigns.js`; and with `workers: 1` and
+alphabetical file order it runs **before** every spec added tonight, so none can pollute it.
+
+*Handling:* treat a `:2186` red as this race until the fetch is sequenced. It is a product
+defect in the Inventory page's state management, not a test defect — the test is correct to
+expect 2. **Filed as B-459** with the reproduction recipe and fix direction.
+
+**Reproduced first-hand, not merely reasoned about** (same G6, amended report): three isolated
+passes at one HEAD on an otherwise idle box — `PASS_1_EXIT=0`, `PASS_2_EXIT=1`, `PASS_3_EXIT=1`,
+each red with the identical shape (`.alias-chip` `toHaveCount(2)` → `Received: 1` at
+`inventory.spec.js:2214`). **Final tally 1 green / 2 red: alone on an idle box it fails MORE
+OFTEN THAN IT PASSES**, which puts it closer to a hard red than to a flake. **That settles it:
+load contention is not the cause**, and "flaky under load" was the wrong label — the one this run
+first applied, and corrected. (This entry first recorded the tally as "green then red" from the
+first two passes; the third landed red and is folded in here rather than left to imply a 50/50.)
+
+🛑 **The user-facing hazard is worse than the test failure.** A manager who adds a nickname
+while the Setup list is still loading sees the chip **silently vanish**, while the server has
+kept the alias. The write is durable; only the view lies — so the manager re-adds a nickname the
+database already holds. That is the dangerous shape of this defect class, and it is why this one
+is a product bug rather than a test nuisance.
+
+**Reproduction recipe:** `npx playwright test tests/inventory.spec.js -g "Setup item editor shows
+alias chips"` **alone, repeatedly.**
+
+**Worth testing against the other 16:** if the rest of the cluster shares this writer-ordering
+shape, one sequencing fix may close most of it. That is a lead, not a conclusion.
+
+### 🛑 Method note: a ONE-SAMPLE baseline cannot classify a high-rate race
+
+Established by a base-commit control on run `20261002` (G6, Card 2). The same test, three
+isolated passes each, same box, same command:
+
+| tree | pass 1 | pass 2 | pass 3 | rate |
+|---|---|---|---|---|
+| base `overnight-20261002` | red | green | red | **2 red / 1 green** |
+| card HEAD `f29a8b7` | green | red | red | **2 red / 1 green** |
+
+Identical rate, identical failure shape, with and without the card. Two consequences for how
+any run judges a card, and both bit this one:
+
+1. **The run's 24-red baseline is a single sample.** `:2186` was *green* in that one base run and
+   *red* in the card's full suite, which is exactly why it was classified "non-baseline" and read
+   as possibly the card's. For a test that fails ~⅔ of the time in isolation, **its presence or
+   absence in any single full-suite run is a coin flip and carries no information about the
+   card.** A single-run baseline diff is necessary but not sufficient.
+2. **A single confined GREEN does not establish "flake, not regression" either.** It is the same
+   error with the sign flipped: one pass of a ⅓-pass race proves nothing. Tonight
+   `inventory.spec.js:2406`, `:2919` and `recipes.spec.js:216` were cleared as "flake pool" on
+   exactly one confined green apiece — which is weaker evidence than it looked, and they may be
+   ⅓-pass races rather than flakes.
+
+**The standard that actually settles attribution** is the control G6 ran: repeat the test in
+isolation on **both** the card HEAD **and** the base, several passes each, and compare the
+*rates*. A mechanical exclusion argument (this diff cannot reach that code) is stronger still
+when it holds — but when it does not, nothing short of a two-tree rate comparison distinguishes
+"the card broke it" from "it was already broken this often".
+
+### 🛑 The `spike-supabase` substrate is SHARED and UNLOCKED, and contention on it fakes an RLS regression
+
+Measured on run `20261002`. The box has a lock for Playwright (`flock /tmp/hq-full-suite.lock`,
+which worked all night and serialised six full suites without a single overlap). **There is no
+equivalent lock for the local `spike-supabase` substrate**, and several legs mutate it: Card 1's
+projection test, Card 3's mirror keyset test, Card 7's `f2-run.sh` and `campaigns-harness.mjs`
+legs, and `internal/sync`'s whole `TestRowVisibilityRLS` attack suite.
+
+**What it looks like when they collide**, because it does not look like contention: a post-merge
+`go test ./... -p 1` came back `EXIT_TEST=1` with **13 failures, every one inside
+`TestRowVisibilityRLS`** — including `V8/revocation replay`, `V9/live grant`,
+`W14/revocation replay on the WRITE path`, `W16/ESCALATION BY UPDATE` and
+`W17/the using clause`, plus `TestRowVisibilitySubtestCount_Executed`. That reads exactly like a
+**row-level-security regression** — the most alarming possible shape — and it was nothing of the
+kind. `internal/sync` re-run **alone** on the identical tree: `ok … 78.981s`, `EXIT=0`.
+
+*Handling:* **before reporting an `internal/sync` RLS failure, re-run that package alone.** If it
+passes in isolation, you hit substrate contention, not a security defect — say so with both exit
+lines. Do not chase it, and do not report it as a regression. Conversely, do not dismiss a red that
+*survives* isolation.
+
+*The real fix is a lock.* The substrate deserves the same treatment the Playwright box already has
+— one `flock` around any leg that mutates it, named in the slate's box rules beside the suite lock.
+Tonight's slate carefully serialised the box and said nothing about the substrate, which is how six
+cards shared one mutable fixture all night. **Filed as B-460.**
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because

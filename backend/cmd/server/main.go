@@ -28,6 +28,7 @@ import (
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/inventory"
+	"github.com/yumyums/hq/internal/marketing"
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
 	"github.com/yumyums/hq/internal/photos"
@@ -456,6 +457,15 @@ func main() {
 	// Load alert config early so handlers can send emails
 	alertCfg := alerts.LoadConfig()
 
+	// Campaign-admin wiring (card H1). Built ONCE and handed to both
+	// marketing.Mount (the gated admin routes) and marketing.MountPublic (the
+	// public /q/{short} landing), so the QR host, the landing host and the
+	// Supabase projection coordinates cannot drift between the code a manager
+	// prints and the URL a customer lands on. NewDeps logs at startup when the
+	// projection is unconfigured — campaigns then save with projected_at NULL
+	// and warnings:["not_projected"] rather than silently claiming success.
+	mktDeps := marketing.NewDeps(pool)
+
 	// WebSocket endpoint at /ws — behind auth middleware, outside /api/v1 prefix.
 	// It is the Operations live-sync channel (sync.js ← workflows.html), so it
 	// carries workflow data and sits behind the operations grant (card G1).
@@ -778,6 +788,35 @@ func main() {
 				})
 			})
 
+			// ── BI CAMPAIGN REPORTS (decision 192, card H1 lands the seam) ──
+			//
+			// The campaign report half — overview, funnel, money, the three
+			// slices — is a report with no user inputs, so the operator put it
+			// on the BI hub beside Trends and Food cost rather than inside
+			// Marketing. The contract is /api/v1/bi/campaigns/{overview,by}
+			// behind the `bi` grant with NO manager tier: anyone holding BI
+			// sees campaign money, which is the consequence the operator
+			// accepted. The reconciliation QUEUE stays in Marketing, because
+			// it is writes, not a report.
+			//
+			// marketing.MountReports is the seam card H3b fills from INSIDE
+			// internal/marketing. H3b has now LANDED (run 20261002), so this
+			// call registers GET /api/v1/bi/campaigns/{overview,by} — the same
+			// handlers as /api/v1/marketing/stats/*, byte-identical bodies,
+			// and WITHOUT the manager tier, which is decision 192's whole
+			// point: the reports answer to the `bi` grant alone. The seam did
+			// its job — landing the report half cost no second edit to this
+			// file, and main.go was touched tonight by H1 and H3a only.
+			// (This comment read "registers NOTHING today" until H3b landed;
+			// corrected at the merge that made it false.) A `bi` group of its own
+			// rather than a row inside the /inventory Route above, because
+			// routes registered there would be prefixed /api/v1/inventory/*
+			// and the contract says /api/v1/bi/*.
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "bi"))
+				marketing.MountReports(r)
+			})
+
 			// Phase 999.2 — recipes CRUD. The Recipes tab is Inventory-app data
 			// (no per-tab slug exists for it), so it sits behind the whole-app
 			// `inventory` grant (card G1). The menu-cogs endpoint sits in the
@@ -877,9 +916,36 @@ func main() {
 			r.Route("/marketing", func(r chi.Router) {
 				r.Use(auth.RequirePermission(pool, "marketing"))
 				r.Post("/redeem", redemption.SubmitHandler(redeemArb))
+
+				// Campaign admin (card H1, decision 187): the campaigns and
+				// codes a manager creates, and the PNG they share from their
+				// phone. The `marketing` grant opens the surface; the MANAGER
+				// TIER is enforced inside each handler (handoff §16) — a
+				// team_member gets 403 managers_only, which the Campaigns tab
+				// renders as the designed Locked state.
+				//
+				// 🛑 Mount IS THE SEAM. Cards H3b / H4 / H5 add their routes
+				// inside internal/marketing's routes.go, not here.
+				marketing.Mount(r, mktDeps)
 			})
 		})
 	})
+
+	// PUBLIC CAMPAIGN LANDING — GET/HEAD /q/{short} (card H1, decision 189).
+	//
+	// At the ROOT, outside /api/v1, outside auth.Middleware and outside every
+	// RequirePermission — deliberately, and for a plainer reason than the sync
+	// proxy's: a customer pointing a phone camera at a truck sign has no HQ
+	// session and must never be asked for one. The handler logs a qr_scans row
+	// (10-minute (short, ip_hash) dedupe; HEAD and known link-preview UAs are
+	// not logged) and 302s to the website with the UTM mirror plus q=<short>.
+	// An inactive or ended code answers 200 with a static "This offer has
+	// ended" page; an unknown short is a 404.
+	//
+	// BEFORE the "/*" static handler below. chi prefers the more specific
+	// pattern, but registering it after a catch-all is the kind of ordering
+	// nobody wants to re-derive.
+	marketing.MountPublic(r, mktDeps)
 
 	r.Handle("/*", staticHandler(staticFS)) // Cache-Control: no-cache — see static.go
 
@@ -924,6 +990,20 @@ func main() {
 	recipes.SetAlertQueue(alertQ)
 	if !schedulersDisabled {
 		recipes.StartDriftScheduler(ctx, pool)
+	}
+
+	// scan_attempts mirror — card H3a (run 20261002).
+	// Pulls Supabase public.scan_attempts into HQ's scan_attempts_mirror every
+	// 5 minutes with the service key, keyset on (scanned_at, id). Devices can
+	// INSERT upstream and never SELECT, so this is the only way the counter's
+	// outcome becomes visible inside HQ (B-424's F4 bullet).
+	// Unconfigured substrate (HQ_SYNC_REST_URL / HQ_SYNC_SERVICE_KEY unset) is
+	// IDLE AND LOGGED inside MirrorStart, not a failure. It sits here, beside
+	// the Toast worker, because the two together are the reconciliation join.
+	if schedulersDisabled {
+		slog.Info("scan-attempts mirror disabled", "reason", "E2E_DISABLE_SCHEDULERS=1")
+	} else {
+		marketing.MirrorStart(ctx, pool, mktDeps.Projection)
 	}
 
 	// Toast ingest — Phase 22.1.

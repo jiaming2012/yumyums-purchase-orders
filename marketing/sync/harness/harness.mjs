@@ -19,6 +19,7 @@ import { Subject } from 'rxjs';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { makeSupabaseClient, REST_PORT } from '../../../.night-crew/qa/spike-supabase/rxdb/spike-env.js';
@@ -57,6 +58,13 @@ const sortedIds = async (col) => (await col.find().exec()).map((d) => d.id).sort
 const eqSets = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 addRxPlugin(RxDBDevModePlugin);
+// 🛑 REQUIRED since CAMPAIGNS_REPLICA_SCHEMA went to version 1 (card
+// scanner-polish, run 20261002, B-447: + name). rxdb runs
+// `autoMigrate && version !== 0 && await migratePromise()` on every
+// collection creation, and without this plugin that call THROWS — this
+// harness would die before its first leg. The browser gets the same
+// registration in marketing/scan-page.js. No leg or assertion changed.
+addRxPlugin(RxDBMigrationSchemaPlugin);
 async function makeDb(collections) {
   const db = await createRxDatabase({
     name: `c2_${MODE.replace(/-/g, '_')}_${Date.now()}`,

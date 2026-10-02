@@ -28,6 +28,14 @@
 //       unverified attempt (guard BEFORE redeem, enumerated per B-216) and
 //       exactly one for the legitimate one.
 //
+// POISON mode (poison-mismatch, B-440): the 64-hex row carries
+// unverified_code=true but offline_override=FALSE — the shape the tightened
+// `scan_attempts_names_a_code` constraint rejects. Legs: the constraint's
+// refusal is ENUMERATED against the real substrate (not recalled), the guard
+// must neither divert it (the landing 400s) nor redeem it (the 22P02 400),
+// and the legitimate attempt behind it must still land. RED on a tree whose
+// divert predicate reads `unverified_code` alone.
+//
 // RED mode (red-unflagged): the same queue with the 64-hex row's
 // unverified_code flag STRIPPED — the guard's discriminator gone, the row
 // takes the redeem-first path, the deterministic 400 head-of-line-poisons the
@@ -55,10 +63,20 @@ import {
 import { marketingCollectionSpec, CODES_COLLECTION } from '../replicas.js';
 
 const MODE = process.argv[2] || 'green';
-if (!['green', 'red-unflagged'].includes(MODE)) {
-  console.error('usage: f2-harness.mjs [green|red-unflagged]');
+if (!['green', 'red-unflagged', 'poison-mismatch'].includes(MODE)) {
+  console.error('usage: f2-harness.mjs [green|red-unflagged|poison-mismatch]');
   process.exit(64);
 }
+// B-440 (card scanner-polish, run 20261002): the mismatched shape —
+// unverified_code WITHOUT offline_override. Run 20260906-2's rider (a)
+// tightened `scan_attempts_names_a_code` to demand BOTH, and the divert
+// predicate at ../push-replication.js kept testing `unverified_code` alone.
+// This mode drives the DISAGREEMENT: the row the constraint rejects is
+// exactly the row the old guard hands it, and the resulting HTTP 400 throws
+// the handler → RxDB retries forever → head-of-line poison, the F-2 class
+// the guard exists to prevent. The leg asserts the guard and the constraint
+// AGREE about this shape rather than testing either alone.
+const POISON = MODE === 'poison-mismatch';
 const env = (k) => {
   const v = process.env[k];
   if (!v) { console.error(`missing env ${k}`); process.exit(2); }
@@ -132,6 +150,26 @@ const landRes = await fetch(`${REST}/scan_attempts`, {
   }),
 });
 console.log(`  POST /scan_attempts   → HTTP ${landRes.status}  ${(await landRes.text()).slice(0, 120)}`);
+// B-440's premise, measured in THIS tree: the landing shape the OLD divert
+// predicate composes for a row without offline_override is refused by the
+// constraint run 20260906-2 tightened. Enumerated, never recalled.
+let mismatchLandStatus = null;
+if (POISON) {
+  const res = await fetch(`${REST}/scan_attempts`, {
+    method: 'POST', headers: { ...auth, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      id: crypto.randomUUID(), code_id: null, token_hash: UNKNOWN_HASH,
+      device_id: DEVICE, scanned_at: new Date().toISOString(),
+      status: 'accepted', reason: null,
+      offline_override: false, override_by: null, unverified_code: true,
+      policy_unresolved: false,
+      pos_order_number: 'A-0', pos_business_date: new Date().toISOString().slice(0, 10),
+      redeemed_value: null,
+    }),
+  });
+  mismatchLandStatus = res.status;
+  console.log(`  POST /scan_attempts (unverified_code + NO offline_override) → HTTP ${res.status}  ${(await res.text()).slice(0, 160)}`);
+}
 if (redeemRes.status === 200) fail('/rpc/redeem ACCEPTED a 64-hex p_code — the premise under the guard is gone; re-derive');
 if (landRes.status === 201) fail('/scan_attempts ACCEPTED a 64-hex code_id — the column stopped being uuid; re-derive');
 console.log('  → both refuse the raw shape; the guard must divert BEFORE the redeem call');
@@ -164,8 +202,11 @@ const LEGIT_CODE = freshCode('legit');
 // attempt behind it. In red-unflagged mode the discriminator is stripped.
 await enqueueAttempt(attempts, {
   code_id: UNKNOWN_HASH, device_id: DEVICE,
-  offline_override: true, override_by: 'f2-harness',
-  unverified_code: MODE === 'green', // red-unflagged: the flag lost → redeem-first path
+  // poison-mismatch (B-440): the flag WITHOUT the override — the shape the
+  // constraint rejects and the old predicate still diverted.
+  offline_override: !POISON,
+  override_by: POISON ? null : 'f2-harness',
+  unverified_code: MODE !== 'red-unflagged', // red-unflagged: the flag lost → redeem-first path
 });
 await enqueueAttempt(attempts, { code_id: LEGIT_CODE, device_id: DEVICE, pos_order_number: 'A-2' });
 
@@ -188,12 +229,14 @@ const rows = await attempts.find().exec();
 const legit = rows.find((r) => r.code_id === LEGIT_CODE);
 const unv = rows.find((r) => r.code_id === UNKNOWN_HASH);
 const redeems = requestLog.filter((r) => r.kind === 'redeem');
+const unvLandings = requestLog.filter((r) => r.kind === 'land-unverified' && r.code_id === UNKNOWN_HASH);
 const unvRedeems = redeems.filter((r) => r.code_id === UNKNOWN_HASH);
 const legitRedeems = redeems.filter((r) => r.code_id === LEGIT_CODE);
 const after = serverRows();
 
 console.log(`  push requests: ${requestLog.length} — kinds: ${[...new Set(requestLog.map((r) => r.kind))].join(', ') || '(none)'}`);
 console.log(`  redeem calls  : unverified=${unvRedeems.length} legit=${legitRedeems.length}`);
+console.log(`  land-unverified attempts for the 64-hex row: ${unvLandings.length}`);
 console.log(`  unverified row: status=${unv.status} landed=${unv.landed}`);
 console.log(`  legit row     : status=${legit.status} landed=${legit.landed}`);
 console.log(`  server scan_attempts rows: ${before} → ${after} (+${after - before})`);
@@ -226,19 +269,40 @@ try {
 // ---------------------------------------------------------------------------
 const problems = [];
 if (unvRedeems.length !== 0) problems.push(`the unverified attempt reached /rpc/redeem ${unvRedeems.length}× — the guard must sit BEFORE the burn`);
-if (unv.status !== 'accepted' || !unv.landed) problems.push(`the audit-flagged attempt did not land (status=${unv.status}, landed=${unv.landed}) — stranding it falsifies decision 166's reasoning`);
 if (legit.status !== 'accepted' || !legit.landed) problems.push(`the legitimate attempt behind it did not land (status=${legit.status}, landed=${legit.landed}) — head-of-line poison`);
 if (legitRedeems.length !== 1) problems.push(`expected exactly 1 redeem for the legitimate code, got ${legitRedeems.length}`);
-if (after - before !== 2) problems.push(`expected +2 server rows, got +${after - before}`);
-if (audit !== `(null)|${UNKNOWN_HASH}|true|true|accepted`) problems.push(`audit row shape wrong: ${audit || '(none)'} — expected (null)|${UNKNOWN_HASH}|true|true|accepted`);
+if (POISON) {
+  // ── B-440: the guard and the constraint must AGREE about this shape ──
+  if (mismatchLandStatus === 201) {
+    problems.push("the constraint ACCEPTED unverified_code without offline_override — B-440's premise is gone (scan_attempts_names_a_code was loosened); re-derive before changing the guard");
+  }
+  if (unvLandings.length !== 0) {
+    problems.push(`the guard diverted a row the constraint rejects (${unvLandings.length} land-unverified attempt(s)) — the divert predicate must demand offline_override too, or the HTTP 400 head-of-line poisons the queue`);
+  }
+  if (unv.status !== 'pending' || unv.landed) {
+    problems.push(`the quarantined row should stay pending and unlanded on-device (evidence, not cache) — got status=${unv.status}, landed=${unv.landed}`);
+  }
+  if (after - before !== 1) problems.push(`expected +1 server row (the legitimate attempt only), got +${after - before}`);
+  if (audit !== '') problems.push(`a row the constraint rejects reached the server anyway: ${audit}`);
+} else {
+  if (unv.status !== 'accepted' || !unv.landed) problems.push(`the audit-flagged attempt did not land (status=${unv.status}, landed=${unv.landed}) — stranding it falsifies decision 166's reasoning`);
+  if (after - before !== 2) problems.push(`expected +2 server rows, got +${after - before}`);
+  if (audit !== `(null)|${UNKNOWN_HASH}|true|true|accepted`) problems.push(`audit row shape wrong: ${audit || '(none)'} — expected (null)|${UNKNOWN_HASH}|true|true|accepted`);
+}
 
 console.log('\n── conclusion ──');
 if (problems.length) {
   for (const p of problems) console.error(`  ✗ ${p}`);
   fail(`${problems.length} disagreement(s)`);
 }
-console.log('  · the guard diverts the unverified attempt BEFORE redeem() (zero redeem calls for it),');
-console.log('    lands it on the distinct path (code_id null + token_hash + flags, status accepted),');
-console.log('    and the legitimate attempt behind it lands — no head-of-line poison.');
+if (POISON) {
+  console.log('  · the constraint refuses unverified_code without offline_override (enumerated above),');
+  console.log('    the guard refuses the same shape — neither diverted nor redeemed — and the');
+  console.log('    legitimate attempt behind it lands: guard and constraint AGREE, no poison.');
+} else {
+  console.log('  · the guard diverts the unverified attempt BEFORE redeem() (zero redeem calls for it),');
+  console.log('    lands it on the distinct path (code_id null + token_hash + flags, status accepted),');
+  console.log('    and the legitimate attempt behind it lands — no head-of-line poison.');
+}
 clearTimeout(hardTimeout);
 process.exit(0);

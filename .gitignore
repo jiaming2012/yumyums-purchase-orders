@@ -1,6 +1,12 @@
 node_modules
 test-results/
 test-results-ui/
+# Default home for state-enumeration screenshots. Deliberately NOT inside
+# test-results/ (Playwright wipes outputDir at the start of EVERY run, which
+# destroyed one card's Definition-of-Done evidence before it could be read back
+# — G6 F3). Untracked here; a run that needs the PNGs as durable evidence
+# points STATES_SHOT_DIR at its own logs/ tree and commits them there.
+test-screenshots/
 playwright-report/
 .planning/
 .claude/*

@@ -1,0 +1,249 @@
+# RF GREEN — the full card tree. Same three tests, same database (:5434 / hqtest /
+#   hq_test_go_h3a), migration 0084 restored.
+# $ go test -p 1 -count=1 -v ./internal/toast/ ./internal/marketing/ ./internal/redemption/
+#
+# 🛑 -p 1 IS LOAD-BEARING HERE and the first attempt proved it: with the three packages
+#   running in parallel against one freshly-rolled-back database, two TestMains raced to
+#   apply 0084 and both panicked with
+#   'duplicate key value violates unique constraint pg_type_typname_nsp_index' — two
+#   concurrent CREATE TABLE toast_orders. Not a card defect; see CLAUDE.md's -p 1 note.
+#
+# TestScanAttemptsMirrorKeysetResumes runs against the LIVE spike-supabase substrate:
+#   HQ_MARKETING_MIRROR_LIVE=1 is armed, so an unreachable substrate FAILS rather than skips.
+
+2026/10/01 21:05:19 goose: no migrations to run. current version: 84
+2026/10/01 21:05:19 INFO database migrations applied successfully
+=== RUN   TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig
+--- PASS: TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathEmpty_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathEmpty_FailsFast (0.00s)
+=== RUN   TestSyncDate_DialFailure_ReturnsUnavailable
+2026/10/01 21:05:19 ERROR toast sync: SFTP unavailable (dial/auth failed) date=20261001 error="ssh dial: unable to authenticate"
+--- PASS: TestSyncDate_DialFailure_ReturnsUnavailable (0.00s)
+=== RUN   TestHandleSyncOutcome_SFTPUnavailable_FailsLoud
+2026/10/01 21:05:19 ERROR toast worker: ALERT dispatched (SFTP unavailable) message="Toast sync FAILING: cannot open/authenticate SFTP — no sales data is landing. Last error: toast sync: sftp dial/auth failed"
+--- PASS: TestHandleSyncOutcome_SFTPUnavailable_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_Success_NoAlert
+--- PASS: TestHandleSyncOutcome_Success_NoAlert (0.00s)
+=== RUN   TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud
+2026/10/01 21:05:19 ERROR toast worker: cycle reached SFTP but persisted nothing summary="mkdir cache: permission denied"
+--- PASS: TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_AllMiss_IsHealthy
+--- PASS: TestHandleSyncOutcome_AllMiss_IsHealthy (0.00s)
+=== RUN   TestSyncDate_KeyUnreadable_ReturnsUnavailable
+2026/10/01 21:05:19 ERROR toast sync: SFTP key unreadable path=/tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable478282737/001/id_rsa error="read /tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable478282737/001/id_rsa: is a directory"
+--- PASS: TestSyncDate_KeyUnreadable_ReturnsUnavailable (0.00s)
+=== RUN   TestOrderDetailsUpsertIsIdempotent
+    orderdetails_test.go:134: same file twice: rows=4 distinct_keys=4 amount_cents=125023 discount_cents=341
+--- PASS: TestOrderDetailsUpsertIsIdempotent (0.05s)
+=== RUN   TestParseOrderDetailsCoercions
+--- PASS: TestParseOrderDetailsCoercions (0.00s)
+=== RUN   TestParseOrderDetailsRequiresItsColumns
+2026/10/01 21:05:19 WARN toast orders: optional column absent; the matching field stays NULL column=Closed file=OrderDetails.csv
+2026/10/01 21:05:19 WARN toast orders: optional column absent; the matching field stays NULL column="Order Source" file=OrderDetails.csv
+--- PASS: TestParseOrderDetailsRequiresItsColumns (0.00s)
+=== RUN   TestMigration0084DownAndUpRoundTrip
+2026/10/01 21:05:19 OK   0084_toast_orders_reconciliation.sql (21.44ms)
+2026/10/01 21:05:19 goose: no migrations to run. current version: 83
+2026/10/01 21:05:20 OK   0084_toast_orders_reconciliation.sql (127.28ms)
+2026/10/01 21:05:20 goose: successfully migrated database to version: 84
+2026/10/01 21:05:20 INFO database migrations applied successfully
+    orderdetails_test.go:296: 0084 Down/Up round-trip clean; schema left fully up
+--- PASS: TestMigration0084DownAndUpRoundTrip (0.21s)
+=== RUN   TestParseHappyPath
+--- PASS: TestParseHappyPath (0.00s)
+=== RUN   TestParseExcludesVoidedRows
+--- PASS: TestParseExcludesVoidedRows (0.00s)
+=== RUN   TestParseAggregatesSameMasterIdSameDay
+--- PASS: TestParseAggregatesSameMasterIdSameDay (0.00s)
+=== RUN   TestParseHandlesUTF8BOMInFirstHeader
+--- PASS: TestParseHandlesUTF8BOMInFirstHeader (0.00s)
+=== RUN   TestParseMissingRequiredColumnFails
+--- PASS: TestParseMissingRequiredColumnFails (0.00s)
+=== RUN   TestParseDecimalQtyTolerated
+--- PASS: TestParseDecimalQtyTolerated (0.00s)
+=== RUN   TestParseEmptyMenuSubgroupBecomesNil
+--- PASS: TestParseEmptyMenuSubgroupBecomesNil (0.00s)
+=== RUN   TestParseEmbeddedDuplicateHeader
+--- PASS: TestParseEmbeddedDuplicateHeader (0.00s)
+=== RUN   TestSyncStatus_UnknownBeforeAnyCycle
+--- PASS: TestSyncStatus_UnknownBeforeAnyCycle (0.00s)
+=== RUN   TestSyncStatus_FailingAfterSFTPFailure
+--- PASS: TestSyncStatus_FailingAfterSFTPFailure (0.00s)
+=== RUN   TestSyncStatus_OKAfterSuccess
+--- PASS: TestSyncStatus_OKAfterSuccess (0.00s)
+=== RUN   TestSyncStatus_FailureThenRecovery
+--- PASS: TestSyncStatus_FailureThenRecovery (0.00s)
+=== RUN   TestSyncStatus_StaleWhenLastSuccessOld
+--- PASS: TestSyncStatus_StaleWhenLastSuccessOld (0.00s)
+=== RUN   TestSyncStatus_NilSafe
+--- PASS: TestSyncStatus_NilSafe (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/toast	0.296s
+2026/10/01 21:05:20 goose: no migrations to run. current version: 84
+2026/10/01 21:05:20 INFO database migrations applied successfully
+=== RUN   TestCreateCampaignMintsOneCodePerChannel
+2026/10/01 21:05:20 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=0d46c55f-04c5-47b5-a6eb-cf484ebb3da8
+--- PASS: TestCreateCampaignMintsOneCodePerChannel (0.17s)
+=== RUN   TestCreateCampaignRejectsOtherWithoutLabel
+--- PASS: TestCreateCampaignRejectsOtherWithoutLabel (0.10s)
+=== RUN   TestCreateCampaignSlugsAreUnique
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=026e85ff-4c48-4bf9-afdb-105a90122cd1
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=d9001f47-90f3-411b-8bb0-f02c40d51f4c
+--- PASS: TestCreateCampaignSlugsAreUnique (0.15s)
+=== RUN   TestRequiresOnlineDerivedFromThreshold
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=07387831-d707-493c-9b0c-14dc410c81ae
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=7a316a92-1a38-4281-83ff-8cb4d013dc4c
+--- PASS: TestRequiresOnlineDerivedFromThreshold (0.15s)
+=== RUN   TestTeamMemberGets403ManagersOnly
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a1b3b505-ca80-4bb7-8a0c-84ae886f7c86
+--- PASS: TestTeamMemberGets403ManagersOnly (0.11s)
+=== RUN   TestListCampaignsFunnelAndZeroMoney
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=dc6ee53f-8150-49d0-89e4-1f02c36f1b13
+--- PASS: TestListCampaignsFunnelAndZeroMoney (0.12s)
+=== RUN   TestPatchCodeRepointsWithoutChangingShort
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=cadb696a-fe52-4649-8b20-dc8ca869b637
+--- PASS: TestPatchCodeRepointsWithoutChangingShort (0.11s)
+=== RUN   TestPatchCampaignStatus
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=5190d682-aa78-4664-9b7e-f74676fdeb88
+--- PASS: TestPatchCampaignStatus (0.11s)
+=== RUN   TestAddCodeToExistingCampaign
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e3dc52c5-20ae-4a2e-a889-a2d8be2ca781
+--- PASS: TestAddCodeToExistingCampaign (0.13s)
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/01 21:05:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=df12750d-e525-48ad-a5cb-d04185db16b7
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.17s)
+=== RUN   TestLandingWithoutItemOmitsUTMContent
+2026/10/01 21:05:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=917eee59-e0be-4657-ad7c-b024d60b0a74
+--- PASS: TestLandingWithoutItemOmitsUTMContent (0.11s)
+=== RUN   TestLandingInactiveCodeRendersEndedPage
+2026/10/01 21:05:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a8fcc93e-a6a1-4367-b2aa-95e43b5dc397
+--- PASS: TestLandingInactiveCodeRendersEndedPage (0.16s)
+=== RUN   TestScanAttemptsMirrorKeysetResumes
+    mirror_test.go:277: poll 0 (drain): fetched=1 pages=1 cursor=2026-09-06T21:17:47.269Z/0d518420-4c59-46f9-8d63-94954ba0cc48
+    mirror_test.go:296: poll 1: fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111
+    mirror_test.go:356: LIVE substrate http://127.0.0.1:52932 — poll1 fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111; poll2 fetched=2 from=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111 to=2099-01-01T12:01:00Z/33333333-3333-4333-8333-333333333333; A's mirrored_at unchanged
+--- PASS: TestScanAttemptsMirrorKeysetResumes (0.29s)
+=== RUN   TestMirrorUnconfiguredIsIdleNotFatal
+2026/10/01 21:05:22 INFO scan-attempts mirror idle: substrate not configured; scan_attempts_mirror will stay empty missing="HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY" interval=5m0s
+--- PASS: TestMirrorUnconfiguredIsIdleNotFatal (0.00s)
+=== RUN   TestProjectionUnconfiguredLeavesProjectedAtNull
+2026/10/01 21:05:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=fa052bd1-d70e-4bac-b462-f632bc45ec3a
+--- PASS: TestProjectionUnconfiguredLeavesProjectedAtNull (0.11s)
+=== RUN   TestProjectionFailureLeavesProjectedAtNull
+2026/10/01 21:05:22 WARN marketing: marketing_settings read refused; using the default requires_online threshold status=503 default_cents=2000
+2026/10/01 21:05:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection upsert: postgrest status 503" campaign_id=3578e7ec-124a-4adf-896b-6384cfa7d4c2
+--- PASS: TestProjectionFailureLeavesProjectedAtNull (0.13s)
+=== RUN   TestProjectionConfiguredUpsertsToSubstrate
+    projection_test.go:151: MKT_PROJECTION_LIVE != 1 — the local spike-supabase substrate leg is opt-in
+--- SKIP: TestProjectionConfiguredUpsertsToSubstrate (0.00s)
+=== RUN   TestPayloadStaysAtQRVersion3
+--- PASS: TestPayloadStaysAtQRVersion3 (0.00s)
+=== RUN   TestCodePNGHandler
+2026/10/01 21:05:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e0d547b2-8096-48fe-bdbc-1fd14ea3343d
+--- PASS: TestCodePNGHandler (0.23s)
+=== RUN   TestNewShortCodeShape
+--- PASS: TestNewShortCodeShape (0.00s)
+=== RUN   TestSlugify
+--- PASS: TestSlugify (0.00s)
+=== RUN   TestUAFamily
+--- PASS: TestUAFamily (0.00s)
+=== RUN   TestIsLinkPreview
+--- PASS: TestIsLinkPreview (0.00s)
+=== RUN   TestLooksAutomatedIsWiderThanIsLinkPreview
+--- PASS: TestLooksAutomatedIsWiderThanIsLinkPreview (0.00s)
+=== RUN   TestMountReportsIsANoOpSeamToday
+--- PASS: TestMountReportsIsANoOpSeamToday (0.00s)
+=== RUN   TestMountRegistersTheGatedRouteTable
+--- PASS: TestMountRegistersTheGatedRouteTable (0.00s)
+=== RUN   TestMountPublicRegistersOnlyTheLanding
+--- PASS: TestMountPublicRegistersOnlyTheLanding (0.00s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/01 21:05:23 OK   0084_toast_orders_reconciliation.sql (22.36ms)
+2026/10/01 21:05:23 OK   0083_campaigns_admin.sql (24.96ms)
+2026/10/01 21:05:23 goose: no migrations to run. current version: 82
+2026/10/01 21:05:23 OK   0083_campaigns_admin.sql (105.65ms)
+2026/10/01 21:05:23 OK   0084_toast_orders_reconciliation.sql (119.05ms)
+2026/10/01 21:05:23 goose: successfully migrated database to version: 84
+2026/10/01 21:05:23 INFO database migrations applied successfully
+    zz_migration_down_test.go:61: 0083 Down/Up round-trip clean; schema left fully migrated
+--- PASS: TestMigration0083DownAndUpRoundTrip (0.40s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	2.784s
+2026/10/01 21:05:23 goose: no migrations to run. current version: 84
+2026/10/01 21:05:23 INFO database migrations applied successfully
+=== RUN   TestF4_RaceLostReconciledEmitsNotification
+2026/10/01 21:05:24 WARN RaceLostReconciled code_token_hash=f4-code-hash device_id=device-b staff=manager@yumyums.kitchen order_number=4021 scanned_at=2026-09-04T19:42:00.000Z value_known=true value=2.5 unverified_code=true
+--- PASS: TestF4_RaceLostReconciledEmitsNotification (0.05s)
+=== RUN   TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit
+--- PASS: TestF4_OnlineAlreadyUsedWithoutOverrideDoesNotEmit (0.04s)
+=== RUN   TestSubmitHandlerContract
+--- PASS: TestSubmitHandlerContract (0.00s)
+=== RUN   TestSubmitHandlerNotFoundVerdictIs200
+--- PASS: TestSubmitHandlerNotFoundVerdictIs200 (0.00s)
+=== RUN   TestSubmitHandlerFailClosed503
+--- PASS: TestSubmitHandlerFailClosed503 (0.00s)
+=== RUN   TestSubmitHandlerValidation
+--- PASS: TestSubmitHandlerValidation (0.00s)
+=== RUN   TestSubmitHandler500OnNotificationFailure
+--- PASS: TestSubmitHandler500OnNotificationFailure (0.00s)
+=== RUN   TestSubmitHandlerNoSessionUser401
+--- PASS: TestSubmitHandlerNoSessionUser401 (0.00s)
+=== RUN   TestHappyPathRedeemed
+--- PASS: TestHappyPathRedeemed (0.00s)
+=== RUN   TestOutcomeRouting
+--- PASS: TestOutcomeRouting (0.00s)
+=== RUN   TestNotFoundIsFailedTerminalWithNotFoundWireResult
+--- PASS: TestNotFoundIsFailedTerminalWithNotFoundWireResult (0.00s)
+=== RUN   TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired
+--- PASS: TestEKR2_UnknownOrEmptyBurnResultIsFailedNeverExpired (0.00s)
+=== RUN   TestMissingTokenFailsWithoutInvoke
+--- PASS: TestMissingTokenFailsWithoutInvoke (0.00s)
+=== RUN   TestBoundedRetryRecoversTransientError
+--- PASS: TestBoundedRetryRecoversTransientError (0.10s)
+=== RUN   TestProductionDefaultConfigRetriesTransientError
+--- PASS: TestProductionDefaultConfigRetriesTransientError (2.00s)
+=== RUN   TestMaxRetriesNoneDisablesRetry
+--- PASS: TestMaxRetriesNoneDisablesRetry (0.00s)
+=== RUN   TestSinkFailureIsLoudErrNotificationFailed
+--- PASS: TestSinkFailureIsLoudErrNotificationFailed (0.00s)
+=== RUN   TestRetryExhaustionIsFailedError
+--- PASS: TestRetryExhaustionIsFailedError (0.10s)
+=== RUN   TestInvokeCtxCancelledWhenArbitrationAbandoned
+--- PASS: TestInvokeCtxCancelledWhenArbitrationAbandoned (0.30s)
+=== RUN   TestUnconfiguredRedeemerFailsClosed
+--- PASS: TestUnconfiguredRedeemerFailsClosed (0.00s)
+=== RUN   TestNoTOCTOU_ConcurrentAttemptsSingleWinner
+--- PASS: TestNoTOCTOU_ConcurrentAttemptsSingleWinner (0.00s)
+=== RUN   TestNoTOCTOU_CheckThenActAnalogDoubleWins
+--- PASS: TestNoTOCTOU_CheckThenActAnalogDoubleWins (0.03s)
+=== RUN   TestRaceLostNotificationDedupe
+2026/10/01 21:05:26 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:05:26 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:05:26 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-b@yumyums.com order_number=1042-A scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:05:26 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-c staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:42:07.000Z value_known=true value=4 unverified_code=true
+2026/10/01 21:05:26 WARN RaceLostReconciled code_token_hash=sha256:b424-dedupe-fixture device_id=device-b staff=manager-a@yumyums.com order_number=1042 scanned_at=2026-10-01T18:43:07.000Z value_known=true value=4 unverified_code=true
+--- PASS: TestRaceLostNotificationDedupe (0.06s)
+=== RUN   TestRPCRedeemerRedeems
+--- PASS: TestRPCRedeemerRedeems (0.03s)
+=== RUN   TestRPCRedeemerVerdictTaxonomy
+--- PASS: TestRPCRedeemerVerdictTaxonomy (0.03s)
+=== RUN   TestRPCRedeemerUnknownTokenIsNotFoundWithoutBurn
+--- PASS: TestRPCRedeemerUnknownTokenIsNotFoundWithoutBurn (0.01s)
+=== RUN   TestRPCRedeemerNullReasonFeedsEKR2Fallback
+--- PASS: TestRPCRedeemerNullReasonFeedsEKR2Fallback (0.01s)
+=== RUN   TestRPCRedeemerUpstreamErrorIsError
+--- PASS: TestRPCRedeemerUpstreamErrorIsError (0.01s)
+=== RUN   TestRedeemerConfigConfigured
+--- PASS: TestRedeemerConfigConfigured (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/redemption	2.791s
+EXIT=0

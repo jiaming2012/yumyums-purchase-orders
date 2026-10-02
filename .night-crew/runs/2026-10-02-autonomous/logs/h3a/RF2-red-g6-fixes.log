@@ -1,0 +1,61 @@
+# RF (fix round) RED — the three G6 behavioural findings (F2, F3, F5), tests written FIRST.
+# Target: :5434 / hqtest / hq_test_go_h3a. NEVER :5433. Confined to internal/toast; no suite lock.
+# $ go test -count=1 -run 'TestOrderDetails(WarnsWhen|SilentWhen|IntraFile)|TestParseCentsRejects|TestParseOrderDetailsRejects' ./internal/toast/
+
+# github.com/yumyums/hq/internal/toast [github.com/yumyums/hq/internal/toast.test]
+internal/toast/orderdetails_fixes_test.go:68:12: undefined: IngestOrderDetailsForDate
+internal/toast/orderdetails_fixes_test.go:96:15: undefined: IngestOrderDetailsForDate
+internal/toast/orderdetails_fixes_test.go:125:12: undefined: IngestOrderDetailsForDate
+internal/toast/orderdetails_fixes_test.go:174:29: undefined: ErrOrderMoneyFormat
+internal/toast/orderdetails_fixes_test.go:216:70: too many arguments in call to parseOrderDetails
+	have (*"strings".Reader, string)
+	want ("io".Reader)
+internal/toast/orderdetails_fixes_test.go:223:66: too many arguments in call to parseOrderDetails
+	have (*"strings".Reader, string)
+	want ("io".Reader)
+FAIL	github.com/yumyums/hq/internal/toast [build failed]
+FAIL
+EXIT=1
+
+# ── second RED pass: the seams exist (parseOrderDetails takes dateDir,
+#    IngestOrderDetailsForDate, ErrOrderMoneyFormat declared) but NONE of the three
+#    behaviours do. These are the BEHAVIOURAL reds.
+
+2026/10/01 22:56:01 goose: no migrations to run. current version: 84
+2026/10/01 22:56:01 INFO database migrations applied successfully
+=== RUN   TestOrderDetailsWarnsWhenBusinessDateDiffersFromExportDir
+    orderdetails_fixes_test.go:78: no business-date/export-dir disagreement warning was logged.
+        logs:
+--- FAIL: TestOrderDetailsWarnsWhenBusinessDateDiffersFromExportDir (0.08s)
+=== RUN   TestOrderDetailsSilentWhenBusinessDateMatchesExportDir
+--- PASS: TestOrderDetailsSilentWhenBusinessDateMatchesExportDir (0.09s)
+=== RUN   TestOrderDetailsIntraFileDuplicateIsWarnedAndCountedHonestly
+    orderdetails_fixes_test.go:138: the count is dishonest: reported 2 rows upserted, the table holds 1. The log must report rows LANDED, not rows parsed
+--- FAIL: TestOrderDetailsIntraFileDuplicateIsWarnedAndCountedHonestly (0.09s)
+=== RUN   TestParseCentsRejectsBlankAndNonDecimal
+    orderdetails_fixes_test.go:173: parseCents("") = 0 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("   ") = 0 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("NaN") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("nan") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("Inf") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("-Inf") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("+Inf") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("Infinity") = -9223372036854775808 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("1e3") = 100000 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("1E3") = 100000 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("1.5e2") = 15000 with NO error; it must be rejected
+    orderdetails_fixes_test.go:175: parseCents("abc") errored with strconv.ParseFloat: parsing "abc": invalid syntax; want ErrOrderMoneyFormat
+    orderdetails_fixes_test.go:173: parseCents("$") = 0 with NO error; it must be rejected
+    orderdetails_fixes_test.go:173: parseCents("--5") = 499 with NO error; it must be rejected
+    orderdetails_fixes_test.go:175: parseCents("1.2.3") errored with strconv.ParseFloat: parsing "1.2.3": invalid syntax; want ErrOrderMoneyFormat
+    orderdetails_fixes_test.go:175: parseCents("0x10") errored with strconv.ParseFloat: parsing "0x10": invalid syntax; want ErrOrderMoneyFormat
+--- FAIL: TestParseCentsRejectsBlankAndNonDecimal (0.00s)
+=== RUN   TestParseOrderDetailsRejectsBlankRequiredMoneyCell
+    orderdetails_fixes_test.go:217: a blank required money cell parsed without error: ord-1,7,09/28/26 11:42 AM,09/28/26 11:48 AM,0.00,,13.53,false,In Store
+    orderdetails_fixes_test.go:217: a blank required money cell parsed without error: ord-1,7,09/28/26 11:42 AM,09/28/26 11:48 AM,,12.50,13.53,false,In Store
+    orderdetails_fixes_test.go:217: a blank required money cell parsed without error: ord-1,7,09/28/26 11:42 AM,09/28/26 11:48 AM,0.00,12.50,,false,In Store
+--- FAIL: TestParseOrderDetailsRejectsBlankRequiredMoneyCell (0.00s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/toast	0.282s
+FAIL
+EXIT=1

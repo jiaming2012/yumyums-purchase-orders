@@ -1,0 +1,37 @@
+# post-merge G1+G2(Go) at merged HEAD 40b5846 2026-10-01T20:16:09-04:00
+# DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_merge1?sslmode=disable  HQ_RLS_TEST_DB=hq_rls_merge1_20261002
+# HQ_SYNC_SUBSTRATE_OPTIONAL=<unset> HQ_SYNC_GATE_CHILD=<unset>
+## G1 build
+EXIT_BUILD=0
+## G1 vet
+EXIT_VET=0
+## G2 Go
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+ok  	github.com/yumyums/hq/cmd/server	0.009s
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.004s
+ok  	github.com/yumyums/hq/internal/auth	3.389s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	38.827s
+ok  	github.com/yumyums/hq/internal/marketing	2.429s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+ok  	github.com/yumyums/hq/internal/onboarding	0.327s
+ok  	github.com/yumyums/hq/internal/photos	1.556s
+ok  	github.com/yumyums/hq/internal/purchasing	7.326s
+ok  	github.com/yumyums/hq/internal/receipt	26.546s
+ok  	github.com/yumyums/hq/internal/recipes	27.383s
+ok  	github.com/yumyums/hq/internal/redemption	2.720s
+ok  	github.com/yumyums/hq/internal/sync	45.512s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.012s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	1.961s
+EXIT_TEST=0
+EXIT=0

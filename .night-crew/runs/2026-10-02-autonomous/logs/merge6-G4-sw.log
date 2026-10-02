@@ -1,0 +1,12 @@
+# merge6 G4 at 23be14a 2026-10-02T01:57:33-04:00
+  skipped (not in HEAD): backlog-round.html
+import reachability: 37 precached files parsed, 64 local references resolved, 0 outside the precache
+SW built: 50 files precached (3034.6 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+  skipped (not in HEAD): backlog-round.html
+import reachability: 37 precached files parsed, 64 local references resolved, 0 outside the precache
+SW built: 50 files precached (3034.6 KB)
+Frontend version: 1.10.2
+EXIT_SW2=0
+precache: 50

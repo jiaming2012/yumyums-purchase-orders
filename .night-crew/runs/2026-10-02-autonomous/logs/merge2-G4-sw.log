@@ -1,0 +1,12 @@
+# merge2 G4 at merged HEAD f245259 2026-10-01T22:54:10-04:00
+  skipped (not in HEAD): backlog-round.html
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2990.0 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+  skipped (not in HEAD): backlog-round.html
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2990.0 KB)
+Frontend version: 1.10.2
+EXIT_SW2=0
+precache: 49

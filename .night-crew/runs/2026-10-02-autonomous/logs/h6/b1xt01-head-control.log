@@ -1,0 +1,13 @@
+===== HEAD pass 1 =====
+  ✓  1 [chromium] › tests/sw-api-cache-partition.spec.js:92:1 › offline, user B is served user A cached /api/v1/users roster from api-cache [B1-XT-01] (6.9s)
+  1 passed (2.5m)
+PASS_1_EXIT=0
+===== HEAD pass 2 =====
+  ✓  1 [chromium] › tests/sw-api-cache-partition.spec.js:92:1 › offline, user B is served user A cached /api/v1/users roster from api-cache [B1-XT-01] (6.7s)
+  1 passed (2.6m)
+PASS_2_EXIT=0
+===== HEAD pass 3 =====
+  ✓  1 [chromium] › tests/sw-api-cache-partition.spec.js:92:1 › offline, user B is served user A cached /api/v1/users roster from api-cache [B1-XT-01] (6.9s)
+  1 passed (2.7m)
+PASS_3_EXIT=0
+EXIT=0

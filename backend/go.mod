@@ -11,16 +11,19 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/floodfx/gstate v0.3.1
 	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jackc/pgxlisten v0.0.0-20250802141604-12b92425684c
 	github.com/pkg/sftp v1.13.5
 	github.com/pressly/goose/v3 v3.27.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	golang.org/x/crypto v0.52.0
 	golang.org/x/text v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.9 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.22 // indirect

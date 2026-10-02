@@ -15,10 +15,20 @@
 #   exit 2  could not run.
 #
 # USAGE
-#   f2-run.sh                # green — the PRIMARY gate: shipped modules
-#   f2-run.sh red-unflagged  # the 64-hex row WITHOUT unverified_code: the
-#                            # guard's discriminator lost → redeem-first path
-#                            # → head-of-line poison reds the assertions
+#   f2-run.sh                  # green — the PRIMARY gate: shipped modules
+#   f2-run.sh poison-mismatch  # B-440 (card scanner-polish, run 20261002):
+#                              # the 64-hex row WITH unverified_code but
+#                              # WITHOUT offline_override — the shape the
+#                              # tightened scan_attempts_names_a_code
+#                              # constraint rejects. A SECOND primary gate:
+#                              # it asserts the divert predicate and the
+#                              # constraint AGREE about this shape (neither
+#                              # divert nor redeem, the attempt behind it
+#                              # still lands). RED on a tree whose predicate
+#                              # reads unverified_code alone.
+#   f2-run.sh red-unflagged    # the 64-hex row WITHOUT unverified_code: the
+#                              # guard's discriminator lost → redeem-first path
+#                              # → head-of-line poison reds the assertions
 #
 # Substrate discipline: supabase/verify/lib.sh — the throwaway LOCAL
 # spike-supabase project only (RECONCILE mode, never --fresh); never :5433,
@@ -30,7 +40,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 
 MODE="${1:-green}"
-case "$MODE" in green|red-unflagged) ;; *) echo "usage: f2-run.sh [green|red-unflagged]" >&2; exit 64 ;; esac
+case "$MODE" in green|poison-mismatch|red-unflagged) ;; *) echo "usage: f2-run.sh [green|poison-mismatch|red-unflagged]" >&2; exit 64 ;; esac
 
 # shellcheck source=/dev/null
 . "$REPO_ROOT/supabase/verify/lib.sh"
@@ -77,6 +87,12 @@ if [ "$MODE" = "green" ]; then
     printf '\n✅ VERDICT: GREEN — the F-2 guard holds on the shipped surface: unverified attempts divert BEFORE redeem(), land on the distinct path, and never strand the queue.\n'
   else
     printf '\n🛑 VERDICT: RED — a leg failed (node exit %s); see the log above.\n' "$NODE_EXIT"
+  fi
+elif [ "$MODE" = "poison-mismatch" ]; then
+  if [ "$NODE_EXIT" -eq 0 ]; then
+    printf '\n✅ VERDICT: GREEN (B-440) — the divert predicate and the scan_attempts_names_a_code constraint AGREE: the mismatched row is neither diverted nor redeemed, and the attempt behind it lands.\n'
+  else
+    printf '\n🛑 VERDICT: RED (B-440) — guard and constraint disagree about unverified_code-without-offline_override (node exit %s); see the log above.\n' "$NODE_EXIT"
   fi
 else
   if [ "$NODE_EXIT" -ne 0 ]; then

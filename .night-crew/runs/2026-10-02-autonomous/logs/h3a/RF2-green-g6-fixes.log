@@ -1,0 +1,86 @@
+# RF (fix round) GREEN — the same five tests after F1/F2/F3/F5, plus the whole
+# internal/toast package so the pre-existing tests are proven unharmed.
+# Target: :5434 / hqtest / hq_test_go_h3a. Confined; no suite lock taken.
+# $ go test -p 1 -count=1 -v ./internal/toast/
+
+2026/10/01 23:01:13 goose: no migrations to run. current version: 84
+2026/10/01 23:01:13 INFO database migrations applied successfully
+=== RUN   TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathSetButMissing_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig
+--- PASS: TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathIsDirectory_FailsFast (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathEmpty_FailsFast
+--- PASS: TestLoadConfigFromEnv_KeyPathEmpty_FailsFast (0.00s)
+=== RUN   TestSyncDate_DialFailure_ReturnsUnavailable
+2026/10/01 23:01:13 ERROR toast sync: SFTP unavailable (dial/auth failed) date=20261001 error="ssh dial: unable to authenticate"
+--- PASS: TestSyncDate_DialFailure_ReturnsUnavailable (0.00s)
+=== RUN   TestHandleSyncOutcome_SFTPUnavailable_FailsLoud
+2026/10/01 23:01:13 ERROR toast worker: ALERT dispatched (SFTP unavailable) message="Toast sync FAILING: cannot open/authenticate SFTP — no sales data is landing. Last error: toast sync: sftp dial/auth failed"
+--- PASS: TestHandleSyncOutcome_SFTPUnavailable_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_Success_NoAlert
+--- PASS: TestHandleSyncOutcome_Success_NoAlert (0.00s)
+=== RUN   TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud
+2026/10/01 23:01:13 ERROR toast worker: cycle reached SFTP but persisted nothing summary="mkdir cache: permission denied"
+--- PASS: TestHandleSyncOutcome_ReachedButPersistedNothing_FailsLoud (0.00s)
+=== RUN   TestHandleSyncOutcome_AllMiss_IsHealthy
+--- PASS: TestHandleSyncOutcome_AllMiss_IsHealthy (0.00s)
+=== RUN   TestSyncDate_KeyUnreadable_ReturnsUnavailable
+2026/10/01 23:01:13 ERROR toast sync: SFTP key unreadable path=/tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable4022948976/001/id_rsa error="read /tmp/TestSyncDate_KeyUnreadable_ReturnsUnavailable4022948976/001/id_rsa: is a directory"
+--- PASS: TestSyncDate_KeyUnreadable_ReturnsUnavailable (0.00s)
+=== RUN   TestOrderDetailsWarnsWhenBusinessDateDiffersFromExportDir
+--- PASS: TestOrderDetailsWarnsWhenBusinessDateDiffersFromExportDir (0.07s)
+=== RUN   TestOrderDetailsSilentWhenBusinessDateMatchesExportDir
+--- PASS: TestOrderDetailsSilentWhenBusinessDateMatchesExportDir (0.06s)
+=== RUN   TestOrderDetailsIntraFileDuplicateIsWarnedAndCountedHonestly
+--- PASS: TestOrderDetailsIntraFileDuplicateIsWarnedAndCountedHonestly (0.06s)
+=== RUN   TestParseCentsRejectsBlankAndNonDecimal
+--- PASS: TestParseCentsRejectsBlankAndNonDecimal (0.00s)
+=== RUN   TestParseOrderDetailsRejectsBlankRequiredMoneyCell
+--- PASS: TestParseOrderDetailsRejectsBlankRequiredMoneyCell (0.00s)
+=== RUN   TestOrderDetailsUpsertIsIdempotent
+    orderdetails_test.go:134: same file twice: rows=4 distinct_keys=4 amount_cents=125023 discount_cents=341
+--- PASS: TestOrderDetailsUpsertIsIdempotent (0.08s)
+=== RUN   TestParseOrderDetailsCoercions
+--- PASS: TestParseOrderDetailsCoercions (0.00s)
+=== RUN   TestParseOrderDetailsRequiresItsColumns
+--- PASS: TestParseOrderDetailsRequiresItsColumns (0.00s)
+=== RUN   TestMigration0084DownAndUpRoundTrip
+    orderdetails_test.go:296: 0084 Down/Up round-trip clean; schema left fully up
+--- PASS: TestMigration0084DownAndUpRoundTrip (0.28s)
+=== RUN   TestParseHappyPath
+--- PASS: TestParseHappyPath (0.00s)
+=== RUN   TestParseExcludesVoidedRows
+--- PASS: TestParseExcludesVoidedRows (0.00s)
+=== RUN   TestParseAggregatesSameMasterIdSameDay
+--- PASS: TestParseAggregatesSameMasterIdSameDay (0.00s)
+=== RUN   TestParseHandlesUTF8BOMInFirstHeader
+--- PASS: TestParseHandlesUTF8BOMInFirstHeader (0.00s)
+=== RUN   TestParseMissingRequiredColumnFails
+--- PASS: TestParseMissingRequiredColumnFails (0.00s)
+=== RUN   TestParseDecimalQtyTolerated
+--- PASS: TestParseDecimalQtyTolerated (0.00s)
+=== RUN   TestParseEmptyMenuSubgroupBecomesNil
+--- PASS: TestParseEmptyMenuSubgroupBecomesNil (0.00s)
+=== RUN   TestParseEmbeddedDuplicateHeader
+--- PASS: TestParseEmbeddedDuplicateHeader (0.00s)
+=== RUN   TestSyncStatus_UnknownBeforeAnyCycle
+--- PASS: TestSyncStatus_UnknownBeforeAnyCycle (0.00s)
+=== RUN   TestSyncStatus_FailingAfterSFTPFailure
+--- PASS: TestSyncStatus_FailingAfterSFTPFailure (0.00s)
+=== RUN   TestSyncStatus_OKAfterSuccess
+--- PASS: TestSyncStatus_OKAfterSuccess (0.00s)
+=== RUN   TestSyncStatus_FailureThenRecovery
+--- PASS: TestSyncStatus_FailureThenRecovery (0.00s)
+=== RUN   TestSyncStatus_StaleWhenLastSuccessOld
+--- PASS: TestSyncStatus_StaleWhenLastSuccessOld (0.00s)
+=== RUN   TestSyncStatus_NilSafe
+--- PASS: TestSyncStatus_NilSafe (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/toast	0.575s
+EXIT=0

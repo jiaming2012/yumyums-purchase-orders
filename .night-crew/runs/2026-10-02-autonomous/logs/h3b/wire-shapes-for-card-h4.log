@@ -1,0 +1,509 @@
+# WIRE SHAPES — card h3b, run 20261002. FOR CARD H4 (stats-tab-ui), which is
+# built against these json tags TONIGHT and cannot see this branch (UI-R3: the
+# frontend reads the Go struct's json tags verbatim).
+#
+# Captured from spike 01's own fixture (scans 12, redeemed 7, revenue 4350,
+# discount 5450, net -1100), with `subscribers` ABSENT — hence signups 0 and
+# signups_basis "unavailable".
+#
+# NOTE THE §5 ASYMMETRY, kept verbatim: /stats/overview NESTS money under
+# "money"; /stats/by rows FLATTEN the same keys onto the row. `totals` is
+# row-shaped so one renderer does both.
+
+========================================================================
+GET /api/v1/marketing/stats/overview?period=30d   -> 200
+========================================================================
+{
+ "period": "30d",
+ "funnel": {
+  "scans": 12,
+  "signups": 0,
+  "codes_sent": 0,
+  "redeemed": 7
+ },
+ "money": {
+  "revenue_cents": 4350,
+  "discount_cents": 5450,
+  "discount_basis": "mixed",
+  "net_cents": -1100,
+  "per_dollar": 0.8,
+  "discount_implied_cents": 5500,
+  "discount_actual_cents": 1050,
+  "discount_unknown_rows": 0,
+  "avg_order_cents_with": 1087,
+  "avg_order_cents_without": null
+ },
+ "reconciliation": {
+  "matched": 4,
+  "open": 2,
+  "declined": 2,
+  "orphan_rate": 0.2857,
+  "threshold": 0.1
+ },
+ "needs_look": {
+  "overrides": 1,
+  "orphans": 1,
+  "unmatched": 0
+ },
+ "signups_basis": "unavailable",
+ "codes_sent_basis": "unavailable"
+}
+
+========================================================================
+GET /api/v1/bi/campaigns/by?dim=channel&period=30d   -> 200
+========================================================================
+{
+ "dim": "channel",
+ "period": "30d",
+ "rows": [
+  {
+   "key": "truck_sign",
+   "label": "truck_sign",
+   "scans": 7,
+   "signups": 0,
+   "redeemed": 4,
+   "revenue_cents": 2650,
+   "discount_cents": 900,
+   "discount_basis": "mixed",
+   "net_cents": 1750,
+   "per_dollar": 2.94,
+   "discount_implied_cents": 900,
+   "discount_actual_cents": 500,
+   "discount_unknown_rows": 0,
+   "avg_order_cents_with": 1325,
+   "avg_order_cents_without": null
+  },
+  {
+   "key": "flyer",
+   "label": "flyer",
+   "scans": 2,
+   "signups": 0,
+   "redeemed": 1,
+   "revenue_cents": 900,
+   "discount_cents": 250,
+   "discount_basis": "actual",
+   "net_cents": 650,
+   "per_dollar": 3.6,
+   "discount_implied_cents": 300,
+   "discount_actual_cents": 250,
+   "discount_unknown_rows": 0,
+   "avg_order_cents_with": 900,
+   "avg_order_cents_without": null
+  },
+  {
+   "key": "direct",
+   "label": "Direct",
+   "scans": 0,
+   "signups": 0,
+   "redeemed": 1,
+   "revenue_cents": 800,
+   "discount_cents": 300,
+   "discount_basis": "actual",
+   "net_cents": 500,
+   "per_dollar": 2.67,
+   "discount_implied_cents": 300,
+   "discount_actual_cents": 300,
+   "discount_unknown_rows": 0,
+   "avg_order_cents_with": 800,
+   "avg_order_cents_without": null
+  },
+  {
+   "key": "google_ads",
+   "label": "google_ads",
+   "scans": 2,
+   "signups": 0,
+   "redeemed": 1,
+   "revenue_cents": 0,
+   "discount_cents": 4000,
+   "discount_basis": "implied",
+   "net_cents": -4000,
+   "per_dollar": 0,
+   "discount_implied_cents": 4000,
+   "discount_actual_cents": 0,
+   "discount_unknown_rows": 0,
+   "avg_order_cents_with": null,
+   "avg_order_cents_without": null
+  },
+  {
+   "key": "instagram",
+   "label": "instagram",
+   "scans": 1,
+   "signups": 0,
+   "redeemed": 0,
+   "revenue_cents": 0,
+   "discount_cents": 0,
+   "discount_basis": "implied",
+   "net_cents": 0,
+   "per_dollar": null,
+   "discount_implied_cents": 0,
+   "discount_actual_cents": 0,
+   "discount_unknown_rows": 0,
+   "avg_order_cents_with": null,
+   "avg_order_cents_without": null
+  }
+ ],
+ "totals": {
+  "key": "totals",
+  "label": "Total",
+  "scans": 12,
+  "signups": 0,
+  "redeemed": 7,
+  "revenue_cents": 4350,
+  "discount_cents": 5450,
+  "discount_basis": "mixed",
+  "net_cents": -1100,
+  "per_dollar": 0.8,
+  "discount_implied_cents": 5500,
+  "discount_actual_cents": 1050,
+  "discount_unknown_rows": 0,
+  "avg_order_cents_with": 1087,
+  "avg_order_cents_without": null
+ },
+ "signups_basis": "unavailable"
+}
+
+========================================================================
+GET /api/v1/marketing/reconciliation/queue   -> 200
+========================================================================
+{
+ "queue": [
+  {
+   "bucket": "override",
+   "id": "fea5a179-c89c-424f-971d-2da5aaece8da",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": "107",
+   "offline_override": true,
+   "override_by": null,
+   "unverified_code": true,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "ef63eb2a-117a-4667-87d9-1ca919222cd5",
+   "campaign_name": "Welcome",
+   "face_value_cents": 300,
+   "code_short": null,
+   "channel": null,
+   "channel_label": null,
+   "item_name": null,
+   "order": {
+    "order_number": "107",
+    "opened_at": "2026-10-01T17:36:50.262742-04:00",
+    "amount_cents": 800,
+    "discount_cents": 300,
+    "voided": false
+   },
+   "suggestion": null,
+   "decision": null
+  },
+  {
+   "bucket": "orphan",
+   "id": "1610da2f-b9bf-4234-bdaf-25ff176f6096",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": null,
+   "offline_override": false,
+   "override_by": null,
+   "unverified_code": false,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "dcb0633a-4790-4c2c-a503-363e72cdb7ec",
+   "campaign_name": "Catering",
+   "face_value_cents": 4000,
+   "code_short": "CCCCC2",
+   "channel": "google_ads",
+   "channel_label": null,
+   "item_name": "Catering Tray a29b24f4",
+   "order": null,
+   "suggestion": null,
+   "decision": null
+  }
+ ],
+ "overrides": [
+  {
+   "bucket": "override",
+   "id": "fea5a179-c89c-424f-971d-2da5aaece8da",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": "107",
+   "offline_override": true,
+   "override_by": null,
+   "unverified_code": true,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "ef63eb2a-117a-4667-87d9-1ca919222cd5",
+   "campaign_name": "Welcome",
+   "face_value_cents": 300,
+   "code_short": null,
+   "channel": null,
+   "channel_label": null,
+   "item_name": null,
+   "order": {
+    "order_number": "107",
+    "opened_at": "2026-10-01T17:36:50.262742-04:00",
+    "amount_cents": 800,
+    "discount_cents": 300,
+    "voided": false
+   },
+   "suggestion": null,
+   "decision": null
+  }
+ ],
+ "orphans": [
+  {
+   "bucket": "orphan",
+   "id": "1610da2f-b9bf-4234-bdaf-25ff176f6096",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": null,
+   "offline_override": false,
+   "override_by": null,
+   "unverified_code": false,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "dcb0633a-4790-4c2c-a503-363e72cdb7ec",
+   "campaign_name": "Catering",
+   "face_value_cents": 4000,
+   "code_short": "CCCCC2",
+   "channel": "google_ads",
+   "channel_label": null,
+   "item_name": "Catering Tray a29b24f4",
+   "order": null,
+   "suggestion": null,
+   "decision": null
+  }
+ ],
+ "unmatched": [],
+ "matched_count": 3,
+ "declined_count": 2
+}
+
+========================================================================
+GET /api/v1/marketing/reconciliation/declined   -> 200
+========================================================================
+{
+ "declined": [
+  {
+   "bucket": "declined",
+   "id": "b62c4385-af4f-4120-a0b1-33bbabe8f17b",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": null,
+   "offline_override": false,
+   "override_by": null,
+   "unverified_code": false,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "c2eb50e4-1b72-4958-af91-4eaed2c4023b",
+   "campaign_name": "Wing Wednesday",
+   "face_value_cents": 200,
+   "code_short": "BBBBB2",
+   "channel": "truck_sign",
+   "channel_label": null,
+   "item_name": "6pc Wings 19f99308",
+   "order": null,
+   "suggestion": null,
+   "decision": {
+    "decision": "declined",
+    "reason": "customer_left",
+    "note": null,
+    "decided_by": "Marketing Test",
+    "decided_at": "2026-10-01T23:36:50.311761-04:00"
+   },
+   "reason": "customer_left",
+   "note": null,
+   "decided_by": "Marketing Test",
+   "decided_at": "2026-10-01T23:36:50.311761-04:00"
+  },
+  {
+   "bucket": "declined",
+   "id": "f44a56c9-511f-43c7-b4ac-e9550c7c1681",
+   "scanned_at": "2026-10-01T17:36:50.262742-04:00",
+   "business_date": "2026-10-01",
+   "device_id": "tablet-1",
+   "order_number": null,
+   "offline_override": false,
+   "override_by": null,
+   "unverified_code": false,
+   "policy_unresolved": false,
+   "device_reason": null,
+   "redeemed_value_cents": null,
+   "campaign_id": "c2eb50e4-1b72-4958-af91-4eaed2c4023b",
+   "campaign_name": "Wing Wednesday",
+   "face_value_cents": 200,
+   "code_short": "BBBBB2",
+   "channel": "truck_sign",
+   "channel_label": null,
+   "item_name": "6pc Wings 19f99308",
+   "order": null,
+   "suggestion": null,
+   "decision": {
+    "decision": "declined",
+    "reason": "duplicate_scan",
+    "note": null,
+    "decided_by": "Marketing Test",
+    "decided_at": "2026-10-01T23:36:50.328556-04:00"
+   },
+   "reason": "duplicate_scan",
+   "note": null,
+   "decided_by": "Marketing Test",
+   "decided_at": "2026-10-01T23:36:50.328556-04:00"
+  }
+ ]
+}
+
+EXIT=0
+
+
+################################################################################
+# APPENDED 2026-10-02 — G6 FIX ROUND F1/F2. NEW KEYS, read these before building.
+#
+# Fixture below is G6's live shape: a campaign ("Taco Tuesday", face $5.00) with
+# 6 scans and ONE MATCHED $30.00 Toast order whose scan_attempts_mirror
+# campaign_id is NULL and whose code_id resolves to no qr_codes row — which is
+# EVERY row on live data today (D-4, confirmed at mirror.go:370).
+#
+# moneyDTO gains TWO keys, on every route, always present:
+#   unattributed_redeemed        *int
+#   unattributed_revenue_cents   *int
+# NON-NULL on the period-scoped routes (GET /campaigns, GET /campaigns/{id},
+# PATCH /campaigns/{id}, GET /stats/overview) where 0 is a STATED FACT meaning
+# "every redemption found its campaign"; NULL on /stats/by rows and totals,
+# where a slice has no opinion on a period fact and states the figure as its own
+# `unattributed` row instead (so never sum these across rows).
+#
+# 🛑 WHAT CARD 2 AND CARD 5 MUST RENDER WHEN IT FIRES (unattributed_redeemed > 0):
+#   Card 2 (campaigns money strip, already shipped): the campaign's own
+#     revenue_cents IS a true zero — render $0.00 — but it must NOT stand alone.
+#     Add a note beside the strip, e.g. "1 redemption ($30.00) not attributed to
+#     any campaign" from unattributed_redeemed + unattributed_revenue_cents. A
+#     bare $0.00 on this shape is the defect G6 found.
+#   Card 5 (stats): the by-campaign slice already carries an `unattributed` ROW
+#     with those figures — render it as a real row, never filter it out, or the
+#     slice stops summing to the overview.
+#
+# StatsReconciliation gains THREE keys (the rate now carries its own arithmetic):
+#   orphan_rate_basis  "unmatched_and_orphans_excl_duplicate_scan"
+#   orphan_numerator   int
+#   orphan_denominator int
+# 🛑 THE RULE IS UNCHANGED — D-5 is PARKED at top severity on whether the
+# UNMATCHED bucket (order number typed, no Toast match) belongs in the numerator.
+# Render the basis string somewhere a manager can see it (a tooltip on the orphan
+# rate is enough); if the basis string you receive is not the one above, the
+# definition changed and your label must change with it.
+################################################################################
+
+========================================================================
+GET /api/v1/marketing/campaigns?period=30d   -> 200
+========================================================================
+{
+ "campaigns": [
+  {
+   "id": "b526ae05-c202-4339-9da5-43d5c648bd3b",
+   "slug": "probe-39f2ca96",
+   "name": "Taco Tuesday",
+   "offer_text": "Taco Tuesday offer",
+   "face_value_cents": 500,
+   "requires_online": false,
+   "item": null,
+   "landing": "signup",
+   "status": "live",
+   "starts_at": "2026-09-30T00:26:12.275449-04:00",
+   "ends_at": "2026-11-01T00:26:12.275449-04:00",
+   "projected_at": null,
+   "funnel": {
+    "scans": 6,
+    "signups": 0,
+    "redeemed": 0
+   },
+   "money": {
+    "revenue_cents": 0,
+    "discount_cents": 0,
+    "discount_basis": "implied",
+    "net_cents": 0,
+    "per_dollar": null,
+    "discount_implied_cents": 0,
+    "discount_actual_cents": 0,
+    "discount_unknown_rows": 0,
+    "unattributed_redeemed": 1,
+    "unattributed_revenue_cents": 3000,
+    "avg_order_cents_with": null,
+    "avg_order_cents_without": null
+   },
+   "codes": [
+    {
+     "id": "eafb1457-64b8-4b2d-bd5a-eab0cc153d01",
+     "short": "PPPPP2",
+     "campaign_id": "b526ae05-c202-4339-9da5-43d5c648bd3b",
+     "channel": "truck_sign",
+     "channel_label": null,
+     "item_id": null,
+     "placement": null,
+     "variant": null,
+     "landing": null,
+     "active": true,
+     "v": 1,
+     "scans": 6,
+     "signups": 0,
+     "payload_url": "https://hq.yumyums.kitchen/q/PPPPP2",
+     "png_url": "/api/v1/marketing/codes/eafb1457-64b8-4b2d-bd5a-eab0cc153d01.png"
+    }
+   ]
+  }
+ ]
+}
+
+========================================================================
+GET /api/v1/marketing/stats/overview?period=30d   -> 200
+========================================================================
+{
+ "period": "30d",
+ "funnel": {
+  "scans": 6,
+  "signups": 0,
+  "codes_sent": 0,
+  "redeemed": 1
+ },
+ "money": {
+  "revenue_cents": 3000,
+  "discount_cents": 400,
+  "discount_basis": "actual",
+  "net_cents": 2600,
+  "per_dollar": 7.5,
+  "discount_implied_cents": 0,
+  "discount_actual_cents": 400,
+  "discount_unknown_rows": 1,
+  "unattributed_redeemed": 1,
+  "unattributed_revenue_cents": 3000,
+  "avg_order_cents_with": 3000,
+  "avg_order_cents_without": null
+ },
+ "reconciliation": {
+  "matched": 1,
+  "open": 0,
+  "declined": 0,
+  "orphan_rate": 0,
+  "threshold": 0.1,
+  "orphan_rate_basis": "unmatched_and_orphans_excl_duplicate_scan",
+  "orphan_numerator": 0,
+  "orphan_denominator": 1
+ },
+ "needs_look": {
+  "overrides": 0,
+  "orphans": 0,
+  "unmatched": 0
+ },
+ "signups_basis": "unavailable",
+ "codes_sent_basis": "unavailable"
+}
+
+EXIT=0

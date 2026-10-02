@@ -1,0 +1,27 @@
+# onboarding pair, confined, at the final merged HEAD aa7719b 2026-10-02T03:38:31-04:00
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:47.878887161-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.415613851-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.415692701-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.415831975-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.416036203-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.416196785-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.416913639-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.417074427-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.417122808-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.417161821-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.4171716-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.417183026-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.417262185-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.431583428-04:00","level":"INFO","msg":"server listening","port":"8601"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.441919045-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8601"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.441971028-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8601"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.441982969-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8601"}
+[2m[WebServer] [22m{"time":"2026-10-02T03:40:48.441995733-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 2 tests using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+  ✓  2 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.5s)
+
+  2 passed (2.4m)
+EXIT_PW=0

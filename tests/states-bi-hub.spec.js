@@ -19,6 +19,15 @@ const path = require('path');
 //   Edge: retry        -> a Retry that succeeds inside a section refreshes the hub
 //                         row it came from (no stale "Status unavailable")
 //   Edge: contrast     -> the muted badge keeps ≥4.5:1 in dark mode
+//
+// ── THE THIRD ROW (card H4 `stats-tab-ui`, run 20261002, decision 192) ──
+// Campaigns joined the hub as #t3/#s3 — the campaign reports re-homed off the
+// Marketing page. It is a ROW, not a redesign, which is the claim this file now
+// checks: the row count moved 2 -> 3 and the Campaigns row carries the hub's own
+// four states (empty / loading / error / success) by the SAME contract as
+// Trends and Food cost. Its badge is a WARNING tone, not a muted reading —
+// "N need a look" is work waiting, which is the Inventory-hub idiom, whereas
+// "$3,058 this wk" is a reading.
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -65,18 +74,74 @@ const COST = {
 };
 const EMPTY_COST = { window: { from: '2026-09-21', to: '2026-09-27', weeks: 1 }, rows: [], movers: { by_food_cost_pct: { best: [], worst: [] }, by_margin: { best: [], worst: [] } } };
 
+// ── card H4: the Campaigns row's payload (GET /api/v1/bi/campaigns/overview) ──
+// Only the keys the HUB reads: needs_look (the badge) and period (the subtitle).
+const CAMPAIGNS = {
+  period: '30d',
+  funnel: { scans: 12, signups: 0, codes_sent: 0, redeemed: 5 },
+  money: {
+    revenue_cents: 6500, discount_cents: 1800, discount_basis: 'mixed', net_cents: 4700,
+    per_dollar: 3.62, discount_implied_cents: 2000, discount_actual_cents: 800,
+    discount_unknown_rows: 1, unattributed_redeemed: 1, unattributed_revenue_cents: 1500,
+    avg_order_cents_with: 2166, avg_order_cents_without: null,
+  },
+  reconciliation: {
+    matched: 3, open: 3, declined: 0, orphan_rate: 0.4, threshold: 0.1,
+    orphan_rate_basis: 'unmatched_and_orphans_excl_duplicate_scan',
+    orphan_numerator: 2, orphan_denominator: 5,
+  },
+  needs_look: { overrides: 1, orphans: 1, unmatched: 1 },
+  signups_basis: 'unavailable', codes_sent_basis: 'unavailable',
+};
+// Nothing scanned in the period: a known window with no redemptions. No badge
+// (never "0 need a look"), and the subtitle keeps the period.
+const EMPTY_CAMPAIGNS = {
+  period: '30d',
+  funnel: { scans: 0, signups: 0, codes_sent: 0, redeemed: 0 },
+  money: {
+    revenue_cents: 0, discount_cents: 0, discount_basis: 'implied', net_cents: 0,
+    per_dollar: null, discount_implied_cents: 0, discount_actual_cents: 0,
+    discount_unknown_rows: 0, unattributed_redeemed: 0, unattributed_revenue_cents: 0,
+    avg_order_cents_with: null, avg_order_cents_without: null,
+  },
+  reconciliation: {
+    matched: 0, open: 0, declined: 0, orphan_rate: null, threshold: 0.1,
+    orphan_rate_basis: 'unmatched_and_orphans_excl_duplicate_scan',
+    orphan_numerator: 0, orphan_denominator: 0,
+  },
+  needs_look: { overrides: 0, orphans: 0, unmatched: 0 },
+  signups_basis: 'unavailable', codes_sent_basis: 'unavailable',
+};
+const CAMPAIGNS_BY = {
+  dim: 'campaign', period: '30d', rows: [], signups_basis: 'unavailable',
+  totals: {
+    key: 'totals', label: 'Total', scans: 0, signups: 0, redeemed: 0,
+    revenue_cents: 0, discount_cents: 0, discount_basis: 'implied', net_cents: 0,
+    per_dollar: null, discount_implied_cents: 0, discount_actual_cents: 0,
+    discount_unknown_rows: 0, unattributed_redeemed: null, unattributed_revenue_cents: null,
+    avg_order_cents_with: null, avg_order_cents_without: null,
+  },
+};
+
 const json = body => route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 const fail = route => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' });
-async function mock(page, trends, cost) {
+async function mock(page, trends, cost, campaigns) {
   await page.route('**/api/v1/inventory/trends', trends === 'fail' ? fail : json(trends));
   await page.route('**/api/v1/inventory/cost', cost === 'fail' ? fail : json(cost));
+  // card H4: the Campaigns row is fed too, so every row on this hub is
+  // deterministic. Defaulting to CAMPAIGNS keeps the pre-existing call sites
+  // (which pass two arguments) meaningful instead of racing a real endpoint.
+  const c = campaigns === undefined ? CAMPAIGNS : campaigns;
+  await page.route('**/api/v1/bi/campaigns/overview**', c === 'fail' ? fail : json(c));
+  await page.route('**/api/v1/bi/campaigns/by**', c === 'fail' ? fail : json(CAMPAIGNS_BY));
 }
 async function openHub(page) {
   await page.goto('/bi.html');
   await page.waitForSelector('#s0:visible');
 }
 async function settled(page) {
-  await page.waitForFunction(() => !document.querySelector('#hub-b1.skel') && !document.querySelector('#hub-b2.skel'));
+  await page.waitForFunction(() => !document.querySelector('#hub-b1.skel')
+    && !document.querySelector('#hub-b2.skel') && !document.querySelector('#hub-b3.skel'));
 }
 
 test.describe('BI hub — B-455 WO-2b state table', () => {
@@ -85,24 +150,32 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await login(page);
     await page.route('**/api/v1/inventory/trends', async route => { await new Promise(r => setTimeout(r, 1500)); await json(TRENDS)(route); });
     await page.route('**/api/v1/inventory/cost', async route => { await new Promise(r => setTimeout(r, 1500)); await json(COST)(route); });
+    await page.route('**/api/v1/bi/campaigns/overview**', async route => { await new Promise(r => setTimeout(r, 1500)); await json(CAMPAIGNS)(route); });
+    await page.route('**/api/v1/bi/campaigns/by**', async route => { await new Promise(r => setTimeout(r, 1500)); await json(CAMPAIGNS_BY)(route); });
     await openHub(page);
     await expect(page.locator('#hub-b1')).toHaveClass(/skel/);
     await expect(page.locator('#hub-b2')).toHaveClass(/skel/);
+    await expect(page.locator('#hub-b3')).toHaveClass(/skel/);
     await expect(page.locator('#hub-s1')).toHaveText('Loading…');
     await expect(page.locator('#hub-s2')).toHaveText('Loading…');
+    await expect(page.locator('#hub-s3')).toHaveText('Loading…');
     await shot(page, 'loading');
   });
 
   test('Empty: no badge on either row, descriptive subtitles, rows still open', async ({ page }) => {
     await login(page);
-    await mock(page, EMPTY_TRENDS, EMPTY_COST);
+    await mock(page, EMPTY_TRENDS, EMPTY_COST, EMPTY_CAMPAIGNS);
     await openHub(page);
     await settled(page);
     await expect(page.locator('#hub-b1')).toBeHidden();
     await expect(page.locator('#hub-b2')).toBeHidden();
+    await expect(page.locator('#hub-b3')).toBeHidden();
     await expect(page.locator('#hub-b1')).toHaveText('');
     await expect(page.locator('#hub-s1')).toHaveText('Spend by group · 12 weeks');
     await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21–27');
+    // card H4: an empty period keeps the period in the subtitle and shows NO
+    // badge — never "0 need a look", the same rule the other two rows follow.
+    await expect(page.locator('#hub-s3')).toHaveText('Campaign money · Last 30 days');
     await shot(page, 'empty');
     await page.locator('#t1').click();
     await expect(page.locator('#s1 .tr-empty')).toBeVisible();
@@ -122,6 +195,11 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     // it names the dates, not a "1 weeks" count.
     await expect(page.locator('#hub-s2')).toHaveText('Margin per dish · Sep 21–27');
     await expect(page.locator('#hub-s2')).not.toContainText('&');
+    // card H4: the Campaigns badge is the open-work count, in the WARN tone
+    // (work waiting), not the muted reading tone the other two rows use.
+    await expect(page.locator('#hub-b3')).toHaveText('3 need a look');
+    await expect(page.locator('#hub-b3')).not.toHaveClass(/mut/);
+    await expect(page.locator('#hub-s3')).toHaveText('Campaign money · Last 30 days');
     await shot(page, 'populated');
     await page.emulateMedia({ colorScheme: 'dark' });
     await shot(page, 'populated-dark');
@@ -129,13 +207,15 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
 
   test('Error: both calls fail → "Status unavailable", no badge, and the row still opens to the error card', async ({ page }) => {
     await login(page);
-    await mock(page, 'fail', 'fail');
+    await mock(page, 'fail', 'fail', 'fail');
     await openHub(page);
     await settled(page);
     await expect(page.locator('#hub-s1')).toHaveText('Status unavailable');
     await expect(page.locator('#hub-s2')).toHaveText('Status unavailable');
+    await expect(page.locator('#hub-s3')).toHaveText('Status unavailable');
     await expect(page.locator('#hub-b1')).toBeHidden();
     await expect(page.locator('#hub-b2')).toBeHidden();
+    await expect(page.locator('#hub-b3')).toBeHidden();
     await shot(page, 'error');
     await page.locator('#t2').click();
     await expect(page.locator('#s2')).toBeVisible();
@@ -150,6 +230,7 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await expect(page.locator('#hub-s1')).toHaveText('Status unavailable');
     await expect(page.locator('#hub-b1')).toBeHidden();
     await expect(page.locator('#hub-b2')).toHaveText('32% avg');
+    await expect(page.locator('#hub-b3')).toHaveText('3 need a look');
     await shot(page, 'edge-half-error');
   });
 
@@ -183,7 +264,8 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
       const t = r.querySelector('.hub-t').getBoundingClientRect(); const b = r.querySelector('.hub-b');
       return { h: r.getBoundingClientRect().height, titleRight: t.right, badgeLeft: b && b.offsetParent ? b.getBoundingClientRect().left : Infinity };
     }));
-    expect(rows).toHaveLength(2);
+    // card H4 (run 20261002): Campaigns joined the hub, so this is 3.
+    expect(rows).toHaveLength(3);
     for (const r of rows) { expect(r.h).toBeGreaterThanOrEqual(44); expect(r.badgeLeft).toBeGreaterThanOrEqual(r.titleRight - 0.5); }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
@@ -195,6 +277,8 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
     await login(page);
     let costCalls = 0;
     await page.route('**/api/v1/inventory/trends', json(TRENDS));
+    await page.route('**/api/v1/bi/campaigns/overview**', json(CAMPAIGNS));
+    await page.route('**/api/v1/bi/campaigns/by**', json(CAMPAIGNS_BY));
     // Boot fails; opening the section re-fetches and fails again; the Retry
     // inside the report is the call that succeeds.
     await page.route('**/api/v1/inventory/cost', route => (++costCalls <= 2 ? fail(route) : json(COST)(route)));
@@ -230,5 +314,43 @@ test.describe('BI hub — B-455 WO-2b state table', () => {
       return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
     });
     expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+  // ── card H4 `stats-tab-ui` (run 20261002): the Campaigns ROW itself ───────
+  // The four hub states above now cover all three rows. What is specific to the
+  // new row is that it behaves like a hub DESTINATION and not like a redesign:
+  // it opens a full-page section, names itself in the back crumb, and the phone
+  // back gesture returns to the hub — exactly the Trends / Food cost contract.
+  test('Edge: the Campaigns row opens #tab=3 with the BI · Campaigns back link, and back returns to the hub', async ({ page }) => {
+    await login(page);
+    await mock(page, TRENDS, COST);
+    await openHub(page);
+    await settled(page);
+    await expect(page.locator('#t3 .hub-t')).toHaveText('Campaigns');
+    await page.locator('#t3').click();
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#s0')).toBeHidden();
+    expect(await page.evaluate(() => location.hash)).toBe('#tab=3');
+    await expect(page.locator('#back-hub')).toContainText('Campaigns');
+    await expect(page.locator('#back-hq')).toBeHidden();
+    await page.goBack();
+    await expect(page.locator('#s0')).toBeVisible();
+    await expect(page.locator('#s3')).toBeHidden();
+    await shot(page, 'edge-campaigns-row');
+  });
+
+  // The two REPORTS THAT WERE ALREADY HERE must be untouched by the new row:
+  // a deep link to each still opens it, with its own crumb and its own reading.
+  test('Edge: Trends and Food cost are unchanged by the third row', async ({ page }) => {
+    await login(page);
+    await mock(page, TRENDS, COST);
+    await page.goto('/bi.html#tab=1');
+    await page.waitForSelector('#s1:visible');
+    await expect(page.locator('#back-hub')).toContainText('Trends');
+    await expect(page.locator('#s3')).toBeHidden();
+    await page.goto('/bi.html#tab=2');
+    await page.waitForSelector('#s2:visible');
+    await expect(page.locator('#back-hub')).toContainText('Food cost');
+    await expect(page.locator('#s2 .cost-table')).toBeVisible();
+    await expect(page.locator('#s3')).toBeHidden();
   });
 });

@@ -1,0 +1,92 @@
+# base-reds Go leg — tree c4f6db4  2026-10-01T18:38:20-04:00
+# DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_basereds?sslmode=disable
+# HQ_RLS_TEST_DB=hq_test_rls_basereds_20261002
+# HQ_SYNC_SUBSTRATE_OPTIONAL=<unset>  HQ_SYNC_GATE_CHILD=<unset>
+## G1 go build
+EXIT_BUILD=0
+## G1 go vet
+EXIT_VET=0
+## G2 go test -p 1 -count=1 ./...
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+ok  	github.com/yumyums/hq/cmd/server	0.009s
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.005s
+ok  	github.com/yumyums/hq/internal/auth	3.317s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	47.901s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+ok  	github.com/yumyums/hq/internal/onboarding	0.390s
+ok  	github.com/yumyums/hq/internal/photos	1.564s
+ok  	github.com/yumyums/hq/internal/purchasing	8.284s
+ok  	github.com/yumyums/hq/internal/receipt	32.003s
+ok  	github.com/yumyums/hq/internal/recipes	26.829s
+ok  	github.com/yumyums/hq/internal/redemption	2.736s
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/../../admin
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/..%2f..%2fadmin
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest%2f..%2f..%2fadmin
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/realtime/../rest/spike_notes
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=dot_segment path=/sync/rest/./spike_notes
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest/..%5c..%5cadmin
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7B
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7D
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%7C
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5E
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%5C
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%22
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3C
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_slash path=/sync/rest/admin%3E
+2026/10/01 18:42:15 WARN sync proxy rejected an unsafe request path user_id=11111111-1111-1111-1111-111111111111 reason=encoded_backslash path=/sync/rest%5Cadmin%7B
+2026/10/01 18:42:15 ERROR sync proxy upstream error upstream=rest target=internal-rest.sync.local:1 path=/spike_notes error="dial tcp: lookup internal-rest.sync.local on 10.255.255.254:53: no such host"
+2026/10/01 18:42:15 "GET http://127.0.0.1:52608/sync/rest/spike_notes?select=id HTTP/1.1" from 127.0.0.1:52039 - 200 14B in 1.284761ms
+2026/10/01 18:42:15 "GET http://127.0.0.1:52608/sync/realtime/socket/websocket?vsn=1.0.0 HTTP/1.1" from 127.0.0.1:52043 - 000 0B in 4.235373ms
+--- FAIL: TestRowVisibilityRLS (0.00s)
+    rowvisibility_rls_test.go:1098: refusing HQ_RLS_TEST_DB="hq_test_rls_basereds_20261002": fixture databases must match ^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may be destroyed; the blocklist this replaces accepted the name that destroyed production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh hq_rls_* name
+--- FAIL: TestRowVisibilitySubtestCount_Executed (1.93s)
+    spikestack_gate_test.go:1153: 🛑 the nested TestRowVisibilityRLS run exited 1 — the count below (0) is not evidence of anything until the suite is green again:
+        === RUN   TestRowVisibilityRLS
+            rowvisibility_rls_test.go:1098: refusing HQ_RLS_TEST_DB="hq_test_rls_basereds_20261002": fixture databases must match ^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may be destroyed; the blocklist this replaces accepted the name that destroyed production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh hq_rls_* name
+        --- FAIL: TestRowVisibilityRLS (0.00s)
+        FAIL
+        FAIL	github.com/yumyums/hq/internal/sync	0.013s
+        FAIL
+--- FAIL: TestSubstrateGate_ExitCodeAsymmetry (2.73s)
+    --- FAIL: TestSubstrateGate_ExitCodeAsymmetry/no_opt-out_declared_and_the_substrate_cannot_be_resolved_->_NON-ZERO (1.53s)
+        spikestack_gate_test.go:1229: the run failed (exit 1) but not with the substrate gate's message, so this test is no longer measuring the gate:
+            === RUN   TestRowVisibilityRLS
+                rowvisibility_rls_test.go:1098: refusing HQ_RLS_TEST_DB="hq_test_rls_basereds_20261002": fixture databases must match ^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may be destroyed; the blocklist this replaces accepted the name that destroyed production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh hq_rls_* name
+            --- FAIL: TestRowVisibilityRLS (0.00s)
+            FAIL
+            FAIL	github.com/yumyums/hq/internal/sync	0.008s
+            FAIL
+    --- FAIL: TestSubstrateGate_ExitCodeAsymmetry/HQ_SYNC_SUBSTRATE_OPTIONAL=1_->_ZERO (1.20s)
+        spikestack_gate_test.go:1239: 🛑 the deliberate opt-out no longer opens the door: exit 1 with HQ_SYNC_SUBSTRATE_OPTIONAL=1. A contributor with no substrate can no longer run this package's hermetic tests, which is the arm the gate is supposed to KEEP.
+            
+            === RUN   TestRowVisibilityRLS
+                rowvisibility_rls_test.go:1098: refusing HQ_RLS_TEST_DB="hq_test_rls_basereds_20261002": fixture databases must match ^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may be destroyed; the blocklist this replaces accepted the name that destroyed production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh hq_rls_* name
+            --- FAIL: TestRowVisibilityRLS (0.00s)
+            FAIL
+            FAIL	github.com/yumyums/hq/internal/sync	0.010s
+            FAIL
+        spikestack_gate_test.go:1245: exit was 0 but TestRowVisibilityRLS did not report a SKIP — a green that is not the opt-out's green is a different bug:
+            === RUN   TestRowVisibilityRLS
+                rowvisibility_rls_test.go:1098: refusing HQ_RLS_TEST_DB="hq_test_rls_basereds_20261002": fixture databases must match ^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may be destroyed; the blocklist this replaces accepted the name that destroyed production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh hq_rls_* name
+            --- FAIL: TestRowVisibilityRLS (0.00s)
+            FAIL
+            FAIL	github.com/yumyums/hq/internal/sync	0.010s
+            FAIL
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	35.987s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.011s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	2.534s
+FAIL
+EXIT_TEST=1
+EXIT=0
