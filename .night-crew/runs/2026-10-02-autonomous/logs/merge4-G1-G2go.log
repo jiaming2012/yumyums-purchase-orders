@@ -1,0 +1,33 @@
+# merge4 G1+G2(Go) at 28984ab 2026-10-01T23:44:13-04:00
+# SUBSTRATE_OPTIONAL=<unset> GATE_CHILD=<unset>
+EXIT_BUILD=0
+EXIT_VET=0
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+ok  	github.com/yumyums/hq/cmd/server	0.014s
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.004s
+ok  	github.com/yumyums/hq/internal/auth	5.124s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	41.983s
+ok  	github.com/yumyums/hq/internal/marketing	7.378s
+ok  	github.com/yumyums/hq/internal/marketing/sources	0.006s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+ok  	github.com/yumyums/hq/internal/onboarding	0.499s
+ok  	github.com/yumyums/hq/internal/photos	1.579s
+ok  	github.com/yumyums/hq/internal/purchasing	8.553s
+ok  	github.com/yumyums/hq/internal/receipt	28.641s
+ok  	github.com/yumyums/hq/internal/recipes	34.061s
+ok  	github.com/yumyums/hq/internal/redemption	2.900s
+ok  	github.com/yumyums/hq/internal/sync	58.608s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.650s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	2.062s
+EXIT_TEST=0

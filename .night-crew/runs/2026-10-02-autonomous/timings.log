@@ -17,3 +17,5 @@
 2026-10-01T23:20:26-04:00	implementer-return	Card 6 h5-subscribers-tab COMPLETE — 6 commits, 663 PASS/0 FAIL/3 SKIP (+15), PW 25f/977p one block, 11 state PNGs committed durable, nothing-sends proven 3 ways
 2026-10-01T23:20:26-04:00	g6-dispatch	Card 6 G6 at c506db4 (g6-h5, port 8544)
 2026-10-01T23:41:27-04:00	merge	MERGE 3 799a748 — Card 3 h3a; precache 49 (no asset added), G1+G2(Go) green
+2026-10-01T23:48:35-04:00	merge	MERGE 4 78e768f — Card 6 h5; THREE conflicts resolved against intent (marketing.html auto, spec union, toml union, sw.js regenerated not merged); precache 50 at merged HEAD, 15 pkgs green
+2026-10-01T23:48:35-04:00	card7-dispatch	Card 7 h6-scanner-polish dispatched EARLY off the run branch — disjoint from Card 4, and the slate ordering reason (H3a mirror) merged at 23:30; takes it off the critical path

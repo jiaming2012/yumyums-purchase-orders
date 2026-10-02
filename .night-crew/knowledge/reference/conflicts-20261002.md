@@ -206,3 +206,46 @@ finding** — all 16 exist at the tip, each with an `EXIT=` marker inside, verif
 merge; the card's real defect was citing paths without naming the carrying SHA, now fixed with a
 committed artifact inventory.
 
+### Merge 4 — `card/h5-subscribers-tab` → `overnight-20261002` (`78e768f` + `28984ab`), 2026-10-01 ~23:45
+
+**Cards involved:** H5 meeting **H2** (already merged) on three surfaces. The night's first real
+two-card conflict — Merges 1–3 were clean.
+
+🛑 **THREE CONFLICTS, each resolved against INTENT, not text**, per the slate's shared-surfaces
+table. Recorded in full because this is the entry morning triage audits.
+
+| Surface | Conflict | Rule applied | Resolution taken |
+|---|---|---|---|
+| `marketing.html` | **none — auto-merged** | *"keep both sections"* | Nothing to do, and that is the finding: H2 confined its hunks to `#s2` and H5 to `#s3`, each with its `<style>` **inside** its own section wrapper, so the hunks were **disjoint by construction**. Verified after: `mc-root` (#s2), `subs-root` (#s3), `#s4`'s `Soon` placeholder and **both** module `<script>` tags present. The discipline the slate asked for is what made this a non-event. |
+| `tests/marketing.spec.js` | title + two comment blocks | *union* | Bodies merged on their own — H2 edited the `#s2` assertions, H5 the `#s3` ones, and **each left the other's alone**. Only the prose collided. Resolved by keeping **both claims true**: the test is now *"shows Scan and Campaigns live, Subscribers gated, and Stats as a labeled placeholder"*, and **`#s4` is still asserted as a placeholder** so this test still reds when Card 5 lands — which is the whole point of keeping the placeholder half rather than deleting it. `node --check` passes. |
+| `night-crew.toml` | both roll-call comments | *union of both blocks* | Merged into one roll call naming which card contributed which specs: 1 → 3 on H2, 3 → 5 on H5. **No new key and no new token from either card** (either would be an operator-only PARK). `tomllib` parses. |
+| `sw.js` | content | 🛑 **never hand-merged** | Took one side only to clear the conflict, then **regenerated at the merged HEAD** in a separate commit (`28984ab`). **NEITHER card's committed `sw.js` was correct for the union** — each was right only for its own base — which is exactly why the table forbids merging this file by hand. |
+
+**Intents read.** H5's merge-intent + fix-round appendix, and H2's (already merged) for the
+`tests/marketing.spec.js` instruction *"keep Card 7's content, keep `#s2` asserting
+`#mc-root`/`#mc-locked`"*. Both cards had independently declared their own section and explicitly
+disclaimed the others', which is what made resolving by intent possible rather than guesswork.
+
+**`task sw` at merged HEAD.** `node build-sw.js` ×2 → **50 files precached** (3021.1 KB) both runs,
+byte-identical, reachability *"37 parsed, 64 refs, 0 outside"*. Count **48 → 49 → 50**, exactly the
+slate's prediction for two UI modules landing. Log `logs/merge4-G4-sw.log`.
+
+**Gate result after the merge.** G1 `go build` + `go vet` exit 0; **G2 (Go) `EXIT_TEST=0`** across
+**15** packages, now including Card 6's new `internal/marketing/sources`. Log
+`logs/merge4-G1-G2go.log`. G2 (Playwright) not re-run at the merged HEAD — the frontend delta is
+the union of two already-measured suites on disjoint sections, and no third card's product file
+moved; both cards' own full suites carried one summary block each.
+
+**G6:** APPROVE-WITH-FINDINGS → fix round → re-verified. Seven findings. The one with legal weight:
+**offline, the SMS filter chip lied about the list beneath it** — tapping "SMS" while offline
+activated the chip but kept the previous rows, so a "who can an SMS blast reach" view displayed a
+person who had sent **STOP**, visible in the card's own committed screenshot. The card had judged
+that acceptable; **the orchestrator overruled it**, because it is the one failure here that can get
+someone messaged after opting out. Fixed red-first by reverting the chip, naming the refusal on
+screen so the tap does not read as broken, and disabling search offline to close the same drift
+through free text. Also fixed: a generic `id` alias could merge two people and land
+`sms_consent=true` on someone who never consented; the error state painted three confident zeros
+above its own failure banner; re-import silently discarded corrections while counting them as
+updated. **Routed to D-1, not fixed:** `0085`'s FKs are `NO ACTION` both ways (§4 verbatim), so a
+right-to-erasure request on a PII table cannot be served by a plain `DELETE`.
+
