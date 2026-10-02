@@ -23,3 +23,5 @@ backend/internal/db/migrations           UNMAPPED (no [e2e.seams] entry) -> full
 # CONCLUSION: every path this card touches is already unmapped, so the card is
 # de-confined to the FULL Playwright suite with no toml edit at all. No key added,
 # no token added, no roll-call comment needed.
+
+# EXIT=0 — every path in the footprint is already unmapped in [e2e.seams]; no toml edit needed.

@@ -139,7 +139,7 @@ func TestOrderDetailsUpsertIsIdempotent(t *testing.T) {
 // money coercions, the order-number shapes, the voided COLUMN (not a filter),
 // and the nullable Closed / Order Source.
 func TestParseOrderDetailsCoercions(t *testing.T) {
-	rows, err := parseOrderDetails(openFixture(t))
+	rows, err := parseOrderDetails(openFixture(t), "")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -214,14 +214,14 @@ func TestParseOrderDetailsCoercions(t *testing.T) {
 func TestParseOrderDetailsRequiresItsColumns(t *testing.T) {
 	missing := "Location,Order Id,Order #,Opened,Amount,Total,Voided\n" +
 		"Yum Yums,ord-1,7,09/28/26 11:42 AM,12.50,13.53,false\n"
-	if _, err := parseOrderDetails(stringReader(missing)); err == nil {
+	if _, err := parseOrderDetails(stringReader(missing), ""); err == nil {
 		t.Fatalf("a report with no \"Discount Amount\" column must FAIL, not parse to zeros")
 	}
 
 	// Closed and Order Source absent entirely: parses, both fields NULL.
 	optional := "Order Id,Order #,Opened,Discount Amount,Amount,Total,Voided\n" +
 		"ord-1,7,09/28/26 11:42 AM,0.00,12.50,13.53,false\n"
-	rows, err := parseOrderDetails(stringReader(optional))
+	rows, err := parseOrderDetails(stringReader(optional), "")
 	if err != nil {
 		t.Fatalf("absent OPTIONAL columns must parse: %v", err)
 	}

@@ -186,11 +186,19 @@ func syncOrderDetails(ctx context.Context, cfg Config, client *Client, dateDir s
 	}
 	defer r.Close()
 
-	n, err := IngestOrderDetails(ctx, cfg.Pool, r)
+	// dateDir is passed through so the parser can WARN when the business date it
+	// derives from `Opened` disagrees with the directory the file came from
+	// (G6 F2): that disagreement is how two days' Toast order numbers collide on
+	// toast_orders' (business_date, order_number) primary key, and nothing else
+	// in this path would surface it.
+	n, err := IngestOrderDetailsForDate(ctx, cfg.Pool, r, dateDir)
 	if err != nil {
 		slog.Error("toast orders: OrderDetails ingest FAILED", "date", dateDir, "path", remotePath, "error", err)
 		return
 	}
+	// orders_upserted is the count Postgres reported as affected, not the number
+	// of CSV rows read (G6 F3) — an intra-file duplicate key collapses two rows
+	// into one, and the log must say one.
 	slog.Info("toast orders: upserted", "date", dateDir, "orders_upserted", n)
 }
 

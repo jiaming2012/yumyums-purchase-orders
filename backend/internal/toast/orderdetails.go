@@ -20,9 +20,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,17 +34,52 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// ErrOrderMoneyFormat is returned for a money cell that is not real decimal
+// money — blank, non-finite, exponent-notation or otherwise malformed. Named so
+// a caller can tell "this report changed shape" from a transport or DB fault.
+var ErrOrderMoneyFormat = errors.New("toast orders: money cell is not decimal money")
+
+// moneyPattern is what a Toast money cell looks like once "$", thousands
+// separators, whitespace and a single leading sign are stripped: plain decimal
+// digits with the point in any position. Deliberately NO exponent, NO hex, NO
+// "NaN"/"Inf" — all of which strconv.ParseFloat would otherwise accept.
+var moneyPattern = regexp.MustCompile(`^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$`)
+
+// maxOrderDollars bounds a single order so an arbitrarily long digit string
+// cannot reach int() as +Inf.
+const maxOrderDollars = 1e9
+
 // OrderDetailsFilename is the per-date file this leg fetches. It sits beside
 // ItemSelectionDetails.csv in /<ExportID>/<YYYYMMDD>/.
 const OrderDetailsFilename = "OrderDetails.csv"
 
-// orderTimeZone is the wall clock Toast's export is written in: the
-// restaurant's own, which is the same America/Chicago the purchasing cutoff and
-// the recipes drift check already use. The report prints "09/28/26 11:42 AM"
-// with no offset, so SOMETHING has to supply one, and the only correct answer is
-// the business's timezone — `opened_at` is compared against a device's real
+// orderTimeZone is the wall clock this parser reads Toast's `Opened` / `Closed`
+// in. The report prints "09/28/26 11:42 AM" with NO offset, so something has to
+// supply one, and it matters: `opened_at` is compared against a device's real
 // `scanned_at` instant by H3b's ±30-minute suggestion, so an hour of drift here
 // is a wrong suggestion there.
+//
+// 🛑 WHAT IS AND IS NOT ESTABLISHED HERE — read this before citing it.
+//
+//  1. The zone Toast actually writes `Opened` in is **UNCONFIRMED**. Spike 02
+//     parsed the real sample NAIVE, with no zone at all, so it measured the
+//     digits and not their offset. Nothing in this repo has established it.
+//  2. **This constant disagrees with the repo's own app timezone.**
+//     `users.DefaultTimezone` is `America/New_York` (ledger T-26 decision 83,
+//     migration `0072_app_timezone_new_york.sql`, which moved the recipes drift
+//     scheduler OFF Chicago on purpose). `purchasing/service.go`,
+//     `recipes/scheduler.go`, `recipes/cost.go` and `inventory/handler.go` all
+//     read that one constant. This file deliberately does not.
+//  3. An earlier version of this comment claimed Chicago was "the same
+//     America/Chicago the purchasing cutoff and the recipes drift check already
+//     use". That was FALSE — those read New York — and the false claim is what
+//     made the choice look settled when it is not. G6, run 20261002.
+//
+// TODO(h3a/F1): the zone is PARKED for an operator decision against a real
+// export sample (routed to the decisions log by the run 20261002 orchestrator).
+// Resolving it is a one-line change here plus a re-derivation of
+// `business_date`; do NOT "tidy" this to users.DefaultTimezone without that
+// decision, because a wrong zone silently moves orders between business days.
 const orderTimeZone = "America/Chicago"
 
 // orderTimeLayouts are the shapes seen in the real sample plus their 4-digit-year
@@ -93,12 +131,37 @@ var orderRequiredColumns = []string{"Order #", "Order Id", "Opened", "Amount", "
 //	"Order Source" — spike 02 read it with .get(), i.e. already optional there.
 var orderOptionalColumns = []string{"Closed", "Order Source"}
 
-// parseOrderDetails reads an OrderDetails.csv stream into one OrderRow per CSV
-// row. It does not deduplicate: `(business_date, order_number)` uniqueness is
-// the DATABASE's statement (migration 0084's primary key), and UpsertOrders is
-// what makes a second arrival of the same report idempotent. Spike 02 enumerated
-// the duplicate set over 77 real orders and found it empty.
-func parseOrderDetails(r io.Reader) ([]OrderRow, error) {
+// parseOrderDetails reads an OrderDetails.csv stream into one OrderRow per
+// DISTINCT (business_date, order_number). `dateDir` is the export directory's
+// YYYYMMDD, used only for the disagreement warning below; pass "" when there
+// isn't one.
+//
+// # It DEDUPLICATES, and says so (G6 F3, run 20261002)
+//
+// It used to return one row per CSV row, on the reasoning that
+// `(business_date, order_number)` uniqueness is the DATABASE's statement
+// (migration 0084's primary key) and that spike 02 found the duplicate set empty
+// over 77 real orders. Both halves are still true, and the conclusion was still
+// wrong: when two rows in ONE file share the key, the upsert collapses them
+// last-write-wins and one order is simply GONE — while the caller was told
+// "2 upserted", because the count was len(rows), i.e. rows PARSED. A silent loss
+// reported as a success is the defect class this tree exists to retire.
+//
+// So: last-write-wins is kept (it is what the database does anyway), but the
+// collision is WARNED, naming the key and both order ids, and the returned slice
+// now holds exactly what will land — which is what makes the count honest.
+//
+// # And it warns when the business date disagrees with the export directory
+//
+// `internal/toast/ingest.go:60` hands parseItemSelectionDetails the EXPORT
+// DIRECTORY date; this parser RE-DERIVES the business date from `Opened`. Those
+// agree until Toast's business day has a late-night cutoff, at which point an
+// order opened 00:30 sits in the previous directory but takes the new calendar
+// date — and since Toast order numbers reset per business day, two days' order
+// "#7" can then collide on the primary key above. The warning is free (`dateDir`
+// is already in hand) and it is the only thing that would surface the
+// disagreement before the collision does.
+func parseOrderDetails(r io.Reader, dateDir string) ([]OrderRow, error) {
 	loc, err := time.LoadLocation(orderTimeZone)
 	if err != nil {
 		// No tzdata: refuse rather than silently parsing in whatever the host's
@@ -143,6 +206,10 @@ func parseOrderDetails(r io.Reader) ([]OrderRow, error) {
 	}
 
 	var out []OrderRow
+	// seen maps (business_date, order_number) -> index in out, for F3's
+	// intra-file dedupe. warnedDates keeps F2's warning to one line per date.
+	seen := map[string]int{}
+	warnedDates := map[string]bool{}
 	for {
 		row, err := rdr.Read()
 		if err == io.EOF {
@@ -205,8 +272,9 @@ func parseOrderDetails(r io.Reader) ([]OrderRow, error) {
 		// order opened at 23:50 belongs to the day it was opened — which is also
 		// how the spike derived it, so the proven upsert key is the same key.
 		y, m, d := opened.Date()
-		out = append(out, OrderRow{
-			BusinessDate:  time.Date(y, m, d, 0, 0, 0, 0, loc),
+		businessDate := time.Date(y, m, d, 0, 0, 0, 0, loc)
+		rec := OrderRow{
+			BusinessDate:  businessDate,
 			OrderNumber:   num,
 			OrderID:       get("Order Id"),
 			OpenedAt:      opened,
@@ -216,7 +284,35 @@ func parseOrderDetails(r io.Reader) ([]OrderRow, error) {
 			TotalCents:    total,
 			Voided:        parseBoolish(get("Voided")),
 			OrderSource:   source,
-		})
+		}
+
+		// F2 — the business date the parser derived vs the directory it came
+		// from. Warned ONCE per distinct derived date, not once per row: a
+		// 77-order file with a late-night cutoff would otherwise emit 77
+		// identical lines and get tuned out.
+		bd := businessDate.Format("2006-01-02")
+		if dateDir != "" && strings.ReplaceAll(bd, "-", "") != dateDir && !warnedDates[bd] {
+			warnedDates[bd] = true
+			slog.Warn("toast orders: business_date disagrees with the export dir it came from "+
+				"(Toast business-day cutoff? order numbers reset per business day, so this is how "+
+				"two days' order numbers collide on the (business_date, order_number) primary key)",
+				"business_date", bd, "export_dir", dateDir, "order_number", num,
+				"opened_at", opened.Format(time.RFC3339), "zone", orderTimeZone)
+		}
+
+		// F3 — a duplicate key WITHIN one file. Last-write-wins, loudly.
+		key := bd + "/" + num
+		if prev, dup := seen[key]; dup {
+			slog.Warn("toast orders: duplicate (business_date, order_number) WITHIN one file — "+
+				"the primary key keeps the LAST row and the earlier order is lost",
+				"business_date", bd, "order_number", num,
+				"dropped_order_id", out[prev].OrderID, "kept_order_id", rec.OrderID,
+				"dropped_total_cents", out[prev].TotalCents, "kept_total_cents", rec.TotalCents)
+			out[prev] = rec
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, rec)
 	}
 	return out, nil
 }
@@ -235,17 +331,44 @@ func parseOrderTime(s string, loc *time.Location) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("no known layout matches (tried %d)", len(orderTimeLayouts))
 }
 
-// parseCents turns the report's dollar string into integer cents. Tolerates
-// "$", thousands separators, parentheses-negatives and an empty cell (0, which
-// is what an order with no discount prints).
+// parseCents turns the report's dollar string into integer CENTS, and rejects
+// anything that is not real decimal money.
 //
-// The rounding is math/round-half-away-from-zero via +/-0.5 truncation, which is
-// what the spike's python round() produced over the real sample (Σ discount
-// 341¢ / Σ amount 145,473¢).
+// Accepted: an optional single leading "-" or a parenthesised negative, "$",
+// thousands separators, surrounding whitespace, and a plain decimal with the
+// point in any position ("0.00", ".50", "1,000,000", "$1,205.73").
+//
+// 🛑 REJECTED, each with ErrOrderMoneyFormat (G6 F5, run 20261002) — these were
+// all silently accepted before, and every one of them lands a WRONG NUMBER
+// rather than a visible failure:
+//
+//   - "" / "   " — a BLANK cell in a required money column. It used to return 0
+//     with no error and no warn, while a missing COLUMN already failed loud.
+//     This file's header is explicit that landing amount_cents=0 "would poison
+//     every money figure H3b computes", and nothing downstream can tell a real
+//     zero from an absent one. A blank now fails exactly as loudly as a missing
+//     column. (If a real export turns out to print an empty "Discount Amount"
+//     for undiscounted orders, the first live file FAILS LOUDLY and the fix is
+//     one line here — which is the correct direction for toast-sync-fail-loud.)
+//   - "NaN" / "Inf" / "Infinity" — ParseFloat accepts all of these, and
+//     int(NaN*100+0.5) was -9223372036854775808, surfacing only later as an
+//     opaque Postgres integer-range error with no mention of the cell.
+//   - "1e3" / "1.5e2" — exponent notation silently became 100000 / 15000 cents.
+//     Toast does not print money this way; accepting it means accepting a
+//     typo'd or corrupted cell as a plausible figure.
+//   - "--5", "1.2.3", "0x10", "$" — malformed, and "--5" used to come out as
+//     499 cents through double negation and rounding.
+//
+// The rounding stays round-half-away-from-zero, which is what the spike's
+// python round() produced over the real sample (Σ discount 341¢ / Σ amount
+// 145,473¢), so real 2-dp money is unchanged: "$1,205.73" → 120573,
+// "12.345" → 1235.
 func parseCents(s string) (int, error) {
+	raw := s
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return 0, nil
+		return 0, fmt.Errorf("%w: cell is blank (a required money column must carry a figure; "+
+			"0 and absent are not the same number)", ErrOrderMoneyFormat)
 	}
 	neg := false
 	if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
@@ -255,16 +378,24 @@ func parseCents(s string) (int, error) {
 	s = strings.ReplaceAll(s, "$", "")
 	s = strings.ReplaceAll(s, ",", "")
 	s = strings.TrimSpace(s)
+	// Exactly ONE leading sign, consumed here; anything else the pattern rejects.
 	if strings.HasPrefix(s, "-") {
 		neg = !neg
-		s = strings.TrimPrefix(s, "-")
+		s = strings.TrimSpace(strings.TrimPrefix(s, "-"))
 	}
-	if s == "" {
-		return 0, nil
+	if !moneyPattern.MatchString(s) {
+		return 0, fmt.Errorf("%w: %q is not decimal money", ErrOrderMoneyFormat, raw)
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("%w: %q: %v", ErrOrderMoneyFormat, raw, err)
+	}
+	// The pattern allows any number of digits, so a 40-digit cell still reaches
+	// ParseFloat as +Inf and int() of that is undefined. Bound it: a single Toast
+	// order above a billion dollars is a corrupt cell, not a sale.
+	if math.IsNaN(f) || math.IsInf(f, 0) || f > maxOrderDollars {
+		return 0, fmt.Errorf("%w: %q is out of range for an order (max $%.0f)",
+			ErrOrderMoneyFormat, raw, maxOrderDollars)
 	}
 	cents := int(f*100 + 0.5)
 	if neg {
@@ -289,6 +420,10 @@ func parseBoolish(s string) bool {
 //
 // ingested_at is refreshed on update so "when did HQ last see this order" is
 // answerable; the key columns are never touched.
+//
+// The returned count is the sum of RowsAffected reported by Postgres, NOT
+// len(rows) (G6 F3): the number in the log should be the database's statement
+// about what landed, not Go's statement about what it tried.
 //
 // It runs in ONE transaction: a half-loaded report would let H3b compute money
 // over a partial day and call it a total.
@@ -326,12 +461,15 @@ func UpsertOrders(ctx context.Context, pool *pgxpool.Pool, rows []OrderRow) (int
 			r.AmountCents, r.DiscountCents, r.TotalCents, r.Voided, r.OrderSource)
 	}
 	br := tx.SendBatch(ctx, batch)
+	affected := 0
 	for i := range rows {
-		if _, err := br.Exec(); err != nil {
+		tag, err := br.Exec()
+		if err != nil {
 			_ = br.Close()
 			return 0, fmt.Errorf("toast orders: upsert %s/%s: %w",
 				rows[i].BusinessDate.Format("2006-01-02"), rows[i].OrderNumber, err)
 		}
+		affected += int(tag.RowsAffected())
 	}
 	if err := br.Close(); err != nil {
 		return 0, fmt.Errorf("toast orders: batch close: %w", err)
@@ -339,13 +477,19 @@ func UpsertOrders(ctx context.Context, pool *pgxpool.Pool, rows []OrderRow) (int
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("toast orders: commit: %w", err)
 	}
-	return len(rows), nil
+	return affected, nil
 }
 
 // IngestOrderDetails parses a stream and upserts it. The seam the SFTP leg and
 // any future fixture loader share, so both paths land identical rows.
 func IngestOrderDetails(ctx context.Context, pool *pgxpool.Pool, r io.Reader) (int, error) {
-	rows, err := parseOrderDetails(r)
+	return IngestOrderDetailsForDate(ctx, pool, r, "")
+}
+
+// IngestOrderDetailsForDate is the same seam with the EXPORT DIRECTORY date in
+// hand, so the parsed business date can be checked against it.
+func IngestOrderDetailsForDate(ctx context.Context, pool *pgxpool.Pool, r io.Reader, dateDir string) (int, error) {
+	rows, err := parseOrderDetails(r, dateDir)
 	if err != nil {
 		return 0, err
 	}

@@ -55,3 +55,6 @@ backend/internal/toast/orderdetails.go
 backend/internal/toast/orderdetails_test.go
 backend/internal/toast/sync.go
 backend/internal/toast/testdata/OrderDetails.csv
+
+# EXIT=0 — every assertion in this file is a measurement, and all of them held:
+#   49 insertions / 0 deletions on sync.go; 0 base-only lines; the ItemSelection path identical.

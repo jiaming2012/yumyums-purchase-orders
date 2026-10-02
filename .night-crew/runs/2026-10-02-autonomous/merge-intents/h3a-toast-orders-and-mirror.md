@@ -228,3 +228,127 @@ true isolation rather than the four-test subset. Same Inventory Setup-tab / hub 
 undiagnosed 17-test cluster, and the same run saw two *baseline* members (`:2767`, `:2931`) flip
 green — B-45/B-437's "a distribution of about four, not a fixed four", moving. Worth a line on the
 cluster rather than a card.
+
+---
+
+# Appendix — G6 fix round (run 20261002, APPROVE-WITH-FINDINGS)
+
+Four findings addressed. F6, the `opened_at` zone VALUE, and the four non-baseline
+reds were explicitly **not** mine to act on and were left alone.
+
+## Correction to my own earlier arithmetic
+
+My card report said "base 651 → **+7**". **That sentence does not close** (651 + 7 = 658 ≠ 655)
+and G6 is right about why: the `dev` base figure of 651 is the wrong comparator, because this
+branch sits **above the Card 1 merge** and that 651 already includes Card 1's own tests. The
+measured **655** was correct; the explanation attached to it was not. The honest statement is:
+*this card's seven tests all ran and passed, and the suite at this branch's base measured 648
+PASS + 3 SKIP.* After the fix round it is **660 PASS / 0 FAIL / 3 SKIP** (`G2-go-refix.log`),
+which is 655 + the fix round's five new tests.
+
+## F4 — the cited gate artifacts
+
+**Diagnosis: the review was taken at `2e17ae3` (the feature commit), not at the branch tip.**
+Nothing was lost; nothing was written and deleted. Measured:
+
+```
+232cb2a -> 0 log files    # merge-intent commit, before any gate ran
+2e17ae3 -> 5 log files    # feature commit: G1-build-vet.log + RF-red-1/2/3 + RF-green
+5785a3d -> 11 log files   # gate-log commit: + G2-go, G2-playwright x2, G4-sw, both evidence logs
+```
+
+`2e17ae3`'s five files are **exactly** the set F4 describes. Three of the five "missing"
+artifacts (G2 Go, G2 Playwright, G4) *cannot* exist in the feature commit — `build-sw.js` reads
+**git HEAD**, so G4 is meaningless before the commit it measures.
+
+**It is still my reporting defect, and I am not arguing otherwise:** a report that cites artifact
+paths must name the commit that carries them. A reviewer handed "the card's diff" has no reason
+to assume the evidence lives one commit further on. What changed in response:
+
+- **`logs/h3a/README-artifact-inventory.md`** (new) — the full artifact set as a table, so it is
+  enumerable without trusting prose, with the per-commit measurement above.
+- **Every log now carries an `EXIT=` marker inside the file** (B-445). Three did not:
+  `G4-sw.log` had only `RUN1_EXIT=`/`RUN2_EXIT=`, and the two `evidence-*.log` had no marker at all.
+- **The artifact-carrying SHA is named here:** everything in `logs/h3a/` is present from
+  **`5785a3d`** onward, and the fix round's logs land with the fix-round commit.
+
+## F1 — the false justification comment (comment only; the zone VALUE untouched)
+
+`orderdetails.go` claimed Chicago was "the same America/Chicago the purchasing cutoff and the
+recipes drift check already use". **Verified false against the tree:** `users.DefaultTimezone`
+is `America/New_York` (`internal/users/db.go:14`), and `purchasing/service.go:64`,
+`recipes/scheduler.go:59`, `recipes/cost.go:97` and `inventory/handler.go:27` all read that one
+constant — migration `0072_app_timezone_new_york.sql` moved the drift scheduler OFF Chicago on
+purpose (ledger T-26 decision 83).
+
+The comment now states what is true: the zone Toast writes `Opened` in is **unconfirmed** (spike
+02 parsed it NAIVE, so it measured the digits and not the offset), the repo's own constant is New
+York, this file deliberately uses Chicago, and the choice is **parked for an operator decision
+against a real export sample** — with a `TODO(h3a/F1)` citing it and an explicit "do not tidy
+this to `users.DefaultTimezone` without that decision". `orderTimeZone`'s value is unchanged.
+
+## F2 — the export-dir / business-date disagreement warning
+
+`ingest.go:60` hands the ItemSelection parser the **export directory** date; `orderdetails.go`
+**re-derives** business date from `Opened`. `syncOrderDetails` had `dateDir` in hand and ignored it.
+`parseOrderDetails` now takes `dateDir` and `slog.Warn`s on disagreement, naming both dates, the
+order number, `opened_at` and the zone — **once per distinct derived date**, not once per row, so a
+77-order file with a late-night cutoff emits one line instead of 77 and does not get tuned out.
+`IngestOrderDetailsForDate` is the new seam; `IngestOrderDetails` delegates with `""`.
+
+## F3 — intra-file duplicate key: honest count + warning
+
+Two changes, because the finding has two halves:
+
+- **`parseOrderDetails` now deduplicates** on `(business_date, order_number)`, last-write-wins
+  (which is what the primary key does anyway), and **WARNs** naming the key, both order ids and
+  both totals. The returned slice is now exactly what will land.
+- **`UpsertOrders` returns the sum of Postgres `RowsAffected`**, not `len(rows)`. The number in
+  `"orders_upserted"` is now the database's statement about what landed rather than Go's statement
+  about what it tried.
+
+G6's probe (two rows, both `Order #` 7, same day) went from **n=2 with 1 row in the table** to
+**n=1, 1 row, and a WARN naming the dropped order**.
+
+## F5 — `parseCents` closes two doors
+
+(a) A **blank cell in a required money column** now fails with `ErrOrderMoneyFormat`, as loudly as
+a missing column — the file header already said landing `amount_cents=0` "would poison every money
+figure H3b computes", and nothing downstream can tell a real zero from an absent one.
+(b) Non-finite and non-decimal forms are rejected at parse time against an explicit decimal
+pattern: `"NaN"`/`"Inf"`/`"Infinity"` (which became `-9223372036854775808`, surfacing only later as
+an opaque Postgres range error), `"1e3"`/`"1.5e2"` (silently 100000/15000 cents), and `"--5"`
+(which came out as 499 through double negation). A magnitude bound (`maxOrderDollars = 1e9`) stops
+an arbitrarily long digit string reaching `int()` as `+Inf`. Real 2-dp money is unchanged —
+`"$1,205.73"` → 120573, `"12.345"` → 1235, `"(2.50)"` → -250, `".50"` → 50.
+
+🛑 **One consequence the orchestrator should know, stated rather than buried:** `Discount Amount`
+is in the REQUIRED set, so if a real export prints it **empty** for undiscounted orders, the first
+live file will now **fail loudly** instead of landing zeros. That is the correct direction for
+`toast-sync-fail-loud` (an ERROR per date, visible and recoverable, not a silent wrong number), and
+the fallback if a real sample shows blanks is one line in `parseCents`. Spike 02's sample printed
+`0.00`, not blank, so nothing measured contradicts this today.
+
+## Fix-round gate outcomes
+
+| Gate | Result | Log |
+|---|---|---|
+| RF (red) | build-failure red, then **behavioural** reds for all three: no disagreement warning logged; `reported 2 rows upserted, the table holds 1`; `parseCents("NaN") = -9223372036854775808 with NO error` (+15 more). EXIT=1 | `RF2-red-g6-fixes.log` |
+| RF (green) | whole `internal/toast`: **35 PASS / 0 FAIL**, EXIT=0 — the five new tests plus every pre-existing one, including `TestSyncDate_*` and the `parseItemSelectionDetails` set | `RF2-green-g6-fixes.log` |
+| G1 | `go build ./...` + `go vet ./...` exit 0 | `G1-build-vet.log` (re-verified) |
+| G2 (Go) | **660 PASS / 0 FAIL / 3 SKIP**, EXIT=0; `internal/toast` 30 → 35, `internal/workflow` still **39** | `G2-go-refix.log` |
+| G4 | precache **48**, idempotent, `sw.js` byte-unchanged | `G4-sw-refix.log` |
+
+**No full Playwright suite was taken this round** — the lock is Card 6's, and this round changes
+only `internal/toast` (a Go-only package with no frontend surface); the card's measured full suite
+stands at 26 failed / 963 passed.
+
+## Addition to "what must survive any merge"
+
+- **`IngestOrderDetailsForDate(ctx, pool, r, dateDir)` is the seam `sync.go` calls**, and
+  `parseOrderDetails` takes `dateDir`. The two warnings (F2 disagreement, F3 intra-file duplicate)
+  and `UpsertOrders` returning `RowsAffected` are the fix round's deliverable — dropping any of
+  them restores a silent loss reported as a success.
+- **`ErrOrderMoneyFormat` + `moneyPattern` + `maxOrderDollars`** in `orderdetails.go`.
+- **The `TODO(h3a/F1)` block on `orderTimeZone`.** The zone value is parked for the operator; the
+  comment explaining that is what keeps the next reader from "fixing" it either way.

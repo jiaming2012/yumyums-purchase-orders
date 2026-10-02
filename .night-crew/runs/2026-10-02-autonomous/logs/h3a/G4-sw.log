@@ -12,3 +12,5 @@ Frontend version: 1.10.2
 RUN2_EXIT=0
 # --- git status after both runs ---
 ?? .night-crew/runs/2026-10-02-autonomous/logs/h3a/G4-sw.log
+
+# EXIT=0 (B-445: the marker inside the file. Both build-sw.js runs exited 0 — RUN1_EXIT / RUN2_EXIT above.)
