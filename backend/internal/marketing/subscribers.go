@@ -157,6 +157,7 @@ type importResultDTO struct {
 	Read       int    `json:"read"`
 	Created    int    `json:"created"`
 	Updated    int    `json:"updated"`
+	Unchanged  int    `json:"unchanged"`
 	Skipped    int    `json:"skipped"`
 	ScansBound int    `json:"scans_bound"`
 }
@@ -578,10 +579,12 @@ func csvBody(r *http.Request) (string, error) {
 //     form is ONE person, not two rows the operator has to reconcile by eye.
 //  3. otherwise INSERT.
 //
-// An UPDATE is deliberately a MERGE and never a replace: it fills NULLs, ORs
-// the consent flags up, and sets `source_short` only when it is currently NULL
-// — first-touch (decision 189) means the FIRST code wins, so a later import
-// carrying a different short must not overwrite it.
+// An UPDATE is a MERGE with a FIELD-BY-FIELD policy, not a blanket
+// fill-the-NULLs — see mergeSubscriber for the rule each column gets and why.
+// In short: display_name and email converge on the LATEST value (they are
+// corrections), identity and first-touch keep the FIRST, consent is MONOTONIC,
+// and an opt-out is sticky. The result distinguishes `updated` from
+// `unchanged`, so a re-import never claims a write it did not make.
 //
 // `signed_up` is appended on INSERT only. An idempotent re-run that appended an
 // event every time would make the timeline a log of imports instead of a
@@ -625,10 +628,15 @@ func ImportSubscribers(ctx context.Context, pool interface {
 			return res, err
 		}
 		if found {
-			if err := mergeSubscriber(ctx, tx, id, c, short); err != nil {
+			changed, err := mergeSubscriber(ctx, tx, id, c, short)
+			if err != nil {
 				return res, err
 			}
-			res.Updated++
+			if changed {
+				res.Updated++
+			} else {
+				res.Unchanged++
+			}
 		} else {
 			id, err = insertSubscriber(ctx, tx, c, short)
 			if err != nil {
@@ -698,7 +706,8 @@ func insertSubscriber(ctx context.Context, tx pgx.Tx, c sources.Candidate, short
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && c.PhoneE164 != "" {
 			if e2 := tx.QueryRow(ctx,
 				`SELECT id::text FROM subscribers WHERE phone_e164 = $1`, c.PhoneE164).Scan(&id); e2 == nil {
-				return id, mergeSubscriber(ctx, tx, id, c, short)
+				_, mErr := mergeSubscriber(ctx, tx, id, c, short)
+				return id, mErr
 			}
 		}
 		return "", fmt.Errorf("insert subscriber: %w", err)
@@ -720,33 +729,87 @@ func insertSubscriber(ctx context.Context, tx pgx.Tx, c sources.Candidate, short
 	return id, nil
 }
 
-// mergeSubscriber fills gaps and never clobbers. See ImportSubscribers' doc for
-// why each column behaves the way it does.
-func mergeSubscriber(ctx context.Context, tx pgx.Tx, id string, c sources.Candidate, short string) error {
-	_, err := tx.Exec(ctx, `
+// mergeSubscriber applies this card's FIELD-BY-FIELD merge policy and reports
+// whether anything actually changed.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// THE POLICY, AND WHY EACH FIELD GETS THE RULE IT GETS (G6 finding F4)
+//
+// "COALESCE(existing, new) everywhere" was wrong in one direction and
+// right in the other, so the fields are now split explicitly:
+//
+//	display_name  LATEST WINS. A name corrected upstream ("Dana" → "Dana
+//	email         Reyes") is a CORRECTION, and silently discarding it while
+//	              reporting `updated: 1` is the worst of both. These are the
+//	              two fields a human actually fixes at the source.
+//
+//	phone_e164    FIRST WINS. This is the dedupe IDENTITY — the key
+//	              findSubscriber matched on. Reassigning it under a row would
+//	              silently re-point who that record is.
+//
+//	source_short  FIRST WINS. Decision 189 is FIRST-TOUCH: a subscriber's
+//	              campaign is the first code they scanned, so a later import
+//	              carrying a different short must not overwrite it.
+//
+//	sms_consent   MONOTONIC (OR). Consent is granted, never revoked by an
+//	email_consent import: an import that omits a box is silent about it, not a
+//	              withdrawal. Withdrawal is opted_out_at, which WINS over both
+//	              when the list derives its consent state.
+//
+//	consent_evidence  FIRST WINS. The trail records the consent originally
+//	              given; successive actions live in subscriber_events.
+//
+//	opted_out_at  STICKY, EARLIEST. Once set it is never cleared by an import.
+//	              An opt-out is the one thing that must survive every source.
+//
+//	joined_at     EARLIEST (LEAST). They joined when they first joined.
+//	external_ref  FIRST WINS. It is an idempotency handle, not data.
+//
+// The asymmetry between display_name (latest wins) and consent (monotonic) is
+// deliberate: a name is a fact an upstream system can correct, and consent is a
+// permission that only the person can widen and only an opt-out can close.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// AND THE COUNT IS HONEST
+//
+// The UPDATE carries an IS DISTINCT FROM guard over exactly the tuple it would
+// write, so RowsAffected is 1 only when a field genuinely moves. An unchanged
+// re-import now reports `unchanged`, not `updated`. A count that claims an
+// update that did not happen is a count nobody can reconcile against.
+func mergeSubscriber(ctx context.Context, tx pgx.Tx, id string, c sources.Candidate, short string) (bool, error) {
+	tag, err := tx.Exec(ctx, `
 		UPDATE subscribers SET
-		  display_name     = COALESCE(display_name, NULLIF($2,'')),
+		  display_name     = COALESCE(NULLIF($2,''), display_name),
+		  email            = COALESCE(NULLIF($4,''), email),
 		  phone_e164       = COALESCE(phone_e164,   NULLIF($3,'')),
-		  email            = COALESCE(email,        NULLIF($4,'')),
 		  source_short     = COALESCE(source_short, NULLIF($5,'')),
 		  sms_consent      = sms_consent   OR $6,
 		  email_consent    = email_consent OR $7,
-		  -- EARLIEST evidence wins, like joined_at below: the trail records the
-		  -- consent originally given, and successive actions live in
-		  -- subscriber_events where they belong. A later import must not
-		  -- overwrite the line that documents the first grant.
 		  consent_evidence = COALESCE(consent_evidence, NULLIF($8,'')),
 		  opted_out_at     = CASE WHEN $9 THEN COALESCE(opted_out_at, now()) ELSE opted_out_at END,
 		  joined_at        = LEAST(joined_at, $10),
 		  external_ref     = COALESCE(external_ref, NULLIF($11,''))
-		WHERE id = $1`,
+		WHERE id = $1
+		  AND (display_name, email, phone_e164, source_short, sms_consent,
+		       email_consent, consent_evidence, opted_out_at, joined_at, external_ref)
+		      IS DISTINCT FROM
+		      (COALESCE(NULLIF($2,''), display_name),
+		       COALESCE(NULLIF($4,''), email),
+		       COALESCE(phone_e164,   NULLIF($3,'')),
+		       COALESCE(source_short, NULLIF($5,'')),
+		       sms_consent   OR $6,
+		       email_consent OR $7,
+		       COALESCE(consent_evidence, NULLIF($8,'')),
+		       CASE WHEN $9 THEN COALESCE(opted_out_at, now()) ELSE opted_out_at END,
+		       LEAST(joined_at, $10),
+		       COALESCE(external_ref, NULLIF($11,'')))`,
 		id, c.DisplayName, c.PhoneE164, c.Email, short,
 		c.SMSConsent, c.EmailConsent, c.ConsentEvidence, c.OptedOut,
 		c.JoinedAt, c.ExternalRef)
 	if err != nil {
-		return fmt.Errorf("merge subscriber: %w", err)
+		return false, fmt.Errorf("merge subscriber: %w", err)
 	}
-	return nil
+	return tag.RowsAffected() > 0, nil
 }
 
 // ── small helpers ──

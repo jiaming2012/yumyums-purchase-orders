@@ -164,6 +164,12 @@ so PNGs written there are deleted by the next leg — including this card's own
 full suite. Card H2 lost its evidence to exactly that. Every screenshot path
 this card's report cites still resolves at triage.
 
+**13 files, 13 distinct images.** An earlier revision filed
+`05-long-content.png` as a full-page shot that was **byte-identical** to
+`04-success.png` (same md5) — the same picture twice, which inflates the
+evidence count without adding evidence. It is now a clip of the long row
+itself, which is better evidence of the clamp than the whole page was.
+
 | Row | Trigger | Fixture or real |
 |---|---|---|
 | loading | `page.route` holds `GET /subscribers` 1.5 s, then the §5 zero shape | **FIXTURE** |
@@ -182,6 +188,18 @@ deliberate 500, and a *globally* empty mailing list in a database the sibling
 spec has already seeded. `tests/marketing-subscribers.spec.js` — where
 `[SB-01]`–`[SB-04]` live — contains **no `page.route` at all**; every one of
 those four hits the real endpoints.
+
+## G6 fix round (run 20261002) — four findings fixed, one routed
+
+| # | Finding | Fix |
+|---|---|---|
+| **F1** (HIGH, consent) | Offline, a filter tap left the **SMS** chip over the previous filter's rows — so "who can an SMS blast reach" displayed a person who sent **STOP**. Visible in the first `09-offline-list.png`. | **The controls are REVERTED to what the rows were actually loaded with, and the revert is NAMED.** `STATE.applied` records the filter/source/q the on-screen rows reflect; a failed read puts the controls back to it and the banner says *"The **SMS** filter needs a connection, so this is still the **All** list."* Chip and list can no longer disagree, and the tap is acknowledged rather than swallowed. Free text cannot be reverted mid-word without the box emptying itself as the operator types, so the search input is **disabled** while offline — same invariant by a different route. New state row `offline-filter`, screenshot `11-offline-filter-refused.png`. |
+| **F2** (MEDIUM, consent) | The generic `"id"` alias in `hdrGuestID` let two exports whose `id` is a row number collide on `external_ref`, merging Bob's opt-in onto Alice, who answered No. | Bare `"id"` **dropped**; only unambiguous guest-identifier names are accepted. An export without one has no `external_ref` and dedupes on the phone, the key spike 02 proved closed. `TestToastGuestIDAliasDoesNotMergeTwoPeople` is exactly G6's two-export scenario. |
+| **F3** (MEDIUM) | The stat tiles painted a confident `0 / 0 / 0` above the red banner — two claims, one false; and offline with a cold cache claimed *"No subscribers yet."* | Tiles render an **em dash** when the load failed or has never succeeded. Offline-with-nothing-cached now says *"Nothing loaded on this device yet"* — a device that never reached the server is in no position to make a claim about the mailing list. New state row `offline-cold`, screenshot `12-offline-cold.png`. |
+| **F4** (MEDIUM) | `mergeSubscriber` was blanket `COALESCE(existing, new)`, so an upstream-corrected name was discarded while the result still reported `updated: 1`. | **A documented per-field policy** (written out on `mergeSubscriber`): `display_name`/`email` **latest wins** (they are corrections); `phone_e164` (dedupe identity), `source_short` (decision 189 first-touch), `consent_evidence`, `external_ref` **first wins**; consent **monotonic**; `opted_out_at` **sticky**; `joined_at` **earliest**. The UPDATE carries an `IS DISTINCT FROM` guard over exactly the tuple it writes, so `updated` counts only real writes and `unchanged` is reported separately. |
+| **F5** | **ROUTED, NOT FIXED, as instructed.** `0085`'s FKs are `NO ACTION` both ways, so deleting a `qr_codes` row a subscriber first-touched is blocked, and deleting a subscriber is blocked by `subscriber_events`. On a PII table that means a right-to-erasure request cannot be served by a plain `DELETE`. **The DDL is §4 verbatim**, so this is inherited from the spec, not invented. Same defect class as open **D-1**; the orchestrator is routing it there for the operator. **No DDL changed.** |
+
+Two low findings also fixed: the source `<select>` fired both `input` and `change`, issuing two `GET /subscribers` per change (harmless — `reqSeq` discarded the loser — but it is the one place the one-listener convention stretched); and `NormalizeE164` accepted a mistyped ten-digit `1 773 555 482` as `+11773555482`, rendering a **confidently wrong** `last4` of `5482`. No NANP area code begins with 0 or 1, so such a number cannot exist and is now rejected — a wrong value becomes no value, which the list already renders honestly as "No phone".
 
 ## Decisions this card made that the slate left to it
 

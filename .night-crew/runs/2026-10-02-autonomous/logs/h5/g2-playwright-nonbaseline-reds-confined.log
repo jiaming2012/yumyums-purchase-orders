@@ -403,7 +403,12 @@ CONCLUSION — none of the three is this card's.
 
   tests/inventory.spec.js:2919  create item without group shows alert     GREEN confined
   tests/sync.spec.js:446        [LST-17] progress decrements …            GREEN confined
-    → load flake under a 989-test full suite. Both pass in isolation.
+    → EXCLUDED BY FOOTPRINT. (An earlier revision of this note called them
+      "load flake". One confined green does not establish flake — tonight's own
+      method note in bugs.md says so — and the argument that actually carries is
+      the footprint one: this card shares NO FILE with either subject. It
+      touches no inventory page or handler, no sync module, no workflow code.
+      The confined green is corroboration, not the claim.)
 
   tests/inventory.spec.js:2186  Setup item editor shows alias chips …     STILL RED confined
     → NOT this card's, on independent evidence:
@@ -423,7 +428,9 @@ CONCLUSION — none of the three is this card's.
         `dev` at c4f6db4, BEFORE Card H1 merged; this branch is cut from
         94ad3b3, which includes that merge.
 
-Net red-set difference attributable to card h5-subscribers-tab: NONE.
+Net red-set difference attributable to card h5-subscribers-tab: NONE —
+on FOOTPRINT, which is the argument that carries, with the confined re-runs as
+corroboration rather than as the proof.
 Two of the measured 24 (inventory.spec.js:2767 and :2931) were GREEN in this
 card's run — the same cluster flaking the other way, reported for symmetry and
 not claimed as a fix.

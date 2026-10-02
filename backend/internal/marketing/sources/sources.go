@@ -109,6 +109,15 @@ func NormalizeE164(raw string) string {
 	if len(d) != 10 {
 		return ""
 	}
+	// 🛑 No NANP area code begins with 0 or 1, so ten digits starting with one
+	// of those is not an unknown number — it cannot exist. The case that
+	// matters is a MISTYPE: "1 773 555 482" is ten digits, and the older
+	// heuristic accepted it as "+11773555482" and rendered a confidently wrong
+	// masked last4 of "5482". Rejecting it turns a wrong value into no value,
+	// which the list already renders honestly as "No phone". (G6 low finding.)
+	if d[0] == '0' || d[0] == '1' {
+		return ""
+	}
 	return "+1" + d
 }
 

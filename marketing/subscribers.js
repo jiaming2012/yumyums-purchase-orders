@@ -72,6 +72,12 @@ const STATE = {
   rows: [],
   counts: { total: 0, sms_opt_in: 0, joined_this_week: 0 },
   lastSynced: null,    // Date of the last SUCCESSFUL read — the offline row's reading
+  // `applied` is WHAT THE ROWS ON SCREEN WERE ACTUALLY LOADED WITH. The
+  // controls are reverted to it whenever a read fails, so a chip can never sit
+  // over another filter's rows. See the refusal note in load().
+  applied: { filter: 'all', source: '', q: '' },
+  synced: false,       // has ANY read ever succeeded on this device?
+  refused: null,       // {filter|source|q} the user asked for and could not get
   offline: false,
   error: null,
   openId: null,
@@ -127,7 +133,17 @@ function lockedHTML() {
 
 function headHTML() {
   const c = STATE.counts;
-  const n = v => STATE.status === 'loading' ? '<span class="subs-skel"></span>' : esc(v ?? 0);
+  // 🛑 A failed load knows NOTHING about the list, so the tiles must not assert
+  // a number (G6 finding F3). "0 On the list" above a red "Could not load"
+  // banner is two claims with one false — the same shape the empty card was
+  // already suppressed for. An em dash says "no reading", which is the truth.
+  // After a SUCCESSFUL load these stay real even when offline, because the
+  // banner then dates them ("Last synced …").
+  const n = v => {
+    if (STATE.status === 'loading') return '<span class="subs-skel"></span>';
+    if (STATE.status === 'error' || !STATE.synced) return '\u2014';
+    return esc(v ?? 0);
+  };
   return `<div class="card">
     <div class="hd"><h1>Subscribers</h1>
       <div class="sub">Web signups, SMS opt-ins, Toast imports and campaign QR codes</div></div>
@@ -139,11 +155,34 @@ function headHTML() {
   </div>`;
 }
 
+// refusalLine names the control the operator touched and the one the rows
+// still reflect. It must name BOTH: "the filter needs a connection" alone does
+// not tell them what they are looking at instead.
+function refusalLine(r) {
+  const label = k => (FILTERS.find(f => f.key === k) || {}).label || k;
+  if (r.filter) {
+    return `<span class="subs-refused">The <b>${esc(label(r.filter))}</b> filter needs a connection,
+      so this is still the <b>${esc(label(r.applied))}</b> list.</span>`;
+  }
+  if (r.source || r.q) {
+    return `<span class="subs-refused">That search needs a connection, so this is still the
+      last list you loaded.</span>`;
+  }
+  return '';
+}
+
 function bannerHTML() {
   if (STATE.offline) {
     const seen = STATE.lastSynced ? `Last synced ${esc(fmtTime(STATE.lastSynced))}` : 'Never synced on this device';
+    // 🛑 G6 finding F1. When a filter or search tap could not be loaded, the
+    // controls were REVERTED to what the rows actually are, and that revert is
+    // named here — otherwise the chip springing back reads as a broken tap.
+    // Naming the filter the operator asked for is what keeps the tap feeling
+    // acknowledged while the list stays honest.
+    const refused = STATE.refused ? refusalLine(STATE.refused) : '';
     return `<div class="subs-banner subs-banner-warn" id="subs-banner">
       <b>Offline.</b> ${seen} &#183; Resend is disabled until you are back on.
+      ${refused}
       <button class="subs-retry" data-action="retry">Retry</button></div>`;
   }
   if (STATE.status === 'error') {
@@ -159,11 +198,16 @@ function controlsHTML() {
     `<button class="subs-chip${STATE.filter === f.key ? ' on' : ''}" data-action="filter" data-filter="${f.key}">${esc(f.label)}</button>`).join('');
   const opts = SOURCES.map(s =>
     `<option value="${s.key}"${STATE.source === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
+  // Free text cannot be reverted mid-word without the box emptying itself as
+  // the operator types, so offline it is DISABLED instead. Same invariant as
+  // the chips by a different route: nothing on screen can claim a filter the
+  // rows were not loaded with.
+  const off = STATE.offline ? ' disabled' : '';
   return `<div class="card subs-controls">
-    <input id="subs-q" type="search" inputmode="search" autocomplete="off"
-           placeholder="Name, email, campaign, or last 4 digits" value="${esc(STATE.q)}">
+    <input id="subs-q" type="search" inputmode="search" autocomplete="off"${off}
+           placeholder="${STATE.offline ? 'Search needs a connection' : 'Name, email, campaign, or last 4 digits'}" value="${esc(STATE.q)}">
     <div class="subs-chips" id="subs-filters">${chips}</div>
-    <select id="subs-source" aria-label="Source">${opts}</select>
+    <select id="subs-source" aria-label="Source"${off}>${opts}</select>
   </div>`;
 }
 
@@ -178,6 +222,16 @@ function listHTML() {
     // 🛑 A blank render is a defect (UI-R). Say which list is empty and why it
     // might be, and distinguish "nothing matched your search" from "nobody has
     // signed up" — they call for different next actions.
+    // 🛑 G6 finding F3, second half. Offline with NOTHING cached, this device
+    // never reached the server — so "No subscribers yet" is a claim about the
+    // mailing list that it is in no position to make. Say what is actually
+    // true: there is nothing here to show.
+    if (STATE.offline && !STATE.synced) {
+      return `<div class="card subs-empty" id="subs-empty">
+        <div class="bd"><b>Nothing loaded on this device yet.</b><br>You are offline, so the
+        mailing list has never been fetched here. Reconnect and it will load.</div>
+      </div>`;
+    }
     const filtered = STATE.q || STATE.filter !== 'all' || STATE.source;
     return `<div class="card subs-empty" id="subs-empty">
       <div class="bd">${filtered
@@ -323,10 +377,14 @@ async function load() {
   const seq = ++reqSeq;
   if (!STATE.rows.length) STATE.status = 'loading';
   render();
+  // What THIS request asks for. On success it becomes STATE.applied; on
+  // failure the controls are put back to STATE.applied, so the chips, the
+  // search box and the rows can never disagree (G6 finding F1).
+  const want = { filter: STATE.filter, source: STATE.source, q: STATE.q };
   const qs = new URLSearchParams();
-  if (STATE.q) qs.set('q', STATE.q);
-  if (STATE.filter !== 'all') qs.set('filter', STATE.filter);
-  if (STATE.source) qs.set('source', STATE.source);
+  if (want.q) qs.set('q', want.q);
+  if (want.filter !== 'all') qs.set('filter', want.filter);
+  if (want.source) qs.set('source', want.source);
   try {
     const res = await fetch(`${API}?${qs}`);
     if (seq !== reqSeq) return;           // a newer keystroke already won
@@ -340,8 +398,28 @@ async function load() {
     STATE.offline = false;
     STATE.error = null;
     STATE.lastSynced = new Date();
+    STATE.applied = want;
+    STATE.synced = true;
+    STATE.refused = null;
   } catch (e) {
     if (seq !== reqSeq) return;
+    // 🛑 REVERT THE CONTROLS. The rows on screen are STATE.applied's rows, so
+    // the controls go back to STATE.applied — otherwise an "SMS" chip sits
+    // over the previous filter's list and the view that answers "who can an
+    // SMS blast reach" displays somebody who sent STOP (G6 finding F1). The
+    // tap is not swallowed: refused is what the banner names back.
+    const drifted = want.filter !== STATE.applied.filter ||
+                    want.source !== STATE.applied.source ||
+                    want.q !== STATE.applied.q;
+    if (drifted) {
+      STATE.refused = { filter: want.filter !== STATE.applied.filter ? want.filter : '',
+                        source: want.source !== STATE.applied.source ? want.source : '',
+                        q: want.q !== STATE.applied.q ? want.q : '',
+                        applied: STATE.applied.filter };
+      STATE.filter = STATE.applied.filter;
+      STATE.source = STATE.applied.source;
+      STATE.q = STATE.applied.q;
+    }
     // Offline keeps the last good list on screen and says how old it is; a
     // real failure while online is a loud, retryable banner (UI-R5).
     if (!navigator.onLine) {
@@ -420,6 +498,14 @@ function onClick(ev) {
 
 function onInput(ev) {
   const t = ev.target;
+  // A <select> fires BOTH `input` and `change`, so without this guard every
+  // source change issued two GET /subscribers. `reqSeq` discarded the loser so
+  // nothing was ever wrong on screen, but it doubled the request rate on the
+  // one control that has a listener for each event (G6 low finding). The
+  // select is driven by `change` (iOS does not fire `input` on it); everything
+  // else is driven by `input`.
+  const isSelect = t.id === 'subs-source';
+  if (isSelect !== (ev.type === 'change')) return;
   if (t.id === 'subs-q') {
     STATE.q = t.value.trim();
     clearTimeout(searchTimer);

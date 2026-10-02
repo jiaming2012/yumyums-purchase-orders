@@ -51,7 +51,16 @@ var (
 	hdrName    = []string{"name", "guestname", "firstname", "fullname", "displayname"}
 	hdrPhone   = []string{"phone", "phonenumber", "guestphone", "mobile", "mobilephone"}
 	hdrEmail   = []string{"email", "emailaddress", "guestemail"}
-	hdrGuestID = []string{"guestid", "id", "guestguid", "customerid"}
+	// 🛑 NO BARE "id". `id` is a generic column name: one export's `id` is a
+	// stable guest handle, a later export's is a plain ROW NUMBER. Both land on
+	// external_ref "1", the upsert matches (toast_import,'1'), and the merge
+	// ORs a stranger's opt-in onto whoever imported first — a CONSENT bug, not a
+	// data-hygiene one (G6 finding F2; TestToastGuestIDAliasDoesNotMergeTwoPeople
+	// reproduces it as Bob's "Yes" landing on Alice's "No"). Only names that
+	// unambiguously denote a GUEST identifier are accepted; an export without
+	// one simply has no external_ref and dedupes on the phone instead, which is
+	// the key spike 02 proved closed.
+	hdrGuestID = []string{"guestid", "guestguid", "customerid", "customerguid", "guestidentifier"}
 	hdrSMS     = []string{"smsconsent", "smsoptin", "textoptin", "marketingsmsoptin"}
 	hdrEmailOK = []string{"emailconsent", "emailoptin", "marketingoptin", "marketingemailoptin"}
 	hdrOptOut  = []string{"optedout", "optout", "unsubscribed", "donotcontact"}

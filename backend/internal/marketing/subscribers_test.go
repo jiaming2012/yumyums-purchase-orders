@@ -688,3 +688,145 @@ func postCSV(t *testing.T, mux *chi.Mux, ctx context.Context, path, body string)
 	mux.ServeHTTP(rec, req)
 	return rec
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIX ROUND (G6 findings F2, F4, and the E.164 low) — run 20261002
+// ═══════════════════════════════════════════════════════════════════════════
+
+// TestToastGuestIDAliasDoesNotMergeTwoPeople is G6 finding F2, and it is a
+// CONSENT bug, not a data-hygiene one.
+//
+// `id` is a generic column name. A Toast export whose `id` is a stable guest
+// handle and a LATER export whose `id` is a plain row number both land on
+// external_ref "1" — so findSubscriber matches, mergeSubscriber runs, and
+// `sms_consent = sms_consent OR true` lands Bob's opt-in on ALICE, who never
+// consented. Exactly the two-export scenario G6 named.
+func TestToastGuestIDAliasDoesNotMergeTwoPeople(t *testing.T) {
+	pool := setupSubsTestDB(t)
+	mgr := seedUser(t, pool, "manager")
+	mux := mountedMux(testDeps(pool))
+	ctx := userCtx(mgr, "manager")
+
+	exportA := "id,name,phone,sms opt in\n1,Alice,(773) 570-0001,No\n"
+	exportB := "id,name,phone,sms opt in\n1,Bob,(773) 570-0002,Yes\n"
+
+	if rec := postCSV(t, mux, ctx, "/api/v1/marketing/subscribers/import/toast-guests", exportA); rec.Code != http.StatusOK {
+		t.Fatalf("export A = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := postCSV(t, mux, ctx, "/api/v1/marketing/subscribers/import/toast-guests", exportB); rec.Code != http.StatusOK {
+		t.Fatalf("export B = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if n := countRows(t, pool, `SELECT count(*) FROM subscribers`); n != 2 {
+		t.Fatalf("%d subscribers after two exports, want 2 — Alice and Bob are different people", n)
+	}
+	var aliceSMS bool
+	var aliceName string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT display_name, sms_consent FROM subscribers WHERE phone_e164 = '+17735700001'`).
+		Scan(&aliceName, &aliceSMS); err != nil {
+		t.Fatalf("read Alice: %v", err)
+	}
+	if aliceName != "Alice" {
+		t.Errorf("display_name = %q, want Alice — Bob's row overwrote her", aliceName)
+	}
+	if aliceSMS {
+		t.Error("🛑 Alice has sms_consent=true. She answered No. A generic `id` column merged Bob's opt-in onto her.")
+	}
+}
+
+// TestReImportConvergesCorrectedFieldsAndCountsHonestly is G6 finding F4.
+//
+// Two halves, both of which were false before the fix:
+//
+//  1. CONVERGENCE — a display_name or email corrected upstream must land.
+//     mergeSubscriber was all COALESCE(existing, new), so "Dana" never became
+//     "Dana Reyes".
+//  2. AN HONEST COUNT — re-importing an UNCHANGED file must not report
+//     `updated: N`. It claimed an update that did not happen.
+func TestReImportConvergesCorrectedFieldsAndCountsHonestly(t *testing.T) {
+	pool := setupSubsTestDB(t)
+	ctx := context.Background()
+
+	const one = `[{"id":9001,"form_id":2,"created_at":"2026-09-20 10:00:00",
+	  "response":"{\"names\":{\"first_name\":\"Dana\"},\"email\":\"dana@example.com\",\"input_text\":\"(773) 571-0001\",\"checkbox\":[\"Email\"]}"}]`
+	// Same submission id, a corrected NAME and EMAIL, and an ADDED consent.
+	const corrected = `[{"id":9001,"form_id":2,"created_at":"2026-09-20 10:00:00",
+	  "response":"{\"names\":{\"first_name\":\"Dana Reyes\"},\"email\":\"dana.reyes@example.com\",\"input_text\":\"(773) 571-0001\",\"checkbox\":[\"Email\",\"Phone\"]}"}]`
+
+	imp := func(raw string) importResultDTO {
+		t.Helper()
+		ff, err := sources.NewFluentFormsFromJSON([]byte(raw))
+		if err != nil {
+			t.Fatalf("fixture: %v", err)
+		}
+		res, err := ImportSubscribers(ctx, pool, ff)
+		if err != nil {
+			t.Fatalf("import: %v", err)
+		}
+		return res
+	}
+
+	if r := imp(one); r.Created != 1 {
+		t.Fatalf("first import created %d, want 1", r.Created)
+	}
+
+	// (2) An UNCHANGED re-import must report nothing updated.
+	r := imp(one)
+	if r.Created != 0 {
+		t.Fatalf("unchanged re-import created %d, want 0", r.Created)
+	}
+	if r.Updated != 0 {
+		t.Errorf("🛑 unchanged re-import reports updated=%d, want 0 — the count claims an update that did not happen", r.Updated)
+	}
+	if r.Unchanged != 1 {
+		t.Errorf("unchanged re-import reports unchanged=%d, want 1", r.Unchanged)
+	}
+
+	// (1) A corrected name and email must CONVERGE, and that one IS an update.
+	r = imp(corrected)
+	if r.Updated != 1 {
+		t.Errorf("corrected re-import reports updated=%d, want 1", r.Updated)
+	}
+	var name, email string
+	var sms, emailOK bool
+	if err := pool.QueryRow(ctx,
+		`SELECT display_name, email, sms_consent, email_consent FROM subscribers WHERE external_ref='9001'`).
+		Scan(&name, &email, &sms, &emailOK); err != nil {
+		t.Fatalf("read the row: %v", err)
+	}
+	if name != "Dana Reyes" {
+		t.Errorf("🛑 display_name = %q, want %q — an upstream correction was silently discarded", name, "Dana Reyes")
+	}
+	if email != "dana.reyes@example.com" {
+		t.Errorf("🛑 email = %q, want the corrected address", email)
+	}
+	// Consent stays MONOTONIC — the added Phone box lands, and nothing that was
+	// true becomes false. That asymmetry with display_name is deliberate and is
+	// documented on mergeSubscriber.
+	if !sms || !emailOK {
+		t.Errorf("consent = sms:%v email:%v, want both true (the corrected submission ticked both)", sms, emailOK)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM subscribers`); n != 1 {
+		t.Fatalf("%d subscribers after three imports of one submission, want 1", n)
+	}
+}
+
+// TestNormalizeE164RejectsImpossibleAreaCodes is the low finding G6 flagged:
+// a mistyped "1 773 555 482" is ten digits, so the old heuristic accepted it as
+// +11773555482 and rendered a CONFIDENTLY WRONG last4 of "5482".
+//
+// No NANP area code begins with 0 or 1, so such a number is not merely unknown
+// — it cannot exist. Rejecting it turns a wrong value into no value, which the
+// UI already renders honestly as "No phone".
+func TestNormalizeE164RejectsImpossibleAreaCodes(t *testing.T) {
+	for _, raw := range []string{"1 773 555 482", "1773555482", "0773555482", "(177) 355-5482"} {
+		if got := sources.NormalizeE164(raw); got != "" {
+			t.Errorf("NormalizeE164(%q) = %q, want \"\" — no NANP area code starts with 0 or 1", raw, got)
+		}
+	}
+	// The spike's set is unaffected: 773 is a real area code.
+	if got := sources.NormalizeE164("17735554821"); got != "+17735554821" {
+		t.Errorf("NormalizeE164 broke the 11-digit country-code case: %q", got)
+	}
+}

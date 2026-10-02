@@ -149,6 +149,13 @@ test.describe('States · Marketing Subscribers (#s3)', () => {
     await expect(page.locator('#subs-root')).toHaveAttribute('data-state', 'error');
     await expect(page.locator('#subs-banner')).toContainText(/Could not load subscribers/i);
     await expect(page.locator('#subs-banner')).toContainText(/500/);
+    // G6 finding F3: the stat tiles used to paint a confident "0 / 0 / 0"
+    // ABOVE the red banner — two claims, one false. A failed load knows
+    // nothing about the list, so the tiles must not assert a number.
+    await expect(page.locator('#subs-total')).not.toHaveText('0');
+    await expect(page.locator('#subs-total')).toHaveText('—');
+    await expect(page.locator('#subs-sms')).toHaveText('—');
+    await expect(page.locator('#subs-week')).toHaveText('—');
     await shot(page, '03-error');
     // Loud AND retryable (UI-R5).
     fail = false;
@@ -191,7 +198,10 @@ test.describe('States · Marketing Subscribers (#s3)', () => {
     const overflow = await page.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, 'no horizontal overflow at 393px').toBeLessThanOrEqual(0);
-    await shot(page, '05-long-content');
+    // Clipped to the row itself. The previous full-page shot here was
+    // BYTE-IDENTICAL to 04-success.png (same md5) — the same picture filed
+    // twice, which inflates the evidence count without adding evidence.
+    await longRow.screenshot({ path: path.join(SHOT_DIR, '05-long-content.png') });
 
     await longRow.click();
     await expect(page.locator('#subs-sheet')).toBeVisible();
@@ -260,6 +270,64 @@ test.describe('States · Marketing Subscribers (#s3)', () => {
     await expect(page.locator('#subs-resend')).toBeDisabled();
     await expect(page.locator('#subs-resend-note')).toContainText(/offline/i);
     await shot(page, '10-offline-sheet');
+    await context.setOffline(false);
+  });
+
+  // ── REAL condition: offline + a filter tap (G6 finding F1) ──────────────
+  //
+  // 🛑 THE ONE WITH LEGAL WEIGHT. Tapping SMS while offline used to leave the
+  // chip reading "SMS" over the PREVIOUS filter's rows — so the
+  // "who can an SMS blast reach" view displayed a person who sent STOP. The
+  // chip and the list must never be able to disagree.
+  test('offline-filter — a filter tap that cannot load NEVER leaves the chip over another filter\'s rows', async ({ page, context }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const t = Date.now();
+    await importGuests(page,
+      'Guest Id,Name,Phone Number,Email,SMS Opt In,Email Opt In,Opted Out,Created Date\n' +
+      `st-of-${t}-a,Stopped Person,(773) 563-0401,stop.p@example.com,Yes,Yes,Yes,2026-09-29 10:00:00\n` +
+      `st-of-${t}-b,Reachable Person,(773) 563-0402,reach.p@example.com,Yes,Yes,No,2026-09-28 10:00:00\n`);
+    await openTab(page);
+    await settled(page);
+    await expect(page.locator('.subs-row', { hasText: 'Stopped Person' })).toHaveAttribute('data-consent', 'stop');
+
+    await context.setOffline(true);
+    await page.click('#subs-filters [data-filter="sms"]');
+    await page.waitForFunction(() => document.getElementById('subs-root').dataset.offline === '1');
+
+    // The contract: whatever the chip says, the rows beneath it are that
+    // filter's rows. The fix reverts the chip and SAYS SO, so the invariant is
+    // "chip and list agree", asserted directly.
+    const active = await page.locator('#subs-filters .subs-chip.on').getAttribute('data-filter');
+    expect(active, 'the active chip must match the filter the rows were actually loaded with').toBe('all');
+    await expect(page.locator('#subs-root')).toHaveAttribute('data-filter', 'all');
+
+    // 🛑 The consent assertion: an opted-out person must never appear under a
+    // chip that claims SMS reachability. With the chip back on All they are
+    // correctly present, and the banner explains the refusal.
+    await expect(page.locator('#subs-banner')).toContainText(/filter/i);
+    await expect(page.locator('#subs-banner')).toContainText(/connection/i);
+    // The tap is acknowledged, not silently swallowed.
+    await expect(page.locator('#subs-banner')).toContainText(/SMS/);
+    await shot(page, '11-offline-filter-refused');
+    await context.setOffline(false);
+  });
+
+  // ── REAL condition: offline with a COLD cache (G6 finding F3, second half) ──
+  test('offline-cold — nothing cached says so, and never claims "No subscribers yet"', async ({ page, context }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/marketing.html');
+    await context.setOffline(true);
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await settled(page);
+
+    await expect(page.locator('#subs-root')).toHaveAttribute('data-offline', '1');
+    // 🛑 "No subscribers yet" would be a claim about the MAILING LIST that this
+    // device cannot possibly make — it never reached the server.
+    await expect(page.locator('#subs-empty')).not.toContainText(/No subscribers yet/i);
+    await expect(page.locator('#subs-empty')).toContainText(/offline/i);
+    await expect(page.locator('#subs-total')).toHaveText('—');
+    await shot(page, '12-offline-cold');
     await context.setOffline(false);
   });
 });
