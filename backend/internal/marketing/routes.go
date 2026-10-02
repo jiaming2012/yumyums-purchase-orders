@@ -119,6 +119,29 @@ func Mount(r chi.Router, d Deps) {
 	r.Post("/campaigns/{id}/codes", CreateCodeHandler(d))
 	r.Patch("/codes/{id}", PatchCodeHandler(d))
 	r.Get("/codes/{id}.png", CodePNGHandler(d))
+
+	// ── card H5 `subscribers-tab` (run 20261002) — APPEND-ONLY BLOCK ──
+	//
+	// §5's three subscriber routes plus the two manager-only import entry
+	// points the three adapters in internal/marketing/sources sit behind.
+	//
+	// 🛑 /subscribers/{id}/resend RETURNS 202 AND SENDS NOTHING. It appends a
+	// `resend_requested` event — never `code_sent`, which is the SEND's event
+	// and what the Stats funnel counts. Sending is Activity E's.
+	//
+	// 🛑 /subscribers/import/web-form is ATTENDED ONLY. With FF_DB_* unset —
+	// their state in every gate, every worktree and prod — it answers 503
+	// {"error":"ff_not_configured"} and opens no connection to the website
+	// database. The first live import is an operator act.
+	//
+	// Both reads and both imports are manager-tier (requireManager), so a
+	// team_member gets 403 {"error":"managers_only"} and the tab renders the
+	// designed Locked state — the same envelope H2 asserts.
+	r.Get("/subscribers", ListSubscribersHandler(d))
+	r.Get("/subscribers/{id}", GetSubscriberHandler(d))
+	r.Post("/subscribers/{id}/resend", ResendQRHandler(d))
+	r.Post("/subscribers/import/toast-guests", ImportToastGuestsHandler(d))
+	r.Post("/subscribers/import/web-form", ImportWebFormHandler(d))
 }
 
 // MountReports is the decision-192 seam for the BI mirror:
