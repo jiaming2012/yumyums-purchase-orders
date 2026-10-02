@@ -102,8 +102,46 @@ RAN; its `EXIT=` marker is inside its own log file (B-445), never piped through 
 | Leg | Log | EXIT |
 |---|---|---|
 | `f2-run.sh poison-mismatch` (red-first) | `logs/h6/f2-poison-red.log` | `EXIT=1` (red as expected) |
-| `f2-run.sh poison-mismatch` (green) | `logs/h6/f2-poison-green.log` | recorded at close |
-| `f2-run.sh` (green, the pre-existing primary gate — must not regress) | `logs/h6/f2-green.log` | recorded at close |
+| `f2-run.sh poison-mismatch` (green) | `logs/h6/f2-poison-green.log` | **`EXIT=0`** |
+| `f2-run.sh` (green, the pre-existing primary gate — must not regress) | `logs/h6/f2-green.log` | **`EXIT=0`** |
 | `campaigns-run.sh` (red-first, leg 3 flipped) | `logs/h6/campaigns-leg3-red.log` | `EXIT=1` (red as expected) |
-| `campaigns-run.sh` (green) | `logs/h6/campaigns-green.log` | recorded at close |
+| `campaigns-run.sh` (green) | `logs/h6/campaigns-green.log` | **`EXIT=0`** |
+
+The campaigns schema bump forced a one-line plugin registration in four harnesses, so
+all five remaining legs were re-run as a regression check (same substrate, same rules):
+
+| Leg | Log | EXIT |
+|---|---|---|
+| `run.sh` | `logs/h6/regress-run.log` | `EXIT=0` |
+| `clock-run.sh` | `logs/h6/regress-clock.log` | `EXIT=0` |
+| `recovery-clear-run.sh` | `logs/h6/regress-recovery-clear.log` | `EXIT=0` |
+| `refusal-run.sh` | `logs/h6/regress-refusal.log` | `EXIT=0` |
+| `push-run.sh` | `logs/h6/regress-push.log` | `EXIT=0` |
+
+🛑 **One box rule learned the hard way, for whoever runs the next marketing/sync card.**
+The first G2(Go) attempt red with four `internal/sync` `TestRowVisibilityRLS` subtests
+(`logs/h6/g2-go-collided.log`, `EXIT=1`) — duplicate-key on seed, a leftover `w14-during`
+row. **Self-inflicted and not a code red:** `internal/sync`'s RLS suite and
+`marketing/sync/harness/*` provision the SAME `spike-supabase` substrate, and every
+harness script runs `reset_bare` + `apply_all`. They must not run concurrently. Re-run
+alone: `EXIT=0`, 15 ok packages, 0 FAIL (`logs/h6/g2-go.log`).
+
+## Gates at close
+
+| Gate | EXIT | Log |
+|---|---|---|
+| G1 (`go build ./...`, `go vet ./...`) | `EXIT=0` | `logs/h6/g1.log` |
+| G2 Go (`go test -p 1 -count=1 ./...`) | `EXIT=0` — 15 ok / 13 no-test-files / 0 FAIL | `logs/h6/g2-go.log` |
+| G2 Playwright (full suite, under `flock /tmp/hq-full-suite.lock`) | `EXIT=1` — **27 failed / 1001 passed / 6 skipped**, ONE summary block | `logs/h6/g2-playwright.log` |
+| G4 (`node build-sw.js`) | `EXIT=0` — **precache 50, unchanged**, idempotent on re-run | `logs/h6/g4-sw.log`, `g4-sw-idempotent.log` |
+
+Red-set diff against the run's 24-red baseline (`logs/base-pw.log`): **23 of the 24 still
+red, 1 went green** (`inventory.spec.js:2931`), **4 outside it**, none this card's:
+
+| Red | Why not this card |
+|---|---|
+| `inventory.spec.js:2186` (alias chips) | **B-459**, diagnosed: the `ALL_ITEMS` three-writer race. bugs.md: "treat a `:2186` red as this race… proven NOT attributable to any card tonight". Reds even in confined isolation on this HEAD (`logs/h6/flakepool-head-sample.log`), matching its recorded ⅔-red rate. |
+| `inventory.spec.js:2919` (create item without group) | tonight's recorded flake pool (Card 2's G6). **Mechanical exclusion:** `tests/inventory.spec.js` contains ZERO references to `marketing` (`grep -c` = 0), and `playwright.config.js:65` blocks service workers for it, so neither `sw.js` nor any `marketing/*` file this card changed is reachable from it. |
+| `recipes.spec.js:216` (slider PUT) | same flake-pool record; same mechanical exclusion (`grep -c marketing` = 0 in `tests/recipes.spec.js`). |
+| `sw-api-cache-partition.spec.js:92` `[B1-XT-01]` | the ONE spec that opts into `serviceWorkers:'allow'`, so `sw.js` CAN reach it — treated as the hard case. **Two-tree rate control, 3 isolated passes each:** HEAD **3 green / 0 red** (`logs/h6/b1xt01-head-control.log`), base `28984ab` **3 green / 0 red** (`logs/h6/b1xt01-base-control.log`) — identical rate, so the card does not change it. Reinforced byte-level: the whole `sw.js` delta is four `revision` hashes (`submit-flow`, `scan-page`, `sync/replicas`, `sync/push-replication`) plus a minifier-local variable rename in the AMD shim. The `api-cache` `NetworkFirst` route, its `cacheKeyWillBeUsed` identity partition, `cacheWillUpdate` and `handlerDidError` — the exact code this spec tests — are **byte-identical**, and precache membership and order are unchanged. Long-known intermittent: B-174, and B-433's stale four. |
 
