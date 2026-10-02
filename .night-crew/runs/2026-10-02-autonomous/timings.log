@@ -28,3 +28,4 @@
 2026-10-02T02:01:41-04:00	merge	MERGE 6 23be14a — Card 7 h6; 7 of Card 6 attested PNGs restored to run-branch side (G6 finding, git offered no conflict); precache 50; 699 PASS/0 FAIL/15 pkgs with counts
 2026-10-02T02:05:57-04:00	G6-return	Card 7 G6 FINAL — mutation probe retracted then properly RUN via NIGHTCREW_ENV_URL: 2 failed EXIT=1, mutation verified in served bytes; both guards proven load-bearing
 2026-10-02T03:02:06-04:00	merge	MERGE 7 15ebc00 — Card 5 h4; ALL SEVEN MERGED. toml union + h6 stale count corrected to 7; precache 51 (slate predicted 51); 699 PASS/0 FAIL/15 pkgs
+2026-10-02T03:41:48-04:00	closeout	FINAL PW on the 7-card tree: 29f/1027p one block; 5 non-baseline reds all unattributable (3 = B-459 family, onboarding pair green confined). HANDOFF + closeout + scorecard written
