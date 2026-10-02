@@ -210,9 +210,15 @@ subset = 'npx playwright test "{tags}"'
 # THE MARKETING SEAM — added by card `redemption-submit-flow` (run 20260905),
 # the slate-homed call, now that tests/marketing.spec.js carries the app's
 # coverage (tile/seed, scanner decode/resolution, submit flow/machine). The
-# `marketing` token as a Playwright path regex selects exactly
-# tests/marketing.spec.js (verified at landing: no other spec filename and no
-# feature file contains the token). The key `marketing` is a path PREFIX, so
+# `marketing` token is a Playwright path regex, so it selects EVERY spec whose
+# filename contains it. Roll-call, re-counted at each landing:
+#   marketing selects: marketing.spec.js, marketing-campaigns.spec.js,
+#                      states-marketing-campaigns.spec.js
+# 1 -> 3 on card `h2-campaigns-tab-ui` (run 20261002, roadmap H2), which added
+# the Campaigns section's done_when spec and its State-Enumeration states spec.
+# Both joined this seam's selection with NO new key and NO new token — that is
+# the growth the comment below calls intended, and a new key/token would be an
+# operator-only change. The key `marketing` is a path PREFIX, so
 # it covers marketing.html AND marketing/ (scan-page, scanner, submit-*,
 # sync/*) — the whole app footprint. Honest confinement: `marketing/sync/`'s
 # substrate mechanisms are gated by their own standalone harnesses
