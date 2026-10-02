@@ -88,7 +88,25 @@ alphabetical file order it runs **before** every spec added tonight, so none can
 
 *Handling:* treat a `:2186` red as this race until the fetch is sequenced. It is a product
 defect in the Inventory page's state management, not a test defect — the test is correct to
-expect 2.
+expect 2. **Filed as B-459** with the reproduction recipe and fix direction.
+
+**Reproduced first-hand, not merely reasoned about** (same G6, amended report): three isolated
+passes at one HEAD on an otherwise idle box — `PASS_1_EXIT=0`, then `PASS_2_EXIT=1` with the
+identical shape (`.alias-chip` `toHaveCount(2)` → `Received: 1` at `inventory.spec.js:2214`).
+Green then red, alone, back to back. **That settles it: load contention is not the cause**, and
+"flaky under load" was the wrong label — the one this run first applied, and corrected.
+
+🛑 **The user-facing hazard is worse than the test failure.** A manager who adds a nickname
+while the Setup list is still loading sees the chip **silently vanish**, while the server has
+kept the alias. The write is durable; only the view lies — so the manager re-adds a nickname the
+database already holds. That is the dangerous shape of this defect class, and it is why this one
+is a product bug rather than a test nuisance.
+
+**Reproduction recipe:** `npx playwright test tests/inventory.spec.js -g "Setup item editor shows
+alias chips"` **alone, repeatedly.**
+
+**Worth testing against the other 16:** if the rest of the cluster shares this writer-ordering
+shape, one sequencing fix may close most of it. That is a lead, not a conclusion.
 
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
