@@ -1,0 +1,157 @@
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /home/jcole/projects/hq-worktrees/h6-scanner-polish/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/h6-scanner-polish
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-10-02T04:10:11Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED       STATUS                 PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         8 weeks ago   Up 6 hours (healthy)   0.0.0.0:53222->5432/tcp, [::]:53222->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   8 weeks ago   Up 6 hours             0.0.0.0:52074->4000/tcp, [::]:52074->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       8 weeks ago   Up 6 hours             0.0.0.0:52932->3000/tcp, [::]:52932->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=53222 rest=52932 realtime=52074
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'z-schema@12.3.1',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated defekt@9.3.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated get-graphql-from-jsonschema@8.1.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 78 packages in 5s
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=52932 realtime=52074 db=53222  run=r1790914233605
+PASS  ports — db=53222 rest=52932 realtime=52074
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1790914234963 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=53222  rest=52932  realtime=52074   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-10-02T04:10:35Z
+══════════════════════════════════════════════════════════
+#   db container    : 51a51ade6921be3867acd4c87c19bd22dba4d7221c236dec46376d3a85850f3d
+#   db host port    : 53222 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → migrations/20260906000100_campaigns_replication.sql
+psql:<stdin>:47: NOTICE:  trigger "campaigns_touch_updated_at" for relation "public.campaigns" does not exist, skipping
+  → migrations/20260906000200_scan_attempts_unverified_landing.sql
+psql:<stdin>:41: NOTICE:  constraint "scan_attempts_names_a_code" of relation "scan_attempts" does not exist, skipping
+  → migrations/20260906000300_scan_attempts_policy_unresolved.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── landing-path DDL enumerated (the committed 20260906000200 migration) ──
+#   code_id nullable: true
+#   token_hash column: 1
+#   check constraint : scan_attempts_names_a_code
+
+── device JWT (throwaway secret from the compose file) ──
+
+── mode: poison-mismatch ──
+# mode: poison-mismatch
+
+── leg (a): the raw endpoints, given a 64-hex code_id ──
+  POST /rpc/redeem      → HTTP 400  {"code":"22P02","details":null,"hint":null,"message":"invalid input syntax for type uuid: \"ffffffff0123456789abcdef0123
+  POST /scan_attempts   → HTTP 400  {"code":"22P02","details":null,"hint":null,"message":"invalid input syntax for type uuid: \"ffffffff0123456789abcdef0123
+  POST /scan_attempts (unverified_code + NO offline_override) → HTTP 400  {"code":"23514","details":null,"hint":null,"message":"new row for relation \"scan_attempts\" violates check constraint \"scan_attempts_names_a_code\""}
+  → both refuse the raw shape; the guard must divert BEFORE the redeem call
+
+── leg (b): poison-first queue through the SHIPPED handler (poison-mismatch) ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+  push requests: 10 — kinds: land-unverified
+  redeem calls  : unverified=0 legit=0
+  land-unverified attempts for the 64-hex row: 10
+  unverified row: status=pending landed=false
+  legit row     : status=pending landed=false
+  server scan_attempts rows: 0 → 0 (+0)
+  distinct replica errors: 1 — e.g. [marketing-sync] unverified scan_attempts insert answered HTTP 400
+  audit row (server): (none)
+
+── conclusion ──
+  ✗ the legitimate attempt behind it did not land (status=pending, landed=false) — head-of-line poison
+  ✗ expected exactly 1 redeem for the legitimate code, got 0
+  ✗ the guard diverted a row the constraint rejects (10 land-unverified attempt(s)) — the divert predicate must demand offline_override too, or the HTTP 400 head-of-line poisons the queue
+  ✗ expected +1 server row (the legitimate attempt only), got +0
+
+RED: 4 disagreement(s)
+
+🛑 VERDICT: RED (B-440) — guard and constraint disagree about unverified_code-without-offline_override (node exit 1); see the log above.
+EXIT=1
