@@ -111,6 +111,36 @@ alias chips"` **alone, repeatedly.**
 **Worth testing against the other 16:** if the rest of the cluster shares this writer-ordering
 shape, one sequencing fix may close most of it. That is a lead, not a conclusion.
 
+### 🛑 Method note: a ONE-SAMPLE baseline cannot classify a high-rate race
+
+Established by a base-commit control on run `20261002` (G6, Card 2). The same test, three
+isolated passes each, same box, same command:
+
+| tree | pass 1 | pass 2 | pass 3 | rate |
+|---|---|---|---|---|
+| base `overnight-20261002` | red | green | red | **2 red / 1 green** |
+| card HEAD `f29a8b7` | green | red | red | **2 red / 1 green** |
+
+Identical rate, identical failure shape, with and without the card. Two consequences for how
+any run judges a card, and both bit this one:
+
+1. **The run's 24-red baseline is a single sample.** `:2186` was *green* in that one base run and
+   *red* in the card's full suite, which is exactly why it was classified "non-baseline" and read
+   as possibly the card's. For a test that fails ~⅔ of the time in isolation, **its presence or
+   absence in any single full-suite run is a coin flip and carries no information about the
+   card.** A single-run baseline diff is necessary but not sufficient.
+2. **A single confined GREEN does not establish "flake, not regression" either.** It is the same
+   error with the sign flipped: one pass of a ⅓-pass race proves nothing. Tonight
+   `inventory.spec.js:2406`, `:2919` and `recipes.spec.js:216` were cleared as "flake pool" on
+   exactly one confined green apiece — which is weaker evidence than it looked, and they may be
+   ⅓-pass races rather than flakes.
+
+**The standard that actually settles attribution** is the control G6 ran: repeat the test in
+isolation on **both** the card HEAD **and** the base, several passes each, and compare the
+*rates*. A mechanical exclusion argument (this diff cannot reach that code) is stronger still
+when it holds — but when it does not, nothing short of a two-tree rate comparison distinguishes
+"the card broke it" from "it was already broken this often".
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
