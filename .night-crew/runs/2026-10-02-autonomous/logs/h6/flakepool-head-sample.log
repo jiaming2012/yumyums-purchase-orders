@@ -1,0 +1,13 @@
+# ONE confined sample on the card HEAD of the three flake-pool reds. Per bugs.md's
+# own method note a single green does NOT establish 'flake' — this is a datum, and
+# the attribution argument for these three is the MECHANICAL one (see the report):
+#   playwright.config.js:65 blocks service workers for every spec except
+#   sw-api-cache-partition.spec.js, so sw.js cannot reach them; and
+#   tests/inventory.spec.js and tests/recipes.spec.js contain ZERO references to
+#   'marketing' (grep -c = 0 each), so they load no file this card changed.
+  ✘  1 [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames (7.5s)
+  ✓  2 [chromium] › tests/inventory.spec.js:2919:3 › Inventory › create item without group shows alert (1.9s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.2s)
+  1 failed
+  2 passed (2.6m)
+EXIT=1

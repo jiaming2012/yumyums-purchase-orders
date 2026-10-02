@@ -147,19 +147,52 @@ async function boot() {
     CAMPAIGN_POLICY = null;
   }
 
+  // A code that names no campaign at all. Written once because both the
+  // policy arm and the fail-closed arm below must agree about what "names a
+  // campaign" means, and `''` is as absent as `null` here.
+  const namesNoCampaign = (campaignId) =>
+    campaignId === null || campaignId === undefined || campaignId === '';
+
   // requiresOnline — the boolean the machine's RESOLVED event carries.
-  // 🛑 The `!CAMPAIGN_POLICY → false` arm is UNCHANGED from run 20260906 and is
-  // knowingly fail-open (B-436): if the source failed to CONSTRUCT, a known
-  // code stays overridable. Not widened here on purpose — that path is
-  // measured by campaigns-run.sh leg 3's negative and is a different window
-  // from B-432's; it is recorded honestly in the attempt row instead (see
-  // policyUnresolvedFor, which answers TRUE for it).
+  //
+  // ── B-436 / decision 191 (card scanner-polish, run 20261002) ──────────────
+  // 🛑 THE `!CAMPAIGN_POLICY` ARM NOW FAILS CLOSED. It used to answer `false`
+  // unconditionally, which meant a device whose policy source could not be
+  // CONSTRUCTED — a stale-cached scan-page with no `campaigns` collection, or
+  // createCampaignPolicySource throwing — left EVERY known code
+  // offline-overridable, a `requires_online = true` one included. That is
+  // B-432's harm one layer up, through a narrower door, and it was the last
+  // door through which a requires_online code could burn offline.
+  //
+  // The predicate is "uniform with the source's own predicate" — decision
+  // 191's operative words — so it mirrors createCampaignPolicySource exactly:
+  //
+  //   names a campaign      → refuse. Nothing resolved it, so we cannot tell,
+  //                           and "cannot tell" is not permission.
+  //   names NO campaign     → do NOT refuse. The source answers `null` here
+  //                           and the coercion keeps F2's override alive:
+  //                           **decision 166 survives by construction, not by
+  //                           care.** A fail-closed arm that swallowed the
+  //                           genuinely-unknown code too would silently
+  //                           repeal a ratified affordance on exactly the
+  //                           devices least able to recover it — an
+  //                           operator-level change nobody made.
+  //
+  // The attempt record is unchanged: policyUnresolvedFor still answers TRUE
+  // for this device, so an override it DOES still write (an unknown code)
+  // lands `policy_unresolved = true` exactly as before.
+  function failClosed(campaignId) {
+    return !namesNoCampaign(campaignId);
+  }
   function policyFor(campaignId, offers) {
-    if (!CAMPAIGN_POLICY) return false;
+    if (!CAMPAIGN_POLICY) return failClosed(campaignId);
     try {
       const p = CAMPAIGN_POLICY(campaignId, offers);
       return !!(p && p.requiresOnline);
-    } catch (e) { return false; }
+    } catch (e) {
+      // A throwing source is a source that resolved nothing — same arm.
+      return failClosed(campaignId);
+    }
   }
 
   // The B-432 discriminator, captured at SCAN time (never at push time — by
@@ -178,7 +211,7 @@ async function boot() {
   //   no policy source at all    → true   (B-436 — nothing was resolved)
   function policyUnresolvedFor(campaignId) {
     if (!CAMPAIGN_POLICY) return true;
-    if (campaignId === null || campaignId === undefined || campaignId === '') {
+    if (namesNoCampaign(campaignId)) {
       try { return !!CAMPAIGN_POLICY_UNRESOLVED(); } catch (e) { return true; }
     }
     try {
@@ -441,8 +474,9 @@ async function boot() {
     </div>`;
   }
 
-  // The four offline-gate branches. `requires-online-unresolved` is new (card
-  // refusal-holds-before-sync, build-fact 6 — the UI call this card owed).
+  // The four offline-gate branches (bodies in gateBodyHtml below).
+  // `requires-online-unresolved` is new (card refusal-holds-before-sync,
+  // build-fact 6 — the UI call this card owed).
   //
   // The decision, against docs/ui-design-rules.md: the shipped
   // `requires-online` copy reads "High-value offer: online verification is
@@ -459,30 +493,22 @@ async function boot() {
   // override — the difference is what they tell the person holding the phone.
   function gateBranch() {
     if (machine.flags().overrideAvailable) return 'override';
-    if (machine.ctx().requiresOnline) {
-      return (SUBMIT_CTX && SUBMIT_CTX.policy_unresolved)
-        ? 'requires-online-unresolved'
-        : 'requires-online';
-    }
+    if (machine.ctx().requiresOnline) return refusalBranch();
     return 'no-permission';
   }
 
-  function flowHtml(sc) {
-    const next = '<button class="ms-btn ms-btn-quiet" data-action="ms-next">Next customer</button>';
-    switch (sc) {
-      case 'offerReady':
-      case 'readyToSubmit': {
-        const armed = sc === 'readyToSubmit' && ORDER_STATE.ok;
-        return `${orderFieldHtml()}
-          <button class="ms-btn ms-btn-go" data-action="ms-submit"${armed ? '' : ' disabled'}>Submit redemption</button>
-          <div class="ms-note">Apply the discount in Toast, then enter the order # — that completes the redemption.</div>`;
-      }
-      case 'unknownCode':
-        return `${orderFieldHtml()}
-          <button class="ms-btn ms-btn-go" data-action="ms-submit"${ORDER_STATE.ok ? '' : ' disabled'}>Submit — server will verify</button>
-          <div class="ms-note">This code isn&#39;t on this device — the server has the final say at submit.</div>`;
-      case 'blockedOffline': {
-        const branch = gateBranch();
+  // Which of the two refusal brandings this session earns. Shared by the
+  // post-submit gate and by B-446's scan-resolve render, so the SAME words
+  // reach the crew either way — "same copy, earlier" is the whole of B-446.
+  function refusalBranch() {
+    return (SUBMIT_CTX && SUBMIT_CTX.policy_unresolved)
+      ? 'requires-online-unresolved'
+      : 'requires-online';
+  }
+
+  // The branch bodies, lifted VERBATIM out of the blockedOffline case so the
+  // early render and the belt cannot drift into two different sets of words.
+  function gateBodyHtml(branch) {
         const body = branch === 'requires-online'
           ? `<div class="ms-gate-head">Can&#39;t verify — try again in a moment.</div>
              <div class="ms-note">High-value offer: online verification is <b>required</b>. There is no offline override for this campaign (§8) — not even for a manager.</div>`
@@ -495,9 +521,72 @@ async function boot() {
              <button class="ms-btn ms-btn-warn" data-action="ms-override">Force submit (offline)</button>`
           : `<div class="ms-gate-head">Can&#39;t verify — connect to redeem.</div>
              <div class="ms-note">Submit needs the server. Ask a manager if this can&#39;t wait.</div>`;
-        return `${orderFieldHtml()}
-          <div id="ms-gate" data-branch="${branch}">${body}
+    return body;
+  }
+
+  function gateHtml(branch) {
+    return `<div id="ms-gate" data-branch="${branch}">${gateBodyHtml(branch)}
           <div class="ms-note ms-auto">Submit re-enables itself the moment the connection returns.</div></div>`;
+  }
+
+  // ── B-446: the refusal the client could already have rendered ─────────────
+  //
+  // The operator, at the leg-3 attestation sitting: "ideally it could tell the
+  // customer that they're not able to override the code without having to hit
+  // submit (since it already has that information stored), which is one less
+  // button that the employee has to hit." The §8 policy bit IS in the synced
+  // campaigns replica at RESOLVED time — `machine.ctx().requiresOnline` is set
+  // by that very event — so the outcome is knowable before the order-# field
+  // is ever drawn. Rendering the refusal instead of the order-#/Submit pair
+  // costs the crew member one tap and spares the customer the theatre of
+  // filling a field that was never going to submit.
+  //
+  // 🛑 NARROW ON PURPOSE. It fires only when the connection is not online AND
+  // this campaign requires online verification. A requires_online=false
+  // campaign keeps its order-# field, its Submit and its §13 override path
+  // byte-for-byte ([SP-01b] pins exactly that), and the post-submit guard
+  // (gateBranch + blockedOffline) is untouched and stays the belt — a refusal
+  // that lived ONLY here would be one bad render away from a burn.
+  //
+  // Nothing about the machine changes: no new state, no new event, no new
+  // (state,event) pair, no new terminal attempt status. This is a render-time
+  // choice between two bodies this file already had.
+  function earlyRefusalBranch(sc) {
+    if (sc !== 'offerReady' && sc !== 'readyToSubmit') return null;
+    if (machine.conn() === 'online') return null;
+    if (!machine.ctx().requiresOnline) return null;
+    return refusalBranch();
+  }
+
+  function flowHtml(sc) {
+    const next = '<button class="ms-btn ms-btn-quiet" data-action="ms-next">Next customer</button>';
+    switch (sc) {
+      case 'offerReady':
+      case 'readyToSubmit': {
+        // B-446: refused before any tap — no order-# field, no Submit.
+        const early = earlyRefusalBranch(sc);
+        if (early) return gateHtml(early);
+        const armed = sc === 'readyToSubmit' && ORDER_STATE.ok;
+        return `${orderFieldHtml()}
+          <button class="ms-btn ms-btn-go" data-action="ms-submit"${armed ? '' : ' disabled'}>Submit redemption</button>
+          <div class="ms-note">Apply the discount in Toast, then enter the order # — that completes the redemption.</div>`;
+      }
+      case 'unknownCode':
+        return `${orderFieldHtml()}
+          <button class="ms-btn ms-btn-go" data-action="ms-submit"${ORDER_STATE.ok ? '' : ' disabled'}>Submit — server will verify</button>
+          <div class="ms-note">This code isn&#39;t on this device — the server has the final say at submit.</div>`;
+      case 'blockedOffline': {
+        // THE BELT. B-446 renders the same refusal earlier, at scan-resolve;
+        // this stays the guard of last resort — reachable whenever a session
+        // got as far as SUBMIT (an online scan that lost the connection mid
+        // order entry, a stale→offline flip, a direct machine drive).
+        const branch = gateBranch();
+        // A refused session may never have been offered the order-# field
+        // (B-446 did not draw it), so showing an empty one here would invite
+        // typing into a dead end. An override-eligible branch still needs it.
+        const refused = branch === 'requires-online' || branch === 'requires-online-unresolved';
+        const field = (refused && ORDER_STATE.raw.trim() === '') ? '' : orderFieldHtml();
+        return `${field}${gateHtml(branch)}`;
       }
       case 'overrideConfirm': {
         const unverified = machine.flags().unverifiedWarning

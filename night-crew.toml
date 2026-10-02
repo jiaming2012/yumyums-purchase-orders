@@ -219,6 +219,12 @@ subset = 'npx playwright test "{tags}"'
 # 1 -> 3 on H2, 3 -> 5 on H5. Card h4 `stats-tab-ui` extends this roll call again
 # if it lands; at each merge take the UNION of the cards' lines, as this comment
 # itself instructs.
+# Card h6 `scanner-polish` (roadmap H6) added NO spec file: its [SP-01]..[SP-03]
+# tests live in tests/marketing.spec.js, already selected. Count stays 5, and
+# the card needed no new key and no new token — recorded here so the next
+# re-count knows h6 was accounted for rather than forgotten. (Its substrate
+# mechanisms are gated by marketing/sync/harness/f2-run.sh and
+# campaigns-run.sh on their own exit codes, per the note below.)
 # Every one of those specs joined this seam's selection with NO new key and NO
 # new token — that is the growth the note below calls intended, and it is
 # recorded here rather than left implicit. A new key or a new token would be an
