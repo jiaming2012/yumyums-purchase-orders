@@ -10,6 +10,7 @@ Wave 1, track B. Builds against the REAL endpoints card H1 merged at `40b5846`.
 | `marketing.html` | **Section `#s2` ONLY** (see below). Its `<style>` and its `<script src="marketing/campaigns.js" defer>` live INSIDE the `#s2` wrapper, exactly so a card owning another section of this file cannot conflict with them. |
 | `sw.js` | Committed artifact, regenerated after the implementation commit (B-13 — `build-sw.js` reads git HEAD). Precache **48 → 49**: the one new module `marketing/campaigns.js`. No `globPatterns` change was needed — `marketing/*.js` already matches it, and `backend/Dockerfile` already copies `marketing/`. |
 | `night-crew.toml` | **Roll-call comment only** in the MARKETING seam block, naming the two new specs the existing `marketing` token now selects. **No new key, no new token** (a new key/token is a PARK, operator-only). `tests/repo-hygiene.spec.js`'s machine-readable roll-call guard covers the OPERATIONS tokens, not this block, and neither new spec name contains an Operations token — its `expect(actual.length).toBe(11)` is unmoved. |
+| `tests/marketing.spec.js` | **Outside the slated footprint — declared.** Its test "marketing.html shows Scan live and the other three sub-sections as labeled placeholders" asserts `#s2` renders a `.badge` reading "Soon"; this card's whole purpose makes that false by construction, and it went red in the full suite for exactly that reason. The edit is **as narrow as it can be**: the title, a comment, and the six lines of the `#s2` paragraph — `#s2 .badge` count 0, `#mc-root` count 1, `#mc-locked` contains "Managers only" (the team_member in that test gets the real Locked state). **The Scan-live assertions and the `#s3` / `#s4` placeholder assertions are untouched**, because Cards 5 and 6 still own those sections and that test is what will red when each of them lands. The slate assigns this file to Card 7 — if Card 7 touches the same lines, resolve against this intent: keep Card 7's content and keep `#s2`'s assertion pointing at `#mc-root` / `#mc-locked` rather than a "Soon" badge. |
 | `.night-crew/knowledge/roadmap.md` | H2's card line flips PLANNED → LANDED. Every card edits this file; expect a conflict and take both sides. |
 | `.night-crew/runs/2026-10-02-autonomous/merge-intents/h2-campaigns-tab-ui.md` | This note. |
 | `.night-crew/runs/2026-10-02-autonomous/logs/h2/*` | This card's gate logs. Nothing else under the run directory is written. |
@@ -174,6 +175,31 @@ No other stub, mock or fake exists in either spec.
   attribute boots the module the first time the section becomes visible and re-reads the
   list on every return. The inline `show()` is NOT wrapped, patched or edited — this
   card does not own it.
+
+## Gate evidence (all logs under `.night-crew/runs/2026-10-02-autonomous/logs/h2/`)
+
+| Gate | Command | Result | Log |
+|---|---|---|---|
+| G1 | `go build ./...` + `go vet ./...` from `backend/` | `BUILD_EXIT=0`, `VET_EXIT=0` | `G1-build-vet.log` |
+| G2 (Go) | `go test -p 1 -count=1 -v ./...`, `DB_TEST_URL=…:5434/hq_test_go_h2`, `HQ_RLS_TEST_DB=hq_rls_h2_20261002` | `GO_TEST_EXIT=0`. **651 RUN / 0 FAIL / 3 SKIP**, 14/14 packages `ok` — identical to the base's figure, as expected for a card that adds no Go test. Counts, not `ok`: `internal/workflow` 39 top-level, `internal/sync` 53, `internal/inventory` 53, `internal/marketing` 26, so `DB_TEST_URL` was honored rather than silently skipped. `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both **UNSET** (the log's own env-check line). The 3 skips are the base's three. | `G2-go.log` |
+| G2 (Playwright) | full suite under `flock /tmp/hq-full-suite.lock`, `npx bddgen` first, `--retries=0`, `TEST_PORT=8521`, `TEST_DB_NAME=hq_test_e2e_h2_20261002`, `DB_PORT=5434` | `PW_EXIT=1`. **Exactly ONE summary block: 28 failed / 6 skipped / 977 passed (34.9m).** Red-set diff vs tonight's 24-red baseline below. | `G2-playwright.log` |
+| G2 (confined) | the 5 non-baseline reds, re-run confined | see below | `G2-playwright-new-reds-confined.log` |
+| G4 | `node build-sw.js` twice, after the implementation commit | both `EXIT=0`, identical output, **48 → 49 files precached** (2930.9 → 2987.2 KB); reachability 35 → 36 files parsed, 62 → 63 references, 0 outside the precache; `marketing/campaigns.js` present in the manifest | `G4-sw.log` |
+| RF | the structural red above | `TEST_EXIT=1`, 6 failed on `locator('#mc-root')` | `RF-red-first.log` |
+
+### Red-set diff against run 20261002's 24-red baseline
+
+**23 of 28 are exact baseline matches.** One baseline red went GREEN here
+(`inventory.spec.js:2931`, store_location/B-453 — more evidence this family flakes both
+ways). Five were not in the 24:
+
+| Test | Confined re-run at this HEAD | Verdict |
+|---|---|---|
+| `tests/marketing.spec.js:141` | whole file **47 passed, `MARKETING_EXIT=0`** after the narrow update | **THIS CARD'S, and not flake.** The assertion encoded the pre-H2 world. Fixed, declared above. |
+| `tests/inventory.spec.js:2406` duplicate group toast | **green** (`INVENTORY_EXIT` run: 2 passed of the 3 selected) | flake pool; not this card's |
+| `tests/inventory.spec.js:2919` create item without group | **green** (same run) | flake pool; not this card's |
+| `tests/recipes.spec.js:216` slider PUT | **green, `RECIPES_EXIT=0`** | the characterized load-flake; not this card's |
+| `tests/inventory.spec.js:2186` Setup alias chips | **REPRODUCED confined**, then run ALONE twice: **pass A red (`ALIAS_A_EXIT=1`), pass B green (`ALIAS_B_EXIT=0`)** | **not this card's, but a finding.** It flakes BOTH WAYS in isolation at a quiet box, so "load" is not a sufficient explanation. The failure is always the same shape — `expect(form.locator('.alias-chip')).toHaveCount(2)` → `Received: 1`, i.e. the alias that was just added has not rendered — which reads as a race between `POST /items/aliases` and the chip re-render, not as suite interference. Recorded for triage; this card touches no inventory surface and no alias code. |
 
 ## The surface that makes D-1 reachable
 

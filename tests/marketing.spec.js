@@ -138,7 +138,14 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(tile.locator('.tile-title')).toHaveText('Marketing');
   });
 
-  test('marketing.html shows Scan live and the other three sub-sections as labeled placeholders', async ({ page }) => {
+  // Updated by card `h2-campaigns-tab-ui` (run 20261002, roadmap H2): Campaigns
+  // is no longer a "Soon" placeholder, so the title and the #s2 half of this
+  // test moved with it. Subscribers (#s3, card H5) and Stats (#s4, card H4) are
+  // still placeholders and are still asserted as such — this test is the thing
+  // that will red when each of those lands, which is the point of keeping it.
+  // The user here is a team_member, so the live Campaigns section renders the
+  // designed Locked state: the real 403 managers_only, not a blank panel.
+  test('marketing.html shows Scan and Campaigns live, Subscribers and Stats as labeled placeholders', async ({ page }) => {
     const user = await makeUser(page, 'scan', ['team_member']);
     await loginAs(page, user.email, USER_PASSWORD);
     await page.goto('/marketing.html');
@@ -157,13 +164,15 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#scanner-host')).toHaveCount(1);
     await expect(page.locator('#s2')).toBeHidden();
 
-    // The other three are labeled placeholders, not blank space (UI-R rule:
-    // blank render = defect) — each names what it will hold and carries the
-    // launcher's "Soon" badge convention.
+    // Campaigns is LIVE (card h2-campaigns-tab-ui). For a team_member the
+    // manager tier refuses it inside the handler, so the section renders the
+    // designed Locked state — never a blank panel and never a "Soon" badge on
+    // something that is actually built.
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
-    await expect(page.locator('#s2 .badge')).toHaveText('Soon');
-    await expect(page.locator('#s2')).toContainText('Campaigns');
+    await expect(page.locator('#mc-root')).toHaveCount(1);
+    await expect(page.locator('#s2 .badge')).toHaveCount(0);
+    await expect(page.locator('#mc-locked')).toContainText('Managers only');
     await expect(page.locator('#s1')).toBeHidden();
 
     await page.click('#t3');
