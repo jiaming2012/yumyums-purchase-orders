@@ -138,14 +138,16 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(tile.locator('.tile-title')).toHaveText('Marketing');
   });
 
-  // Updated by card `h2-campaigns-tab-ui` (run 20261002, roadmap H2): Campaigns
-  // is no longer a "Soon" placeholder, so the title and the #s2 half of this
-  // test moved with it. Subscribers (#s3, card H5) and Stats (#s4, card H4) are
-  // still placeholders and are still asserted as such — this test is the thing
-  // that will red when each of those lands, which is the point of keeping it.
-  // The user here is a team_member, so the live Campaigns section renders the
-  // designed Locked state: the real 403 managers_only, not a blank panel.
-  test('marketing.html shows Scan and Campaigns live, Subscribers and Stats as labeled placeholders', async ({ page }) => {
+  // Updated by TWO cards in run 20261002, and the union is deliberate:
+  //   * `h2-campaigns-tab-ui` (roadmap H2) made Campaigns (#s2) live;
+  //   * `h5-subscribers-tab` (roadmap H5) made Subscribers (#s3) live.
+  // Stats (#s4, card H4) is STILL a placeholder and is still asserted as one —
+  // this test is the thing that reds when it lands, which is the point of
+  // keeping it rather than deleting the placeholder half.
+  // The user here is a team_member, so both live sections render their designed
+  // Locked state from a real 403 managers_only — never a blank panel, and never
+  // a "Soon" badge on something that is actually built.
+  test('marketing.html shows Scan and Campaigns live, Subscribers gated, and Stats as a labeled placeholder', async ({ page }) => {
     const user = await makeUser(page, 'scan', ['team_member']);
     await loginAs(page, user.email, USER_PASSWORD);
     await page.goto('/marketing.html');
@@ -164,10 +166,13 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#scanner-host')).toHaveCount(1);
     await expect(page.locator('#s2')).toBeHidden();
 
-    // Campaigns is LIVE (card h2-campaigns-tab-ui). For a team_member the
-    // manager tier refuses it inside the handler, so the section renders the
+    // Campaigns (#s2) and Subscribers (#s3) are both LIVE. For a team_member the
+    // manager tier refuses each one inside its handler, so each renders its
     // designed Locked state — never a blank panel and never a "Soon" badge on
-    // something that is actually built.
+    // something that is built.
+    // The REMAINING placeholder (#s4) is labeled, not blank space (UI-R rule:
+    // blank render = defect) — it names what it will hold and carries the
+    // launcher's "Soon" badge convention.
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
     await expect(page.locator('#mc-root')).toHaveCount(1);
@@ -175,10 +180,23 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#mc-locked')).toContainText('Managers only');
     await expect(page.locator('#s1')).toBeHidden();
 
+    // 🛑 #s3 IS NO LONGER A PLACEHOLDER. Card H5 `subscribers-tab` (run
+    // 20261002) built it, so the "Soon" badge this test used to assert here is
+    // false by construction. Narrowly updated by that card — ONLY the three
+    // #s3 lines; #s4 is deliberately left alone because the Stats queue is
+    // still a placeholder until Card 5 lands.
+    //
+    // This test's user is a team_member, and the mailing list is manager-tier
+    // (handoff §16), so what they correctly see is the designed LOCKED state:
+    // the section still names itself "Subscribers" — the UI-R "blank render =
+    // defect" rule this block exists to enforce still holds — but it now says
+    // who may see the list instead of "Soon", and offers no control at all.
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
-    await expect(page.locator('#s3 .badge')).toHaveText('Soon');
     await expect(page.locator('#s3')).toContainText('Subscribers');
+    await expect(page.locator('#subs-root')).toHaveAttribute('data-state', 'locked');
+    await expect(page.locator('#s3 .subs-locked')).toContainText('Managers only');
+    await expect(page.locator('#s3 .badge')).toHaveCount(0);
 
     await page.click('#t4');
     await expect(page.locator('#s4')).toBeVisible();

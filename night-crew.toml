@@ -211,14 +211,19 @@ subset = 'npx playwright test "{tags}"'
 # the slate-homed call, now that tests/marketing.spec.js carries the app's
 # coverage (tile/seed, scanner decode/resolution, submit flow/machine). The
 # `marketing` token is a Playwright path regex, so it selects EVERY spec whose
-# filename contains it. Roll-call, re-counted at each landing:
-#   marketing selects: marketing.spec.js, marketing-campaigns.spec.js,
-#                      states-marketing-campaigns.spec.js
-# 1 -> 3 on card `h2-campaigns-tab-ui` (run 20261002, roadmap H2), which added
-# the Campaigns section's done_when spec and its State-Enumeration states spec.
-# Both joined this seam's selection with NO new key and NO new token — that is
-# the growth the comment below calls intended, and a new key/token would be an
-# operator-only change. The key `marketing` is a path PREFIX, so
+# filename contains it. ROLL CALL, union of every card that landed in run
+# 20261002 — re-counted at each landing:
+#   marketing selects: marketing.spec.js,
+#                      marketing-campaigns.spec.js,  states-marketing-campaigns.spec.js   (card h2-campaigns-tab-ui, roadmap H2)
+#                      marketing-subscribers.spec.js, states-marketing-subscribers.spec.js (card h5-subscribers-tab,  roadmap H5)
+# 1 -> 3 on H2, 3 -> 5 on H5. Card h4 `stats-tab-ui` extends this roll call again
+# if it lands; at each merge take the UNION of the cards' lines, as this comment
+# itself instructs.
+# Every one of those specs joined this seam's selection with NO new key and NO
+# new token — that is the growth the note below calls intended, and it is
+# recorded here rather than left implicit. A new key or a new token would be an
+# operator-only change (a PARK).
+# The key `marketing` is a path PREFIX, so
 # it covers marketing.html AND marketing/ (scan-page, scanner, submit-*,
 # sync/*) — the whole app footprint. Honest confinement: `marketing/sync/`'s
 # substrate mechanisms are gated by their own standalone harnesses

@@ -1,0 +1,16 @@
+# G4 — card h5-subscribers-tab, run 20261002.
+# build-sw.js reads git HEAD, so this ran AFTER the frontend commit and sw.js
+# was amended into that same change set (B-13).
+# Baseline at the branch point (94ad3b3): 48 precached files.
+--- run 1 (already committed; re-run here to show it is clean + idempotent)
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2957.2 KB)
+Frontend version: 1.10.2
+RUN1_EXIT=0
+--- run 2 (idempotence)
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2957.2 KB)
+Frontend version: 1.10.2
+RUN2_EXIT=0
+--- git status for sw.js after two runs (empty = byte-identical to the commit)
+STATUS_EXIT=0

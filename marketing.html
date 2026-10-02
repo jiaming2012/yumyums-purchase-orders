@@ -279,13 +279,77 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <script src="marketing/campaigns.js" defer></script>
   </div>
 
-  <!-- ═══ SECTION 3: SUBSCRIBERS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 3: SUBSCRIBERS — card H5 `subscribers-tab` (run 20261002) ═══
+       Design "Current Subscribers 1–2"; wire shapes HANDOFF §5.
+       #subs-root is the contract with marketing/subscribers.js: that module
+       owns everything inside it, holds the ONE delegated click listener and the
+       ONE delegated input listener, and renders from state. Keep the id stable.
+       The <style> below lives INSIDE this section deliberately — a style
+       element applies document-wide wherever it sits, and keeping it here means
+       this card's whole marketing.html diff is inside #s3, which is what Cards
+       2 and 5 (owners of #s2 and #s4 tonight) need it to be. -->
   <div id="s3" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Subscribers</h1><div class="sub">Web signups, SMS opt-ins and Toast imports</div></div>
-      <div class="bd">The mailing list, read-only, will live here.</div>
-    </div>
+    <style>
+    .subs-counts{display:flex;border-top:0.5px solid var(--brd)}
+    .subs-stat{flex:1;padding:12px 8px;text-align:center;border-right:0.5px solid var(--brd)}
+    .subs-stat:last-child{border-right:none}
+    .subs-stat b{display:block;font-size:19px;font-weight:700;line-height:1.2}
+    .subs-stat span{font-size:11px;color:var(--mut)}
+    .subs-banner{border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.45;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .subs-banner-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .subs-banner-warn{background:var(--warn-bg);color:var(--warn-tx)}
+    .subs-refused{display:block;width:100%;line-height:1.45}
+    .subs-retry{margin-left:auto;min-height:36px;padding:6px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;background:rgba(0,0,0,0.12);color:inherit;cursor:pointer}
+    .subs-controls{padding:12px;display:flex;flex-direction:column;gap:8px}
+    #subs-q,#subs-source{min-height:44px;width:100%;border:1px solid var(--brd);border-radius:10px;padding:8px 12px;font-size:16px;background:var(--bg);color:var(--txt);-webkit-appearance:none}
+    .subs-chips{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .subs-chip{flex:none;min-height:36px;padding:7px 13px;border:1px solid var(--brd);border-radius:18px;background:transparent;color:var(--txt);font-size:13px;font-weight:500;cursor:pointer}
+    .subs-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+    .subs-row{display:flex;align-items:flex-start;gap:10px;width:100%;min-height:60px;padding:12px 14px;border:none;border-bottom:0.5px solid var(--brd);background:transparent;color:var(--txt);text-align:left;font-family:inherit;cursor:pointer}
+    .subs-row:last-child{border-bottom:none}
+    .subs-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    /* long content: the name and the contact line clamp to one line each with
+       an ellipsis; the full value is on the detail sheet, which is what the tap
+       opens. Nothing is ever hidden with no way to read it. */
+    .subs-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .subs-meta{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .subs-dot{margin:0 5px}
+    .subs-none{opacity:0.75;font-style:italic}
+    .subs-row-side{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+    .subs-consent{font-size:10px;font-weight:700;letter-spacing:0.3px;padding:2px 7px;border-radius:8px}
+    .subs-pill-ok{background:var(--ok-bg);color:var(--ok-tx)}
+    .subs-pill-info{background:var(--info-bg);color:var(--info-tx)}
+    .subs-pill-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .subs-pill-mut{background:var(--brd);color:var(--mut)}
+    .subs-joined,.subs-visits{font-size:11px;color:var(--mut)}
+    .subs-empty .bd{color:var(--txt)}
+    .subs-empty .bd b{display:inline-block;margin-bottom:4px}
+    .subs-skel{display:inline-block;height:13px;width:60%;border-radius:4px;background:var(--brd)}
+    .subs-skel-sm{width:35%;height:11px}
+    .subs-skel-lg{height:19px;width:45%;margin-bottom:8px}
+    .subs-row-skel{flex-direction:column;gap:6px;align-items:flex-start}
+    /* The sheet is a real modal. Its bottom padding clears the home indicator
+       and its way out is labeled and 44px (UI-R1 / UI-R2). */
+    .subs-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;z-index:70;padding:24px 0 0}
+    .subs-sheet-card{background:var(--card);color:var(--txt);border-radius:14px 14px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .subs-close{float:right;min-height:44px;padding:8px 14px;border:none;border-radius:10px;background:var(--brd);color:var(--txt);font-size:14px;font-weight:600;cursor:pointer}
+    .subs-sheet-name{font-size:19px;font-weight:700;margin:4px 0 6px}
+    .subs-block{margin-top:16px;padding-top:12px;border-top:0.5px solid var(--brd)}
+    .subs-block h3{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin:0 0 8px}
+    .subs-block>div{font-size:14px;line-height:1.55}
+    .subs-sub{font-size:12px;color:var(--mut);line-height:1.45;margin-top:4px}
+    #subs-resend{margin-top:10px;width:100%;min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;background:var(--info-bg);color:var(--info-tx);cursor:pointer}
+    #subs-resend[disabled]{opacity:0.45;cursor:default}
+    .subs-evidence,.subs-stop{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.45}
+    .subs-stop{color:var(--bad-tx);font-weight:600}
+    .subs-event{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+    .subs-event:last-child{border-bottom:none}
+    .subs-event-at{flex:none;color:var(--mut);font-size:12px}
+    .subs-offer{display:flex;flex-direction:column;padding:7px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+    .subs-offer:last-child{border-bottom:none}
+    .subs-offer span{color:var(--mut);font-size:12px}
+    </style>
+    <div id="subs-root" data-state="loading"></div>
   </div>
 
   <!-- ═══ SECTION 4: REDEMPTION STATS — labeled placeholder ═══ -->
@@ -338,6 +402,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 <script src="lib/xstate.umd.min.js" defer></script>
 <script type="module" src="marketing/scan-page.js"></script>
 <script type="module" src="marketing/submit-flow.js"></script>
+<!-- The Subscribers tab (card H5): owns #s3 and nothing else. -->
+<script type="module" src="marketing/subscribers.js"></script>
 <script src="health-banner.js"></script>
 <script>initHealthBanners('health-banners',["server", "substrate"]);</script>
 <script src="log.js"></script><script src="ptr.js"></script>
