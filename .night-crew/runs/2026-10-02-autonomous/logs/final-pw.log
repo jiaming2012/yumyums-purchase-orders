@@ -1,0 +1,7 @@
+# FINAL full Playwright suite — ALL SEVEN CARDS MERGED
+# tree a2fb9cd  2026-10-02T03:01:29-04:00
+# TEST_PORT=8600 TEST_DB_NAME=hq_test_e2e_final_20261002 DB_PORT=5434
+# every card's own suite was measured on a tree missing some of the others;
+# this is the only measurement of the seven together.
+# lock acquired 2026-10-02T03:01:29-04:00
+EXIT_BDDGEN=0

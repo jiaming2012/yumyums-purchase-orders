@@ -27,3 +27,4 @@
 2026-10-02T01:38:09-04:00	g6-dispatch	Card 7 G6 at ff82bb6 (g6-h6, port 8546)
 2026-10-02T02:01:41-04:00	merge	MERGE 6 23be14a — Card 7 h6; 7 of Card 6 attested PNGs restored to run-branch side (G6 finding, git offered no conflict); precache 50; 699 PASS/0 FAIL/15 pkgs with counts
 2026-10-02T02:05:57-04:00	G6-return	Card 7 G6 FINAL — mutation probe retracted then properly RUN via NIGHTCREW_ENV_URL: 2 failed EXIT=1, mutation verified in served bytes; both guards proven load-bearing
+2026-10-02T03:02:06-04:00	merge	MERGE 7 15ebc00 — Card 5 h4; ALL SEVEN MERGED. toml union + h6 stale count corrected to 7; precache 51 (slate predicted 51); 699 PASS/0 FAIL/15 pkgs

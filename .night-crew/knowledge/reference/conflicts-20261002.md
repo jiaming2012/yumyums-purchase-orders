@@ -362,3 +362,69 @@ Recorded rather than quietly dropped, because "a convenient pass I could not att
 must never read alike — which is the same standard this log applied to the orchestrator's own
 discarded Go run at Merge 5.
 
+### Merge 7 — `card/h4-stats-tab-ui` → `overnight-20261002` (`15ebc00` + the final `sw.js` commit), 2026-10-02 ~02:55
+
+🛑 **The last merge. Activity H is complete on the run branch — seven of seven.**
+
+**Cards involved:** H4 meeting **H6** (merged) on `night-crew.toml` and `sw.js`, and meeting
+**H2 + H5 + H6** on `tests/marketing.spec.js`.
+
+| Surface | Conflict | Rule | Resolution |
+|---|---|---|---|
+| `night-crew.toml` | both cards edited the same roll-call comment block | *union of both blocks* | Unioned **and one stale claim corrected**: H6's paragraph read *"Count stays 5"*, which was **true when H6 landed and false the moment H4's two specs landed after it**. Corrected to **seven** at this merge rather than left to mislead the next re-count. H4's G6 predicted this exact staleness. Same class as the gate-ladder's precache number reading **43** against a tree holding **48** — which this run also corrected (`dbbc1a8`). |
+| `sw.js` | content | 🛑 **never hand-merged** | One side taken to clear the conflict, then **regenerated at the merged HEAD** in a following commit (B-13). |
+| `tests/marketing.spec.js` | **none — auto-merged** | *union* | The **third** card tonight to edit this file, and it still carries every card's claims: `#s2` (H2), `#s3` (H5), `#s4` (H4) and H6's appended Scanner-polish `describe`. 53 tests. Each card changed only its own section's lines, which is why three successive edits never collided. |
+
+**Intents read.** H4's merge-intent plus two addenda. It declares both out-of-footprint edits
+(`tests/marketing.spec.js`'s four `#s4` lines; `tests/states-cost.spec.js`'s one array literal — the
+`bi.html` footprint entry doing its job) and the `night-crew.toml` widening, and it carried forward
+three triage items for the orchestrator untouched.
+
+**`task sw` at the final merged HEAD.** **51 files precached** (3103.5 KB), both runs
+byte-identical, reachability *"38 parsed, 66 refs, 0 outside"*. The arc is **48 → 49 (h2) → 50 (h5)
+→ 51 (h4)** — *exactly* the slate's prediction, *"48 → 51 if all three UI modules land"*. The four
+backend cards add no precached asset, so the count being precisely the three UI modules is itself
+the check that nothing was silently dropped or gained (B-37). Log `logs/final-G4-sw.log`.
+🛑 *Note against the record:* H4's G6 said to "expect 52", and the orchestrator repeated that. **51
+is correct** — H6 adds no precached file, which its own footprint states. Recorded because an
+expected-count miss is how a real drop gets waved through.
+
+**Gate result after the merge.** G1 exit 0; **G2 (Go) `EXIT_TEST=0` — 699 PASS / 0 FAIL / 3 SKIP
+across 15 packages**, counts checked, `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both
+unset in-log (`logs/final-G1-G2go.log`). A **final full Playwright suite** was then run on the
+complete seven-card tree — see the closeout, and note *why*: every card's own suite was measured on
+a tree missing some of the others (H4's ran without H6, H6's without H4), so this is the only
+measurement of the seven together.
+
+**G6:** APPROVE-WITH-FINDINGS → fix round → re-verified. It closed the night's recurring defect in
+its last costume: the order sheet claimed *"No till order is near this scan"* on **orphan** rows,
+where `reconciliation.go` never computes a suggestion at all — a manager told the system looked when
+it never looked. The card fixed it **better than instructed**, branching on bucket because a null
+suggestion carries two opposite meanings, and added a seventh fixture row to pin the side that had
+no guard. It also caught a **latent race in its own test** (`[MS-03]` asserted a page-wide row count
+of zero after a decline, which only ever passed because the assertion could land mid-reload) and
+re-verified under both spec orderings.
+
+---
+
+## Summary — seven merges, and what the log is for
+
+**Seven merges, four of them clean, three conflicted. Every conflict was resolved against INTENT
+rather than text**, using the slate's shared-surfaces table, and in every case both cards' work
+survived. No card's contribution was dropped at any merge.
+
+The two things this log exists to catch, and did:
+
+1. **`marketing.html` — the night's highest-stakes shared file, with three cards owning one section
+   each — never once conflicted.** Not luck: each card confined its hunks to its own section wrapper
+   with its `<style>` inside it, so the hunks were disjoint by construction. The discipline the slate
+   asked for is what made the dangerous file a non-event.
+2. **A clean conflict list is not proof that nothing moved.** At Merge 6, git reported a clean merge
+   while the incoming commit carried **seven of another card's attested evidence screenshots
+   silently overwritten** — a side effect of a full-suite leg writing into that card's log directory.
+   Git offered no conflict; only the card's own G6 caught it. All seven were restored to the
+   run-branch side.
+
+Three stale-or-false claims were corrected at merges rather than carried: `main.go`'s *"MountReports
+registers NOTHING today"*, H6's *"Count stays 5"*, and the orchestrator's own *"expect 52"*.
+
