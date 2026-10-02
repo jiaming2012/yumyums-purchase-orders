@@ -11,3 +11,4 @@
 2026-10-01T22:02:04-04:00	g6-dispatch	Card 2 G6, worktree g6-h2-20261002 at f29a8b7, TEST_PORT=8542
 2026-10-01T22:21:05-04:00	G6-return	Card 3 suite done 26f/963p one block; 22 baseline + 4 non-baseline (all known Inventory family, card is backend-only)
 2026-10-01T22:21:05-04:00	g6-dispatch	Card 3 G6 at 2e17ae3 (g6-h3a, port 8543); Card 4 h3b DISPATCHED off card/h3a unmerged base to keep Track C off G6 critical path
+2026-10-01T22:24:08-04:00	implementer-return	Card 3 h3a COMPLETE — 3 commits, 655 PASS/0 FAIL/3 SKIP (+7), precache 48, keyset resume LIVE on substrate, ItemSelection proven untouched, B-424 closed
