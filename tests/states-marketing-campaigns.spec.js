@@ -39,7 +39,15 @@ const path = require('path');
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 const USER_PASSWORD = 'test456';
-const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-marketing-campaigns');
+// 🛑 NOT under `test-results/`. That is Playwright's `outputDir`
+// (playwright.config.js), and Playwright WIPES it at the start of every run —
+// so the screenshots the Definition of Done requires as evidence were already
+// deleted by the next leg that ran, and the card's own full suite destroyed the
+// PNGs its report cited (G6 F3). `test-screenshots/` is outside outputDir and
+// is never wiped; STATES_SHOT_DIR overrides it when a run wants the evidence
+// filed somewhere specific (a night-crew run's logs/ tree, say).
+const SHOT_DIR = process.env.STATES_SHOT_DIR ||
+  path.join(__dirname, '..', 'test-screenshots', 'states-marketing-campaigns');
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 test.use({ viewport: { width: 393, height: 852 } });
 

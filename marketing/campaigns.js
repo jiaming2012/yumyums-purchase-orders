@@ -88,7 +88,8 @@
     formError: '',
     created: null,       // {campaign, codes, warnings} — the "N codes ready" screen
     detail: null,        // one campaignDTO
-    detailError: '',
+    detailError: '',     // a failed READ — the view has nothing to show
+    detailNote: '',      // a failed (or finished) WRITE — the view is intact
     code: null,          // one codeDTO
     canShareFiles: false,
     repoint: false,
@@ -250,6 +251,7 @@
     S.view = 'detail';
     S.detail = null;
     S.detailError = '';
+    S.detailNote = '';
     render();
     return req('/campaigns/' + encodeURIComponent(id) + '?period=' + encodeURIComponent(S.period))
       .then(function (c) { S.detail = c; render(); })
@@ -601,6 +603,10 @@
     if (!host) return;
     var back = '<button class="back mc-back" data-action="to-list">Campaigns</button>';
 
+    // S.detailError means the READ failed and there is nothing to show.
+    // S.detailNote means a WRITE answered and the view is still valid — it must
+    // never replace the Money card and the code rows the manager was reading
+    // (G6 F2, [MC-07]). The two are deliberately different states.
     if (S.detailError) {
       host.innerHTML = back + '<div class="mc-banner mc-banner-bad">' +
         '<div class="mc-banner-t">Couldn&rsquo;t load this campaign</div>' +
@@ -619,6 +625,9 @@
     var f = c.funnel || {};
 
     host.innerHTML = back +
+      (S.detailNote
+        ? '<div class="mc-note mc-note-bad" id="mc-detail-note">' + esc(S.detailNote) + '</div>'
+        : '') +
       '<div class="card"><div class="hd">' +
       '<h1 id="mc-detail-name">' + esc(c.name) + '</h1>' +
       '<div class="sub">' + esc(c.offer_text) + '</div>' +
@@ -1018,16 +1027,25 @@
     var c = S.detail;
     if (!c) return;
     var next = c.status === 'paused' ? 'live' : 'paused';
+    var verb = next === 'paused' ? 'pause' : 'resume';
     req('/campaigns/' + encodeURIComponent(c.id), { method: 'PATCH', body: { status: next } })
       .then(function (out) {
         S.detail = out;
+        S.detailNote = '';
         // The list row carries the same status pill — refresh it too (UI-R7).
         for (var i = 0; i < S.campaigns.length; i++) {
           if (S.campaigns[i].id === out.id) S.campaigns[i].status = out.status;
         }
         render();
       }).catch(function (err) {
-        S.detailError = isNetworkDown(err) ? 'offline' : (err.message || 'patch_failed');
+        // A failed WRITE is reported as a failed write, and nothing is taken
+        // away: the Money card and the code rows the manager is reading are
+        // still true, and the button they tapped is still there to retry
+        // (UI-R6). Its sibling doToggleCode() has always behaved this way; this
+        // is the alignment G6 F2 asked for.
+        S.detailNote = isNetworkDown(err)
+          ? 'No connection — could not ' + verb + ' the campaign. Nothing changed.'
+          : 'Could not ' + verb + ' the campaign (' + err.message + ').';
         render();
       });
   }
@@ -1062,9 +1080,43 @@
       if (f === 'rpLanding' || f === 'rpPlacement') return;
       if (!S.draft) S.draft = newDraft();
       S.draft[f] = el.value;
-      if (f === 'landing' || f === 'item' || f === 'otherLabel') render();
+      if (f === 'landing' || f === 'item' || f === 'otherLabel') renderKeepingCaret();
       else syncSubmitLabel();
     });
+  }
+
+  // renderKeepingCaret is render() for a KEYSTROKE-driven re-render.
+  //
+  // render() rebuilds a whole view with innerHTML, which destroys whatever
+  // input the thumb is in. That is harmless for a re-render triggered by a tap,
+  // and fatal for one triggered by a key: the "Other" channel's label field
+  // re-rendered on every character, so a manager typing "Sandwich board" kept
+  // "S" — and "Other" is the one channel of nine that needs free text, so it
+  // was the one channel that did not work (G6 F1, [MC-06]).
+  //
+  // Restoring focus + selection is chosen over the cheaper fix (dropping
+  // otherLabel from the re-render list) because that would leave the payload
+  // preview naming "Other" while the manager reads the name they just typed —
+  // a stale projection of state the design puts on screen precisely so it can
+  // be checked before the save.
+  function renderKeepingCaret() {
+    var el = document.activeElement;
+    var id = el && el.id;
+    var start = null, end = null;
+    if (el && typeof el.selectionStart === 'number') {
+      start = el.selectionStart;
+      end = el.selectionEnd;
+    }
+    render();
+    if (!id) return;
+    var next = $(id);
+    if (!next) return;
+    try {
+      next.focus({ preventScroll: true });
+      if (start !== null && typeof next.setSelectionRange === 'function') {
+        next.setSelectionRange(start, end);
+      }
+    } catch (e) { /* a <select> has no selection range; focus alone is enough */ }
   }
 
   // syncSubmitLabel is the ONE place this module writes the DOM outside

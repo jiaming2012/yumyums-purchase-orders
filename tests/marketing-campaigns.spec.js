@@ -282,6 +282,95 @@ test.describe('Campaigns section (#s2) — card h2-campaigns-tab-ui', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
+  // G6 F1 (P1) — regression. Written BEFORE the fix and confirmed RED
+  // (`Expected: "Sandwich board" / Received: "S"`): the `otherLabel` field was
+  // routed through the full render() path, which rebuilds the create sheet with
+  // innerHTML and destroys the input the thumb is in. Every test this card had
+  // written used page.fill(), a ONE-SHOT value set that never re-enters the
+  // field — so nothing typed character by character, and nothing caught it.
+  // "Other" is the one channel of nine that needs free text, and it was
+  // unusable: a manager either shipped a campaign labelled "S" forever or was
+  // blocked by the module's own channel_label_required guard.
+  //
+  // 🛑 pressSequentially is load-bearing here. page.fill() passes on the broken
+  // code. Any future test of a text field in this sheet must type, not fill.
+  test('[MC-06] typing the "Other" channel label survives more than one keystroke', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await openCampaigns(page);
+    await page.click('#mc-new');
+    await expect(page.locator('#mc-view-create')).toBeVisible();
+    await page.click('#mc-chips [data-channel="other"]');
+    await expect(page.locator('#mc-f-other')).toBeVisible();
+
+    await page.locator('#mc-f-other').click();
+    await page.locator('#mc-f-other').pressSequentially('Sandwich board', { delay: 20 });
+    await expect(page.locator('#mc-f-other')).toHaveValue('Sandwich board');
+    // The caret has to still be in the field a thumb was typing into.
+    expect(await page.evaluate(() => document.activeElement && document.activeElement.id))
+      .toBe('mc-f-other');
+
+    // The other text fields in the same sheet take the same guarantee.
+    await page.locator('#mc-f-name').click();
+    await page.locator('#mc-f-name').pressSequentially('Board Special', { delay: 15 });
+    await expect(page.locator('#mc-f-name')).toHaveValue('Board Special');
+    expect(await page.evaluate(() => document.activeElement && document.activeElement.id))
+      .toBe('mc-f-name');
+
+    // And the label the manager typed is what actually reaches the server and
+    // comes back on the code — not its first letter.
+    await page.fill('#mc-f-offer', '$2 off anything');
+    await page.fill('#mc-f-value', '2.00');
+    await page.click('#mc-submit');
+    await expect(page.locator('#mc-ready-head')).toContainText('1 code ready');
+    await expect(page.locator('#mc-ready-list .mc-ready-row').first())
+      .toContainText('Sandwich board');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // G6 F2 — regression. Written BEFORE the fix and confirmed RED: a failed
+  // WRITE (PATCH /campaigns/{id}) set S.detailError, which renderDetail() turns
+  // into a whole-view replacement reading "Couldn't load this campaign". The
+  // manager lost the Money card and the code rows they were reading, and was
+  // told a LOAD had failed, which it had not. Its sibling doToggleCode() was
+  // already non-destructive; this aligns them.
+  test('[MC-07] a failed Pause reports the write, non-destructively — the detail stays on screen', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const made = await createCampaign(page, {
+      name: 'Pause Fails MC07',
+      offer_text: '$2 off a wrap',
+      face_value_cents: 200,
+      runs_days: 9,
+      channels: [{ channel: 'flyer' }, { channel: 'sms' }],
+    });
+    await openCampaigns(page);
+    await page.click(`.mc-card[data-id="${made.campaign.id}"] [data-action="open-detail"]`);
+    await expect(page.locator('#mc-money')).toBeVisible();
+    await expect(page.locator('#mc-codes .mc-code-row')).toHaveCount(2);
+
+    // Only the WRITE fails. The read that built this view already succeeded.
+    await page.route('**/api/v1/marketing/campaigns/*', async route => {
+      if (route.request().method() === 'PATCH') {
+        await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' });
+      } else {
+        await route.fallback();
+      }
+    });
+    await page.click('#mc-pause-campaign');
+
+    // Loud about the write that failed...
+    await expect(page.locator('#mc-detail-note')).toContainText('Could not pause');
+    await expect(page.locator('#mc-detail-note')).toContainText('boom');
+    // ...and it must NOT claim a load failed, nor take the page away.
+    await expect(page.locator('#mc-view-detail')).not.toContainText('Couldn’t load this campaign');
+    await expect(page.locator('#mc-money')).toBeVisible();
+    await expect(page.locator('#mc-codes .mc-code-row')).toHaveCount(2);
+    await expect(page.locator('#mc-detail-name')).toHaveText('Pause Fails MC07');
+    // Retry is the button itself, still there and still armed (UI-R6).
+    await expect(page.locator('#mc-pause-campaign')).toBeEnabled();
+    await expect(page.locator('#mc-pause-campaign')).toContainText('Pause campaign');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
   test('[MC-05] offline shows the last-synced list + disabled create', async ({ page, context }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const made = await createCampaign(page, {

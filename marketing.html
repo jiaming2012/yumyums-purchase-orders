@@ -262,6 +262,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .mc-qr{width:100%;max-width:280px;aspect-ratio:1;align-self:center;background:#fff;border-radius:12px;padding:10px;display:block}
 .mc-payload{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--mut);text-align:center;word-break:break-all;line-height:1.5}
 .mc-note{background:var(--info-bg);color:var(--info-tx);border-radius:8px;padding:9px 11px;font-size:13px;text-align:center;line-height:1.45}
+/* A failed WRITE is loud but NOT destructive — it sits above the card it
+   failed on, it never replaces it (G6 F2). */
+.mc-note-bad{background:var(--bad-bg);color:var(--bad-tx);text-align:left;font-weight:600}
 .mc-actions{display:flex;gap:6px}
 .mc-actions .mc-btn{flex:1;font-size:13px;padding:10px 6px}
     </style>
