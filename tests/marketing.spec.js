@@ -138,7 +138,7 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(tile.locator('.tile-title')).toHaveText('Marketing');
   });
 
-  test('marketing.html shows Scan live and the other three sub-sections as labeled placeholders', async ({ page }) => {
+  test('marketing.html shows Scan live, Subscribers gated, and the remaining sub-sections as labeled placeholders', async ({ page }) => {
     const user = await makeUser(page, 'scan', ['team_member']);
     await loginAs(page, user.email, USER_PASSWORD);
     await page.goto('/marketing.html');
@@ -157,7 +157,7 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#scanner-host')).toHaveCount(1);
     await expect(page.locator('#s2')).toBeHidden();
 
-    // The other three are labeled placeholders, not blank space (UI-R rule:
+    // The remaining placeholders are labeled, not blank space (UI-R rule:
     // blank render = defect) — each names what it will hold and carries the
     // launcher's "Soon" badge convention.
     await page.click('#t2');
@@ -166,10 +166,23 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#s2')).toContainText('Campaigns');
     await expect(page.locator('#s1')).toBeHidden();
 
+    // 🛑 #s3 IS NO LONGER A PLACEHOLDER. Card H5 `subscribers-tab` (run
+    // 20261002) built it, so the "Soon" badge this test used to assert here is
+    // false by construction. Narrowly updated by that card — ONLY the three
+    // #s3 lines; #s4 is deliberately left alone because the Stats queue is
+    // still a placeholder until Card 5 lands.
+    //
+    // This test's user is a team_member, and the mailing list is manager-tier
+    // (handoff §16), so what they correctly see is the designed LOCKED state:
+    // the section still names itself "Subscribers" — the UI-R "blank render =
+    // defect" rule this block exists to enforce still holds — but it now says
+    // who may see the list instead of "Soon", and offers no control at all.
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
-    await expect(page.locator('#s3 .badge')).toHaveText('Soon');
     await expect(page.locator('#s3')).toContainText('Subscribers');
+    await expect(page.locator('#subs-root')).toHaveAttribute('data-state', 'locked');
+    await expect(page.locator('#s3 .subs-locked')).toContainText('Managers only');
+    await expect(page.locator('#s3 .badge')).toHaveCount(0);
 
     await page.click('#t4');
     await expect(page.locator('#s4')).toBeVisible();

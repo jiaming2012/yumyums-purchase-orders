@@ -11,6 +11,7 @@ Track E (full-stack). Base already carries Card H1's merge (`40b5846`), so
 | `backend/internal/marketing/routes.go` | **APPEND-ONLY.** One labelled block at the end of `Mount`, registering five `/subscribers*` routes. Nothing above it is edited — not `Deps`, not `MountReports`, not `MountPublic`, not `requireManager`. Cards 3 and 4 append their own blocks after mine; a conflict here is two additions and both sides survive. |
 | `backend/go.mod` / `backend/go.sum` | `+ github.com/go-sql-driver/mysql v1.9.3` and its one indirect, `filippo.io/edwards25519 v1.2.0`. The Fluent Forms reader speaks to a WordPress MySQL. **Card 3 is editing these files concurrently — union merge, keep BOTH requires.** |
 | `marketing.html` | **Section `#s3` ONLY**, plus one `<script type="module" src="marketing/subscribers.js">` line beside the two existing module entry points. See "What must survive" below — this is the field the merge turns on tonight. |
+| `tests/marketing.spec.js` | **ONE narrow edit, and only what this card invalidates.** That file's "labeled placeholders" test asserted `#s3 .badge` reads "Soon"; building `#s3` makes that false BY CONSTRUCTION. The three `#s3` lines now assert the designed **Locked** state its `team_member` user correctly sees (the section still names itself "Subscribers", so the UI-R "blank render = defect" rule the block exists to enforce still holds). 🛑 **`#s4` is deliberately left alone** — the Stats queue is still a placeholder until Card 5 lands. **Card 2 (`campaigns-tab-ui`) made the same narrow edit to the `#s2` lines of the SAME test tonight and deliberately left `#s3`/`#s4` intact.** At merge the two edits are one test function: **take BOTH sides** — Card 2's `#s2` block and this card's `#s3` block — and leave `#s4`'s "Soon" assertions untouched. If Card 7 touches the same lines, resolve the same way. |
 | `night-crew.toml` | **A ROLL-CALL COMMENT ONLY.** No new key, no new token (both would PARK). The `marketing` prefix key already covers `marketing.html` + `marketing/`, and the `marketing` TOKEN already selects any spec whose filename contains it, so `tests/marketing-subscribers.spec.js` and `tests/states-marketing-subscribers.spec.js` join the seam automatically. The comment records that they did. |
 | `sw.js` | Regenerated after the commit (reads git HEAD, B-13). Precache **48 → 49**, the one new module `marketing/subscribers.js`. No `build-sw.js` edit: the existing `marketing/*.js` glob already matches it. |
 | `.night-crew/runs/2026-10-02-autonomous/merge-intents/h5-subscribers-tab.md` | This note. |
@@ -82,6 +83,32 @@ no existing spec file, no `marketing/sync/*`, no `docs/`.
 - **The `subscribers_joined_at_idx` / `subscribers_source_short_idx` /
   `subscriber_events_subscriber_idx` indexes** are not in §4 — they are read-path
   additions. Dropping one costs latency, not correctness.
+
+## Design of record — UNREACHABLE from this box (declared deviation)
+
+The design of record for this card is *Current Subscribers 1–2* in the hosted
+Claude Design project (`https://claude.ai/design/p/a8ffc065-…`). **This
+environment has no network path to it** — Card 2 (`campaigns-tab-ui`) hit the
+same wall on its own canvases.
+
+Per the orchestrator's direction, this card did NOT park and did NOT stall. It
+was built from the **binding in-repo decomposition**:
+
+- the slate's Card 6 scope block (`reference/slate-20261002.md`),
+- roadmap H5,
+- handoff **§2** (the Subscribers paragraph), **§4** (the H5 DDL, used verbatim),
+  **§5** (`/subscribers*`), **§6 row H5**, **§8** (the Fluent Forms facts),
+- the goal ledger `spikes/activity-h-designed-tabs/subscribers-tab.md` — its
+  field map and the eight phone cases are binding build-facts.
+
+Anything the canvases might show that the in-repo spec does not name was treated
+as **unbuilt, not omitted**: no product was invented to fill a gap that cannot
+be seen from here.
+
+🛑 **Visual fidelity to the canvases is therefore UNVERIFIABLE from this box.**
+That is a fact for the operator at triage, not a failure of the card and not a
+park. The mockup sign-off itself was already given at the operator's 2026-10-01
+design sitting (T-60); only the visual comparison is impossible.
 
 ## Red-first
 
