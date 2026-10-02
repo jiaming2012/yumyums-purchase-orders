@@ -1,0 +1,30 @@
+# RED-FIRST, pre-implementation tree. The five done_when tests reference a package
+# that has no non-test source: backend/internal/marketing/ contains only _test.go files.
+# Commands run from backend/ (the module root). PATH carries /usr/local/go/bin.
+
+$ go build ./...
+BUILD_EXIT=0
+
+$ go vet ./internal/marketing/
+# github.com/yumyums/hq/internal/marketing
+# [github.com/yumyums/hq/internal/marketing]
+vet: internal/marketing/helpers_test.go:112:35: undefined: Deps
+VET_EXIT=1
+
+$ go test -count=1 -run 'TestCreateCampaignMintsOneCodePerChannel|TestLandingLogsScanAndRedirectsWithUTM|TestLandingInactiveCodeRendersEndedPage|TestProjectionUnconfiguredLeavesProjectedAtNull|TestTeamMemberGets403ManagersOnly' ./internal/marketing/
+# github.com/yumyums/hq/internal/marketing [github.com/yumyums/hq/internal/marketing.test]
+internal/marketing/helpers_test.go:112:35: undefined: Deps
+internal/marketing/helpers_test.go:123:19: undefined: Deps
+internal/marketing/helpers_test.go:175:88: undefined: createCampaignResponse
+internal/marketing/projection_test.go:189:41: undefined: ProjectionConfig
+internal/marketing/projection_test.go:219:43: undefined: ProjectionConfig
+internal/marketing/campaigns_test.go:155:63: undefined: DefaultRequiresOnlineThresholdCents
+internal/marketing/campaigns_test.go:163:72: undefined: DefaultRequiresOnlineThresholdCents
+internal/marketing/campaigns_test.go:247:10: undefined: listCampaignsResponse
+internal/marketing/campaigns_test.go:290:10: undefined: codeDTO
+internal/marketing/campaigns_test.go:317:10: undefined: campaignDTO
+internal/marketing/campaigns_test.go:317:10: too many errors
+FAIL	github.com/yumyums/hq/internal/marketing [build failed]
+FAIL
+TEST_EXIT=1
+EXIT=0
