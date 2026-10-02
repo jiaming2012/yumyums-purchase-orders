@@ -1,0 +1,25 @@
+# RF (Red-first) — card h5-subscribers-tab, run 20261002 — GO LEG
+# Pre-change tree: migration 0085 absent, subscribers.go absent, sources/*.go absent,
+# routes.go at Card H1's HEAD, go.mod without the MySQL driver.
+# The two done_when Go tests + the prohibition guards are present and CANNOT compile.
+# cmd: go test -p 1 -count=1 ./internal/marketing/... -run 'TestFluentFormsImportIsIdempotent|TestSubscriberSourceShortSetsCampaignAttribution|TestNothingInThisPackageSends|TestNoResponseCarriesAFullPhoneOrEmail'
+# DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_h5?sslmode=disable
+# HQ_SYNC_SUBSTRATE_OPTIONAL and HQ_SYNC_GATE_CHILD: UNSET
+---
+github.com/yumyums/hq/internal/marketing/sources: no non-test Go files in /home/jcole/projects/hq-worktrees/h5-subscribers-tab/backend/internal/marketing/sources
+FAIL	github.com/yumyums/hq/internal/marketing [build failed]
+# github.com/yumyums/hq/internal/marketing/sources [github.com/yumyums/hq/internal/marketing/sources.test]
+internal/marketing/sources/sources_test.go:24:13: undefined: NewFluentFormsFromJSON
+internal/marketing/sources/sources_test.go:28:20: undefined: SourceWebForm
+internal/marketing/sources/sources_test.go:29:51: undefined: SourceWebForm
+internal/marketing/sources/sources_test.go:38:19: undefined: Candidate
+internal/marketing/sources/sources_test.go:82:29: undefined: EnvFFHost
+internal/marketing/sources/sources_test.go:82:40: undefined: EnvFFUser
+internal/marketing/sources/sources_test.go:82:51: undefined: EnvFFPassword
+internal/marketing/sources/sources_test.go:82:66: undefined: EnvFFName
+internal/marketing/sources/sources_test.go:82:77: undefined: EnvFFPrefix
+internal/marketing/sources/sources_test.go:85:15: undefined: NewFluentForms
+internal/marketing/sources/sources_test.go:85:15: too many errors
+FAIL	github.com/yumyums/hq/internal/marketing/sources [build failed]
+FAIL
+EXIT=1

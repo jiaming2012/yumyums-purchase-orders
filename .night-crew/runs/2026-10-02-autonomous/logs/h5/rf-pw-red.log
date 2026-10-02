@@ -1,0 +1,262 @@
+# RF (Red-first) — card h5-subscribers-tab, run 20261002 — PLAYWRIGHT LEG
+# Pre-change tree: marketing.html #s3 is still the 'Soon' placeholder,
+# marketing/subscribers.js absent, /api/v1/marketing/subscribers* unregistered.
+# cmd: npx playwright test tests/marketing-subscribers.spec.js --retries=0
+# TEST_PORT=8561 TEST_DB_NAME=hq_test_e2e_h5_20261002 DB_PORT=5434
+---
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_h5_20261002" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_h5_20261002 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:50.809087457-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:50.8094448-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:50.831808047-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:50.924567899-04:00","level":"INFO","msg":"OK   0001_users.sql (63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.011979972-04:00","level":"INFO","msg":"OK   0002_sessions.sql (86.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.075637463-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (63.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.119580957-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (43.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.189068186-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (69.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.232524701-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (43.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.273696847-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (41.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.321224732-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (47.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.378478493-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (57.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.419327802-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (40.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.475141294-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (55.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.542594905-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (67.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.596612219-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (53.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.64029357-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (43.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.703215349-04:00","level":"INFO","msg":"OK   0015_ops.sql (62.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.719132318-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (15.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.740431569-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (21.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.825815704-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (85.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.906972696-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (81.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:51.976517697-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (69.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.03055297-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (53.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.079441213-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (48.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.140928225-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (61.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.405363388-04:00","level":"INFO","msg":"OK   0024_inventory.sql (264.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.464298879-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (58.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.472732154-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.483603321-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (10.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.502850313-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (19.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.509711871-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.535498142-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (25.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.54455972-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (8.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.557400909-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (12.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.591410449-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (33.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.678783442-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (87.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.693473395-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (14.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.706192922-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.746745778-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (40.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.763767106-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (16.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.785716418-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (21.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.947622224-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (161.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:52.962416574-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (14.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.031156-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (68.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.075573579-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (44.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.120560028-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (44.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.17148603-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (50.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.180209623-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (8.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.224435558-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (44.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.231272917-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (6.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.265025508-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (33.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.273098603-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (7.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.279389822-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (6.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.289657176-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (10.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.295240918-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (5.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.300696258-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (5.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.305874891-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (5.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.315796841-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (9.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.3248818-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (8.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.33422912-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (9.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.339538883-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (5.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.518682241-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (179.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.552667392-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (33.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.605909993-04:00","level":"INFO","msg":"OK   0062_recipes.sql (53.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.640275401-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (34.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.655465491-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (15.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.667882249-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.679983506-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.730821211-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (50.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.755455909-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.76856004-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.784005218-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (15.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.806037416-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.82329508-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (17.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.847103294-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (23.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.859015736-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (11.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.92363262-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (64.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:53.953382305-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (29.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.020036318-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (66.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.036429867-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (16.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.06609529-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (29.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.085874227-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (19.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.118955562-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (32.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.143644336-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (24.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.27866986-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (134.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.278731113-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 83","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.278753249-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.356836085-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.401625928-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"9a7786f0-d744-47e8-8285-34a4707078b8"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.40169365-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.433402152-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"ff86b8d7-5fdc-4da8-8fc7-36003c58c6b6"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.455813347-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.545112949-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:54.686131558-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.179668245-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.179729627-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.179804256-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.179856638-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.179896683-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180308761-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180481885-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180554896-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180575222-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180633266-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.180736514-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.204375752-04:00","level":"INFO","msg":"server listening","port":"8561"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.21489917-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8561"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.214927585-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8561"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.214935979-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8561"}
+[2m[WebServer] [22m{"time":"2026-10-01T21:01:55.214947001-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 6 tests using 1 worker
+
+  ✘  1 [chromium] › tests/marketing-subscribers.spec.js:97:3 › Marketing · Subscribers (card H5) › [SB-01] list masks phone to last 4 — and the full number never reaches the browser (630ms)
+  ✘  2 [chromium] › tests/marketing-subscribers.spec.js:133:3 › Marketing · Subscribers (card H5) › [SB-02] STOP renders an opted-out row, and the Opted out chip isolates it (559ms)
+  ✘  3 [chromium] › tests/marketing-subscribers.spec.js:170:3 › Marketing · Subscribers (card H5) › [SB-03] the sheet shows identity-code status, the consent trail and the timeline (647ms)
+  ✘  4 [chromium] › tests/marketing-subscribers.spec.js:204:3 › Marketing · Subscribers (card H5) › [SB-04] Resend records an event and sends nothing (771ms)
+  ✘  5 [chromium] › tests/marketing-subscribers.spec.js:254:3 › Marketing · Subscribers (card H5) › a team_member sees the Locked state, from the real 403 managers_only (1.5s)
+[2m[WebServer] [22m{"time":"2026-10-01T21:02:12.532572268-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  6 [chromium] › tests/marketing-subscribers.spec.js:272:3 › Marketing · Subscribers (card H5) › the empty state names what is missing rather than rendering nothing (16.1s)
+
+
+  1) [chromium] › tests/marketing-subscribers.spec.js:97:3 › Marketing · Subscribers (card H5) › [SB-01] list masks phone to last 4 — and the full number never reaches the browser 
+
+    Error: import/toast-guests → 404 page not found
+
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m200[39m
+    Received: [31m404[39m
+
+      67 |     return { status: r.status, body: await r.text() };
+      68 |   }, csv);
+    > 69 |   expect(out.status, `import/toast-guests → ${out.body}`).toBe(200);
+         |                                                           ^
+      70 |   return JSON.parse(out.body);
+      71 | }
+      72 |
+        at importGuests (/home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:69:59)
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:100:5
+
+    Error Context: test-results/marketing-subscribers-Mark-1c772-r-never-reaches-the-browser-chromium/error-context.md
+
+  2) [chromium] › tests/marketing-subscribers.spec.js:133:3 › Marketing · Subscribers (card H5) › [SB-02] STOP renders an opted-out row, and the Opted out chip isolates it 
+
+    Error: import/toast-guests → 404 page not found
+
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m200[39m
+    Received: [31m404[39m
+
+      67 |     return { status: r.status, body: await r.text() };
+      68 |   }, csv);
+    > 69 |   expect(out.status, `import/toast-guests → ${out.body}`).toBe(200);
+         |                                                           ^
+      70 |   return JSON.parse(out.body);
+      71 | }
+      72 |
+        at importGuests (/home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:69:59)
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:136:5
+
+    Error Context: test-results/marketing-subscribers-Mark-dbfac--Opted-out-chip-isolates-it-chromium/error-context.md
+
+  3) [chromium] › tests/marketing-subscribers.spec.js:170:3 › Marketing · Subscribers (card H5) › [SB-03] the sheet shows identity-code status, the consent trail and the timeline 
+
+    Error: import/toast-guests → 404 page not found
+
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m200[39m
+    Received: [31m404[39m
+
+      67 |     return { status: r.status, body: await r.text() };
+      68 |   }, csv);
+    > 69 |   expect(out.status, `import/toast-guests → ${out.body}`).toBe(200);
+         |                                                           ^
+      70 |   return JSON.parse(out.body);
+      71 | }
+      72 |
+        at importGuests (/home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:69:59)
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:173:5
+
+    Error Context: test-results/marketing-subscribers-Mark-119fe-sent-trail-and-the-timeline-chromium/error-context.md
+
+  4) [chromium] › tests/marketing-subscribers.spec.js:204:3 › Marketing · Subscribers (card H5) › [SB-04] Resend records an event and sends nothing 
+
+    Error: import/toast-guests → 404 page not found
+
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m200[39m
+    Received: [31m404[39m
+
+      67 |     return { status: r.status, body: await r.text() };
+      68 |   }, csv);
+    > 69 |   expect(out.status, `import/toast-guests → ${out.body}`).toBe(200);
+         |                                                           ^
+      70 |   return JSON.parse(out.body);
+      71 | }
+      72 |
+        at importGuests (/home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:69:59)
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:207:5
+
+    Error Context: test-results/marketing-subscribers-Mark-cfb85--an-event-and-sends-nothing-chromium/error-context.md
+
+  5) [chromium] › tests/marketing-subscribers.spec.js:254:3 › Marketing · Subscribers (card H5) › a team_member sees the Locked state, from the real 403 managers_only 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m403[39m
+    Received: [31m404[39m
+
+      259 |       return { status: r.status, body: await r.text() };
+      260 |     });
+    > 261 |     expect(probe.status).toBe(403);
+          |                          ^
+      262 |     expect(JSON.parse(probe.body).error).toBe('managers_only');
+      263 |
+      264 |     await openSubscribers(page);
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:261:26
+
+    Error Context: test-results/marketing-subscribers-Mark-346fa--the-real-403-managers-only-chromium/error-context.md
+
+  6) [chromium] › tests/marketing-subscribers.spec.js:272:3 › Marketing · Subscribers (card H5) › the empty state names what is missing rather than rendering nothing 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      86 |   await page.click('#t3');
+      87 |   await expect(page.locator('#s3')).toBeVisible();
+    > 88 |   await page.waitForFunction(() => {
+         |              ^
+      89 |     const r = document.getElementById('subs-root');
+      90 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      91 |   }, null, { timeout: 15000 });
+        at openSubscribers (/home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:88:14)
+        at /home/jcole/projects/hq-worktrees/h5-subscribers-tab/tests/marketing-subscribers.spec.js:274:5
+
+    Error Context: test-results/marketing-subscribers-Mark-98dde-ther-than-rendering-nothing-chromium/error-context.md
+
+  6 failed
+    [chromium] › tests/marketing-subscribers.spec.js:97:3 › Marketing · Subscribers (card H5) › [SB-01] list masks phone to last 4 — and the full number never reaches the browser 
+    [chromium] › tests/marketing-subscribers.spec.js:133:3 › Marketing · Subscribers (card H5) › [SB-02] STOP renders an opted-out row, and the Opted out chip isolates it 
+    [chromium] › tests/marketing-subscribers.spec.js:170:3 › Marketing · Subscribers (card H5) › [SB-03] the sheet shows identity-code status, the consent trail and the timeline 
+    [chromium] › tests/marketing-subscribers.spec.js:204:3 › Marketing · Subscribers (card H5) › [SB-04] Resend records an event and sends nothing 
+    [chromium] › tests/marketing-subscribers.spec.js:254:3 › Marketing · Subscribers (card H5) › a team_member sees the Locked state, from the real 403 managers_only 
+    [chromium] › tests/marketing-subscribers.spec.js:272:3 › Marketing · Subscribers (card H5) › the empty state names what is missing rather than rendering nothing 
+EXIT=1
