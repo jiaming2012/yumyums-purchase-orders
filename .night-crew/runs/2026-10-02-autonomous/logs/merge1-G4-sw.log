@@ -1,0 +1,16 @@
+# G4 at merged HEAD 40b5846 2026-10-01T20:15:35-04:00
+  skipped (not in HEAD): backlog-round.html
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+## idempotence: second run
+  skipped (not in HEAD): backlog-round.html
+import reachability: 35 precached files parsed, 62 local references resolved, 0 outside the precache
+SW built: 48 files precached (2930.9 KB)
+Frontend version: 1.10.2
+EXIT_SW2=0
+## git status after
+## precache count
+48
+EXIT=0
