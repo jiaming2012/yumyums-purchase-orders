@@ -321,7 +321,6 @@ func ListCampaignsHandler(d Deps) http.HandlerFunc {
 			if itemID != nil {
 				c.Item = &itemRef{ID: *itemID, Name: derefOr(itemName, "")}
 			}
-			c.Money = zeroMoney()
 			out.Campaigns = append(out.Campaigns, c)
 		}
 		if err := rows.Err(); err != nil {
@@ -330,6 +329,15 @@ func ListCampaignsHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
+		// ── card H3b: the money block is REAL (H1 shipped the zero shape) ──
+		// One engine read for the whole list, so a list of twenty campaigns is
+		// one aggregation and not twenty.
+		byCampaign, scope, err := statsCampaignMoney(ctx, d.Pool, since)
+		if err != nil {
+			slog.Error("marketing: campaign money", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
 		for i := range out.Campaigns {
 			codes, scans, err := loadCodes(ctx, d, out.Campaigns[i].ID, since)
 			if err != nil {
@@ -339,6 +347,7 @@ func ListCampaignsHandler(d Deps) http.HandlerFunc {
 			}
 			out.Campaigns[i].Codes = codes
 			out.Campaigns[i].Funnel = funnelDTO{Scans: scans}
+			statsApplyCampaignMoney(&out.Campaigns[i], byCampaign, scope)
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -426,7 +435,15 @@ func GetCampaignHandler(d Deps) http.HandlerFunc {
 		}
 		c.Codes = codes
 		c.Funnel = funnelDTO{Scans: scans}
-		c.Money = zeroMoney()
+		// card H3b: §5 row 3's money, including avg_order_cents_with /
+		// _without, which the detail route is the one place §5 asks for.
+		byCampaign, scope, err := statsCampaignMoney(ctx, d.Pool, since)
+		if err != nil {
+			slog.Error("marketing: campaign money", "error", err, "campaign_id", c.ID)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		statsApplyCampaignMoney(&c, byCampaign, scope)
 		writeJSON(w, http.StatusOK, c)
 	}
 }
@@ -520,7 +537,14 @@ func PatchCampaignHandler(d Deps) http.HandlerFunc {
 		}
 		c.Codes = codes
 		c.Funnel = funnelDTO{Scans: scans}
-		c.Money = zeroMoney()
+		// card H3b: a PATCH returns the same shape a GET does, money included.
+		if byCampaign, scope, err := statsCampaignMoney(ctx, d.Pool, periodStart("")); err != nil {
+			slog.Error("marketing: campaign money after patch", "error", err, "campaign_id", c.ID)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		} else {
+			statsApplyCampaignMoney(&c, byCampaign, scope)
+		}
 
 		if len(warnings) > 0 {
 			// The campaign shape plus the warning, so the UI can show the

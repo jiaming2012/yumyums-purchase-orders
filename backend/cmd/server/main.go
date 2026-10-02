@@ -799,10 +799,16 @@ func main() {
 			// accepted. The reconciliation QUEUE stays in Marketing, because
 			// it is writes, not a report.
 			//
-			// marketing.MountReports registers NOTHING today. It is the seam
-			// card H3b fills from INSIDE internal/marketing, so landing the
-			// report half costs no second edit to this file — main.go is
-			// touched tonight by H1 and H3a only. A `bi` group of its own
+			// marketing.MountReports is the seam card H3b fills from INSIDE
+			// internal/marketing. H3b has now LANDED (run 20261002), so this
+			// call registers GET /api/v1/bi/campaigns/{overview,by} — the same
+			// handlers as /api/v1/marketing/stats/*, byte-identical bodies,
+			// and WITHOUT the manager tier, which is decision 192's whole
+			// point: the reports answer to the `bi` grant alone. The seam did
+			// its job — landing the report half cost no second edit to this
+			// file, and main.go was touched tonight by H1 and H3a only.
+			// (This comment read "registers NOTHING today" until H3b landed;
+			// corrected at the merge that made it false.) A `bi` group of its own
 			// rather than a row inside the /inventory Route above, because
 			// routes registered there would be prefixed /api/v1/inventory/*
 			// and the contract says /api/v1/bi/*.

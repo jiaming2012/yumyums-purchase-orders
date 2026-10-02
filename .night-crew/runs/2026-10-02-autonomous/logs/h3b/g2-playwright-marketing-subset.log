@@ -1,0 +1,406 @@
+# G2 (Playwright) DELTA LEG — tests/marketing*.spec.js at the card's LAST commit.
+# WHY: the full suite's webServer compiled at commit b154e85; five backend
+#   commits landed after it. All five are confined to internal/marketing's
+#   stats/reconciliation code paths, which NO Playwright spec reaches
+#   (tests/marketing.spec.js is the SCANNER app: tile/seed, decode/resolve,
+#   submit flow). This leg confirms that rather than asserting it.
+# tests/-anchored subset → runs freely, no box lock (per the card brief).
+# npx bddgen ran first (B-09).
+# coordinates: TEST_PORT=8572  TEST_DB_NAME=hq_test_e2e_h3b_sub  DB_PORT=5434 (hqtest)
+
+bddgen EXIT=0
+[1A[2K[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_h3b_sub" does not exist, skipping
+
+[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_h3b_sub on localhost:5434 ──
+
+[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.666930517-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.667216961-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.685332096-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.752510338-04:00","level":"INFO","msg":"OK   0001_users.sql (39.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.802234316-04:00","level":"INFO","msg":"OK   0002_sessions.sql (49.31ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.843919094-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (41.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.880911999-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (36.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.93068909-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (49.59ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.960500812-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (29.69ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:35.989401101-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (28.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.027937496-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (38.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.063467286-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (35.43ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.094071915-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (30.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.132384848-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (38.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.181081932-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (48.6ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.212236009-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (31.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.242391791-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (30.02ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.292422641-04:00","level":"INFO","msg":"OK   0015_ops.sql (49.94ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.309093912-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (16.55ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.326624952-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (17.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.39061786-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (63.85ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.465954782-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (75.23ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.513292037-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (47.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.553850325-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (40.4ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.595560042-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (41.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.657451092-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (61.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.912712843-04:00","level":"INFO","msg":"OK   0024_inventory.sql (255.08ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.971761729-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (58.94ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.981851685-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.97ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:36.995527661-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (13.53ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.017270551-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (20.9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.025605106-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (8.17ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.057161443-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (31.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.070094211-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (12.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.088310533-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (18.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.127833036-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (39.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.230472169-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (102.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.297650409-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (67.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.3254352-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (27.66ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.508888639-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (183.31ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.564223856-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (55.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.60168811-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (37.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.72428182-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (122.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.73785904-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.49ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.808946503-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (70.93ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.855923831-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (46.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.902218558-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (46.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.946846659-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (44.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:37.954166953-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.24ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.002772252-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (48.5ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.009852526-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (6.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.050013301-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (40.08ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.05819772-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.09ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.065239702-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (6.97ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.081441783-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.13ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.08891837-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.096108739-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.12ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.102939712-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.116771256-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (13.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.129608142-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (12.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.142169872-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (12.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.149083462-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (6.85ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.209450429-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (60.28ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.247387431-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (37.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.293379039-04:00","level":"INFO","msg":"OK   0062_recipes.sql (45.88ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.324681667-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (31.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.33847038-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (13.68ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.352569264-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (14ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.365387474-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.425237016-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (59.74ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.44986061-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.49ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.465357294-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (15.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.482258986-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (16.78ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.503663843-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.24ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.521795765-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (17.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.547201891-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (25.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.556612583-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (9.24ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.605183199-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (48.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.629683577-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (24.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.669021932-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (39.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.682990699-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (13.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.704046715-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (20.95ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.716686901-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (12.53ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.738926866-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (22.12ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.754728546-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (15.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:38.869209323-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (114.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.069057091-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (199.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.069136081-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 84","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.069155981-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.145664437-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.176998166-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"83dfdf2f-4850-4105-9bb9-ebe5072115fa"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.17705218-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.207347967-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"54dd3a7f-e28d-4073-98d7-ab8c6e1437cd"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.230694826-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.317311624-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.498542345-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.912528005-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.912591259-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.912665071-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.912731066-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.912790461-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913199018-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913282781-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913348166-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.91336167-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913370604-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913389996-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.913442386-04:00","level":"INFO","msg":"alerts queue started"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.937178411-04:00","level":"INFO","msg":"server listening","port":"8572"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.947516211-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8572"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.947569413-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8572"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.947580277-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8572"}
+[2m[WebServer] [22m{"time":"2026-10-01T23:54:39.947592663-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 47 tests using 1 worker
+
+[1A[2K[1/47] [chromium] › tests/marketing.spec.js:106:3 › Marketing tile + permission seed (card marketing-tile-and-page) › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants
+[1A[2K[2/47] [chromium] › tests/marketing.spec.js:130:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a team_member with the app grant sees the Marketing tile on the launcher
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:43.178661156-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 1a9a68f9-cd9c-4eaf-a247-495b0d6a972f: context canceled"}
+
+[1A[2K[3/47] [chromium] › tests/marketing.spec.js:141:3 › Marketing tile + permission seed (card marketing-tile-and-page) › marketing.html shows Scan live and the other three sub-sections as labeled placeholders
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:44.691546846-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Mkt T. (mkt-scan-1790913283953-8529@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[4/47] [chromium] › tests/marketing.spec.js:182:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a user without the marketing grant sees NO Marketing tile
+[1A[2K[5/47] [chromium] › tests/marketing.spec.js:214:3 › Marketing tile + permission seed (card marketing-tile-and-page) › the offline_override entitlement renders as a grantable row in the Users access editor
+[1A[2K[6/47] [chromium] › tests/marketing.spec.js:238:3 › Marketing tile + permission seed (card marketing-tile-and-page) › a per-user offline_override grant round-trips to that user's /me/apps
+[1A[2K[7/47] [chromium] › tests/marketing.spec.js:405:3 › Camera scanner decode (card camera-scanner-decode) › a printed QR decodes from an image and its on-device hash equals the committed seed literal
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:49.029639636-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[8/47] [chromium] › tests/marketing.spec.js:423:3 › Camera scanner decode (card camera-scanner-decode) › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:49.917496306-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[9/47] [chromium] › tests/marketing.spec.js:445:3 › Camera scanner decode (card camera-scanner-decode) › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:50.708815839-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[10/47] [chromium] › tests/marketing.spec.js:464:3 › Camera scanner decode (card camera-scanner-decode) › resolution order: the local replica beats the QR-embedded offer when both exist
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:51.53655821-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[11/47] [chromium] › tests/marketing.spec.js:478:3 › Camera scanner decode (card camera-scanner-decode) › a token in neither replica with no descriptor resolves unknownCode (F2 display)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:52.199737139-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[12/47] [chromium] › tests/marketing.spec.js:486:3 › Camera scanner decode (card camera-scanner-decode) › a payload that is not a Yumyums code resolves invalidPayload, loudly
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:52.883203444-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[13/47] [chromium] › tests/marketing.spec.js:496:3 › Camera scanner decode (card camera-scanner-decode) › F3 offline: a locally-redeemed code rejects immediately as spentLocally
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:53.39058021-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:53.51382593-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[14/47] [chromium] › tests/marketing.spec.js:514:3 › Camera scanner decode (card camera-scanner-decode) › F3 online: the local redeemed flag does NOT reject — the server decides at submit
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:54.2715238-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[15/47] [chromium] › tests/marketing.spec.js:537:3 › Camera scanner decode (card camera-scanner-decode) › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:54.954412477-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[16/47] [chromium] › tests/marketing.spec.js:557:3 › Camera scanner decode (card camera-scanner-decode) › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:55.607917144-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:55.767790757-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[17/47] [chromium] › tests/marketing.spec.js:581:3 › Camera scanner decode (card camera-scanner-decode) › hash caching: repeated scans of one token digest once
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:56.321590678-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[18/47] [chromium] › tests/marketing.spec.js:590:3 › Camera scanner decode (card camera-scanner-decode) › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:57.167140191-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[19/47] [chromium] › tests/marketing.spec.js:607:3 › Camera scanner decode (card camera-scanner-decode) › F6: re-scanning the same code re-shows the result instead of erroring or duplicating
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:57.845267764-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[20/47] [chromium] › tests/marketing.spec.js:619:3 › Camera scanner decode (card camera-scanner-decode) › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:58.625680326-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[21/47] [chromium] › tests/marketing.spec.js:649:3 › Camera scanner decode (card camera-scanner-decode) › a live camera hides the Start camera control and shows no error
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:54:59.612009486-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[22/47] [chromium] › tests/marketing.spec.js:660:3 › Camera scanner decode (card camera-scanner-decode) › starting the camera twice does not report it unavailable
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:00.24206356-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire fdac545a-1aa6-4b34-8f1c-ea60975fcc88: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:00.246733351-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:00.351076287-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[23/47] [chromium] › tests/marketing.spec.js:674:3 › Camera scanner decode (card camera-scanner-decode) › a camera failure names the real reason, even when the library throws a string
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:01.399273057-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[24/47] [chromium] › tests/marketing.spec.js:769:3 › Redemption submit flow (card redemption-submit-flow) › a persistent online/offline indicator renders from boot and reads online on a live probe
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:02.093746732-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[25/47] [chromium] › tests/marketing.spec.js:783:3 › Redemption submit flow (card redemption-submit-flow) › confirm-then-burn: no path to redeemed without a validator-passing Toast order number
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:02.823278972-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[26/47] [chromium] › tests/marketing.spec.js:826:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 1: no entitlement -> blocked, no override affordance
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:03.922227978-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 1a9a68f9-cd9c-4eaf-a247-495b0d6a972f: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:03.937623338-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:04.321809944-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Mkt T. (mkt-c6-noperm-1790913303504-5281@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[27/47] [chromium] › tests/marketing.spec.js:845:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 2: the entitlement offers force-submit behind the §13 confirmation
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:05.093606013-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[28/47] [chromium] › tests/marketing.spec.js:888:3 › Redemption submit flow (card redemption-submit-flow) › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:06.020685344-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[29/47] [chromium] › tests/marketing.spec.js:933:3 › Redemption submit flow (card redemption-submit-flow) › B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:06.66973272-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 4d0155e4-a9c8-4945-ba6b-7e168d9c3d81: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:06.843823474-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[30/47] [chromium] › tests/marketing.spec.js:963:3 › Redemption submit flow (card redemption-submit-flow) › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:07.779202788-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"query assigned templates for hire 4d0155e4-a9c8-4945-ba6b-7e168d9c3d81: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:07.904656741-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[31/47] [chromium] › tests/marketing.spec.js:988:3 › Redemption submit flow (card redemption-submit-flow) › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:08.859180994-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[32/47] [chromium] › tests/marketing.spec.js:1050:3 › Redemption submit flow (card redemption-submit-flow) › done_when(2): a replica-FAILURE override lands policy_unresolved=true, distinguishable from the genuinely-unknown one
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:09.83825399-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[33/47] [chromium] › tests/marketing.spec.js:1099:3 › Redemption submit flow (card redemption-submit-flow) › B-434(c): the policy predicate — resolved flag / KNOWN-but-unresolved fails closed / no campaign stays null (decision 166)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:10.779317885-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[34/47] [chromium] › tests/marketing.spec.js:1143:3 › Redemption submit flow (card redemption-submit-flow) › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:11.341732426-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:11.463050187-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[35/47] [chromium] › tests/marketing.spec.js:1184:3 › Redemption submit flow (card redemption-submit-flow) › already_used verdict renders when + which device from the local codes replica
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:12.236607949-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:12.392968906-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[36/47] [chromium] › tests/marketing.spec.js:1204:3 › Redemption submit flow (card redemption-submit-flow) › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:13.145848764-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:13.301774811-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing submit] undeclared (state,event) pair {\"event\":\"BOGUS_EVENT\",\"scan\":\"offerReady\",\"conn\":\"online\",\"overlay\":\"none\"}","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:13.303073978-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing submit] undeclared (state,event) pair {\"event\":\"BOGUS_EVENT\",\"scan\":\"offerReady\",\"conn\":\"online\",\"overlay\":\"none\"}","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:13.308052101-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing submit] undeclared (state,event) pair {\"event\":\"BOGUS_EVENT\",\"scan\":\"offerReady\",\"conn\":\"online\",\"overlay\":\"none\"}","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[37/47] [chromium] › tests/marketing.spec.js:1315:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:13.97911921-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[38/47] [chromium] › tests/marketing.spec.js:1350:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:14.890381552-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[39/47] [chromium] › tests/marketing.spec.js:1367:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:15.870403656-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[40/47] [chromium] › tests/marketing.spec.js:1415:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:16.966680282-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[41/47] [chromium] › tests/marketing.spec.js:1442:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:18.509695608-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[42/47] [chromium] › tests/marketing.spec.js:1468:3 › Sync provisioning (card sync-coordinates-provisioning) › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:25.561411644-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[43/47] [chromium] › tests/marketing.spec.js:1520:3 › Boot without SubtleCrypto (plain-http LAN origin) › both flows boot with NO crypto.subtle, and the token hash still equals the WebCrypto seed literal
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:31.566290201-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[44/47] [chromium] › tests/marketing.spec.js:1531:3 › Boot without SubtleCrypto (plain-http LAN origin) › a boot failure reads as a plain sentence with the technical detail tucked away — not an exception dump
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.257036941-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.276375734-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing] scanner boot failed: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.284954915-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Unhandled rejection: scanner did not boot: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[45/47] [chromium] › tests/marketing.spec.js:1555:3 › Boot without SubtleCrypto (plain-http LAN origin) › on a LAN/dev address the hint says https, NOT "go to hq.yumyums.kitchen"
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.882815939-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.901749587-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing] scanner boot failed: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:32.910316508-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Unhandled rejection: scanner did not boot: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[46/47] [chromium] › tests/marketing.spec.js:1574:3 › Boot without SubtleCrypto (plain-http LAN origin) › the Details cause reads as a sentence, not an internal symbol name
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:33.4664527-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:33.484742558-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"[marketing] scanner boot failed: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:33.492444596-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Unhandled rejection: scanner did not boot: IndexedDB API missing. Please visit https://tinyurl.com/y2uuvskb","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[47/47] [chromium] › tests/marketing.spec.js:1589:3 › Boot without SubtleCrypto (plain-http LAN origin) › camera failure on an insecure origin names the fix: open the https address, or scan from a photo
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T23:55:34.062606239-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  47 passed (3.3m)
+EXIT=0

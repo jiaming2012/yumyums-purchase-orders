@@ -1,0 +1,20 @@
+# PROBE — the signups forward path, card h3b, run 20261002
+# WHY: `subscribers` (card H5 / migration 0085) is ABSENT on this branch, so the
+#      committed green run asserts signups=0 with basis=unavailable. This probe
+#      proves the SAME code returns the spike's signups=5 with basis=subscribers
+#      once the table exists, so no code change is needed when card 6 merges.
+# HOW: a THROWAWAY database hq_test_go_h3b_subs on :5434 (hqtest), migrated to 0084,
+#      then handoff §4's H5 DDL applied BY HAND (no migration file added — 0085 is
+#      card 6's number). Database dropped after the probe.
+
+=== RUN   TestSlicesReconcileToOverview
+    stats_test.go:134: overview: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 basis=mixed
+    stats_test.go:191: Σ campaign: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=3)
+    stats_test.go:191: Σ channel: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=5)
+    stats_test.go:191: Σ item: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=4)
+--- PASS: TestSlicesReconcileToOverview (0.60s)
+=== RUN   TestSignupsStatesItsBasisWhenSubscribersIsAbsent
+--- PASS: TestSignupsStatesItsBasisWhenSubscribersIsAbsent (0.50s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	1.140s
+EXIT=0
