@@ -12,8 +12,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <title>BI - Yumyums HQ</title>
 <style>
-:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
-@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;--ok-bg:#dcfce7;--ok-tx:#14532d;--bad-bg:#fee2e2;--bad-tx:#7f1d1d}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--ok-bg:#14532d;--ok-tx:#dcfce7;--bad-bg:#7f1d1d;--bad-tx:#fecaca}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:20px}
@@ -148,6 +148,89 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .tr-table tfoot td{font-weight:600;border-top:0.5px solid var(--brd);border-bottom:none;color:var(--txt)}
 .tr-table .tr-none{color:var(--mut)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ══ Campaigns (#s3) — card H4 `stats-tab-ui`, run 20261002, DECISION 192 ══
+   The campaign reports, re-homed off the Marketing page onto this hub. Rendered
+   entirely by marketing/stats.js into #bi-campaigns-root; every selector below
+   is scoped to names that start `bic-` or to #bi-campaigns-root, so NOTHING
+   here can reach Trends (#s1) or Food cost (#s2). */
+.bic-periods{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px;padding-bottom:2px}
+.bic-period{flex:none;min-height:36px;padding:7px 14px;border:1px solid var(--brd);border-radius:18px;background:var(--card);color:var(--txt);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.bic-period.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+#bi-campaigns-root .card{padding:0;overflow:hidden}
+#bi-campaigns-root .hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+#bi-campaigns-root .hd h1{font-size:15px;font-weight:600;margin:0}
+#bi-campaigns-root .sub{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.45}
+#bi-campaigns-root .bd{padding:16px;font-size:13px;color:var(--txt);line-height:1.55}
+.bic-funnel{display:flex}
+.bic-step{flex:1;min-width:0;padding:12px 4px;text-align:center;border-right:0.5px solid var(--brd)}
+.bic-step:last-child{border-right:none}
+.bic-step-v{display:block;font-size:19px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.bic-step-l{display:block;font-size:11px;color:var(--mut);margin-top:2px;overflow-wrap:anywhere;line-height:1.3}
+.bic-basis-note{padding:10px 16px;border-top:0.5px solid var(--brd);font-size:12px;color:var(--mut);line-height:1.45}
+.bic-money-body{padding:6px 0}
+.bic-money-row{display:flex;justify-content:space-between;gap:12px;padding:9px 16px;font-size:14px}
+.bic-money-l{color:var(--mut);min-width:0;overflow-wrap:anywhere}
+.bic-money-v{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bic-money-row.bic-net{border-top:0.5px solid var(--brd);margin-top:4px;padding-top:12px;font-size:16px}
+.bic-money-row.bic-net .bic-money-l{color:var(--txt);font-weight:600}
+.bic-discount-split,.bic-unknown-note,.bic-unattributed{margin:8px 12px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.bic-discount-split{background:var(--info-bg);color:var(--info-tx)}
+.bic-split-why{display:block;opacity:.85;margin-top:3px}
+.bic-unknown-note,.bic-unattributed{background:var(--warn-bg);color:var(--warn-tx)}
+.bic-unattributed.bic-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.bic-money-foot{padding:10px 16px;border-top:0.5px solid var(--brd);font-size:12px;color:var(--mut);line-height:1.55;overflow-wrap:anywhere}
+.bic-hs{display:flex;border-bottom:0.5px solid var(--brd)}
+.bic-h{flex:1;min-width:0;padding:12px 4px;text-align:center;border-right:0.5px solid var(--brd)}
+.bic-h:last-child{border-right:none}
+.bic-h b{display:block;font-size:19px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.bic-h span{font-size:11px;color:var(--mut)}
+.bic-orphan-wrap{padding:14px 16px}
+.bic-orphan-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.bic-orphan-rate{font-size:26px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.bic-orphan-target{font-size:12px;color:var(--mut)}
+/* D-5 is PARKED: the basis string and the server's own numerator/denominator
+   ride BESIDE the rate so the 10% marker is never a bare claim. */
+.bic-orphan-basis{font-size:11px;color:var(--mut);margin-top:5px;line-height:1.5;overflow-wrap:anywhere}
+.bic-orphan-basis code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;overflow-wrap:anywhere}
+.bic-orphan-note{margin-top:9px;padding:8px 10px;border-radius:8px;background:var(--brd);color:var(--txt);font-size:12px;line-height:1.45}
+.bic-orphan-note.bic-bad{background:var(--bad-bg);color:var(--bad-tx)}
+.bic-orphan-note.bic-ok{background:var(--ok-bg);color:var(--ok-tx)}
+#bic-health.over .bic-orphan-rate{color:var(--bad-tx)}
+.bic-slices{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;padding-bottom:2px}
+.bic-slice{flex:none;min-height:36px;padding:7px 14px;border:1px solid var(--brd);border-radius:18px;background:var(--card);color:var(--txt);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.bic-slice.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+.bic-toggles{display:flex;gap:4px;padding:10px 12px;border-bottom:0.5px solid var(--brd)}
+.bic-toggle{flex:1;min-height:36px;border:none;border-radius:8px;background:transparent;color:var(--txt);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.bic-toggle.on{background:var(--info-bg);color:var(--info-tx);font-weight:600}
+.bic-drill{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:12px;color:var(--mut)}
+.bic-drill-clear{margin-left:auto;min-height:36px;padding:7px 13px;border:none;border-radius:8px;background:var(--brd);color:var(--txt);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+/* A slice row stacks: the label (which can be a 90-character dish name) on its
+   own line, its figures under it. That is what keeps 393px from scrolling
+   sideways however long a campaign is called. */
+.bic-head,.bic-row,.bic-totals{display:flex;flex-direction:column;gap:5px;width:100%;min-height:44px;padding:11px 16px;border:none;border-bottom:0.5px solid var(--brd);background:transparent;color:var(--txt);font:inherit;text-align:left}
+.bic-row{cursor:pointer}
+.bic-row:active{opacity:.7}
+.bic-head{background:var(--bg)}
+.bic-row-label{font-size:14px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.bic-row-note{display:block;font-size:11px;font-weight:400;color:var(--mut);margin-top:3px;line-height:1.4}
+.bic-head .bic-row-label,.bic-head .bic-c{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.bic-cells{display:flex;gap:10px;justify-content:space-between}
+.bic-c{font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* D-4: the `unattributed` / `direct` / `any` rows are REAL rows and are NEVER
+   filtered out — Σ rows = overview is the engine's keystone. They are TONED so
+   a manager can see at a glance that the money in them belongs to no campaign,
+   which is the opposite of hiding them. */
+.bic-row-special{background:var(--warn-bg);color:var(--warn-tx)}
+.bic-row-special .bic-row-note{color:inherit;opacity:.85}
+.bic-totals{border-bottom:none;background:var(--bg);font-weight:700}
+.bic-none{padding:18px 16px;font-size:13px;color:var(--mut)}
+.bic-skel-rows{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+.bic-skel{height:18px;border-radius:6px;background:var(--brd);animation:pulse 1.2s infinite}
+.bic-error-foot{padding:0 16px 16px}
+.bic-error-inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;font-size:13px;color:var(--mut)}
+.bic-retry{min-height:44px;padding:10px 18px;border:none;border-radius:10px;background:var(--info-bg);color:var(--info-tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.bic-empty .bd b{display:inline-block;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -166,6 +249,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <nav id="s0" class="hub" style="display:none" aria-label="Business Intelligence">
     <button id="t1" class="hub-row" type="button" onclick="show(1)"><span class="hub-ic" aria-hidden="true">&#x1F4C8;</span><span class="hub-body"><span class="hub-t">Trends</span><span class="hub-s" id="hub-s1">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b1"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
     <button id="t2" class="hub-row" type="button" onclick="show(2)"><span class="hub-ic" aria-hidden="true">&#x1F4B5;</span><span class="hub-body"><span class="hub-t">Food cost</span><span class="hub-s" id="hub-s2">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b2"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
+    <!-- card H4 `stats-tab-ui` (run 20261002, decision 192): the campaign
+         reports arrive as a ROW, not a redesign. Badge = the open-reconciliation
+         count in the WARN tone (work waiting), unlike the muted readings above
+         it; subtitle = the period. -->
+    <button id="t3" class="hub-row" type="button" onclick="show(3)"><span class="hub-ic" aria-hidden="true">&#x1F4E3;</span><span class="hub-body"><span class="hub-t">Campaigns</span><span class="hub-s" id="hub-s3">Loading&hellip;</span></span><span class="hub-b skel" id="hub-b3"></span><span class="hub-chev" aria-hidden="true">&#x203A;</span></button>
   </nav>
   <div id="s1" style="display:none">
     <div id="trends-container"><!-- populated by renderTrends from TRENDS_DATA / TRENDS_STATE --></div>
@@ -173,8 +261,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <div id="s2" style="display:none">
     <div id="cost-container"><!-- populated by renderCost from COST_DATA / COST_STATE --></div>
   </div>
+  <!-- card H4: #bi-campaigns-root is the contract with marketing/stats.js. That
+       module owns everything inside it, holds the ONE delegated click listener,
+       and renders from state. It reaches nothing else on this page: the hub row
+       is updated through a `bi-campaigns-status` event, not by touching the DOM. -->
+  <div id="s3" style="display:none">
+    <div id="bi-campaigns-root" data-state="loading"></div>
+  </div>
 </div>
-<script src="tab.js" data-tabs="2" data-home="0"></script>
+<script src="tab.js" data-tabs="3" data-home="0"></script>
 <script>
 // bi.html — Business Intelligence (B-455 / WO-2b). Trends and Cost lifted
 // VERBATIM out of inventory.html (the "── Trends tab" … cost-sort delegation
@@ -211,11 +306,11 @@ function showInlineError(containerId,msg,retryFn){
 
 let CURRENT_USER=null;
 let ACTIVE_TAB=0;
-var HUB_NAMES={1:'Trends',2:'Food cost'};
+var HUB_NAMES={1:'Trends',2:'Food cost',3:'Campaigns'};
 
 function show(n){
   if(!document.getElementById('s'+n))n=0;
-  [0,1,2].forEach(function(i){
+  [0,1,2,3].forEach(function(i){
     var el=document.getElementById('s'+i); if(el)el.style.display=i===n?'':'none';
     var btn=document.getElementById('t'+i);
     if(btn){btn.classList.toggle('on',i===n);if(i===n)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');}
@@ -232,6 +327,10 @@ function show(n){
   // answer when it is ready or in flight and fetches only after an error.
   if(n===1){if(TRENDS_STATE==='ready'||TRENDS_STATE==='loading')renderTrends();else loadTrends();}
   if(n===2){if(COST_STATE==='ready'||COST_STATE==='loading')renderCost();else loadCost();}
+  // Campaigns is owned by marketing/stats.js, which already loaded for the hub
+  // badge. Opening the section only needs to re-try a read that FAILED — a
+  // ready or in-flight one is already on screen.
+  if(n===3&&window.BICampaigns)window.BICampaigns.ensure();
 }
 
 // With full-page sections the phone's back gesture is how the crew returns to
@@ -250,7 +349,7 @@ window.addEventListener('hashchange',function(){
 // is undefined while loading, 'error' when its call failed, else a value; no
 // data → no badge (never "$0 this wk"); error → "Status unavailable" in the
 // subtitle and the row still opens.
-var HUB={trends:undefined,cost:undefined};
+var HUB={trends:undefined,cost:undefined,campaigns:undefined};
 function hubSet(key,val){HUB[key]=val;renderHub();}
 function hubBadge(id,text,cls){
   var b=document.getElementById(id);if(!b)return;
@@ -304,7 +403,21 @@ function renderHub(){
   if(c==='error'){hubBadge('hub-b2','');hubSub('hub-s2','Status unavailable');}
   else if(c===undefined){hubBadge('hub-b2','','skel');hubSub('hub-s2','Loading…');}
   else{hubBadge('hub-b2',c&&c.avg!==null?Math.round(c.avg)+'% avg':'','mut');hubSub('hub-s2','Margin per dish'+(c&&c.window&&hubDateRange(c.window)?' \u00b7 '+hubDateRange(c.window):''));}
+  // card H4. Same three-state contract as the two rows above — undefined (or an
+  // explicit 'loading') is the skeleton, 'error' is "Status unavailable" with the
+  // row still opening, else a reading. The badge is the WARN tone, not 'mut':
+  // "3 need a look" is work waiting, where "$3,058 this wk" is a reading. No
+  // open work → NO badge, never "0 need a look".
+  var p=HUB.campaigns;
+  if(p==='error'){hubBadge('hub-b3','');hubSub('hub-s3','Status unavailable');}
+  else if(p===undefined||p==='loading'){hubBadge('hub-b3','','skel');hubSub('hub-s3','Loading\u2026');}
+  else{hubBadge('hub-b3',p&&p.needs?p.needs+' need a look':'');hubSub('hub-s3','Campaign money \u00b7 '+((p&&p.periodLabel)||'Last 30 days'));}
 }
+
+// card H4: the ONE channel between marketing/stats.js and this hub. The module
+// reports its own status; nothing here fetches the campaign report and nothing
+// there touches a hub element.
+document.addEventListener('bi-campaigns-status',function(e){hubSet('campaigns',e.detail);});
 
 // The hub reads whatever the two loaders last fetched, so it is refreshed by
 // EVERY load — boot, a section opening after an error, or the Retry button
@@ -1104,6 +1217,10 @@ document.addEventListener('DOMContentLoaded',async function(){
 document.addEventListener('dblclick',function(e){e.preventDefault();});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
+<!-- The Campaigns report (card H4): owns #bi-campaigns-root and nothing else.
+     Precached by build-sw.js's existing 'marketing/*.js' glob — no new glob and
+     no Dockerfile change, since `COPY marketing/*.js` already carries it. -->
+<script type="module" src="marketing/stats.js"></script>
 <script src="health-banner.js"></script>
 <script>initHealthBanners('health-banners',["server", "toast"]);</script>
 <script src="log.js"></script><script src="ptr.js"></script>

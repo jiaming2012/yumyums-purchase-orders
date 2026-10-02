@@ -198,13 +198,23 @@ function qrow(n, bucket, over) {
     item_name: '6pc Wings', order: null, suggestion: null, decision: null,
   }, over || {});
 }
+// 🛑 The suggestion-carrying rows are `unmatched`, because that is the ONLY
+// bucket internal/marketing/reconciliation.go's reconRow suggests for:
+//   if bucket == "unmatched" { row.Suggestion = reconNearestOrder(a, orders) }
+// An `orphan` always comes back with suggestion:null, which this fixture keeps
+// faithful — row 5 is an orphan with no chip, and the sheet must say so in words
+// rather than show an empty chip row.
+const SUG = (gap, basis) => ({
+  order_number: '202', opened_at: T(12, 4).replace(' ', 'T').replace('+00', 'Z'),
+  amount_cents: 1800, discount_cents: 200, voided: false, gap_seconds: gap, basis,
+});
 const QUEUE = (() => {
   const overrides = [qrow(4, 'override')];
-  const orphans = [
-    qrow(1, 'orphan', { suggestion: { order_number: '202', opened_at: T(12, 4).replace(' ', 'T').replace('+00', 'Z'), amount_cents: 1800, discount_cents: 200, voided: false, gap_seconds: 240, basis: 'window' } }),
-    qrow(2, 'orphan', { suggestion: { order_number: '202', opened_at: T(12, 4).replace(' ', 'T').replace('+00', 'Z'), amount_cents: 1800, discount_cents: 200, voided: false, gap_seconds: 30360, basis: 'business_date' } }),
+  const orphans = [qrow(5, 'orphan')];
+  const unmatched = [
+    qrow(1, 'unmatched', { order_number: '888', suggestion: SUG(240, 'window') }),
+    qrow(2, 'unmatched', { order_number: '889', suggestion: SUG(30360, 'business_date') }),
   ];
-  const unmatched = [qrow(3, 'unmatched', { order_number: '888' })];
   return { queue: [...overrides, ...orphans, ...unmatched], overrides, orphans, unmatched, matched_count: 3, declined_count: 1 };
 })();
 const LONG_QUEUE = (() => {
@@ -324,6 +334,27 @@ test.describe('States · BI Campaigns report', () => {
     await expect(page.locator('.bic-error')).toContainText('offline');
     await expect(page.locator('.bic-retry')).toBeVisible();
     await shot(page, 'bi-offline');
+  });
+
+  // 🛑 THIS ROW CAN ONLY BE A FIXTURE. statsLoad reports signups_basis
+  // "unavailable" only when card H5's `subscribers` table is ABSENT, and
+  // migration 0085 is in this base — so no seeding can produce the shape. The
+  // rule it guards is wire-shapes note 3: an "unavailable" basis is an EM DASH,
+  // never 0, because a 0 there would read as "nobody signed up" when the truth
+  // is "we are not recording it".
+  test('BI unavailable basis (FIXTURE): an unavailable figure is an em dash with a reason, never 0', async ({ page }) => {
+    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.route('**/api/v1/bi/campaigns/overview**', json(OVERVIEW));
+    await page.route('**/api/v1/bi/campaigns/by**', json(BY));
+    await gotoBi(page);
+    await biReady(page);
+    await expect(page.locator('#bic-funnel .bic-step[data-k="signups"] .bic-step-v')).toHaveText('—');
+    await expect(page.locator('#bic-funnel .bic-step[data-k="codes_sent"] .bic-step-v')).toHaveText('—');
+    // The real figures beside them are still figures.
+    await expect(page.locator('#bic-funnel .bic-step[data-k="redeemed"] .bic-step-v')).toHaveText('5');
+    // And the dash is explained rather than left a mystery.
+    await expect(page.locator('.bic-basis-note')).toContainText('not being recorded yet');
+    await shot(page, 'bi-unavailable-basis');
   });
 
   test('BI long content (FIXTURE): 40 slices with 90-char labels — no clipped word, no sideways scroll', async ({ page }) => {
@@ -455,6 +486,15 @@ test.describe('States · Marketing reconciliation queue', () => {
     await page.locator(`.msq-row[data-id="${U(2)}"] .msq-fix`).click();
     await expect(page.locator('#msq-sheet-order .msq-sug[data-order="202"]')).toContainText('same business date');
     await shot(page, 'ms-sheet-order-businessdate');
+    await page.locator('#msq-order-close').click();
+
+    // The orphan has no suggestion at all (the server suggests only for
+    // `unmatched`), so the sheet says so in words rather than showing nothing.
+    await page.locator(`.msq-row[data-id="${U(5)}"] .msq-fix`).click();
+    await expect(page.locator('#msq-sheet-order .msq-sug')).toHaveCount(0);
+    await expect(page.locator('#msq-sheet-order .msq-sug-why')).toContainText('No till order is near this scan');
+    await expect(page.locator('#msq-order-save')).toBeDisabled();
+    await shot(page, 'ms-sheet-order-nosuggestion');
     await page.locator('#msq-order-close').click();
 
     await page.locator(`.msq-row[data-id="${U(1)}"] .msq-decline`).click();

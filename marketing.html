@@ -352,13 +352,97 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <div id="subs-root" data-state="loading"></div>
   </div>
 
-  <!-- ═══ SECTION 4: REDEMPTION STATS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 4: REDEMPTION STATS — card H4 `stats-tab-ui` (run 20261002) ═══
+       Roadmap H4 as rewritten for DECISION 192: the campaign REPORTS went to the
+       BI hub (bi.html #s3, the `bi` grant); what stayed here is the
+       RECONCILIATION QUEUE — writes, not a report — behind the manager tier.
+       Design "Current Stats 6–8"; wire shapes HANDOFF §5.
+
+       #ms-stats-root is the contract with marketing/stats.js: that module owns
+       everything inside it, holds the ONE delegated click listener and the ONE
+       delegated input listener, and renders from state. Keep the id stable.
+
+       The <style> below lives INSIDE this section deliberately — a style element
+       applies document-wide wherever it sits, and keeping it here means this
+       card's whole marketing.html diff is inside #s4, which is what cards H2 and
+       H5 (owners of #s2 and #s3) need it to be. -->
   <div id="s4" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Redemption stats</h1><div class="sub">Counts and orphan rate</div></div>
-      <div class="bd">Redemption counts and reconciliation health will live here. Manager-only.</div>
-    </div>
+    <style>
+    @keyframes msq-pulse{0%,100%{opacity:1}50%{opacity:0.45}}
+    #ms-stats-root .card{padding:0;overflow:hidden}
+    #ms-stats-root .bd b{display:inline-block;margin-bottom:4px}
+    .msq-kicker{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+    #msq-head-card h1{font-size:17px}
+    .msq-hs{display:flex;border-bottom:0.5px solid var(--brd)}
+    .msq-h{flex:1;min-width:0;padding:12px 4px;text-align:center;border-right:0.5px solid var(--brd)}
+    .msq-h:last-child{border-right:none}
+    .msq-h b{display:block;font-size:19px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+    .msq-h span{font-size:11px;color:var(--mut)}
+    .msq-orphan-wrap{padding:13px 16px}
+    .msq-orphan{font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+    .msq-orphan-target{font-size:12px;color:var(--mut);margin-left:7px}
+    /* D-5 is PARKED: the server's own numerator/denominator and the basis string
+       ride beside the rate, so the 10% line is never a bare claim. */
+    .msq-orphan-basis{font-size:11px;color:var(--mut);margin-top:5px;line-height:1.5;overflow-wrap:anywhere}
+    .msq-orphan-basis code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;overflow-wrap:anywhere}
+    #msq-health.over .msq-orphan{color:var(--bad-tx)}
+    .msq-section-h h1{font-size:14px}
+    /* A queue row stacks on a phone: the identity above, the two actions below,
+       so a 90-character campaign name can never push a button off screen. */
+    .msq-row{display:flex;flex-direction:column;gap:9px;padding:12px 14px;border-bottom:0.5px solid var(--brd)}
+    .msq-row:last-child{border-bottom:none}
+    .msq-row-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+    .msq-name{font-size:15px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+    .msq-meta{font-size:12px;color:var(--mut);overflow-wrap:anywhere}
+    .msq-prov{font-size:11px;color:var(--mut);overflow-wrap:anywhere}
+    .msq-flags{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+    .msq-flag{font-size:10px;font-weight:700;letter-spacing:0.2px;padding:2px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx)}
+    .msq-flag-bad{background:var(--bad-bg);color:var(--bad-tx)}
+    .msq-decl-reason{font-size:13px;font-weight:600}
+    .msq-decl-note{font-size:13px;color:var(--txt);line-height:1.45;overflow-wrap:anywhere;background:var(--brd);border-radius:8px;padding:7px 10px;margin-top:2px}
+    .msq-actions{display:flex;gap:7px;flex-wrap:wrap}
+    .msq-actions button{flex:1 1 auto;min-height:44px;min-width:120px;padding:10px 12px;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-fix{background:var(--info-bg);color:var(--info-tx)}
+    .msq-decline,.msq-reject{background:var(--card);border:1px solid var(--brd) !important;color:var(--txt);font-weight:500 !important}
+    .msq-reopen{background:var(--info-bg);color:var(--info-tx)}
+    .msq-retry{min-height:44px;padding:10px 18px;border:none;border-radius:10px;background:var(--info-bg);color:var(--info-tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-error-foot{padding:0 16px 16px}
+    .msq-skel-rows{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+    .msq-skel{height:18px;border-radius:6px;background:var(--brd);animation:msq-pulse 1.2s infinite}
+    /* Both sheets are real modals: bottom padding clears the home indicator and
+       the way out is labeled and 44px (UI-R1 / UI-R2). */
+    .msq-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;z-index:70;padding:24px 0 0}
+    .msq-sheet-card{background:var(--card);color:var(--txt);border-radius:14px 14px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .msq-close{float:right;min-height:44px;padding:8px 14px;border:none;border-radius:10px;background:var(--brd);color:var(--txt);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+    .msq-sheet-title{font-size:19px;font-weight:700;margin:4px 0 4px}
+    .msq-sheet-sub{font-size:12px;color:var(--mut);line-height:1.45;margin-bottom:12px;overflow-wrap:anywhere}
+    .msq-decline-what{background:var(--info-bg);color:var(--info-tx);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.55;margin-bottom:12px}
+    .msq-sugs{margin-bottom:12px}
+    .msq-sug-head{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px}
+    /* D-3: a suggestion carries its BASIS and its GAP. The advisory rung
+       (business_date, outside the ±30-minute window) is toned differently so a
+       far-away order is never presented as a confident nearest match. */
+    .msq-sug{display:flex;flex-direction:column;gap:2px;width:100%;min-height:44px;padding:11px 13px;border:1px solid var(--brd);border-radius:10px;background:var(--card);color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+    .msq-sug b{font-size:15px}
+    .msq-sug span{font-size:12px;color:var(--mut)}
+    .msq-sug-basis{font-weight:600}
+    .msq-sug-advisory{background:var(--warn-bg);color:var(--warn-tx);border-color:transparent}
+    .msq-sug-advisory span{color:inherit;opacity:.9}
+    .msq-sug-why{font-size:12px;color:var(--mut);line-height:1.5;margin-top:7px}
+    .msq-reasons{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .msq-reason{min-height:40px;padding:8px 13px;border:1px solid var(--brd);border-radius:20px;background:var(--card);color:var(--txt);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+    .msq-reason.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:600}
+    .msq-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+    .msq-field span{font-size:12px;font-weight:600}
+    .msq-field input,.msq-field textarea{min-height:44px;width:100%;border:1px solid var(--brd);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:17px;background:var(--bg);color:var(--txt);-webkit-appearance:none}
+    .msq-field textarea{font-size:16px;line-height:1.45;resize:vertical}
+    .msq-hint{font-size:12px;color:var(--mut);margin-bottom:9px;line-height:1.45}
+    .msq-err{font-size:13px;color:var(--bad-tx);background:var(--bad-bg);border-radius:9px;padding:9px 11px;margin-bottom:10px;line-height:1.45}
+    .msq-primary{width:100%;min-height:48px;border:none;border-radius:10px;background:var(--info-bg);color:var(--info-tx);font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+    .msq-primary[disabled]{opacity:0.45;cursor:default}
+    .msq-danger{background:var(--bad-bg);color:var(--bad-tx)}
+    </style>
+    <div id="ms-stats-root" data-state="loading"></div>
   </div>
 </div>
 <script>
@@ -404,6 +488,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 <script type="module" src="marketing/submit-flow.js"></script>
 <!-- The Subscribers tab (card H5): owns #s3 and nothing else. -->
 <script type="module" src="marketing/subscribers.js"></script>
+<!-- The reconciliation queue (card H4): owns #s4 and nothing else. The SAME
+     module serves bi.html's Campaigns report — it mounts by which root element
+     the page has, so neither page can reach the other's DOM. -->
+<script type="module" src="marketing/stats.js"></script>
 <script src="health-banner.js"></script>
 <script>initHealthBanners('health-banners',["server", "substrate"]);</script>
 <script src="log.js"></script><script src="ptr.js"></script>

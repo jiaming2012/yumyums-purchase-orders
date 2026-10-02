@@ -103,21 +103,19 @@ async function makeUser(page, tag, roles) {
 // ── grant plumbing (the shape tests/marketing.spec.js uses) ─────────────────
 async function getSlugPerms(page, slug) {
   return page.evaluate(async (s) => {
-    const apps = await (await fetch('/api/v1/apps')).json();
-    const list = Array.isArray(apps) ? apps : (apps.apps || []);
-    const app = list.find(a => a.slug === s);
-    if (!app) return null;
-    const res = await fetch(`/api/v1/apps/${s}/permissions`);
-    return res.ok ? res.json() : null;
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    return (perms || []).find(a => a.slug === s) || null;
   }, slug);
 }
 async function putSlugPerms(page, slug, body) {
-  return page.evaluate(async ([s, b]) => {
-    const res = await fetch(`/api/v1/apps/${s}/permissions`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b),
+  const status = await page.evaluate(async ([s, b]) => {
+    const r = await fetch('/api/v1/apps/' + s + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(b),
     });
-    return { status: res.status, body: await res.text() };
+    return r.status;
   }, [slug, body]);
+  expect(status, `PUT /apps/${slug}/permissions`).toBe(200);
 }
 
 // ── API fixture builders (REAL routes) ─────────────────────────────────────
@@ -210,18 +208,34 @@ async function seedMoneyFixture(page) {
   return { camp, code };
 }
 
-// queueFixture is the fixture the QUEUE tests read. Two orphans on purpose:
-// one with an order 4 minutes away (suggestion basis `window`) and one with its
-// nearest order 2 hours away on the same business date (basis `business_date`,
-// D-3's unconfirmed-timezone shape) — so both bases are rendered and asserted.
+// queueFixture is the fixture the QUEUE tests read.
+//
+// 🛑 THE SUGGESTION-CARRYING ROWS ARE `unmatched`, NOT `orphan`, AND THAT IS THE
+// SERVER'S RULE, NOT A CHOICE HERE. internal/marketing/reconciliation.go's
+// reconRow computes a nearest-order suggestion for ONE bucket:
+//
+//     if bucket == "unmatched" { row.Suggestion = reconNearestOrder(a, orders) }
+//
+// so an `orphan` (no order number at all) comes back with `suggestion: null`
+// however near a till order sits. Card H4 renders what the server sends — a
+// chip when there is a suggestion, and an honest "No till order is near this
+// scan. Type the number off the ticket." when there is not — rather than
+// computing a suggestion of its own, which would be a second arithmetic over
+// the ±30-minute window. See the card report: the orphan bucket is arguably
+// where the chips would help most, and that is card H3b's handler to change.
+//
+// Two unmatched rows on purpose, to exercise BOTH of D-3's bases:
+//   U(1) scanned 12:08, order 202 opened 12:04 -> 4 min, basis `window`
+//   U(2) scanned 20:30, nearest is still 202   -> 8h26m, OUTSIDE the window,
+//                                                 so basis `business_date`
 async function seedQueueFixture(page) {
   resetMarketingFixture();
   const { campaign: camp, code } = await createCampaign(page, 'Wing Wednesday H4', 200);
   insertOrder('201', T(12, 0), 2500, 400);
   insertOrder('202', T(12, 4), 1800, 200);
-  insertAttempt(U(1), T(12, 8), { codeId: code.id, campaignId: camp.id, orderNumber: null });
-  insertAttempt(U(2), T(20, 30), { codeId: code.id, campaignId: camp.id, orderNumber: null });
-  insertAttempt(U(3), T(12, 9), { codeId: code.id, campaignId: camp.id, orderNumber: '888' });
+  insertAttempt(U(1), T(12, 8), { codeId: code.id, campaignId: camp.id, orderNumber: '888' });
+  insertAttempt(U(2), T(20, 30), { codeId: code.id, campaignId: camp.id, orderNumber: '889' });
+  insertAttempt(U(3), T(12, 9), { codeId: code.id, campaignId: camp.id, orderNumber: null });
   insertAttempt(U(4), T(12, 10), { orderNumber: null, override: true });
   return { camp, code };
 }
@@ -259,13 +273,23 @@ test.describe('Marketing stats — card H4', () => {
     const root = page.locator('#bi-campaigns-root');
     await expect(root).toHaveAttribute('data-state', 'ready');
 
-    // Funnel — the four §5 steps. `signups` and `codes_sent` come back with
-    // basis "unavailable" on this fixture, and an unavailable figure is an
-    // EM DASH, never 0 (wire-shapes note 3).
+    // Funnel — the four §5 steps.
+    //
+    // 🛑 Card H5's migration 0085 IS IN THIS BASE, so `subscribers` and
+    // `subscriber_events` both exist and statsLoad reports signups_basis
+    // "subscribers" / codes_sent_basis "subscriber_events" — NOT "unavailable".
+    // These zeros are therefore REAL, STATED zeros ("nobody signed up"), and
+    // rendering them as 0 is correct. The em-dash rule (an "unavailable" basis
+    // is an EM DASH, never 0 — wire-shapes note 3) cannot be exercised against
+    // this base at all, so it rides a FIXTURE: see the "BI unavailable basis"
+    // row in tests/states-marketing-stats.spec.js. Asserting the dash here
+    // would be asserting a basis the server no longer returns.
     await expect(page.locator('#bic-funnel .bic-step[data-k="scans"] .bic-step-v')).toHaveText('0');
     await expect(page.locator('#bic-funnel .bic-step[data-k="redeemed"] .bic-step-v')).toHaveText('5');
-    await expect(page.locator('#bic-funnel .bic-step[data-k="signups"] .bic-step-v')).toHaveText('—');
-    await expect(page.locator('#bic-funnel .bic-step[data-k="codes_sent"] .bic-step-v')).toHaveText('—');
+    await expect(page.locator('#bic-funnel .bic-step[data-k="signups"] .bic-step-v')).toHaveText('0');
+    await expect(page.locator('#bic-funnel .bic-step[data-k="codes_sent"] .bic-step-v')).toHaveText('0');
+    // Nothing is unavailable, so there is no dash to explain.
+    await expect(page.locator('.bic-basis-note')).toHaveCount(0);
 
     // Money — all three lines, from the NESTED `money` block (§5's asymmetry).
     await expect(page.locator('#bic-money .bic-money-row[data-k="revenue"] .bic-money-v')).toHaveText('$65.00');
@@ -358,7 +382,7 @@ test.describe('Marketing stats — card H4', () => {
 
     const root = page.locator('#ms-stats-root');
     await expect(root).toHaveAttribute('data-state', 'ready');
-    // Four open rows: 1 override, 2 orphans, 1 unmatched.
+    // Four open rows: 1 override, 1 orphan, 2 unmatched.
     await expect(page.locator('#msq-head')).toContainText('4 redemptions need a look');
 
     // "Can't match…" is on EVERY row, including the override.
@@ -438,7 +462,10 @@ test.describe('Marketing stats — card H4', () => {
     await expect(page.locator('#msq-head')).toContainText('3 redemptions need a look');
     await row.locator('.msq-reopen').click();
     await expect(page.locator('#msq-head')).toContainText('4 redemptions need a look');
-    await expect(page.locator('.msq-section[data-bucket="orphan"]')
+    // U(2) carries a typed order number Toast does not have, so reopening it
+    // puts it back in UNMATCHED — the bucket the server's own bucket() derives,
+    // which is why this card never guesses a bucket from the decision kind.
+    await expect(page.locator('.msq-section[data-bucket="unmatched"]')
       .locator(`.msq-row[data-id="${U(2)}"]`)).toHaveCount(1);
   });
 
@@ -535,8 +562,9 @@ test.describe('Marketing stats — card H4', () => {
     await seedQueueFixture(page);
     await openQueue(page);
 
-    // U(1) scanned 12:08; order 202 opened 12:04 — 4 minutes, inside the ±30min
-    // window, so the server's basis is `window`.
+    // U(1) is UNMATCHED (order '888' typed, Toast has no such order), scanned
+    // 12:08; order 202 opened 12:04 — 4 minutes, inside the ±30min window, so
+    // the server's basis is `window`. (reconRow suggests for this bucket only.)
     await page.locator(`.msq-row[data-id="${U(1)}"] .msq-fix`).click();
     const sheet = page.locator('#msq-sheet-order');
     await expect(sheet).toBeVisible();
@@ -556,7 +584,9 @@ test.describe('Marketing stats — card H4', () => {
 
     // U(2) scanned 20:30; the nearest order is 202 at 12:04 — 8h26m away, OUTSIDE
     // the window, so the server falls to the advisory `business_date` rung and
-    // the chip must say so rather than look like a match.
+    // the chip must say so rather than look like a match. D-3 is exactly this:
+    // an unconfirmed opened_at zone can put the nearest order an hour or more
+    // away, and the UI must not dress that up as a confident match.
     await page.locator(`.msq-row[data-id="${U(2)}"] .msq-fix`).click();
     const chip2 = page.locator('#msq-sheet-order .msq-sug[data-order="202"]');
     await expect(chip2).toContainText('same business date');
