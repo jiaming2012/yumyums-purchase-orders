@@ -15,6 +15,29 @@
 > this round proceeds on the close record, the backlog, and the OKR grades, and records the
 > absence.
 
+## Current state (2026-10-02, milestone "Close the loop" — 31 cards, **21 green, 8 white**)
+
+> **Activity H is complete and triaged.** Run `overnight-20261002` landed seven of seven cards
+> (merge `5753ddf`); its morning triage settled six forks and is recorded at ledger **T-62**
+> (decisions 194–200). Campaign admin, subscribers and the designed stats tabs are in.
+>
+> **Activity I is the signed, unrun slate.** `reference/slate-20261003.md` — "Honest gates, then
+> verify before the till" — carries the four triage-20261002 follow-ups as cards on two tracks:
+> **A (client)** `test-integrity-fix` → `scan-time-verify`, **B (backend)**
+> `dish-merge-and-erasure-backstop` → `atomic-scan-dedupe`. It is signed off and has not had its
+> night. The operator's stated condition at triage was that the test-integrity fix lands before
+> any new product work, and B-468 was promoted above the backlog (decision 200).
+>
+> **The remaining white cards are the cycle's two open fronts.** Activity 0
+> (`redemption-unknowns-spike`, `external-accounts-provision`) still gates the spine, and
+> Activity E (`identity-code-and-qr`, `mms-send-on-signup`) is customer delivery. Two cards are
+> retired rather than white: `reconciliation-view` **ABSORBED** into Activity H (T-60) and one
+> **SUPERSEDED**; neither counts toward the 31-card tally's green/white split.
+>
+> **The close bar is unmet and is not a card.** P-KR1 requires the operator to personally observe
+> all three legs of a real redemption; no card status, KR grade or closeout substitutes for that
+> dated ledger line, and the milestone may not close without it (`okrs.md`).
+
 ## Why this cycle exists
 
 The origin is a **marketing-attribution gap, not a scanning problem** (handoff §1). Google Ads
