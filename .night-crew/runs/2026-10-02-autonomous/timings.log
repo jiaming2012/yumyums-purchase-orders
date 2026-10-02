@@ -22,3 +22,4 @@
 2026-10-02T00:18:04-04:00	G6-return	Card 4 G6 APPROVE-WITH-FINDINGS — attribution finding CONFIRMED at source (D-4 stands); keystone held on a harder fixture; F1 confident $0.00 on /campaigns + F2 orphan numerator -> D-5; fix round sent
 2026-10-02T00:37:30-04:00	merge	MERGE 5 65ef5dc — Card 4 h3b; routes.go union of H3b+H5 blocks, main.go stale comment fixed; precache 50; Card 3 fix round verified preserved
 2026-10-02T00:37:30-04:00	card5-dispatch	Card 5 h4-stats-tab-ui dispatched — budget gate 00:37+120+30=03:07 <= 04:37 PASS
+2026-10-02T00:43:08-04:00	gate-rerun	merge5 G2(Go) clean on re-run — EXIT_TEST=0, 699 PASS/0 FAIL/3 SKIP, 15 pkgs; first run was substrate contention (B-460)

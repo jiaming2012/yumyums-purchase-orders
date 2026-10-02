@@ -249,3 +249,46 @@ above its own failure banner; re-import silently discarded corrections while cou
 updated. **Routed to D-1, not fixed:** `0085`'s FKs are `NO ACTION` both ways (§4 verbatim), so a
 right-to-erasure request on a PII table cannot be served by a plain `DELETE`.
 
+### Merge 5 — `card/h3b-reconciliation-and-stats-engine` → `overnight-20261002` (`65ef5dc`), 2026-10-02 ~00:30
+
+**Cards involved:** H3b meeting **H5** (merged) on `routes.go`. H6 was in flight.
+
+**Conflicted:** `backend/internal/marketing/routes.go`. `night-crew.toml` auto-merged (comment only).
+
+| Surface | Conflict | Rule | Resolution |
+|---|---|---|---|
+| `routes.go` | both cards appended a labelled **APPEND-ONLY BLOCK** at the same point | *union of both blocks* | **Both kept intact** — H3b's ten routes (queue, five decision kinds, declined, the two stats reads) and H5's five (`/subscribers*`). Paths disjoint, order irrelevant; H3b placed first to match its own block comment. Verified after: `ReconQueueHandler`, `StatsOverviewHandler` and `ListSubscribersHandler` all present. |
+| `main.go` | none (neither card edited it) | — | 🛑 **The orchestrator edited it at the merge** to correct a comment H3b's landing had made FALSE: *"marketing.MountReports registers NOTHING today."* It now registers the two BI reads. G6 flagged it as out-of-footprint; a comment that lies is the defect class that already cost one fix round tonight. The correction records that it was corrected at the merge that falsified it. |
+
+🛑 **The real risk at this merge was not the conflict.** H3b branched from `2e17ae3` — H3a's
+**feature** commit — so H3a's later **fix round** lay outside its base and appeared as phantom
+deletions across `backend/internal/toast/`. **A squash or diff-apply would have silently reverted
+H3a's G6 fixes.** The merge-base is `2e17ae3` and H3b never touched `toast/` (checked: zero changed
+files there against its own base), so the 3-way merge preserved them. Asserted afterwards rather
+than assumed: `TODO(h3a/F1)`, `ErrOrderMoneyFormat`, the business-date disagreement warn and the
+`RowsAffected` honest count are all present.
+
+**`task sw` at merged HEAD.** **50 files precached**, both runs byte-identical, `sw.js` unmodified —
+this card adds no asset, correctly. Log `logs/merge5-G4-sw.log`.
+
+**Gate result after the merge — and the one that needed a second look.** G1 exit 0. **G2 (Go) first
+run came back `EXIT_TEST=1` with 13 failures, EVERY ONE inside `TestRowVisibilityRLS`** —
+revocation replay, live grant, escalation-by-update, the `using` clause, the subtest-count gate.
+That is the costume of a **row-level-security regression**, and it was **substrate contention**:
+`internal/sync` re-run **alone** on the identical tree was `ok … 78.981s, EXIT=0`
+(`logs/merge5-sync-isolated.log`), and this card touches nothing in that package. Clean full re-run:
+**`EXIT_TEST=0`, 699 PASS / 0 FAIL / 3 SKIP, 15 packages `ok`** (`logs/merge5-G2go-rerun.log`).
+Both runs are kept. **Filed as B-460**: the Playwright box has a lock that held all night, the
+`spike-supabase` substrate has none, and six cards shared one mutable fixture.
+
+G2 (Playwright) not re-run: backend-only card, its own suite measured 22 failed / 962 passed = a
+strict subset of tonight's 24, and no frontend file moved in this merge.
+
+**G6:** APPROVE-WITH-FINDINGS → fix round → re-verified. It **confirmed D-4 at source** rather than
+accepting the card's word, and broke the Σ = overview keystone on a harder fixture than the card's
+own (adding an `unmatched` row the spike never models) — the invariant held. Findings fixed
+red-first: `GET /campaigns` rendered a confident `$0.00` while the money sat in an invisible
+`unattributed` row, now carried by two period-scoped keys; and the orphan-rate numerator was wider
+than the spec's words and undisclosed (3/5 vs 2/5 against a 10% line), now self-describing and
+pinned by a test naming **D-5**, with the rule itself left unchanged.
+
