@@ -7,3 +7,5 @@
 2026-10-01T19:51:18-04:00	implementer-return	Card 1 h1-campaign-codes-api COMPLETE — 13 commits, G1/G2go/G4/RF green, projection LIVE; PW 26f/963p one block, 3 non-baseline reds isolated GREEN (load flake)
 2026-10-01T19:52:54-04:00	g6-dispatch	Card 1 G6 adversarial review, worktree g6-h1-20261002 at 2de4f91, TEST_PORT=8541
 2026-10-01T20:24:45-04:00	wave1-dispatch	Cards 2 (h2, B), 3 (h3a, C), 6 (h5, E) dispatched concurrently off 94ad3b3; ports 8521/8551/8561
+2026-10-01T22:02:04-04:00	implementer-return	Card 2 h2-campaigns-tab-ui COMPLETE — 5 commits, precache 48->49, PW 28f/977p one block, 23 baseline + 5 non-baseline (marketing.spec.js:141 fixed by the card); states PNGs read back, 2 real defects caught by read-back
+2026-10-01T22:02:04-04:00	g6-dispatch	Card 2 G6, worktree g6-h2-20261002 at f29a8b7, TEST_PORT=8542
