@@ -110,3 +110,77 @@ repeated isolation on **both** trees comparing rates, or a mechanical exclusion 
   from here** and is reported as such rather than claimed; every control the in-repo spec names was
   checked present on all three UI cards.
 - `.night-crew/knowledge/reference/conflicts-20261002.md` has the seven-merge audit.
+
+---
+
+# TRIAGE ADDENDUM — 2026-10-02 (attended; ledger T-62)
+
+Nothing above is rewritten. Merged to `dev` at `5753ddf` (`--no-ff`). Go suite re-run green on
+the merged tree (`EXIT_TEST=0`, 15 test-bearing packages, 13 genuinely test-free).
+
+## Standing flags — what the morning's evidence CLEARED
+
+| Flag | Now | Re-arms when |
+|---|---|---|
+| G1 / G2 (Go) / G4 on the final tree | **CLEARED** — independently re-executed by an adversarial reviewer in its own scratch directory: build+vet exit 0; 699/0/3 across exactly 15 test-bearing packages, with all 13 `ok`-with-no-tests packages proven to have no test files (`internal/workflow` ran 39); 51 precached, idempotent, and the **committed `sw.js` byte-identical to a fresh regeneration** | any change under a precached file, or any new package |
+| G4 discipline greps "N/A-VACUOUS" | **CLEARED as genuinely vacuous** — no `journal` or `workorder` package exists anywhere in the tree (B-14 confirmed, not assumed) | one of those packages is ever created |
+| `bi` grant is a data boundary, not UI | **CLEARED by execution** — `bi`-only 200s the report and 403s `missing_grant:marketing`; `marketing`-only 403s `missing_grant:bi`; anon 401. Decision 192 holds in enforcement | the BI route block or `MountReports` wiring changes. 🛑 Note `routes_test.go` pins route *registration* only — the triage probe is the **sole** evidence for the gate itself, so this re-arms on any authz edit |
+| "Resend SENDS NOTHING" | **CLEARED for the current tree** by a full-tree trace — handler only inserts `kind='resend_requested'`; `internal/marketing` imports `internal/alerts` in no file; zero SQL triggers. 🛑 But the **guard is narrower than its name** (B-466): the same `http.Post` passes in `campaigns.go` | immediately, on any new file in `internal/marketing` — until B-466 widens the guard |
+
+## Standing flags still ARMED
+
+| Flag | Why it stays armed |
+|---|---|
+| **G2 (Playwright) 29/6/1027** | **NOT independently re-run** (37 min). Corroborated by arithmetic only: base 995 + a diff-derived +67 new tests = 1062 = 29+6+1027, exactly consistent. Re-arms on every frontend change regardless |
+| **The 24-red base baseline on `dev@c4f6db4`** | Also not independently re-measured; the run's own `logs/base-pw.log` is the artifact under review, so it cannot be its own evidence. Unattended, ~35 min, whenever it is wanted |
+| **RF and G6 (red-first, 7-of-7 fresh context)** | Evidenceable only from the run's own per-card logs — self-referential by the triage ground rules, so **not assessed**, neither confirmed nor doubted |
+| Attended `task sandbox:e2e` | Unchanged; re-arms whenever the verify/merge path moves underneath it |
+
+## Claims in the narrative above that triage CORRECTED
+
+1. 🛑 **"Reachable through the UI as of tonight, because Card 2 makes choosing an Item two taps"
+   (item 3) is FALSE.** No production frontend calls the dish-merge endpoint — `inventory.html`
+   has merge UI for purchase items and vendors only, and `DELETE FROM menu_items` has exactly one
+   call site. D-1 is **API-only**. (`CLAUDE.md`'s "Menu items in the Recipes tab can be merged the
+   same way" is stale and should be corrected when decision 194 lands.)
+2. 🛑 **D-4's "closes by itself … no further code change" is an OVERSTATEMENT.** `mirror.go`
+   writes the campaign tag as a literal `NULL` **and omits it from its `ON CONFLICT` update
+   list**, and no production code writes the Supabase `codes` table at all — so both arms of the
+   lookup ladder are unpopulated *by construction*. Something must be written either way.
+3. 🛑 **D-6 is substantially NARROWER than presented.** The clause the card could not resolve
+   distinguishes "names a campaign" from "names no campaign", and **no code naming no campaign
+   can exist** (`qr_codes.campaign_id` and `public.codes.campaign_id` are both `not null
+   references`). The only real population is a code the device has never seen — governed by
+   ratified decision 166, untouched by B-436.
+4. 🛑 **`campaigns-harness.mjs` leg 3 is a FALSE GATE** (B-462, reproduced by execution): green
+   at `HARNESS_EXIT=0` against an inverted shipped `failClosed`. Its own comment — "if the two
+   ever disagree, leg 3 stops measuring the shipped behavior" — is now the thing that was wrong.
+
+## Found at triage, not in the narrative above
+
+- **B-465** — `[SP-03b]` is a **second** false gate; decision 191's distinguishing branch is
+  reachable and guarded by nothing that runs the shipped function.
+- **B-466** — `TestNothingInThisPackageSends` scans two filenames only.
+- **B-467** — 🛑 **this run's closeout commit `f47fbee` re-overwrote six of the seven evidence
+  screenshots `reference/conflicts-20261002.md` says it restored.** The restoration was real and
+  held through `aa7719b`; the closeout then undid it. `08-locked.png` at HEAD is H5's
+  *pre-fix-round* capture.
+- **B-468** — an online phone never verifies a code it has not synced; **promoted by the operator
+  to the next slate**.
+- **`night-crew backlog check` was exiting 1** — 9 malformed entries, **6 of them this run's own
+  filings** (B-459…B-464, each with its `lead:` text in the status slot). That is the literal
+  verdict of **Q-KR3**. Repaired at triage; now **exits 0, 263 entries valid**.
+- **Preference coverage 0% of 6** — not for want of material: **11 candidates sit unadopted**
+  across all six categories, and an unadopted candidate is not citable. Four would have
+  pre-answered a fork tonight.
+
+## Next actions (replacing those above)
+
+1. **The test-integrity fix card first** — the operator's stated condition for merging: B-462,
+   B-465, B-466, carrying the three decision-191 amendment riders.
+2. **B-468**, promoted above the backlog.
+3. Decision 194 (merge re-point + blank-on-delete backstop, including `0085`'s PII tables) and
+   decision 195 (atomic scan dedupe).
+4. **Adopt the 11 pending preference candidates, or deliberately drop them** — this is the single
+   highest-leverage act available, and it is the operator's own command at a terminal.
+5. Still not deployed; `main` untouched. Release remains a separate decision (`/nc-release`).

@@ -4485,3 +4485,226 @@ designed) were presented and declined. Design of record for the BI row: *Current
 (overview + slices) rendered in BI's hub-row idiom; the queue screens (*Current Stats 6–8*) in
 Marketing. Handoff spec §2/§3/§5/§6, roadmap H1/H3b/H4 and the slate updated in the same commit.
 
+
+### T-62 — Morning triage: run 20261002 merged, Activity H complete, six forks settled (2026-10-02)
+
+Run `20261002` (7 cards, Activity H) triaged and merged to `dev` at `5753ddf` (`--no-ff`).
+`skills preflight --skill nc-morning-triage` exit 0 — all 11 declared verbs dispatched by the
+installed binary (`night-crew v3.3.0+7`, built from `8010e77` on main), so no step of this
+ritual was skipped for tooling. `run-evidence check` reports **`ran (this run closed)`** on the
+committed scorecard record. Go suite re-run green on the merged tree (`go test ./... -p 1`,
+`DB_TEST_URL` on `:5434`, `EXIT_TEST=0`, 15 packages with tests, 13 genuinely test-free).
+Post-merge worktree sweep: all 7 card worktrees and all 7 `g6-h*` graders read clean, which is
+the proof the merge carried every card's work; `card/a3-rls-fixture-own` (4 commits, run
+`20260806`) and `card/s2-demo-sync-target` (17 commits, run `20260906`) remain stranded from
+earlier nights and are reported, not merged (B-133: a patch-equivalent branch can still
+content-duplicate on merge).
+
+**Decision 193 — the run merged on adversarial evidence; every gate number the closeout
+reported was independently reproduced.** A fresh adversarial subagent re-executed the gates in
+its own scratch directory rather than reading the closeout's own lines: G1 build+vet exit 0;
+**G2 `EXIT_TEST=0`, 699 pass / 0 fail / 3 skip, 28 packages compiled and exactly 15 running at
+least one test** — and it closed the zero-test trap by proving all 13 `ok`-with-no-tests
+packages genuinely have no test files (`internal/workflow` ran 39, not 0); G4 **51 precached,
+idempotent, reachability 38/66/0 outside, and the committed `sw.js` byte-identical to a fresh
+regeneration** — so the committed artifact ships what the tree contains; the G4 discipline
+greps confirmed **genuinely vacuous** (no `journal`/`workorder` package exists anywhere, per
+B-14). The full Playwright suite was **not** re-run (37 minutes) and is recorded **unverified**,
+corroborated only by arithmetic: base 995 + a diff-derived +67 new tests = 1062 = 29+6+1027,
+exactly consistent. Chosen over holding the merge because the four findings below are
+test-integrity and record defects, not product regressions on the merged tree.
+
+**Four claims the night got wrong, corrected here rather than carried.**
+(1) **D-1 is API-only** — no production frontend calls the dish-merge endpoint (`inventory.html`
+has merge UI for purchase items and vendors only; `DELETE FROM menu_items` has exactly one call
+site), so HANDOFF's "reachable through the UI as of tonight" is false and must not drive
+priority; `CLAUDE.md`'s "Menu items in the Recipes tab can be merged the same way" is stale.
+(2) **`campaigns-harness.mjs` leg 3 is a confirmed FALSE GATE** — inverting the shipped
+`failClosed` in `marketing/submit-flow.js` leaves `campaigns-run.sh` green at `HARNESS_EXIT=0`,
+because the harness defines its own mirror copy and imports nothing from production (B-462,
+reproduced by execution rather than by reading). (3) **`[SP-03b]` is a SECOND false gate nobody
+had found** — under the same inversion `[SP-03]` reds and `[SP-03b]` passes, because for
+`kind='unknownCode'` the policy predicate is never consulted. (4) **`TestNothingInThisPackageSends`
+is narrower than its name** — the same `http.Post` that reds it in `subscribers.go` passes in
+`campaigns.go`, same package. The "sends nothing" conclusion is nonetheless **confirmed** for
+the current tree by a full-tree trace (the resend handler only inserts
+`kind='resend_requested'`; `internal/marketing` imports `internal/alerts` in no file; zero SQL
+triggers) — but the guard will not keep it true. Also corrected: D-4's "closes by itself later,
+no further code change" is an overstatement, since `mirror.go` writes the campaign tag as a
+literal `NULL` and omits it from its `ON CONFLICT` update list, so nothing in the tree can ever
+populate either arm of the lookup.
+
+**One confirmation worth recording: the `bi` grant is a data boundary, not merely UI.** Probed
+against the composed `main.go` wiring with real grant rows: `bi`-only gets 200 on the campaign
+report and 403 `missing_grant:marketing` on the admin surface; `marketing`-only gets 403
+`missing_grant:bi`; anonymous gets 401. Decision 192 holds in enforcement. Noted against the
+repo: `routes_test.go` pins route *registration* only, so the triage probe is the sole evidence
+for the gate itself.
+
+**Decision 194 — D-1 settled: teach the merge about the new tables, AND blank the link as a
+backstop.** The operator chose re-point-plus-backstop over `ON DELETE SET NULL` alone,
+`ON DELETE CASCADE`, and re-point alone. Grounds: the per-dish report reads
+`COALESCE(qr_codes.item_id, campaigns_admin.item_id)` (`stats.go:409`), so blanking alone would
+permanently orphan that campaign's scans from any dish and silently gut "spend per dish" — the
+Stats tab's whole purpose; `CASCADE` would let a dish rename destroy a campaign and its scan
+history. Re-pointing is also the **house convention**, not a deviation: `MergeMenuItem`'s own
+doc comment says it "re-points all recipe rows … and deletes the source", mirroring
+`inventory.MergeItemsHandler`, and `CLAUDE.md` states the rule as "merge re-points all FKs,
+deletes source". So D-1 is properly read as *the merge path was never taught about the two
+tables migration `0083` added*, rather than *the new tables are missing a clause*. The backstop
+(blank-on-delete) is kept so a future table that forgets the merge path degrades to an empty
+label instead of an opaque 500. The same shape goes on migration `0085`'s subscriber tables,
+which is what makes a right-to-erasure request servable by a plain `DELETE` — reproduced blocked
+on both arms at triage.
+
+**Decision 195 — D-2 settled as an engineer-level call, stated not asked.** The 10-minute scan
+dedupe (`landing.go:306-312`) is a read-then-write under READ COMMITTED; reproduced
+independently at 3/7/8/8/8 rows across five runs where the dedupe wants 1, on an
+**unauthenticated** public route — so the denominator of the orphan rate is inflatable from
+outside. Taken: a tumbling 10-minute bucket column, a unique index on
+`(short, ip_hash, bucket)`, and `ON CONFLICT DO NOTHING`. Chosen over leaving it measured (which
+makes the key result an upper bound rather than a measurement) and over an advisory lock (which
+puts a serialization point on an unauthenticated public route). The operator was offered this
+one and explicitly handed it back as plumbing — correctly, since one option is correct under
+concurrency and the other two are measurably not.
+
+**Decision 196 — D-3 recorded BLOCKED ON EVIDENCE, with its check named.** Nothing in the repo
+establishes which wall clock Toast exports `Opened` in, and no one can settle it without a real
+export in front of them, so the value stays as shipped and the question is not pretended to be
+decided. The check: read one real export's `Opened` column against a known order time. Blast
+radius confirmed small at triage — `business_date` is `opened.Date()` of the naive wall-clock
+string and so is zone-independent, so every bucket, total, slice and the orphan rate are
+unaffected; only the ±30-minute nearest-order hint moves. Note the false justification comment
+is already corrected in-tree with a `TODO`, and that the unadopted candidate
+`architecture/C-1` ("the app's timezone is America/New_York") would have answered this question
+outright had it ever been adopted.
+
+**Decision 197 — D-4 settled: hold attribution, state the limit on the page, and send the real
+question to the roadmap round.** Chosen over recording the campaign at scan time and over
+mirroring the Supabase codes table into HQ. Grounds: the operator's own question — *what is
+wrong with using Supabase as a single source of truth* — identifies the two-source split as the
+actual defect rather than the missing column, and that is **decision 187's** territory, which
+was written with the explicit rider *"all revisable at the first morning triage that finds them
+wrong."* This is that triage. Settling D-4 narrowly avoids paying for a fix the larger decision
+may discard, while the tab stays useful today: the funnel, revenue, discount and orphan rate are
+all correct, and the page states its own limit so an empty slice never reads as a campaign that
+earned nothing. **Q-KR2 and the per-slice half of P-KR3 are therefore NOT MEASURABLE this
+cycle**, and that is now a recorded consequence of a decision rather than a defect. Carried to
+the roadmap round as a named architectural question, with the triage evidence attached so the
+round starts from facts: migration `0073`'s `postgres_fdw` federation runs **Supabase → HQ** (so
+the substrate can evaluate row-level security against HQ's grants), not the direction a
+consolidation would need; the reconciliation and stats queries join scans against tables that
+are HQ-native for independent reasons (`toast_orders`, `menu_items`, `campaigns_admin`, the
+recipe/cost tables), and Postgres cannot join across servers without federation; and Supabase is
+**already** the single source of truth for the one operation that must be atomic — single-use
+arbitration under an offline race (decision 187's R2).
+
+**Decision 198 — D-5 settled: ship both figures.** `orphan_rate` keeps the literal specification
+meaning — an accepted attempt with no order number, plus declines except `duplicate_scan` — so
+the 10% line keeps the meaning it was set against and stays comparable across cycles; a second
+named figure carries the wider "nobody has tied this to a sale" backlog signal. Chosen over the
+literal numerator alone and over the wider numerator alone (which is what shipped tonight,
+undisclosed, at 3/5 = 60% where the words give 2/5 = 40%). Weighed up by the operator because
+this is one of the few numbers that still works while attribution is held (decision 197), so it
+carries more than usual this cycle. The numerator is already pinned by
+`TestOrphanRateDisclosesItsNumerator`, proven load-bearing at triage by mutation, and
+`orphan_rate_basis` / `orphan_numerator` / `orphan_denominator` are already on the wire
+(`stats.go:152-154`), so this is an additive change to an asserted value rather than a silent
+drift.
+
+**Decision 199 — D-6 settled: a genuinely offline phone serves an unseen code, flags it, and you
+review it. Decision 191 is amended; behaviour at the window does not change.** The operator
+ruled on the only population that actually exists once the data constraints are read in. Three
+groups, which 191's wording conflated into two: (a) the phone knows the code and it names a
+campaign, with no policy data resolved → **refused** (what B-436 shipped, and the behavioural
+change this run made); (b) the phone knows the code and it names **no** campaign → the predicate
+would allow it, **but no such row can exist**, since `qr_codes.campaign_id` and
+`public.codes.campaign_id` are both `not null references`; (c) the phone has **never seen** the
+code → `submit-flow.js:391` leaves `requiresOnline = false` without consulting the predicate at
+all, so this is **decision 166's** territory, untouched by B-436. The literal "any code" reading
+would have changed only (c) — repealing ratified decision 166 and contradicting ratified
+decision 171 — and would have turned away customers holding legitimately-printed codes. Kept:
+force-submit behind the `marketing-offline-override` entitlement, confirmed, audit-flagged
+`offline_override` / `unverified_code` / `policy_unresolved = true`, surfacing at the top of the
+reconciliation queue and reversible. Chosen over refusing every code, which writes **no record
+at all** because nothing is submitted, so the owner never learns the turn-away happened.
+
+> **Amendment to decision 191, morning triage 2026-10-02 — 191 as written could not be
+> implemented, and here is its replacement.**
+> The entry said both *"no offline override for **any** code"* and *"**uniform** with the
+> source's own predicate."* Those are different rules, card `h6-scanner-polish` was required to
+> implement 191 rather than park it, and it correctly reported that the text would not resolve.
+> **Struck:** *"A device that cannot construct a campaign policy source gets no offline override
+> for any code, uniform with the source's own predicate; `campaigns-harness.mjs` leg 3's
+> negative assertion moves with it."*
+> **Replacement:** *"A device that cannot construct a campaign policy source refuses the offline
+> override for **every code it holds in its replica** — each of which names a campaign, by
+> `not null` constraint in both `qr_codes.campaign_id` and `public.codes.campaign_id` — and
+> leaves **a code it has never seen** exactly as ratified decision 166 left it: force-submit
+> behind the `marketing-offline-override` entitlement, confirmed, and audit-flagged
+> `offline_override` / `unverified_code` / `policy_unresolved = true` at the top of the
+> reconciliation queue. `campaigns-harness.mjs` leg 3 must **import** the shipped `failClosed`
+> to assert this; while it defines its own copy it asserts nothing (B-462)."*
+> Two defects ride with the amendment, and all three riders belong to the fix card: the
+> device-side replica schema permits a null campaign its own databases forbid
+> (`marketing/sync/replicas.js:70` — add `campaign_id` to `required`, which deletes group (b)'s
+> unreachable branch rather than testing it, and retires the `[SP-03b]` false gate by making its
+> claimed invariant a schema fact); and leg 3's *"negative assertion moves with it"* was proven
+> at this triage never to have been true. **D-6 was also presented as a live product fork and is
+> substantially narrower than presented** — the clause everyone argued about distinguishes (a)
+> from (b), and (b) cannot occur.
+
+**Decision 200 — the scan-time verification gap is promoted to the next slate, above the
+backlog.** Found by the operator reading the refusal behaviour out loud and asking why the
+server is not simply consulted before submit. It is not: `scanner.js:155-220`'s `resolve()`
+consults three **local** sources only — the offers replica, the codes replica, and an offer
+embedded in the QR payload — and contains no network call. Its `online` flag is used for exactly
+one thing, deciding whether a locally-redeemed code rejects instantly or defers to the server.
+So a code in neither replica returns `unknownCode` **regardless of connectivity**: even on a
+fully-online phone, a code minted since that device last synced is submitted with "the server
+has the final say", meaning **the discount is keyed into Toast before anything has asked whether
+the code exists**. The only public route is `/q/{short}`, so no verify endpoint exists today.
+Direction: the device already holds a replication connection to the substrate and
+`public.codes.token_hash` is unique and indexed, so an online phone can look up the hash it has
+already computed on the connection it already has — one query, no new backend surface, failing
+back to today's behaviour on timeout. Promoted over filing it (which the operator declined as
+too slow for a case where crew commit a discount before verification) and over declining it.
+Pairs with B-464 and decision 198, since an unknown code the server later rejects is precisely
+what becomes an orphan row. **This also shrinks decision 199's risk surface**: with scan-time
+verification, group (c) stops being the normal state of a freshly-printed code and becomes what
+it sounds like — a phone with no signal.
+
+**Triage findings against the night's own record, carried rather than dropped.**
+(1) 🛑 **The closeout commit undid its own documented remedy.** Merge 6's restoration of card
+H5's seven attested evidence screenshots was real and held through `aa7719b`, where the conflict
+log asserts it — then `f47fbee`, the closeout commit itself, **re-overwrote six of the seven**.
+`08-locked.png` at HEAD is byte-identical to H6's side, which is H5's **pre-fix-round** capture
+(`c506db4`); four others carry a third blob that is neither card's. Only `12-offline-cold.png`
+still carries H5's attested version. The conflict log's own lesson — *"a clean conflict list is
+not proof that nothing moved"* — recurred inside the commit that reports it, and inside the
+commit after which the branch must not be edited.
+(2) **`night-crew backlog check` exits 1 — the document is invalid**, 9 entries malformed, and
+**6 of the 9 are this run's own filings** (B-459…B-464): each put its `lead:` text in the status
+position, so the parser reports both an unrecognized status and a missing lead. This is the
+literal verdict of **Q-KR3**, which is graded on that command exiting 0. Repaired at this
+triage; the three pre-existing offenders (B-156, B-424, B-455) repaired with them.
+(3) **Preference coverage is 0% of 6 gray areas — and not because the folder is empty.** Eleven
+candidates sit unadopted in Pending across all six categories, and an unadopted candidate is not
+citable, so the resolver found nothing for any of the night's six questions. At least four would
+have pre-answered one: `architecture/C-1` (the app's timezone) for D-3, `architecture/C-2`
+(structure over guards at catastrophic boundaries) for D-1 and D-2, `process/C-1` (amend a stale
+decision rather than honour it into a worse outcome) for D-6, and `delegation/C-1`
+(preference-covered questions proceed under citation) for the parking itself. This is B-245 at
+its most expensive: six attended forks this morning, four of them already answered in the
+operator's own words in a file nothing can read.
+(4) **Two leftover subagents from the run were still alive and resumable during triage**, and
+one woke mid-review to volunteer "ready for your merge" about a card that had merged six hours
+earlier. Harmless here because the timestamps gave it away, but it is a route for a stale claim
+to re-enter an attended review — the same hazard the "do not edit a run branch once HANDOFF.md
+is written" rule exists to close.
+
+**Ratification and ratchet: both read empty, verified by running both.** `decisions ratify
+--run 20261002` reports nothing awaiting review — the night delegated nothing and escalated all
+six at top severity — so `preferences ratchet` has nothing to offer, which is the correct
+consequence and not a skipped step. Stated so that a step with nothing to do and a step that
+never ran do not look alike (B-242).

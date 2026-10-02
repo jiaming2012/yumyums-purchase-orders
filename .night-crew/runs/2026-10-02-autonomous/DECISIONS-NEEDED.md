@@ -1,5 +1,43 @@
 # Decisions needed — run `20261002`
 
+> **RESOLVED 2026-10-02 — recorded as `.night-crew/knowledge/ledger.md` T-62, decisions 194–200.**
+> All six forks settled with the operator at morning triage; the run branch is merged to `dev` at
+> `5753ddf`. Kept as the analysis record — the reproductions and option tables below are the
+> evidence the decisions were made against, and three of them were corrected at triage:
+>
+> - **D-1 → decision 194.** *Teach the merge about the new tables, AND blank the link as a
+>   backstop.* 🛑 **D-1's reachability claim here is FALSE** — no production frontend calls the
+>   dish-merge endpoint, so this is API-only, not the UI regression this file and HANDOFF.md
+>   assert. Re-pointing is also the house convention, not a deviation from it. `0085`'s PII
+>   erasure block decided with it, as this file asked.
+> - **D-2 → decision 195.** *Tumbling 10-minute bucket + unique index on `(short, ip_hash,
+>   bucket)` + `ON CONFLICT DO NOTHING`.* Taken as an engineer-level call; the operator was
+>   offered it and handed it back as plumbing. Reproduced independently at 3/7/8/8/8 rows.
+> - **D-3 → decision 196.** *BLOCKED ON EVIDENCE, value untouched, check named:* read one real
+>   Toast export's `Opened` against a known order time. Only the ±30-minute hint is at risk.
+> - **D-4 → decision 197.** *Hold attribution, state the limit on the page; the real question —
+>   whether Supabase should be the single source of truth for the attribution spine — goes to the
+>   roadmap round,* under decision 187's own "revisable at the first morning triage" rider. 🛑
+>   **This file's "closes by itself later … no further code change" is an OVERSTATEMENT** —
+>   `mirror.go` writes the campaign tag as a literal `NULL` and omits it from its `ON CONFLICT`
+>   update list, so nothing in the tree can ever populate either arm. **Q-KR2 and the per-slice
+>   half of P-KR3 are NOT MEASURABLE this cycle** — now a recorded consequence of a decision
+>   rather than an open defect.
+> - **D-5 → decision 198.** *Ship both figures* — `orphan_rate` keeps the literal specification
+>   meaning so the 10% line stays comparable, and a second named figure carries the wider signal.
+> - **D-6 → decision 199, and decision 191 is AMENDED.** *A genuinely offline phone serves an
+>   unseen code, flags it, and the owner reviews it; behaviour at the window does not change.*
+>   🛑 **D-6 is substantially NARROWER than presented here.** The clause everyone argued about
+>   distinguishes "names a campaign" from "names no campaign" — and **no code naming no campaign
+>   can exist**, since `qr_codes.campaign_id` and `public.codes.campaign_id` are both
+>   `not null references`. The only real population is a code the device has **never seen**,
+>   which `submit-flow.js:391` never puts through the predicate at all and which ratified
+>   decision 166 already governs.
+>
+> Two things found at triage that are not in this file: **`[SP-03b]` is a second false gate**
+> (B-465) leaving decision 191's distinguishing branch guarded by nothing, and **an online phone
+> never verifies a code it has not synced** (B-468), promoted by the operator to the next slate.
+
 Two open operator forks, both raised by Card 1's G6 adversarial review, both routed through
 `night-crew decisions log --run 20261002` and both returned **`verdict: park`** — *escalated,
 top severity, voted top by all three roles; "top-severity questions are the operator's — no

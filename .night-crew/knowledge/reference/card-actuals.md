@@ -1385,3 +1385,58 @@ class absorbs another spike-was-the-draft data point (sibling `requires-online-r
 74m; this card 100m with four UNSTUBBED done_when clauses and the first sync-substrate
 e2e stack — the two components the slate priced the +20m top for). Ranges hold; no
 adjustment.
+
+## Run 20261002 (slate-20261002, 7 cards — Activity H, concurrent 3-track after a solo Wave 0)
+
+All times America/New_York from `.night-crew/runs/2026-10-02-autonomous/timings.log`. Branch cut
+18:37, last merge 03:02 — **8h25m wall clock against a 10h night budget**. Tracks overlapped, so
+per-card implement times are concurrent, not additive.
+
+| # | Card | Class | Implement | G6 | Land (merge) | Fix round |
+|---|---|---|---|---|---|---|
+| 1 | `campaign-codes-api` (H1) | new mechanism, solo Wave 0 | 72m (18:39→19:51, 13 commits) | 19:52 dispatch → ~20:15 | `40b5846` @ ~20:15 | — |
+| 2 | `campaigns-tab-ui` (H2) | UI against a landed API | 98m (20:24→22:02, 5 commits) | 22:02→22:30 APPROVE-WITH-FINDINGS | `f245259` @ 22:58 | ✅ P1 |
+| 3 | `toast-orders-and-mirror` (H3a) | backend ingest + mirror | 120m (20:24→22:24, 3 commits) | 22:21 dispatch | `799a748` @ 23:41 | ✅ |
+| 6 | `subscribers-tab` (H5) | full-stack + migration | 176m (20:24→23:20, 6 commits) | 23:20 dispatch | `78e768f` @ 23:48 | ✅ |
+| 4 | `reconciliation-and-stats-engine` (H3b) | backend engine | dispatched 22:21 off Card 3's **unmerged** base | →00:18 APPROVE-WITH-FINDINGS | `65ef5dc` @ 00:37 | ✅ |
+| 7 | `scanner-polish` (H6) | 4 backlog closures, sync substrate | 110m (23:48→01:38, 5 commits) | 01:38→02:05 | `23be14a` @ 02:01 | — |
+| 5 | `stats-tab-ui` (H4) | UI, two pages (decision 192) | dispatched 00:37, budget gate 03:07 ≤ 04:37 PASS | →02:55 | `15ebc00` @ 03:02 | ✅ |
+
+**First-pass rate 0.29** (2 of 7 needed no fix round) — the lowest recorded, and it is a *good*
+number here, not a bad one: **7 of 7 G6 reviews returned a finding the card had not found**, and
+all five fix rounds landed red-first. A high first-pass rate on this slate would have meant G6
+was not working.
+
+**What the ranges should absorb from this night.**
+
+1. **Dispatching a card off another card's UNMERGED branch worked, and bought real time.** Card 4
+   went out at 22:21 against Card 3's feature commit rather than waiting for Card 3's G6 and
+   merge — taking Track C off the G6 critical path. The risk it carries is specific and was
+   caught: Card 3's later fix round lay outside Card 4's base and appeared at merge as **phantom
+   deletions** across `backend/internal/toast/`, so a squash or diff-apply would have silently
+   reverted Card 3's G6 fixes. A 3-way merge preserved them, and the merge asserted the four
+   artefacts afterwards rather than assuming. **Price this pattern as viable, with the merge rule
+   attached: never squash a card branched off an unmerged base.**
+2. **Concurrency cost is real and it is in the test box, not the model.** Playwright's `webServer`
+   spawn **wedged four times** under three concurrent worktrees. The documented escape
+   (`NIGHTCREW_ENV_URL` + a hand-provisioned stack) worked for two different agents and needs no
+   full-suite lock. **Add ~15m per concurrent track for spawn contention, or hand-provision from
+   the start on any 3-track night.**
+3. **The shared mutable substrate has no lock and faked a regression** (B-460). One merge gate
+   came back `EXIT_TEST=1` with 13 failures *all inside* `TestRowVisibilityRLS` — the costume of
+   a row-level-security regression — and was substrate contention; `internal/sync` alone on the
+   identical tree was `ok … 78.981s, EXIT=0`. **Cost ~6m plus a discarded run. Budget a re-run on
+   any night where more than one card touches the substrate, until it has the lock the Playwright
+   box already has.**
+4. **A final full-suite pass on the complete tree is NOT optional on a multi-UI-card night, and
+   it is not free: 37.1m.** No card's own suite measured all seven together — H4's ran without
+   H6, H6's without H4. Price it into the land phase of the last card.
+5. **Triage cost, for the record:** ~45m attended (six forks, three of which the operator sent
+   back as role-level calls or clarified into narrower questions) plus ~37m unattended adversarial
+   re-execution. The adversarial leg falsified four closeout claims and found two false gates
+   nobody had found — the best-value 37 minutes in the cycle.
+
+**No size-class range moves on this evidence.** Seven cards, zero parks, zero repair nights: this
+is a clean-path population and the existing ranges held for every card. The additions above are
+*per-night overheads* (concurrency, substrate contention, the final full suite), not changes to
+per-card estimates.

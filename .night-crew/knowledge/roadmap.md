@@ -666,6 +666,44 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > (H3a — ingest + mirror + migration 0084 + B-424) and `reconciliation-and-stats-engine` (H3b — the
 > engine and its endpoints). Both are children of the `toast-orders-and-reconciliation` goal ledger.
 
+> **TRIAGED 2026-10-02 (ledger T-62) — Activity H is COMPLETE: 7 of 7 cards landed and merged
+> to `dev` at `5753ddf`.** Every gate number independently reproduced by an adversarial reviewer
+> (G2 `EXIT_TEST=0`, 699/0/3 across exactly 15 test-bearing packages; G4 51 precached with the
+> committed `sw.js` byte-identical to a fresh regeneration). Six forks settled as decisions
+> 194–200; ratified decision 191 amended.
+>
+> 🛑 **Two key results from this activity are NOT MEASURABLE this cycle, by decision rather than
+> by defect: Q-KR2 and the per-slice half of P-KR3.** Campaign attribution cannot resolve on live
+> data — the mirror writes the campaign tag as a literal `NULL` and omits it from its
+> `ON CONFLICT` update list, so nothing in the tree can populate either arm of the lookup
+> (decision 197). The totals, funnel, revenue, discount and orphan rate are all correct and
+> measurable; only the per-campaign / per-channel / per-dish attribution is held.
+>
+> **Carried to the next roadmap round as a named architectural question:** *should Supabase be
+> the single source of truth for the attribution spine?* Decision 187 split ownership (campaign
+> admin in HQ, codes and scans in Supabase) and was written "revisable at the first morning
+> triage that finds them wrong"; triage found the two-source split, not a missing column, to be
+> what makes attribution unresolvable. Evidence attached in ledger T-62 decision 197.
+>
+> **Next-slate candidates out of this activity, in the operator's stated order:**
+> 1. **The test-integrity fix card** — the operator's explicit condition for merging: B-462
+>    (`campaigns-harness.mjs` leg 3 green against inverted production code), B-465 (`[SP-03b]`,
+>    a second false gate, leaving decision 191's distinguishing branch guarded by nothing), B-466
+>    (`TestNothingInThisPackageSends` scans two filenames, so egress elsewhere in the package
+>    passes). Carries the three decision-191 amendment riders.
+> 2. **B-468** — an online phone never verifies a code it has not synced, so the discount is
+>    keyed into Toast before anything asks whether the code exists. Promoted by the operator
+>    above the backlog (decision 200).
+> 3. **Decision 194's two halves** — teach the dish merge about `campaigns_admin` / `qr_codes`,
+>    and add the blank-on-delete backstop on those plus migration `0085`'s subscriber tables,
+>    which is what makes a right-to-erasure request servable by a plain `DELETE`.
+> 4. **Decision 195** — the atomic scan dedupe (tumbling bucket + unique index + do-nothing on
+>    conflict), since the orphan-rate denominator is inflatable from an unauthenticated route.
+>
+> **Attended work no overnight can close:** the first live Fluent Forms import; the skipped Share
+> spike (`campaigns-tab-ui / web-share-files-enumerated`, webkit/firefox binaries); and
+> decision 196's check — read one real Toast export's `Opened` column against a known order time.
+
 - **`campaign-codes-api`** · **LANDED** (run `20261002`, branch `card/h1-campaign-codes-api`) · (H1, track A — backend) Campaign admin in HQ Go +
   Postgres (decision 187): migration `0083_campaigns_admin` (`campaigns_admin`, `qr_codes`,
   `qr_scans`), `POST /api/v1/marketing/campaigns` mints **one `qr_codes` row per channel** in
@@ -752,7 +790,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   migration 0084, `backend/internal/redemption/store.go`, `backend/cmd/server/main.go` (poller
   start beside the Toast worker → undeclared seam → full Playwright suite).
 
-- **`reconciliation-and-stats-engine`** · **PLANNED** · (H3b, track C, serial after H3a — backend;
+- **`reconciliation-and-stats-engine`** · **LANDED** (run `20261002`, branch `card/h3b-reconciliation-and-stats-engine`, merge `65ef5dc`) · (H3b, track C, serial after H3a — backend;
   the second half of the `toast-orders-and-reconciliation` goal) Absorbs `reconciliation-view`.
   The engine buckets attempts matched / unmatched (±30 min nearest-order suggestion) / orphan,
   orders the queue overrides → orphans → unmatched, and records `reconciliation_decisions`
@@ -770,7 +808,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   spike `stats-tab-ui/01-slices-reconcile` arithmetic, as a Go test) red → green. Footprint:
   `backend/internal/marketing/` (`reconciliation.go`, `stats.go`, `routes.go`), no migration.
 
-- **`stats-tab-ui`** · **PLANNED** · (H4, track B after H2, starts once H3b has landed — UI, two
+- **`stats-tab-ui`** · **LANDED** (run `20261002`, branch `card/h4-stats-tab-ui`, merge `15ebc00`) · (H4, track B after H2, starts once H3b has landed — UI, two
   pages per **decision 192**) **Reports in BI:** a third `hub-row` "Campaigns" on `bi.html`
   (behind the `bi` grant, idiom of Trends / Food cost) rendering Current Stats 1–5 — overview
   (period, funnel with revenue / discount / net lines, "implied −$X · actual −$Y" where they
@@ -792,7 +830,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `tests/marketing-stats.spec.js`, `tests/states-marketing-stats.spec.js`,
   `tests/states-bi-hub.spec.js`, `sw.js`, `night-crew.toml`.
 
-- **`subscribers-tab`** · **PLANNED** · (H5, track E — full-stack) Migration `0085_subscribers`
+- **`subscribers-tab`** · **LANDED** (run `20261002`, branch `card/h5-subscribers-tab`, merge `78e768f`) · (H5, track E — full-stack) Migration `0085_subscribers`
   (`subscribers`, `subscriber_events`), three source adapters behind one interface — Fluent
   Forms reader (`FF_DB_*` env; maps the live form's REAL keys per spike 2026-10-01 — `names.first_name`,
   `email`, `input_text` → phone, `checkbox[]` → consent, `source` nullable; fixture committed; live import is an
@@ -806,7 +844,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/subscribers.js` (new), `tests/marketing-subscribers.spec.js`,
   `tests/states-marketing-subscribers.spec.js`, `sw.js`, `night-crew.toml`.
 
-- **`scanner-polish`** · **PLANNED** · (H6, serial after H3b — touches `marketing/sync/*`) Closes
+- **`scanner-polish`** · **LANDED** (run `20261002`, branch `card/h6-scanner-polish`, merge `23be14a`) · (H6, serial after H3b — touches `marketing/sync/*`) Closes
   **B-446** (render the `requires_online` refusal at scan-resolve while offline, same copy,
   earlier; post-submit guard stays), **B-447** (add `name` to the campaigns pull selection;
   offer card shows the campaign name and the code's last four), **B-440** (divert predicate
