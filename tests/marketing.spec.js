@@ -141,13 +141,13 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
   // Updated by TWO cards in run 20261002, and the union is deliberate:
   //   * `h2-campaigns-tab-ui` (roadmap H2) made Campaigns (#s2) live;
   //   * `h5-subscribers-tab` (roadmap H5) made Subscribers (#s3) live.
-  // Stats (#s4, card H4) is STILL a placeholder and is still asserted as one —
-  // this test is the thing that reds when it lands, which is the point of
-  // keeping it rather than deleting the placeholder half.
+  //   * `h4-stats-tab-ui`   (roadmap H4) made Stats (#s4) live.
+  // There is no placeholder left on this page; all four sections are built, and
+  // for a team_member the three manager-tier ones render their Locked state.
   // The user here is a team_member, so both live sections render their designed
   // Locked state from a real 403 managers_only — never a blank panel, and never
   // a "Soon" badge on something that is actually built.
-  test('marketing.html shows Scan and Campaigns live, Subscribers gated, and Stats as a labeled placeholder', async ({ page }) => {
+  test('marketing.html shows Scan live and Campaigns, Subscribers and Stats all gated to their designed Locked state', async ({ page }) => {
     const user = await makeUser(page, 'scan', ['team_member']);
     await loginAs(page, user.email, USER_PASSWORD);
     await page.goto('/marketing.html');
@@ -170,9 +170,9 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     // manager tier refuses each one inside its handler, so each renders its
     // designed Locked state — never a blank panel and never a "Soon" badge on
     // something that is built.
-    // The REMAINING placeholder (#s4) is labeled, not blank space (UI-R rule:
-    // blank render = defect) — it names what it will hold and carries the
-    // launcher's "Soon" badge convention.
+    // Nothing on this page is a placeholder any more (card H4 landed #s4), and
+    // the UI-R rule the block enforces is unchanged: every gated section still
+    // NAMES itself — blank render = defect.
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
     await expect(page.locator('#mc-root')).toHaveCount(1);
@@ -183,8 +183,8 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     // 🛑 #s3 IS NO LONGER A PLACEHOLDER. Card H5 `subscribers-tab` (run
     // 20261002) built it, so the "Soon" badge this test used to assert here is
     // false by construction. Narrowly updated by that card — ONLY the three
-    // #s3 lines; #s4 is deliberately left alone because the Stats queue is
-    // still a placeholder until Card 5 lands.
+    // #s3 lines. (Card H4 then did the same for #s4, below, and left these
+    // three byte-identical.)
     //
     // This test's user is a team_member, and the mailing list is manager-tier
     // (handoff §16), so what they correctly see is the designed LOCKED state:
@@ -198,10 +198,22 @@ test.describe('Marketing tile + permission seed (card marketing-tile-and-page)',
     await expect(page.locator('#s3 .subs-locked')).toContainText('Managers only');
     await expect(page.locator('#s3 .badge')).toHaveCount(0);
 
+    // 🛑 #s4 IS NO LONGER A PLACEHOLDER. Card H4 `stats-tab-ui` (run
+    // 20261002) built it — the reconciliation queue, decision 192 — so the
+    // "Soon" badge this test used to assert here is false by construction.
+    // Narrowly updated by that card: ONLY these #s4 lines. The #s2 / #s3
+    // assertions above are byte-identical to what cards H2 and H5 left.
+    //
+    // This test's user is a team_member and the queue is manager-tier
+    // (handoff §16), so what they correctly see is the designed LOCKED state:
+    // the section still names itself "Redemption stats" — the UI-R
+    // "blank render = defect" rule this block exists to enforce still holds —
+    // but it now says who may act instead of "Soon", and offers no control.
     await page.click('#t4');
     await expect(page.locator('#s4')).toBeVisible();
-    await expect(page.locator('#s4 .badge')).toHaveText('Soon');
     await expect(page.locator('#s4')).toContainText('Redemption stats');
+    await expect(page.locator('#s4 .ms-locked')).toContainText('Managers only');
+    await expect(page.locator('#s4 .badge')).toHaveCount(0);
   });
 
   // ── done_when (b): a non-granted user sees no tile ─────────────────────────
