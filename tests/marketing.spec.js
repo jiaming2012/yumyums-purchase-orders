@@ -374,6 +374,10 @@ function fixture5HighRow(overrides = {}) {
 function campaignHighRow(overrides = {}) {
   return Object.assign({
     id: 'a0000000-0000-4000-8000-000000000002',
+    // B-447 (card scanner-polish): `name` joined CAMPAIGNS_SELECT and the
+    // replica schema, so a row the pull replica lands now carries it. The
+    // value is the committed supabase/seed.sql literal.
+    name: '$40 catering credit',
     requires_online: true,
     updated_at: '2026-09-01T00:00:00.000Z',
   }, overrides);
@@ -390,6 +394,7 @@ function campaignHighRow(overrides = {}) {
 function campaignLowRow(overrides = {}) {
   return Object.assign({
     id: 'a0000000-0000-4000-8000-000000000001',
+    name: 'Free side of wings',          // B-447, as the pull now lands it
     requires_online: false,
     updated_at: '2026-09-01T00:00:00.000Z',
   }, overrides);
@@ -928,14 +933,34 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       campaigns: [campaignHighRow()],
     });
     await killProbe(page);
-    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
-    await page.click('[data-action="ms-submit"]');
+    // 🛑 B-446 (card scanner-polish, run 20261002) CHANGED THE SHAPE OF THIS
+    // TEST, NOT ITS CLAIM. It used to reach the gate through
+    // `scanAndReady(...)` + a click on [data-action="ms-submit"]; under B-446
+    // the refusal renders at scan-resolve and that control no longer exists on
+    // a refused scan, so there is nothing left to click. Every original
+    // assertion below is intact — data-branch, both copy fragments, no
+    // override affordance, zero POSTs — and the refusal is now proved to
+    // arrive with ZERO taps, which is strictly stronger. The post-submit belt
+    // is asserted at the bottom of this test and again in [SP-01].
+    await scanText(page, FIXTURE_5_PAYLOAD);
 
     const gate = page.locator('#ms-gate');
     await expect(gate).toHaveAttribute('data-branch', 'requires-online');
     await expect(gate).toContainText(/can.t verify/i);
     await expect(gate).toContainText('try again');
     await expect(page.locator('[data-action="ms-override"]'), 'no override even for a holder of the entitlement').toHaveCount(0);
+    expect(calls.length).toBe(0);
+
+    // THE BELT — the post-submit guard §8 has always had. Driven through the
+    // machine because B-446 deliberately removed the DOM controls above; both
+    // events are DECLARED pairs, so a trip here would be a new one.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
     expect(calls.length).toBe(0);
   });
 
@@ -966,8 +991,8 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       // NO campaigns row — the campaigns replica has not delivered.
     });
     await killProbe(page);
-    await scanAndReady(page, FIXTURE_5_PAYLOAD, '4321');
-    await page.click('[data-action="ms-submit"]');
+    // Shape changed by B-446 (see the branch-3 test above); claim unchanged.
+    await scanText(page, FIXTURE_5_PAYLOAD);
 
     const gate = page.locator('#ms-gate');
     await expect(gate).toBeVisible();
@@ -982,6 +1007,16 @@ test.describe('Redemption submit flow (card redemption-submit-flow)', () => {
       page.locator('[data-action="ms-override"]'),
       'no override for a KNOWN code whose campaign has not replicated',
     ).toHaveCount(0);
+    expect(calls.length).toBe(0);
+
+    // The belt, as above: the post-submit guard still refuses.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
     expect(calls.length).toBe(0);
   });
 

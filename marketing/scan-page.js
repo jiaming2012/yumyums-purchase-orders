@@ -83,6 +83,45 @@ const sfCall = (name, ...args) => {
 // ── render ──────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
+// B-447: the campaign-name lookup, set in boot() from the §8 policy source
+// (which already keeps a live Map mirror of the local campaigns collection —
+// no second query, and synchronous, which is what a render needs). Default is
+// the honest one: before boot wires it, nothing on this device knows any
+// campaign's name.
+let campaignNameFor = () => null;
+
+/**
+ * B-447 — "The offer card names a campaign UUID, not the campaign or the
+ * code." The crew member holding the phone was shown `campaign 02d234bc`
+ * while the campaign's `name` sat in the same synced replica row, and nothing
+ * named the code at all; verifying against a customer's claim meant comparing
+ * a UUID prefix to nothing.
+ *
+ * Two labels, each degrading honestly (UI-R3 — a render that states a fact the
+ * app does not have is a defect, and "Campaign undefined" is the classic
+ * shape of it):
+ *
+ *   campaignLabel  the replica's `name`, or `Campaign <id prefix>` when the
+ *                  row predates the widened pull / has not arrived. Never a
+ *                  bare UUID, never the word undefined.
+ *   codeLabel      `Code ····<last 4 of code_id>`. The code row's id is what
+ *                  `scan_attempts.code_id` carries, so the four characters the
+ *                  crew member reads out are the four a manager can match in
+ *                  HQ. (The token hash was the alternative and is worse: it
+ *                  is nowhere a human can see it.)
+ */
+function campaignLabel(campaignId) {
+  if (!campaignId) return '';
+  const name = campaignNameFor(campaignId);
+  if (name) return esc(name);
+  return `Campaign ${esc(String(campaignId).slice(0, 8))}`;
+}
+function codeLabel(codeId) {
+  if (!codeId) return '';
+  const s4 = String(codeId).slice(-4);
+  return `Code \u00b7\u00b7\u00b7\u00b7${esc(s4)}`;
+}
+
 function statusLine() {
   if (SCAN_STATE.synced) return 'Replica synced — offers verified against the last pull.';
   return 'Local verification only — not yet synced this session.';
@@ -101,7 +140,7 @@ function resultCard(r) {
       const rows = r.offers.map((o) => `
         <div class="offer-row" data-code-id="${esc(o.code_id)}">
           <div class="offer-main">Offer</div>
-          <div class="offer-sub">Expires ${esc(fmtWhen(o.expires_at))}${o.campaign_id ? ` &middot; campaign ${esc(String(o.campaign_id).slice(0, 8))}` : ''}</div>
+          <div class="offer-sub">Expires ${esc(fmtWhen(o.expires_at))}${o.campaign_id ? ` &middot; ${campaignLabel(o.campaign_id)}` : ''}${o.code_id ? ` &middot; ${codeLabel(o.code_id)}` : ''}</div>
         </div>`).join('');
       return `<div class="rc rc-ok">
         <div class="rc-head">${r.offers.length} offer${r.offers.length === 1 ? '' : 's'} available</div>
@@ -233,6 +272,12 @@ async function boot() {
   // it is the only place that ordering can be guaranteed. submit-flow.js
   // consumes it through MS.campaignPolicy.
   const campaignPolicy = createCampaignPolicySource(cols.campaigns);
+  // B-447: the offer card's name lookup. Reads the SAME Map the §8 predicate
+  // reads, so the label and the policy can never disagree about which
+  // campaign row the device holds.
+  campaignNameFor = (id) => {
+    try { return campaignPolicy.nameFor(id); } catch (e) { return null; }
+  };
 
   // No `subtle` handed in: the hasher takes WebCrypto when the origin has it
   // and the JS digest otherwise (same reason as hashFunction above).
@@ -274,7 +319,13 @@ async function boot() {
     // subscriber attached even one `await` later sees zero emissions and the
     // policy source can never report the replica as erroring. Start the
     // campaigns replica, attach the latch, THEN do everything else.
-    const campaignsRep = startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull'));
+    // 🛑 THE IDENTIFIER IS BUMPED, DELIBERATELY (card scanner-polish, B-447).
+    // The checkpoint lives under the replicationIdentifier, so a device that
+    // already synced campaigns would never re-pull the rows it holds and
+    // would show the `Campaign <prefix>` fallback until each campaign was
+    // next touched server-side. A new identifier resets the checkpoint and
+    // costs exactly one full pull of a table with a handful of rows.
+    const campaignsRep = startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull-v2'));
     campaignPolicy.attach(campaignsRep);
 
     syncHandles = {

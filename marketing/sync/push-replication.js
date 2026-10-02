@@ -300,7 +300,49 @@ export function makePushHandler({
       // Skip-until-arbitration was run and REJECTED (it strands the audit
       // row on-device). Server-side arbitration of the hash is §19 F2's
       // "when sync arbitrates" clause — Activity D's surface, after landing.
-      if (doc.unverified_code) {
+      //
+      // The predicate is `unverified_code && offline_override` — see B-440
+      // immediately below for why both conjuncts are load-bearing.
+      //
+      // ── B-440 (card scanner-polish, run 20261002): THE PREDICATE MUST
+      // AGREE WITH THE CONSTRAINT. Run 20260906-2's rider (a) tightened
+      // `scan_attempts_names_a_code` to
+      //     code_id is not null
+      //     or (unverified_code and offline_override and token_hash is not null)
+      // and this line kept diverting on `unverified_code` ALONE. The two
+      // disagreeing IS the defect: a row with the flag but no override is
+      // exactly the row this branch composes a landing insert for, and the
+      // constraint answers HTTP 400 (23514) — the handler throws, RxDB
+      // retries forever, and the whole queue is head-of-line poisoned. Both
+      // halves were reproduced at morning triage and again by
+      // `f2-run.sh poison-mismatch` on the live substrate before this fix
+      // (10 land-unverified attempts, 0 server rows, the legitimate attempt
+      // behind it stranded `pending`).
+      //
+      // 🛑 Tightening this predicate alone would only MOVE the poison: a
+      // mismatched row falling through to §1 feeds its 64-hex token_hash to
+      // /rpc/redeem, which answers a deterministic 400 (22P02 on p_code
+      // uuid) — the original F-2 poison. So the mismatch is QUARANTINED
+      // below, before either door. Engineering call, stated in the
+      // merge-intent: the row is left `pending` and unlanded on-device
+      // rather than rewritten, because a queued attempt is evidence, not
+      // cache (the same reason `autoMigrate: false` is not a shortcut), and
+      // NO new terminal status is invented (§9/§19 taxonomy unchanged — the
+      // card's PARK line). It is unreachable today: `MS.enqueue`'s sole
+      // production caller (`submit-flow.js` doOverrideWrite) hardcodes
+      // `offline_override: true`. It becomes reachable the moment a second
+      // `unverified_code` producer lands, which is why the door is shut now.
+      if (doc.unverified_code && !doc.offline_override) {
+        console.error(
+          '[marketing-sync] quarantined: an unverified attempt carries no offline_override'
+          + ` (attempt ${doc.id}). scan_attempts_names_a_code rejects this shape and`
+          + ' /rpc/redeem cannot resolve a token_hash, so it is neither landed nor burned.'
+          + ' Left pending on-device as evidence. B-440.',
+        );
+        if (requestLog) requestLog.push({ kind: 'quarantine-mismatch', attempt_id: doc.id, code_id: doc.code_id });
+        continue;
+      }
+      if (doc.unverified_code && doc.offline_override) {
         const landUrl = `${restUrl}/scan_attempts`;
         if (requestLog) requestLog.push({ kind: 'land-unverified', attempt_id: doc.id, code_id: doc.code_id, url: landUrl });
         const land = await fetchImpl(landUrl, {

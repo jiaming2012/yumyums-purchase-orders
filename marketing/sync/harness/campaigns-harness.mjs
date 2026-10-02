@@ -42,6 +42,7 @@ import { Subject } from 'rxjs';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { REST_PORT } from '../../../.night-crew/qa/spike-supabase/rxdb/spike-env.js';
@@ -127,6 +128,13 @@ console.log('\n── leg 1: optional expiry bound — campaigns unbounded, code
 // replicas for codes + campaigns.
 // ---------------------------------------------------------------------------
 addRxPlugin(RxDBDevModePlugin);
+// 🛑 REQUIRED since CAMPAIGNS_REPLICA_SCHEMA went to version 1 (card
+// scanner-polish, run 20261002, B-447: + name). rxdb runs
+// `autoMigrate && version !== 0 && await migratePromise()` on every
+// collection creation, and without this plugin that call THROWS — this
+// harness would die before its first leg. The browser gets the same
+// registration in marketing/scan-page.js. No leg or assertion changed.
+addRxPlugin(RxDBMigrationSchemaPlugin);
 const db = await createRxDatabase({
   name: `c8_${Date.now()}`,
   storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
@@ -178,12 +186,24 @@ const policySource = createCampaignPolicySource(db[CAMPAIGNS_COLLECTION]);
 await until(() => policySource.size() === 2, 5000, 'policy source never saw the synced campaigns');
 
 // submit-flow.js's policyFor, verbatim in behavior — the seam the card feeds.
+//
+// B-436 / decision 191 (card scanner-polish, run 20261002): the
+// `!CAMPAIGN_POLICY` arm FAILS CLOSED, uniform with
+// createCampaignPolicySource's own predicate — refuse for a code that NAMES a
+// campaign, stay silent (false) for one that names none, which is what keeps
+// decision 166's F2 override alive by construction. Mirrors
+// marketing/submit-flow.js's failClosed(); if the two ever disagree, leg 3
+// stops measuring the shipped behavior and this comment is the thing that was
+// wrong.
+const namesNoCampaign = (campaignId) =>
+  campaignId === null || campaignId === undefined || campaignId === '';
+const failClosed = (campaignId) => !namesNoCampaign(campaignId);
 function policyFor(CAMPAIGN_POLICY, campaignId) {
-  if (!CAMPAIGN_POLICY) return false;
+  if (!CAMPAIGN_POLICY) return failClosed(campaignId);
   try {
     const p = CAMPAIGN_POLICY(campaignId);
     return !!(p && p.requiresOnline);
-  } catch (e) { return false; }
+  } catch (e) { return failClosed(campaignId); }
 }
 
 async function run(label, fixture, source) {
