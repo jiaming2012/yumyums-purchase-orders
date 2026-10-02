@@ -72,6 +72,88 @@ double-taps.
 
 ---
 
+## D-3 · `toast_orders.opened_at` is parsed in a zone nothing in the repo establishes
+
+**Status:** OPEN · **Severity:** MEDIUM (ladder: top, parked) · **Raised by:** G6 on card
+`h3a-toast-orders-and-mirror` · **Blast radius quantified by:** card `h3b`
+
+`backend/internal/toast/orderdetails.go` hardcodes `America/Chicago`. Its justification comment
+claimed purchasing and the recipes drift check already use Chicago — **G6 proved that false**:
+`purchasing/service.go:64`, `recipes/scheduler.go:59`, `recipes/cost.go:97` and
+`inventory/handler.go:27` all read `users.DefaultTimezone` = **`America/New_York`** (ledger T-26
+decision 83, migration `0072_app_timezone_new_york.sql`). Chicago is only their *pre-changeover
+production* behaviour, which 0072 ends on the next deploy. And **nothing in the repo establishes
+which wall clock Toast exports `Opened` in** — spike 02 parsed it naive, measuring digits and not
+offset.
+
+The comment is corrected and carries a `TODO` naming this decision. **The value is untouched**,
+because settling it needs a real export sample the night cannot read.
+
+**What is NOT at risk** (quantified by Card 4, which consumes the field): `business_date` is
+`opened.Date()` of the wall-clock string and so is **zone-independent** — G6 constructed the 00:30
+and 23:50 cases and both land on their own calendar day under any zone. So the **matched** bucket,
+revenue, discount, net, every slice, **and the orphan rate P-KR3 is graded on do not move.**
+
+**What is at risk:** only the ±30-minute nearest-order suggestion. Under a one-hour offset every
+real order falls outside the window. Card 4 hardened this without touching the fixed rule — the
+±30-minute rule stays rung 1, and a second rung matches on the zone-independent `business_date`
+and labels itself `basis:"business_date"` with `gap_seconds`, so an offset surfaces as a
+labelled ~3600s hint instead of as silence. It **cannot** reclassify a bucket: `bucket()` reads
+the order number, never the suggestion.
+
+| Option | What you would see |
+|---|---|
+| **Confirm the zone from a real Toast export sample, then set it** *(run's recommendation)* | The only option that can actually be right. Needs an attended look at the export. |
+| Switch to `users.DefaultTimezone` (New York) | One constant, one source of truth, consistent with decision 83. If Toast exports Central, `opened_at` is then an hour late instead of an hour early. |
+| Keep Chicago | Preserves today's pre-changeover behaviour, but leaves a literal disagreeing with the repo's own constant — which is how this became invisible. |
+
+---
+
+## D-4 · 🛑 Campaign attribution cannot resolve on live data — the Stats slices will read "unattributed"
+
+**Status:** OPEN · **Severity:** MEDIUM (ladder: top, parked) · **Raised by:** card `h3b`
+`reconciliation-and-stats-engine`, from inside the card that consumes it · **This is the night's
+most consequential finding.**
+
+Card 3's `mirror.go` states that *"H3b resolves campaign through `code_id` when it needs it."*
+**It cannot.** `scan_attempts.code_id` is the **Supabase `public.codes`** id — the per-customer
+redemption-token row (`supabase/migrations/20260904000100_qr_attribution_spine.sql:45`) — and
+**HQ Postgres holds no copy of that table.** `qr_codes` is a different id space, keyed by `short`.
+Nothing maps `code_id → campaign_id`.
+
+**Consequence on real data:** every accepted attempt is unattributable. The **campaign** slice
+reads `unattributed`; **channel** and **item** read `direct`; `discount_unknown_rows` becomes the
+whole set. Revenue and discount stay **correct per row**, and the funnel, the queue and the orphan
+rate are all fine — but the per-campaign / per-channel / per-dish attribution, which is the point
+of the Stats tab and what *"spend per channel and per dish"* means, collapses to one bucket.
+
+**What the night shipped anyway, so this closes by itself later:** Card 4 implemented the
+`COALESCE(mirror.campaign_id, qr_codes.campaign_id)` ladder joined on `qr_codes.id = code_id`, so
+attribution starts working **the instant either side is populated** — no further code change. It
+also pinned the degraded shape as behaviour (`TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown`)
+rather than leaving it to be discovered, and made the unknown explicit on the wire via
+`discount_unknown_rows` (non-zero ⇒ the discount total is a **floor**, not a figure).
+
+| Option | What you would see |
+|---|---|
+| **Populate `campaign_id` in the mirror at write time** *(run's recommendation)* | Resolution happens on the Supabase side, where `public.codes` actually lives. One card, no new HQ table, no second copy of customer tokens, and Card 4's ladder consumes it the moment it appears. |
+| Mirror `public.codes` into HQ as a second keyset poller | HQ gains the missing id space and can attribute historically — at the cost of a second mirror table, a second poller, and another copy of customer-token rows in HQ. |
+| Ship Stats with attribution degraded and say so on the page | The funnel, revenue, discount and orphan rate are correct, so the tab is useful today; the three slices read `unattributed` until a later card closes it, and the UI says so rather than implying a campaign earned nothing. |
+
+🛑 **Grading note:** **Q-KR2 and the per-slice half of P-KR3 should be read as NOT YET MEASURABLE on
+live data**, independently of whether Cards 4 and 5 landed. The totals are measurable; the
+attribution is not.
+
+### D-1's defect class recurs in `0085` (routed here, not opened as a new fork)
+
+Card 6's G6 proved on `:5434` that `0085`'s FKs are `NO ACTION` **both** ways: deleting a
+`qr_codes` row a subscriber first-touched is **blocked**, and deleting a subscriber is blocked by
+`subscriber_events`. The DDL is **§4 verbatim**, so this is inherited from the signed spec rather
+than invented — but it is D-1's shape in a new table, and on a **PII** table it means a
+right-to-erasure request cannot be served by a plain `DELETE`. Decide it with D-1.
+
+---
+
 ## Not decisions — recorded so triage does not mistake them for forks
 
 - **Four LOW/INFO G6 findings on Card 1**, all engineer-level and none parked: the public landing
