@@ -12,6 +12,7 @@ Track E (full-stack). Base already carries Card H1's merge (`40b5846`), so
 | `backend/go.mod` / `backend/go.sum` | `+ github.com/go-sql-driver/mysql v1.9.3` and its one indirect, `filippo.io/edwards25519 v1.2.0`. The Fluent Forms reader speaks to a WordPress MySQL. **Card 3 is editing these files concurrently — union merge, keep BOTH requires.** |
 | `marketing.html` | **Section `#s3` ONLY**, plus one `<script type="module" src="marketing/subscribers.js">` line beside the two existing module entry points. See "What must survive" below — this is the field the merge turns on tonight. |
 | `tests/marketing.spec.js` | **ONE narrow edit, and only what this card invalidates.** That file's "labeled placeholders" test asserted `#s3 .badge` reads "Soon"; building `#s3` makes that false BY CONSTRUCTION. The three `#s3` lines now assert the designed **Locked** state its `team_member` user correctly sees (the section still names itself "Subscribers", so the UI-R "blank render = defect" rule the block exists to enforce still holds). 🛑 **`#s4` is deliberately left alone** — the Stats queue is still a placeholder until Card 5 lands. **Card 2 (`campaigns-tab-ui`) made the same narrow edit to the `#s2` lines of the SAME test tonight and deliberately left `#s3`/`#s4` intact.** At merge the two edits are one test function: **take BOTH sides** — Card 2's `#s2` block and this card's `#s3` block — and leave `#s4`'s "Soon" assertions untouched. If Card 7 touches the same lines, resolve the same way. |
+| `backend/internal/marketing/zzz_subscribers_migration_down_test.go` | **NEW FILE — and deliberately NOT an edit to Card H1's `zz_migration_down_test.go`.** That file ends its leg with the HARD-CODED `db.MigrateTo(pool, 83)`, which under `-p 1` leaves every later package looking at a schema with 0084's and 0085's tables dropped. **Card H3a already changed that one line to `db.Migrate(pool)` — take H3a's side; this card does not touch the file.** This card's own leg is named `zzz_` so it sorts AFTER H1's, restores with `db.Migrate(pool)` (never a literal), and DERIVES the version under test from the migration filename, so it also repairs whatever version the previous leg left behind and survives a renumber of 0085. |
 | `night-crew.toml` | **A ROLL-CALL COMMENT ONLY.** No new key, no new token (both would PARK). The `marketing` prefix key already covers `marketing.html` + `marketing/`, and the `marketing` TOKEN already selects any spec whose filename contains it, so `tests/marketing-subscribers.spec.js` and `tests/states-marketing-subscribers.spec.js` join the seam automatically. The comment records that they did. |
 | `sw.js` | Regenerated after the commit (reads git HEAD, B-13). Precache **48 → 49**, the one new module `marketing/subscribers.js`. No `build-sw.js` edit: the existing `marketing/*.js` glob already matches it. |
 | `.night-crew/runs/2026-10-02-autonomous/merge-intents/h5-subscribers-tab.md` | This note. |
@@ -155,6 +156,13 @@ appeared (the `waitForFunction` red), and every `/subscribers*` route 404'd.
 ## Which State-Enumeration rows ride a FIXTURE and which hit the REAL endpoint
 
 `tests/states-marketing-subscribers.spec.js`. **Three fixture rows, six real.**
+
+🛑 Its screenshots are written to
+`.night-crew/runs/2026-10-02-autonomous/logs/h5/states/` and are **committed**,
+NOT to `test-results/`. Playwright wipes `outputDir` at the start of every run,
+so PNGs written there are deleted by the next leg — including this card's own
+full suite. Card H2 lost its evidence to exactly that. Every screenshot path
+this card's report cites still resolves at triage.
 
 | Row | Trigger | Fixture or real |
 |---|---|---|

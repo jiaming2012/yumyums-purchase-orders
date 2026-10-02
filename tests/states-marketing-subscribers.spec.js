@@ -39,7 +39,16 @@ const path = require('path');
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 const USER_PASSWORD = 'test456';
-const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-marketing-subscribers');
+// 🛑 NOT under test-results/. Playwright WIPES outputDir at the start of every
+// run, so screenshots written there are deleted by the next leg — including
+// this card's own full suite. The state PNGs are the evidence the
+// self-verification ritual exists to produce; evidence that evaporates on the
+// next run is not evidence, and a reviewer at triage would have to regenerate
+// it to see anything. They go in the run's own log tree instead, and are
+// COMMITTED with the gate logs, so every path this card's report cites still
+// resolves. (Card H2 lost its PNGs to exactly this.)
+const SHOT_DIR = path.join(__dirname, '..', '.night-crew', 'runs', '2026-10-02-autonomous',
+  'logs', 'h5', 'states');
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 // 393×852 — the phone the crew actually holds.
