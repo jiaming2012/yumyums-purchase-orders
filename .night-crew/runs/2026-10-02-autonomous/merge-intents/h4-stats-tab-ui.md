@@ -206,3 +206,88 @@ No new decline reason, no new queue bucket (both enums carry a 🛑 comment
 naming them lifecycle rows), no change to what the orphan rate counts, no
 re-litigation of decision 192, no new grant slug, no new preference category
 and no new toml key or token.
+
+---
+
+# Addendum — what implementation changed about the plan above
+
+Written after the card went green, so the merge reads facts rather than
+intentions. Nothing above is retracted; this adds what was learned.
+
+## 1. One more file outside the footprint: `tests/states-cost.spec.js`
+
+Declared, narrow, and found by the footprint map doing its job. Line 631 of that
+file hard-coded the BI hub's row list:
+
+```js
+await expect(page.locator('.hub-row .hub-t')).toHaveText(['Trends', 'Food cost']);
+```
+
+A third row makes that false by construction, exactly as `tests/marketing.spec.js`
+asserted `#s4` was a `Soon` placeholder. **Only the array literal changed** —
+`['Trends', 'Food cost', 'Campaigns']` — and the test's point (a superadmin with
+zero explicit grants sees the WHOLE hub and still gets 200 from both reports) is
+unchanged and still asserted.
+
+🛑 It was caught because `night-crew.toml`'s `"bi.html"` key already runs
+`states-cost`. That is the footprint map working as designed, and it is the
+argument for the one value edit this card made to that file.
+
+## 2. Two SPEC corrections, made after the red and before the green
+
+Both because a spec asserted something **the server does not do**. Neither
+weakens the red: in both cases the element under assertion did not exist at all
+on the pre-change tree.
+
+- **`signups_basis` is not `unavailable` on this base.** Card H5's migration
+  0085 landed at `65ef5dc`, so `subscribers` and `subscriber_events` exist and
+  `statsLoad` reports `"subscribers"` / `"subscriber_events"`. The real-endpoint
+  rows therefore assert **stated zeros**, and the em-dash rule (an unavailable
+  basis is a dash, never 0) moved to a named FIXTURE row, `BI unavailable basis`,
+  which carries a 🛑 comment saying it can only ever be a fixture.
+- **`reconRow` suggests for the `unmatched` bucket ONLY**
+  (`internal/marketing/reconciliation.go`: `if bucket == "unmatched" {
+  row.Suggestion = reconNearestOrder(a, orders) }`). An `orphan` always comes
+  back `suggestion: null`. The fixtures were reshaped so the suggestion-carrying
+  rows are `unmatched`, and an orphan row proves the sheet says
+  *"No till order is near this scan. Type the number off the ticket."* instead of
+  showing an empty chip row.
+
+**🛑 FOR THE ORCHESTRATOR — an observation, not a fix.** The bucket where
+nearest-order chips would help a manager MOST is `orphan` (no order number at
+all), and that is precisely the bucket card H3b's handler does not suggest for.
+This card renders what the server sends and computes no suggestion of its own
+(a second arithmetic over the ±30-minute window is how two readings start to
+disagree). Changing it is a handler change on an already-merged card and was not
+done here.
+
+## 3. Numbers observed, against the numbers the brief predicted
+
+| | predicted | observed |
+|---|---|---|
+| Go tests | 676 PASS / 0 FAIL / 3 SKIP | **699 PASS / 0 FAIL / 3 SKIP** |
+| precache | 50 → 51 | **51** (reachability: 38 files, 66 refs, 0 outside) |
+
+The Go delta is the BASE's, not this card's: this card writes no Go and
+`git diff` touches nothing under `backend/`. Card H3b's `internal/marketing`
+suite (62 pass / 1 skip) landed at `65ef5dc` after the 676 figure was taken.
+**0 FAIL and 3 SKIP match the quoted baseline exactly**, which is the part that
+would have signalled a problem.
+
+## 4. The full suite ran against a HAND-PROVISIONED stack — stated
+
+Playwright's own `webServer` spawn wedged on this box four times tonight: the
+health poll sat in `SYN-SENT` to `127.0.0.1:8591` with **no webServer child
+process alive**, for ten minutes, well past its own 60s timeout, while three
+worktrees ran Playwright concurrently. Not the loopback (a `python3 -m
+http.server` on 8591 answered 200 first try) and not the database
+(`reset-e2e-db.js` exits 0 by hand).
+
+So the full suite was run through **`NIGHTCREW_ENV_URL`** — a first-class
+documented mode of this very config (`playwright.config.js:35-40`) — after doing
+by hand, in order and with the identical environment, everything the `webServer`
+command does: `node scripts/reset-e2e-db.js` (B-76's fix, so this is **not** an
+accumulating-dataset figure), `node scripts/write-version-json.js` (B-92's fix),
+then the same `go run ./cmd/server/`. Same port, same database, same binary,
+same blanked credentials. The only difference is which process called it, and
+the gate log says so at the top.
