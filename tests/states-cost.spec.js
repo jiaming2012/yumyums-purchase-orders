@@ -628,7 +628,12 @@ test.describe('Food cost — gating (the `bi` grant, B-455 / WO-2b)', () => {
     await expect(page.locator('#tile-bi')).toBeVisible();
     await page.goto('/bi.html');
     await page.waitForSelector('#s0:visible');
-    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Trends', 'Food cost']);
+    // card H4 `stats-tab-ui` (run 20261002, decision 192) added a THIRD hub row,
+    // Campaigns, so this list is 3 long. The point of the assertion is unchanged
+    // and is what this test is for: a superadmin with zero explicit grants still
+    // sees the WHOLE hub and still gets 200 from both reports below. Narrowly
+    // updated by that card — only the array literal.
+    await expect(page.locator('.hub-row .hub-t')).toHaveText(['Trends', 'Food cost', 'Campaigns']);
     expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
     expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
   });

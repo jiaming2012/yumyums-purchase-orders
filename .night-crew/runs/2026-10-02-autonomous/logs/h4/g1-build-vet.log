@@ -1,0 +1,9 @@
+=== G1 — card h4-stats-tab-ui, run 20261002 (from backend/) ===
+2026-10-02T01:25:00-04:00
+--- go build ./... ---
+build rc=0
+--- go vet ./... ---
+vet rc=0
+NOTE: this card writes NO Go. G1 is run to prove the branch still builds
+and vets clean, not because anything under backend/ changed.
+EXIT=0

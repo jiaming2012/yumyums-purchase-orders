@@ -1,0 +1,778 @@
+=== RED-FIRST (authoritative): card h4-stats-tab-ui, run 20261002 ===
+tree: 65ef5dcac9ef4ec047116eecb6216fdaeea31e47 + the four spec files ONLY.
+marketing/stats.js exists on disk but is referenced by NO page, so nothing loads it:
+marketing.html:0
+bi.html:0
+bi.html hub rows: 2 ; marketing.html #s4 'Soon' badges: 1
+2026-10-02T01:08:44-04:00
+[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_h4_20261002 on localhost:5434 ──
+
+[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.078618169-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.079378143-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.104642805-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.18887705-04:00","level":"INFO","msg":"OK   0001_users.sql (46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.250828981-04:00","level":"INFO","msg":"OK   0002_sessions.sql (61.35ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.300903036-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (49.96ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.342541942-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (41.51ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.395502262-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (52.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.427471867-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (31.75ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.460407104-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (32.78ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.5042276-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (43.68ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.538252457-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (33.89ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.573708538-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (35.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.632052254-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (58.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.687106259-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (54.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.723402042-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (36.15ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.758741904-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (35.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.821346278-04:00","level":"INFO","msg":"OK   0015_ops.sql (62.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.838970826-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (17.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.859846037-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (20.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:10:59.923790358-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (63.74ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.013563877-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (89.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.071886332-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (58.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.117284631-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (45.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.168081862-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (50.65ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.261475147-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (93.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.503004067-04:00","level":"INFO","msg":"OK   0024_inventory.sql (241.35ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.5690987-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (65.88ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.582192739-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (12.96ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.592496187-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (10.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.635958928-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (43.27ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.651170877-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (15.08ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.714671684-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (63.33ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.745937635-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (31.17ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.762279068-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (16.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.791129969-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (28.75ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.862577946-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (71.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.875608203-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.96ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.888160805-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.918881538-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (30.59ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.935993269-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (16.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:00.958436061-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (22.33ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.081363968-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (122.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.102166607-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (20.59ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.176620442-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (74.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.22651153-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (49.75ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.275298791-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (48.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.330462576-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (54.94ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.338366714-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.382940643-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (44.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.389345787-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (6.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.422744265-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (33.27ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.433247238-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (10.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.439335922-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (5.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.452510406-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (13.05ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.467819971-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (15.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.481904378-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (13.97ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.498337806-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (16.33ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.527911883-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (29.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.548111551-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (20.11ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.571969213-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (23.74ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.583010045-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (10.91ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.658004192-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (74.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.696583884-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (38.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.742280141-04:00","level":"INFO","msg":"OK   0062_recipes.sql (45.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.782900365-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (40.49ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.802856555-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (19.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.820064471-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (17.12ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.832944471-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.880715809-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (47.63ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.902840813-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (21.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.915347827-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.92950767-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (14.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.952204673-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (22.57ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:01.980964193-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (28.59ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.009566709-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (28.25ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.022874584-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (13.1ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.085949355-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (62.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.120285458-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (34.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.170238898-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (49.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.186247619-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (15.89ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.211546217-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (25.12ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.227504545-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (15.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.251072324-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (23.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.271773973-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (20.44ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.41652412-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (144.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.579251868-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (162.4ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.719991888-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (140.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.720037272-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 85","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.720054444-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.803966607-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.84590337-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"b93b7a1e-cbf3-4965-b7af-0d5939b8844d"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.845984325-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.878759798-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"9b8ba4fc-384f-4b60-a0a1-eee15f75dfe4"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.903061997-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:02.995594012-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.180635045-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.849417229-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.849505748-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.849587929-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.849710997-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.849789294-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850296999-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850491107-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.85055397-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850576764-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850594754-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850612539-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.850705249-04:00","level":"INFO","msg":"alerts queue started"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.874517834-04:00","level":"INFO","msg":"server listening","port":"8591"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.884914298-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8591"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.884971028-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8591"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.884981863-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8591"}
+[2m[WebServer] [22m{"time":"2026-10-02T01:11:03.884995355-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 36 tests using 1 worker
+
+[1A[2K[1/36] [chromium] › tests/marketing-stats.spec.js:254:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:07.772126998-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"cc999c60-165f-47cf-9e47-da7f5bf3802e"}
+
+[1A[2K[2/36] (retries) [chromium] › tests/marketing-stats.spec.js:254:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:15.382505096-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"da78c848-a037-4e95-8ce0-b677ea792484"}
+
+[1A[2K  1) [chromium] › tests/marketing-stats.spec.js:254:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:257:5
+
+    Error Context: test-results/marketing-stats-Marketing--a4034-an-rate-against-the-10-line-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:257:5
+
+    Error Context: test-results/marketing-stats-Marketing--a4034-an-rate-against-the-10-line-chromium-retry1/error-context.md
+
+
+[1A[2K[3/36] [chromium] › tests/marketing-stats.spec.js:308:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:23.240200184-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"ad7c81d0-6a1a-4038-aaeb-e7835b13cae1"}
+
+[1A[2K[4/36] (retries) [chromium] › tests/marketing-stats.spec.js:308:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:31.357182232-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"5a37db07-4a56-495d-8d9b-60b1c4f193dd"}
+
+[1A[2K  2) [chromium] › tests/marketing-stats.spec.js:308:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:311:5
+
+    Error Context: test-results/marketing-stats-Marketing--f040e--unattributed-money-visible-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:311:5
+
+    Error Context: test-results/marketing-stats-Marketing--f040e--unattributed-money-visible-chromium-retry1/error-context.md
+
+
+[1A[2K[5/36] [chromium] › tests/marketing-stats.spec.js:354:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:39.734639874-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"148d80fc-43dd-41b3-ac5b-c58e5ef3a7a2"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:40.599171399-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[6/36] (retries) [chromium] › tests/marketing-stats.spec.js:354:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:58.275151159-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"33dc6b49-e981-4307-8cba-0923b751cfe5"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:11:59.13452123-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  3) [chromium] › tests/marketing-stats.spec.js:354:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:357:5
+
+    Error Context: test-results/marketing-stats-Marketing--9856c-te-for-Other-and-posts-both-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:357:5
+
+    Error Context: test-results/marketing-stats-Marketing--9856c-te-for-Other-and-posts-both-chromium-retry1/error-context.md
+
+
+[1A[2K[7/36] [chromium] › tests/marketing-stats.spec.js:412:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:12:16.562978358-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"bc98e9f8-38ea-427e-a926-87b6b2b7c105"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:12:17.239767782-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[8/36] (retries) [chromium] › tests/marketing-stats.spec.js:412:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:12:36.044761237-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"7bbc87fb-1c73-4418-9a98-f6d60f7d15ad"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:12:37.006759175-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  4) [chromium] › tests/marketing-stats.spec.js:412:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:425:5
+
+    Error Context: test-results/marketing-stats-Marketing--c2f4f-s-the-row-back-in-the-queue-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:425:5
+
+    Error Context: test-results/marketing-stats-Marketing--c2f4f-s-the-row-back-in-the-queue-chromium-retry1/error-context.md
+
+
+[1A[2K[9/36] [chromium] › tests/marketing-stats.spec.js:448:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue
+[1A[2K[10/36] (retries) [chromium] › tests/marketing-stats.spec.js:448:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue (retry #1)
+[1A[2K  5) [chromium] › tests/marketing-stats.spec.js:448:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:452:5
+
+    Error Context: test-results/marketing-stats-Marketing--8cfc6--AND-on-the-Marketing-queue-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#s3')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s3')[22m
+
+
+      230 | async function openBiCampaigns(page) {
+      231 |   await page.goto('/bi.html#tab=3');
+    > 232 |   await expect(page.locator('#s3')).toBeVisible();
+          |                                     ^
+      233 |   await page.waitForFunction(() => {
+      234 |     const r = document.getElementById('bi-campaigns-root');
+      235 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+        at openBiCampaigns (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:232:37)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:452:5
+
+    Error Context: test-results/marketing-stats-Marketing--8cfc6--AND-on-the-Marketing-queue-chromium-retry1/error-context.md
+
+
+[1A[2K[11/36] [chromium] › tests/marketing-stats.spec.js:470:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:09.487298938-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"4d9e4cf6-211e-478c-bc89-9d41bcf502e7"}
+
+[1A[2K[12/36] (retries) [chromium] › tests/marketing-stats.spec.js:470:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:13.13952156-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"64f20f12-bed4-4cca-8d04-514b636179de"}
+
+[1A[2K  6) [chromium] › tests/marketing-stats.spec.js:470:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue 
+
+    Error: page.evaluate: SyntaxError: Unexpected non-whitespace character after JSON at position 4 (line 1 column 5)
+
+      103 | // ── grant plumbing (the shape tests/marketing.spec.js uses) ─────────────────
+      104 | async function getSlugPerms(page, slug) {
+    > 105 |   return page.evaluate(async (s) => {
+          |               ^
+      106 |     const apps = await (await fetch('/api/v1/apps')).json();
+      107 |     const list = Array.isArray(apps) ? apps : (apps.apps || []);
+      108 |     const app = list.find(a => a.slug === s);
+        at getSlugPerms (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:105:15)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:476:22
+
+    Error Context: test-results/marketing-stats-Marketing--4a44e-tate-on-the-Marketing-queue-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: page.evaluate: SyntaxError: Unexpected non-whitespace character after JSON at position 4 (line 1 column 5)
+
+      103 | // ── grant plumbing (the shape tests/marketing.spec.js uses) ─────────────────
+      104 | async function getSlugPerms(page, slug) {
+    > 105 |   return page.evaluate(async (s) => {
+          |               ^
+      106 |     const apps = await (await fetch('/api/v1/apps')).json();
+      107 |     const list = Array.isArray(apps) ? apps : (apps.apps || []);
+      108 |     const app = list.find(a => a.slug === s);
+        at getSlugPerms (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:105:15)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:476:22
+
+    Error Context: test-results/marketing-stats-Marketing--4a44e-tate-on-the-Marketing-queue-chromium-retry1/error-context.md
+
+
+[1A[2K[13/36] [chromium] › tests/marketing-stats.spec.js:522:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:16.402641383-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"7bf486f4-7465-4c74-86ba-44948860f8e8"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:17.578172404-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"query assigned templates for hire 7210664d-6063-4b61-b2f3-c28e2b921744: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:17.579354654-04:00","level":"ERROR","msg":"DriftBanner","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:17.96243964-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Stats T. (stats-member-1790917997159-2587@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[14/36] (retries) [chromium] › tests/marketing-stats.spec.js:522:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:35.015521563-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"18a3ad8d-f7c6-4632-90d2-7a491f87745a"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:36.56335434-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Stats T. (stats-member-1790918015745-4572@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  7) [chromium] › tests/marketing-stats.spec.js:522:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:527:5
+
+    Error Context: test-results/marketing-stats-Marketing--7c835-ed-state-from-managers-only-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:527:5
+
+    Error Context: test-results/marketing-stats-Marketing--7c835-ed-state-from-managers-only-chromium-retry1/error-context.md
+
+
+[1A[2K[15/36] [chromium] › tests/marketing-stats.spec.js:533:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:54.364159742-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f455daa8-ce12-445a-a141-2263a25b18e5"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:13:55.44936536-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[16/36] (retries) [chromium] › tests/marketing-stats.spec.js:533:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:12.929730818-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"24eb1b73-a591-439d-a507-69e30aed8c42"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:13.726679049-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  8) [chromium] › tests/marketing-stats.spec.js:533:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:536:5
+
+    Error Context: test-results/marketing-stats-Marketing--d8df7-and-matching-clears-the-row-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:536:5
+
+    Error Context: test-results/marketing-stats-Marketing--d8df7-and-matching-clears-the-row-chromium-retry1/error-context.md
+
+
+[1A[2K[17/36] [chromium] › tests/marketing-stats.spec.js:567:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:30.922194487-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"8b689f20-f85c-4e72-85bc-93d573dfb280"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:31.625916157-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[18/36] (retries) [chromium] › tests/marketing-stats.spec.js:567:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:48.018315909-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"42a42731-55d3-4fb0-bfc6-d101eda734fe"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:14:48.5836024-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  9) [chromium] › tests/marketing-stats.spec.js:567:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:570:5
+
+    Error Context: test-results/marketing-stats-Marketing--b6a59-heet-and-the-row-stays-open-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      240 |   await page.click('#t4');
+      241 |   await expect(page.locator('#s4')).toBeVisible();
+    > 242 |   await page.waitForFunction(() => {
+          |              ^
+      243 |     const r = document.getElementById('ms-stats-root');
+      244 |     return r && r.dataset.state && r.dataset.state !== 'loading';
+      245 |   }, null, { timeout: 15000 });
+        at openQueue (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:242:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/marketing-stats.spec.js:570:5
+
+    Error Context: test-results/marketing-stats-Marketing--b6a59-heet-and-the-row-stays-open-chromium-retry1/error-context.md
+
+
+[1A[2K[19/36] [chromium] › tests/marketing-stats.spec.js:582:3 › Marketing stats — card H4 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:15:05.636288192-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"c9b8feec-edca-4711-b6d7-ddc7d3b8ae3c"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:15:06.46599633-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[20/36] (retries) [chromium] › tests/marketing-stats.spec.js:582:3 › Marketing stats — card H4 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:15:23.348808589-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f691eb24-4a45-45a6-8037-d4dc3f49f4ea"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-02T01:15:24.189048477-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              [1A[2K[68/36] (retries) [chromium] › tests/states-marketing-stats.spec.js:451:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does (retry #1)
+[1A[2K  32) [chromium] › tests/states-marketing-stats.spec.js:451:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+    [2m  - navigating to "http://localhost:8591/login.html", waiting until "load"[22m
+
+
+      53 | }
+      54 | async function login(page, email, password) {
+    > 55 |   await page.goto('/login.html');
+         |              ^
+      56 |   await page.fill('input[type="email"]', email);
+      57 |   await page.fill('input[type="password"]', password);
+      58 |   await page.click('button.btn');
+        at login (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/states-marketing-stats.spec.js:55:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/states-marketing-stats.spec.js:452:11
+
+    Error Context: test-results/states-marketing-stats-Sta-d6816--states-what-declining-does-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+    [2m  - navigating to "http://localhost:8591/login.html", waiting until "load"[22m
+
+
+      53 | }
+      54 | async function login(page, email, password) {
+    > 55 |   await page.goto('/login.html');
+         |              ^
+      56 |   await page.fill('input[type="email"]', email);
+      57 |   await page.fill('input[type="password"]', password);
+      58 |   await page.click('button.btn');
+        at login (/home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/states-marketing-stats.spec.js:55:14)
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/states-marketing-stats.spec.js:452:11
+
+    Error Context: test-results/states-marketing-stats-Sta-d6816--states-what-declining-does-chromium-retry1/error-context.md
+
+
+[1A[2K  32 failed
+    [chromium] › tests/marketing-stats.spec.js:265:3 › Marketing stats — card H4 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line 
+    [chromium] › tests/marketing-stats.spec.js:319:3 › Marketing stats — card H4 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible 
+    [chromium] › tests/marketing-stats.spec.js:365:3 › Marketing stats — card H4 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both 
+    [chromium] › tests/marketing-stats.spec.js:423:3 › Marketing stats — card H4 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue 
+    [chromium] › tests/marketing-stats.spec.js:459:3 › Marketing stats — card H4 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue 
+    [chromium] › tests/marketing-stats.spec.js:481:3 › Marketing stats — card H4 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue 
+    [chromium] › tests/marketing-stats.spec.js:533:3 › Marketing stats — card H4 › a team_member with the marketing grant gets the Locked state from managers_only 
+    [chromium] › tests/marketing-stats.spec.js:544:3 › Marketing stats — card H4 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row 
+    [chromium] › tests/marketing-stats.spec.js:578:3 › Marketing stats — card H4 › an order number Toast does not have is reported on the sheet and the row stays open 
+    [chromium] › tests/marketing-stats.spec.js:593:3 › Marketing stats — card H4 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate 
+    [chromium] › tests/states-bi-hub.spec.js:149:3 › BI hub — B-455 WO-2b state table › Loading: both badges are skeletons and subtitles read Loading… 
+    [chromium] › tests/states-bi-hub.spec.js:165:3 › BI hub — B-455 WO-2b state table › Empty: no badge on either row, descriptive subtitles, rows still open 
+    [chromium] › tests/states-bi-hub.spec.js:184:3 › BI hub — B-455 WO-2b state table › Populated: latest-week spend and average food cost as muted readings; subtitles are plain text 
+    [chromium] › tests/states-bi-hub.spec.js:208:3 › BI hub — B-455 WO-2b state table › Error: both calls fail → "Status unavailable", no badge, and the row still opens to the error card 
+    [chromium] › tests/states-bi-hub.spec.js:225:3 › BI hub — B-455 WO-2b state table › Edge: one call fails — that row says so, the other keeps its reading 
+    [chromium] › tests/states-bi-hub.spec.js:258:3 › BI hub — B-455 WO-2b state table › Edge: 393px — every row is a ≥44px target and the badge never overlaps the title 
+    [chromium] › tests/states-bi-hub.spec.js:323:3 › BI hub — B-455 WO-2b state table › Edge: the Campaigns row opens #tab=3 with the BI · Campaigns back link, and back returns to the hub 
+    [chromium] › tests/states-marketing-stats.spec.js:267:3 › States · BI Campaigns report › BI success (REAL): funnel, money, the split line, the unknown-rows note, the health card and both slice rows 
+    [chromium] › tests/states-marketing-stats.spec.js:280:3 › States · BI Campaigns report › BI empty (REAL): "No redemptions yet", and NO money figures at all 
+    [chromium] › tests/states-marketing-stats.spec.js:292:3 › States · BI Campaigns report › BI loading (FIXTURE): skeletons, and no figure on screen before one is known 
+    [chromium] › tests/states-marketing-stats.spec.js:303:3 › States · BI Campaigns report › BI error (FIXTURE): one honest failure card with a Retry, and NOT a figure beside it 
+    [chromium] › tests/states-marketing-stats.spec.js:319:3 › States · BI Campaigns report › BI no-bi-grant (FIXTURE): a 403 names the missing grant instead of an empty report 
+    [chromium] › tests/states-marketing-stats.spec.js:329:3 › States · BI Campaigns report › BI offline (FIXTURE): the failure says it is the network and stays retryable 
+    [chromium] › tests/states-marketing-stats.spec.js:340:3 › States · BI Campaigns report › BI long content (FIXTURE): 40 slices with 90-char labels — no clipped word, no sideways scroll 
+    [chromium] › tests/states-marketing-stats.spec.js:355:3 › States · Marketing reconciliation queue › MS success (REAL): the header count, the health card, and all three buckets in ladder order 
+    [chromium] › tests/states-marketing-stats.spec.js:371:3 › States · Marketing reconciliation queue › MS empty (REAL): "No redemptions yet" and no health figures 
+    [chromium] › tests/states-marketing-stats.spec.js:382:3 › States · Marketing reconciliation queue › MS locked (REAL): a team_member gets Managers only, and the section still names itself 
+    [chromium] › tests/states-marketing-stats.spec.js:397:3 › States · Marketing reconciliation queue › MS loading (FIXTURE): skeletons, and no count claimed before one is known 
+    [chromium] › tests/states-marketing-stats.spec.js:409:3 › States · Marketing reconciliation queue › MS error (FIXTURE): one failure card with a Retry, no "No redemptions yet", no zeros 
+    [chromium] › tests/states-marketing-stats.spec.js:423:3 › States · Marketing reconciliation queue › MS offline (FIXTURE): the failure says it is the network and stays retryable 
+    [chromium] › tests/states-marketing-stats.spec.js:434:3 › States · Marketing reconciliation queue › MS long content (FIXTURE): 30 rows with 90-char names — the row keeps both buttons reachable 
+    [chromium] › tests/states-marketing-stats.spec.js:451:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does 
+  4 passed (12.6m)
+
+EXIT=1
+# ── how this marker got here, and why it is 1 ────────────────────────────────
+# The wrapper's own `echo "EXIT=$?"` never ran: the run COMPLETED and printed its
+# summary above (`32 failed / 4 passed (12.6m)`), then playwright hung in
+# webServer teardown — the `go run ./cmd/server/` child on :8591 did not exit on
+# the shutdown signal and playwright waited on it. The tree was killed by hand
+# and :8591 freed. EXIT=1 is recorded because a non-zero failed count is exit 1;
+# it is written INSIDE the file rather than left blank, because a gate log with no
+# EXIT marker is unreadable evidence (B-445).
+#
+# ── THE RED, by test. 32 of 36 red; the 4 green are the four rows that do NOT
+#    touch the new hub row, i.e. this card's regression canaries:
+#       states-bi-hub.spec.js:237  Edge: deep link #tab=2 opens Food cost
+#       states-bi-hub.spec.js:276  Edge: retry refreshes its hub row
+#       states-bi-hub.spec.js:299  Edge: contrast, muted badge >=4.5:1 in dark
+#       states-bi-hub.spec.js:343  Edge: Trends and Food cost are unchanged
+#    Every other row is red for the ONE reason the card exists: #s3 / #s4 and
+#    marketing/stats.js are not wired up, so #bi-campaigns-root and
+#    #ms-stats-root do not exist, #hub-b3 / #hub-s3 / #t3 do not exist, and
+#    marketing.html #s4 is still the labelled "Soon" placeholder.
+#
+#    done_when rows, all red here:
+#      [MS-01] marketing-stats.spec.js:254  BI overview funnel/money/orphan+10%
+#      [MS-02] marketing-stats.spec.js:308  by-item discount + Per $1
+#      [MS-03] marketing-stats.spec.js:354  decline sheet requires a reason
+#      [MS-04] marketing-stats.spec.js:412  declined bucket note + Reopen
+#      [MS-05] marketing-stats.spec.js:448  "No redemptions yet" on BOTH pages
+#      [MS-06] marketing-stats.spec.js:470  bi-without-marketing -> BI row + Locked

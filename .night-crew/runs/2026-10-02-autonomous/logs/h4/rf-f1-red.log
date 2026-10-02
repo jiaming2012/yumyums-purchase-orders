@@ -1,0 +1,43 @@
+=== F1 RED-FIRST — card h4-stats-tab-ui, fix round (run 20261002) ===
+Defect: marketing/stats.js renders a CONFIDENT NEGATIVE over data that was
+never computed — 'No till order is near this scan' on an ORPHAN row, whose
+suggestion is null because reconciliation.go:455 only searches when
+bucket == "unmatched". Test changed FIRST; module NOT yet touched.
+module still says: 1 occurrence(s) of the old copy
+cmd: npx playwright test tests/states-marketing-stats.spec.js -g "MS sheets"
+2026-10-02T02:48:56-04:00
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] › tests/states-marketing-stats.spec.js:477:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:477:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#msq-sheet-order .msq-sug-why')
+    Expected substring: [32m"No [7mnearest-order hint is available for this bu[27mcket"[39m
+    Received string:    [31m"No [7mtill order is near this scan. Type the number off the ti[27mcket[7m.[27m"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for locator('#msq-sheet-order .msq-sug-why')[22m
+    [2m    9 × locator resolved to <div class="msq-sug-why">No till order is near this scan. Type the number …</div>[22m
+    [2m      - unexpected value "No till order is near this scan. Type the number off the ticket."[22m
+
+
+      510 |     await expect(page.locator('#msq-sheet-order .msq-sug')).toHaveCount(0);
+      511 |     const orphanWhy = page.locator('#msq-sheet-order .msq-sug-why');
+    > 512 |     await expect(orphanWhy).toContainText('No nearest-order hint is available for this bucket');
+          |                             ^
+      513 |     // 🛑 and it must NOT say a search happened and found nothing.
+      514 |     await expect(orphanWhy).not.toContainText('near this scan');
+      515 |     await expect(orphanWhy).not.toContainText('found');
+        at /home/jcole/projects/hq-worktrees/h4-stats-tab-ui/tests/states-marketing-stats.spec.js:512:29
+
+    Error Context: test-results/states-marketing-stats-Sta-d6816--states-what-declining-does-chromium/error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] › tests/states-marketing-stats.spec.js:477:3 › States · Marketing reconciliation queue › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does 
+EXIT=1

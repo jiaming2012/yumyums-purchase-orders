@@ -78,7 +78,17 @@ subset = 'npx playwright test "{tags}"'
 # Its state tables are the former Inventory tab specs; the launcher tile and
 # inventory.html's #tab=5 / #tab=6 redirect are asserted there too, so a change
 # to bi.html, to the redirect, or to the tile runs all of it.
-"bi.html"                     = ["states-bi-hub", "states-trends", "states-cost", "inventory", "index"]
+#
+# 🛑 `marketing` JOINED THIS VALUE ON CARD h4-stats-tab-ui (run 20261002,
+# decision 192). bi.html now MOUNTS A MARKETING-OWNED MODULE — the Campaigns
+# report (#s3) is rendered by marketing/stats.js, the same file that renders
+# marketing.html #s4 — so a bi.html edit can red a marketing spec, and the
+# coverage of this page is no longer wholly inside the three states-* specs.
+# This is an EXISTING token added to an existing key, not a new key and not a
+# new token; it widens the subset, which is the direction that cannot let a
+# regression escape. A narrower value here was exactly the hole the header of
+# this section warns about.
+"bi.html"                     = ["states-bi-hub", "states-trends", "states-cost", "inventory", "index", "marketing"]
 "tests/states-bi-hub.spec.js" = ["states-bi-hub"]
 "tests/states-trends.spec.js" = ["states-trends"]
 "tests/states-cost.spec.js"   = ["states-cost"]
@@ -216,15 +226,20 @@ subset = 'npx playwright test "{tags}"'
 #   marketing selects: marketing.spec.js,
 #                      marketing-campaigns.spec.js,  states-marketing-campaigns.spec.js   (card h2-campaigns-tab-ui, roadmap H2)
 #                      marketing-subscribers.spec.js, states-marketing-subscribers.spec.js (card h5-subscribers-tab,  roadmap H5)
-# 1 -> 3 on H2, 3 -> 5 on H5. Card h4 `stats-tab-ui` extends this roll call again
-# if it lands; at each merge take the UNION of the cards' lines, as this comment
-# itself instructs.
+#                      marketing-stats.spec.js,      states-marketing-stats.spec.js        (card h4-stats-tab-ui,    roadmap H4)
+# 1 -> 3 on H2, 3 -> 5 on H5, 5 -> 7 on H4. At each merge take the UNION of the
+# cards' lines, as this comment itself instructs. H4 was the last to add specs,
+# so this roll call is now COMPLETE for run 20261002 at SEVEN.
 # Card h6 `scanner-polish` (roadmap H6) added NO spec file: its [SP-01]..[SP-03]
-# tests live in tests/marketing.spec.js, already selected. Count stays 5, and
-# the card needed no new key and no new token — recorded here so the next
-# re-count knows h6 was accounted for rather than forgotten. (Its substrate
-# mechanisms are gated by marketing/sync/harness/f2-run.sh and
-# campaigns-run.sh on their own exit codes, per the note below.)
+# tests live in tests/marketing.spec.js, already selected. It needed no new key
+# and no new token — recorded here so the next re-count knows h6 was accounted
+# for rather than forgotten. (Its substrate mechanisms are gated by
+# marketing/sync/harness/f2-run.sh and campaigns-run.sh on their own exit codes,
+# per the note below.)
+#   🛑 h6's own line read "Count stays 5", which was true when h6 landed and
+#   went STALE the moment h4's two specs landed after it. Corrected to 7 at the
+#   h4 merge rather than left to mislead the next re-count — the same staleness
+#   class as the gate-ladder's precache number (43 against a tree holding 48).
 # Every one of those specs joined this seam's selection with NO new key and NO
 # new token — that is the growth the note below calls intended, and it is
 # recorded here rather than left implicit. A new key or a new token would be an
