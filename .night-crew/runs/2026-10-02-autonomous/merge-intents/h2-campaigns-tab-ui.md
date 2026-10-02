@@ -1,0 +1,329 @@
+# Merge intent — Card H2 · `campaigns-tab-ui`
+
+Run `20261002` · branch `card/h2-campaigns-tab-ui` off `overnight-20261002` at `94ad3b3`
+Wave 1, track B. Builds against the REAL endpoints card H1 merged at `40b5846`.
+
+## Shared files touched
+
+| File | Why |
+|---|---|
+| `marketing.html` | **Section `#s2` ONLY** (see below). Its `<style>` and its `<script src="marketing/campaigns.js" defer>` live INSIDE the `#s2` wrapper, exactly so a card owning another section of this file cannot conflict with them. |
+| `sw.js` | Committed artifact, regenerated after the implementation commit (B-13 — `build-sw.js` reads git HEAD). Precache **48 → 49**: the one new module `marketing/campaigns.js`. No `globPatterns` change was needed — `marketing/*.js` already matches it, and `backend/Dockerfile` already copies `marketing/`. |
+| `night-crew.toml` | **Roll-call comment only** in the MARKETING seam block, naming the two new specs the existing `marketing` token now selects. **No new key, no new token** (a new key/token is a PARK, operator-only). `tests/repo-hygiene.spec.js`'s machine-readable roll-call guard covers the OPERATIONS tokens, not this block, and neither new spec name contains an Operations token — its `expect(actual.length).toBe(11)` is unmoved. |
+| `tests/marketing.spec.js` | **Outside the slated footprint — declared.** Its test "marketing.html shows Scan live and the other three sub-sections as labeled placeholders" asserts `#s2` renders a `.badge` reading "Soon"; this card's whole purpose makes that false by construction, and it went red in the full suite for exactly that reason. The edit is **as narrow as it can be**: the title, a comment, and the six lines of the `#s2` paragraph — `#s2 .badge` count 0, `#mc-root` count 1, `#mc-locked` contains "Managers only" (the team_member in that test gets the real Locked state). **The Scan-live assertions and the `#s3` / `#s4` placeholder assertions are untouched**, because Cards 5 and 6 still own those sections and that test is what will red when each of them lands. The slate assigns this file to Card 7 — if Card 7 touches the same lines, resolve against this intent: keep Card 7's content and keep `#s2`'s assertion pointing at `#mc-root` / `#mc-locked` rather than a "Soon" badge. |
+| `.night-crew/knowledge/roadmap.md` | H2's card line flips PLANNED → LANDED. Every card edits this file; expect a conflict and take both sides. |
+| `.night-crew/runs/2026-10-02-autonomous/merge-intents/h2-campaigns-tab-ui.md` | This note. |
+| `.night-crew/runs/2026-10-02-autonomous/logs/h2/*` | This card's gate logs. Nothing else under the run directory is written. |
+
+New files, owned outright by this card, no merge risk: `marketing/campaigns.js`,
+`tests/marketing-campaigns.spec.js`, `tests/states-marketing-campaigns.spec.js`.
+
+**Nothing else.** No backend file, no migration, no `main.go`, no `go.mod`, no
+`build-sw.js`, no `backend/Dockerfile`, no other page.
+
+## What must survive any merge
+
+- 🛑 **This card owns `marketing.html` section `#s2` and ONLY `#s2`.** Card 5
+  (`stats-tab-ui`, H4) owns `#s4` and Card 6 (`subscribers-tab`, H5) owns `#s3` of the
+  same file tonight, and **they must not lose theirs**. At merge: take every side's own
+  section. The shared head, the `<style>` block in `<head>`, the `.tabs` bar, the inline
+  `show()`, the auth probe, `#s1` (Scan) and the trailing `<script>` tags are **untouched
+  by this card** — a diff of this branch that shows a change to any of them is a merge
+  artifact, not this card's intent.
+- **`#mc-root`'s contract**, which both new specs and the states screenshots read:
+  `data-view` ∈ `list|create|ready|detail|code` and `data-status` ∈
+  `idle|loading|ok|empty|error|offline|locked` on `#mc-root`; the five view shells
+  `#mc-view-{list,create,ready,detail,code}`; `#mc-banner`; and the ids
+  `#mc-new`, `#mc-refresh`, `#mc-period`, `#mc-list`, `#mc-empty`, `#mc-locked`,
+  `#mc-chips`, `#mc-preview`, `#mc-submit`, `#mc-ready-head`, `#mc-ready-list`,
+  `#mc-money`, `#mc-codes`, `#mc-qr`, `#mc-payload`, `#mc-share`, `#mc-save`,
+  `#mc-copy`, `#mc-print`, `#mc-repoint`, `#mc-pause-code`, `#mc-pause-campaign`.
+- **Every class this card introduces is `mc-`-prefixed and every selector it reads is
+  under `#mc-root`.** That is what makes `#s2`'s `<style>` safe to live inside a `<div>`
+  next to two other cards' sections.
+- **ONE delegated `click` + ONE delegated `input` listener on `#mc-root`**, routed by
+  `data-action` / `data-field` (the repo convention). No inline `onclick` anywhere in
+  `#s2`.
+- **The `money` block is RENDERED, never computed.** H1 ships the zero shape with every
+  key present; `per_dollar` and `avg_order_cents_*` are `null`-not-absent on purpose and
+  render as `—`. When card H3b lands the arithmetic the strip must not need a change.
+- **`48 → 49`** as the precache count, and `sw.js` committed in the same change set as
+  the `marketing.html` edit.
+
+## What is safe to drop
+
+- The **copy** on any Locked / offline / empty / error line, and the crew-language map in
+  `createErrorText()`. If a later card re-words these, the later card wins — the specs
+  assert the strings that are contracts (`managers_only`, `Managers only`,
+  `Last synced`, `N codes ready`, `Per $1 —`), not the prose around them.
+- `syncSubmitLabel()` — the one deliberate exception to state-first rendering (it only
+  toggles `#mc-submit`'s `disabled` so a keystroke does not re-render the create sheet
+  and move the caret). A later refactor that renders without losing the caret should
+  delete it.
+- The `#tab=2` deep link. It exists because the states spec wants a one-hop entry and
+  because `#tab=N` is the repo's idiom; it calls the page's own `show()` and changes
+  nothing. If `marketing.html` later adopts `tab.js` properly, drop these three lines.
+- The keyboard (`Enter`/`Space`) parity listener on `role="button"` rows.
+
+## Red-first
+
+The red is **structural and observed**, not asserted in prose: `#s2` is still the "Soon"
+placeholder on the base tree and `marketing/campaigns.js` does not exist, so every
+done_when row times out waiting for `#mc-root`. Captured BEFORE any implementation file
+was committed, at
+`.night-crew/runs/2026-10-02-autonomous/logs/h2/RF-red-first.log`.
+
+Observed, at `HEAD=94ad3b30fc64b6df6b16dd9907774f00b45d3ac5`, with
+`TEST_PORT=8521 TEST_DB_NAME=hq_test_e2e_h2_20261002 DB_PORT=5434`:
+
+```
+$ grep -c mc-root marketing.html ; ls marketing/campaigns.js
+0
+ls: cannot access 'marketing/campaigns.js': No such file or directory
+
+$ npx bddgen && npx playwright test tests/marketing-campaigns.spec.js --retries=0
+  6 failed
+    [chromium] › tests/marketing-campaigns.spec.js › [MC-01] … [MC-05]
+    Error: expect(locator).toBeVisible() failed
+    Locator: locator('#mc-root')
+    Expected: visible
+    Received: <element(s) not found>
+      - waiting for locator('#mc-root')
+TEST_EXIT=1
+```
+
+The server log in that same run is the other half of the honesty: the REAL
+`POST /api/v1/marketing/campaigns` answered `201` throughout (`marketing: campaign
+projection failed; projected_at left NULL … projection not configured`), so the red is
+the missing UI and nothing else. Green-after: all six pass — `logs/h2/G2-playwright-subset.log`.
+
+## State Enumeration rows — which ride a FIXTURE and which hit the REAL endpoint
+
+Binding for G6. `tests/states-marketing-campaigns.spec.js`, 8 rows:
+
+| Row | Forced by | REAL endpoint? |
+|---|---|---|
+| **empty** | `page.route` → `{"campaigns":[]}` | **FIXTURE.** The e2e database is shared across the suite and reset once at `webServer` start; `tests/marketing-campaigns.spec.js` sorts before this file and creates campaigns, so "no campaigns exist" is not a condition this spec can produce on demand. Stated rather than faked green. |
+| **loading** | `page.route` with a 1.5 s delay in front of the real body | **FIXTURE.** A real endpoint cannot be made slow on demand. |
+| **error** | `page.route` → `500 {"error":"boom"}` | **FIXTURE.** Same reason. |
+| **success** | real `POST /campaigns` then the real `GET /campaigns` | **REAL.** |
+| **locked (403 managers_only)** | a real invited `team_member`, logged in | **REAL.** The spec reads the envelope from that session and asserts `403` / `error == "managers_only"` before it asserts the pixel. |
+| **offline (last synced + disabled create)** | real success, then `context.setOffline(true)` and a real refresh | **REAL data, real browser offline.** No route mocked — the fetch is refused the way a truck with no bars refuses it. |
+| **not projected (pill)** | a real create | **REAL.** `HQ_SYNC_REST_URL` is unset on the test stack, so H1's handler genuinely returns `projected_at: null` + `warnings:["not_projected"]` (the run log above shows the server saying so). This row needed no fixture at all. |
+| **long content** | a real create with a 94-char `offer_text` | **REAL.** |
+
+So **5 of 8 rows hit the real endpoint**; 3 (empty, loading, error) ride `page.route`
+fixtures because the condition is not producible on demand. The functional spec
+`tests/marketing-campaigns.spec.js` mocks **no** marketing route at all.
+
+## The `navigator.share` stub — the one permitted stub, named
+
+`[MC-03a]` installs `navigator.share` and `navigator.canShare` via
+`page.addInitScript` + `Object.defineProperty`, because **headless Chromium exposes
+neither** (spike `web-share-files-enumerated`, chromium row: `share: undefined,
+canShare: undefined`) and installing them is the only way to OBSERVE the call. The stub
+records what it was handed; the test asserts `files.length === 1`,
+`files[0].type === "image/png"`, `files[0].size > 0` and that the filename carries the
+code's own 6-char short — i.e. that the real PNG bytes from
+`GET /codes/{id}.png` reached `navigator.share`.
+
+**The canShare-absent fallback is asserted UN-STUBBED beside it**, in `[MC-03b]` of the
+same spec: nothing is installed, the test first asserts
+`typeof navigator.canShare === "undefined"` (so it cannot pass by accident on a browser
+that grew the API), then asserts `#mc-share` has **count 0** and that `#mc-save`
+("Save PNG"), `#mc-copy` ("Copy link") and `#mc-print` ("Print") are rendered, with the
+payload URL readable on the sheet. That is the branch every desktop browser and this
+CI actually take. `GAP-H2-1` (webkit, the iOS proxy, unmeasured on this machine) is
+untouched by this card: a different matrix changes the copy, not the structure.
+
+No other stub, mock or fake exists in either spec.
+
+## Decisions this card made that the slate left to it
+
+- **Share detection is per-payload and at sheet-open time**, not at boot:
+  `typeof navigator.share === 'function' && typeof navigator.canShare === 'function' &&
+  navigator.canShare({files:[<real 4-byte image/png File>]}) === true`. `canShare`'s
+  contract is about the payload, and a browser can expose `share()` while refusing
+  files. Probing at open time is also what lets a test install the API before the
+  sheet renders.
+- **When the probe says no, there is no Share button at all** — `Save PNG` becomes the
+  primary action and the sheet says "This browser cannot share a file." A button that
+  cannot work is worse than its absence, and it makes `[MC-03b]`'s assertion
+  unambiguous.
+- **Offline is told from a 500 by the ABSENCE of an HTTP status**, not by
+  `navigator.onLine` (which lies on captive portals). `fetch` rejecting with no
+  `err.status` is offline; any status is the error row. The last-synced list is cached
+  in `localStorage` **per period** (`hq.mc.list.v1:<period>`), because a 7-day list
+  standing in for a 90-day one would be a quiet lie.
+- **Create is disabled offline**, with a title saying why. A campaign mints codes
+  server-side in one transaction; there is nothing honest to queue.
+- **PNG size:** the sheet renders `?size=512` (one phone screen) and Share / Save fetch
+  `?size=1024` (the print-usable default). Both are on H1's ladder `{256,512,1024,2048}`
+  — an off-ladder size is a `400 bad_size`, not a silent snap, so the ladder is read as
+  a contract.
+- **"Re-point" is `PATCH /codes/{id}` with `landing` + `placement`** — §5's
+  "re-point without reprint". The sheet says so in those words.
+- **The Item field and the `inventory` grant.** The dish catalog lives behind
+  `GET /api/v1/inventory/menu-items` (`toast.ListMenuItemsHandler`, `inventory` grant),
+  and the design shows Item on the create sheet. A manager with `marketing` but not
+  `inventory` is refused there, so the field stays VISIBLE and disabled with the line
+  "Picking a dish needs Inventory access — this offer will count against any item."
+  Not a silently missing control (UI-R3), and not an invented endpoint. `?since=2000-01-01`
+  is passed because the handler defaults to the last 7 days and a dish that has not sold
+  this week is still a dish you can run an offer on. **Noted as a deviation**, below.
+- **Activation is OBSERVED, not hooked.** A `MutationObserver` on `#s2`'s `style`
+  attribute boots the module the first time the section becomes visible and re-reads the
+  list on every return. The inline `show()` is NOT wrapped, patched or edited — this
+  card does not own it.
+
+## Gate evidence (all logs under `.night-crew/runs/2026-10-02-autonomous/logs/h2/`)
+
+| Gate | Command | Result | Log |
+|---|---|---|---|
+| G1 | `go build ./...` + `go vet ./...` from `backend/` | `BUILD_EXIT=0`, `VET_EXIT=0` | `G1-build-vet.log` |
+| G2 (Go) | `go test -p 1 -count=1 -v ./...`, `DB_TEST_URL=…:5434/hq_test_go_h2`, `HQ_RLS_TEST_DB=hq_rls_h2_20261002` | `GO_TEST_EXIT=0`. **651 RUN / 0 FAIL / 3 SKIP**, 14/14 packages `ok` — identical to the base's figure, as expected for a card that adds no Go test. Counts, not `ok`: `internal/workflow` 39 top-level, `internal/sync` 53, `internal/inventory` 53, `internal/marketing` 26, so `DB_TEST_URL` was honored rather than silently skipped. `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both **UNSET** (the log's own env-check line). The 3 skips are the base's three. | `G2-go.log` |
+| G2 (Playwright) | full suite under `flock /tmp/hq-full-suite.lock`, `npx bddgen` first, `--retries=0`, `TEST_PORT=8521`, `TEST_DB_NAME=hq_test_e2e_h2_20261002`, `DB_PORT=5434` | `PW_EXIT=1`. **Exactly ONE summary block: 28 failed / 6 skipped / 977 passed (34.9m).** Red-set diff vs tonight's 24-red baseline below. | `G2-playwright.log` |
+| G2 (confined) | the 5 non-baseline reds, re-run confined | see below | `G2-playwright-new-reds-confined.log` |
+| G4 | `node build-sw.js` twice, after the implementation commit | both `EXIT=0`, identical output, **48 → 49 files precached** (2930.9 → 2987.2 KB); reachability 35 → 36 files parsed, 62 → 63 references, 0 outside the precache; `marketing/campaigns.js` present in the manifest | `G4-sw.log` |
+| RF | the structural red above | `TEST_EXIT=1`, 6 failed on `locator('#mc-root')` | `RF-red-first.log` |
+
+### Red-set diff against run 20261002's 24-red baseline
+
+**23 of 28 are exact baseline matches.** One baseline red went GREEN here
+(`inventory.spec.js:2931`, store_location/B-453 — more evidence this family flakes both
+ways). Five were not in the 24:
+
+| Test | Confined re-run at this HEAD | Verdict |
+|---|---|---|
+| `tests/marketing.spec.js:141` | whole file **47 passed, `MARKETING_EXIT=0`** after the narrow update | **THIS CARD'S, and not flake.** The assertion encoded the pre-H2 world. Fixed, declared above. |
+| `tests/inventory.spec.js:2406` duplicate group toast | **green** (`INVENTORY_EXIT` run: 2 passed of the 3 selected) | flake pool; not this card's |
+| `tests/inventory.spec.js:2919` create item without group | **green** (same run) | flake pool; not this card's |
+| `tests/recipes.spec.js:216` slider PUT | **green, `RECIPES_EXIT=0`** | the characterized load-flake; not this card's |
+| `tests/inventory.spec.js:2186` Setup alias chips | **REPRODUCED confined**, then run ALONE twice: **pass A red (`ALIAS_A_EXIT=1`), pass B green (`ALIAS_B_EXIT=0`)** | **not this card's, but a finding.** It flakes BOTH WAYS in isolation at a quiet box, so "load" is not a sufficient explanation. The failure is always the same shape — `expect(form.locator('.alias-chip')).toHaveCount(2)` → `Received: 1`, i.e. the alias that was just added has not rendered — which reads as a race between `POST /items/aliases` and the chip re-render, not as suite interference. Recorded for triage; this card touches no inventory surface and no alias code. |
+
+## The surface that makes D-1 reachable
+
+`DECISIONS-NEEDED.md` **D-1** — migration 0083's `menu_items` FKs carry no `ON DELETE`,
+so a campaign referencing a dish makes the Inventory › Recipes **dish merge** fail with
+an opaque 500. **This card is the surface that makes it reachable**: picking an Item on
+the create sheet is now a routine two-tap action, where before D-1 required a hand-rolled
+API call. Not fixed and not designed around here (it is parked at top severity, the
+operator's) — Item selection is built exactly as the design shows. Flagging the
+connection so triage sees it: the fix lands wherever D-1 is resolved, and this card's
+`#mc-f-item` is the thing that will start producing the referencing rows.
+
+## Deviations from the design of record
+
+1. **The *Current Campaigns 1–8* canvases themselves were not reachable from this
+   environment** (the Claude Design project is a hosted URL; this worktree has no
+   network path to it). Built from the binding in-repo decomposition of those pages — the
+   slate's Card 2 scope paragraph, roadmap H2, and handoff §2/§5/§6 — which enumerate the
+   five screens and every control by name. Anything the canvases show that those three
+   do not name is therefore unbuilt rather than deliberately omitted.
+2. **The Item field degrades to "Any item" + "needs Inventory access"** for a manager
+   without the `inventory` grant (above). The design shows Item unconditionally; serving
+   it unconditionally would need either a second catalog read inside the marketing
+   package (backend, another card's footprint and another card's merge) or an invented
+   endpoint. Noted, not invented.
+
+Nothing else. No new sheet, no new state, no new lifecycle row, no `night-crew.toml`
+key or token, no app grant, nothing that sends.
+
+---
+
+# Appendix — G6 fix round (appended, nothing above rewritten)
+
+G6 returned APPROVE-WITH-FINDINGS with one reproduced P1 in this card's own code.
+Fixed on this branch before merge, under the repo's bug-fix protocol: regression test
+first, run it, confirm RED, fix, confirm green. Commits `b883eb2` (fixes) and `0786c2b`
+(sw.js). Logs: `logs/h2/RF2-g6-fixes-red-first.log`,
+`logs/h2/G2-playwright-confined-after-g6-fixes.log`, `logs/h2/G4-sw-after-g6-fixes.log`.
+
+## F1 · P1 — the "Other" channel label was unusable
+
+`otherLabel` was routed through the full `render()` path, which rebuilds the create
+sheet with `innerHTML` and destroys the input the thumb is in.
+
+**Red, observed before the fix** (`RF2-g6-fixes-red-first.log`, `TEST_EXIT=1`, 2 failed):
+
+```
+Error: expect(locator).toHaveValue(expected) failed
+Expected: "Sandwich board"
+Received: "S"
+```
+
+Consequence: "Other" is the one channel of nine that needs free text, so it was the one
+channel that did not work — a manager either shipped a campaign whose code row and card
+read **"S"** forever, or typed nothing and was blocked by this module's own
+`channel_label_required` guard.
+
+Why this card's own specs missed it: every one of them used `page.fill()`, a **one-shot
+value set that never re-enters the input**, and the only test using `channel: 'other'`
+set `channel_label` through the API rather than the UI. `[MC-06]` types with
+`pressSequentially` — the only shape that reproduces it — and says so in the test, so a
+future reader meets the hazard where they would otherwise repeat it.
+
+**Fix chosen: restore focus + selection across the render** (`renderKeepingCaret()`),
+not the cheaper "drop `otherLabel` from the re-render list". The cheap fix leaves the
+payload preview naming "Other" while the manager reads the name they just typed — a
+stale projection of state the design puts on screen *precisely so it can be checked
+before the save*. `[MC-06]` also asserts the caret stays in `#mc-f-name`, and that the
+label the manager typed is what comes back on the minted code.
+
+## F2 · a failed WRITE was reported as a failed READ, and wiped the page
+
+`doToggleCampaign()` set `S.detailError` on catch, which `renderDetail()` turns into a
+whole-view replacement reading "Couldn't load this campaign". Tapping **Pause campaign**
+on a 500 took away the Money card and the code rows the manager was reading, and told
+them a load had failed, which it had not. Red before the fix: `#mc-detail-note` —
+`element(s) not found`.
+
+Now `S.detailNote`: loud, above the card, **non-destructive**, with the button still
+armed to retry (UI-R6) — which is what its sibling `doToggleCode()` has always done.
+`S.detailError` still means "the READ failed and there is nothing to show"; the two are
+now distinct states and commented as such. `[MC-07]` asserts both halves: the write
+error is named *and* the Money card, both code rows and the campaign name are still on
+screen.
+
+## F3 · the state PNGs are now durable evidence
+
+`SHOT_DIR` was `test-results/states-marketing-campaigns` — inside Playwright's
+`outputDir`, which Playwright **wipes at the start of every run**, so this card's own
+full-suite leg deleted the screenshots its report cited. It now defaults to
+`test-screenshots/` (outside `outputDir`, added to `.gitignore`) and honours
+`STATES_SHOT_DIR`. **All 18 PNGs are committed under
+`logs/h2/states-screenshots/`** as this card's durable Definition-of-Done evidence.
+`.gitignore` is a shared file — one block added, declared here.
+
+## Verification after the fix round
+
+| Leg | Result |
+|---|---|
+| `tests/marketing-campaigns.spec.js -g "MC-06\|MC-07"`, unfixed tree | **2 failed, `TEST_EXIT=1`** — the two reds above |
+| same two, after the fix | **2 passed, `GREEN_EXIT=0`** |
+| `tests/marketing-campaigns.spec.js` (all 8) confined | **8 passed, `MC_EXIT=0`** |
+| `tests/states-marketing-campaigns.spec.js` (all 10) confined | **10 passed, `STATES_EXIT=0`**, 18 PNGs written outside `outputDir` and still present afterwards |
+| `node build-sw.js` ×2 at the post-fix HEAD | both `EXIT=0`, **still 49 precached** (2987.2 → 2990.0 KB, the edited files' own bytes), byte-identical runs |
+
+The full suite was **not** re-run: the lock is with Card 3, and its red-set diff is
+already measured and recorded above.
+
+## Shared files — delta to the table at the top
+
+- `.gitignore` — one block, adding `test-screenshots/` with the reason (F3). Trivially
+  mergeable; if it conflicts, keep both sides.
+- `marketing.html` still has **exactly two hunks, both inside the `#s2` wrapper**: the
+  section itself, and one 3-line addition to `#s2`'s own `<style>` for `.mc-note-bad`.
+  Nothing outside `#s2` is touched, and `#s3` / `#s4` remain cards H5's and H4's.
+
+## Not acted on — routed elsewhere by the orchestrator
+
+- H1's `money.revenue_cents` / `discount_cents` / `net_cents` being non-pointer ints, so
+  the zero shape renders a confident `$0.00` where the honest answer is "not computed
+  yet" — Card 4's to weigh. This module already renders `null` as `—` wherever the
+  contract offers it (`per_dollar`, both `avg_order_cents_*`), so it needs no change
+  when those three become pointers.
+- `inventory.spec.js:2186` — proven by G6 to be a pre-existing race in Inventory code
+  (three unsequenced writers to `ALL_ITEMS`, last-write-wins, no request versioning)
+  that this diff cannot reach. My own measurement (red alone pass A, green alone pass B)
+  stands as recorded above; the diagnosis is G6's.

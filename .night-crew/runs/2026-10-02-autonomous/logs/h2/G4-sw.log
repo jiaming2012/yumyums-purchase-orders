@@ -1,0 +1,24 @@
+=== G4: node build-sw.js, run 1 (after the implementation commit — build-sw.js reads git HEAD, B-13) ===
+HEAD=6699e5c3ee173f26cf20ebcb21a36f802054a6fe
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2987.2 KB)
+Frontend version: 1.10.2
+RUN1_EXIT=0
+
+git status after run 1:
+ M sw.js
+?? .night-crew/runs/2026-10-02-autonomous/logs/h2/G4-sw.log
+
+=== run 2 — idempotence ===
+import reachability: 36 precached files parsed, 63 local references resolved, 0 outside the precache
+SW built: 49 files precached (2987.2 KB)
+Frontend version: 1.10.2
+RUN2_EXIT=0
+
+git status after run 2:
+ M sw.js
+?? .night-crew/runs/2026-10-02-autonomous/logs/h2/G4-sw.log
+
+=== is marketing/campaigns.js in the manifest? ===
+1
+EXIT=0

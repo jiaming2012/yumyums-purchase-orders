@@ -147,13 +147,136 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </div>
   </div>
 
-  <!-- ═══ SECTION 2: CAMPAIGNS — labeled placeholder ═══ -->
+  <!-- ═══ SECTION 2: CAMPAIGNS — card h2-campaigns-tab-ui (run 20261002) ═══
+       Design of record: *Current Campaigns 1–8*. Contract: the handoff
+       docs/handoffs/HANDOFF-marketing-campaigns-subscribers-stats.md §5,
+       served by backend/internal/marketing (card H1).
+
+       🛑 THIS CARD OWNS #s2 AND ONLY #s2. The style block and the module tag
+       below live INSIDE this wrapper on purpose: #s3 (Subscribers, card H5)
+       and #s4 (the reconciliation queue, card H4) are two other cards' and
+       must not lose theirs at merge. Every class here is `mc-`-prefixed and
+       every selector campaigns.js reads is under #mc-root, so three sections
+       can carry three style blocks in one file without reaching each other.
+
+       #mc-root is the ONE delegation container (one click + one input
+       listener, routed by data-action / data-field) and the ONE state
+       projection: data-view ∈ list|create|ready|detail|code, data-status ∈
+       idle|loading|ok|empty|error|offline|locked. The specs read both. ═══ -->
   <div id="s2" style="display:none">
-    <div class="card soon-card">
-      <div class="badge">Soon</div>
-      <div class="hd"><h1>Campaigns</h1><div class="sub">Create offers and generate codes</div></div>
-      <div class="bd">Campaign creation and code generation will live here. Manager-only.</div>
+    <style>
+#mc-root{display:flex;flex-direction:column;gap:8px}
+#mc-root .card{margin-bottom:0}
+.mc-chrome{display:flex;gap:8px;align-items:stretch}
+.mc-seg{flex:1;display:flex;gap:2px;background:var(--card);border-radius:10px;padding:3px}
+.mc-seg button{flex:1;border:none;background:transparent;color:var(--txt);font-size:13px;font-weight:500;border-radius:7px;min-height:38px;padding:4px 2px}
+.mc-seg button.on{background:var(--info-bg);color:var(--info-tx)}
+.mc-btn{min-height:44px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;padding:10px 12px;width:100%;display:flex;align-items:center;justify-content:center;gap:4px}
+.mc-btn[disabled]{opacity:.45;cursor:default}
+.mc-btn-go{background:var(--info-bg);color:var(--info-tx)}
+.mc-btn-quiet{background:var(--card);color:var(--txt);border:1px solid var(--brd)}
+.mc-icon{width:48px;flex:none;font-size:19px;padding:0}
+.mc-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--info-tx);font-size:16px;font-weight:500;min-height:44px;padding:4px 8px 4px 0;cursor:pointer;align-self:flex-start}
+.mc-back::before{content:'\2039';font-size:20px;line-height:1}
+.mc-banner{border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45}
+.mc-banner-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.mc-banner-bad{background:var(--bad-bg);color:var(--bad-tx)}
+.mc-banner-t{font-size:15px;font-weight:700}
+.mc-banner-s{opacity:.9}
+.mc-banner .mc-btn{background:rgba(255,255,255,.7);color:var(--txt);border:none}
+@media(prefers-color-scheme:dark){.mc-banner .mc-btn{background:rgba(0,0,0,.3);color:#f0f0f0}}
+.mc-cards{display:flex;flex-direction:column;gap:8px}
+.mc-card{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.mc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-height:30px;cursor:pointer}
+.mc-name{font-size:16px;font-weight:700;line-height:1.25;flex:1;min-width:0;overflow-wrap:anywhere}
+.mc-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.mc-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+.mc-pill-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.mc-pill-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.mc-pill-info{background:var(--info-bg);color:var(--info-tx)}
+.mc-pill-mut{background:var(--brd);color:var(--mut)}
+.mc-pill-np{background:var(--warn-bg);color:var(--warn-tx)}
+/* .mc-pill is nowrap because a status chip must never break; the BLOCK variant
+   is a sentence, so it has to undo that or it clips at the card edge — which is
+   exactly what the first states screenshot of the "N codes ready" screen
+   showed. */
+.mc-pill-block{display:block;text-transform:none;letter-spacing:0;font-size:12px;font-weight:600;padding:8px 10px;line-height:1.4;text-align:left;margin:4px 0 0;white-space:normal;overflow-wrap:anywhere}
+.mc-offer{font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.mc-offer-tap{cursor:pointer}
+.mc-more{font-size:12px;font-weight:600;color:var(--info-tx);margin-left:6px;white-space:nowrap}
+.mc-meta{font-size:12px;color:var(--mut);line-height:1.5}
+.mc-funnel{display:flex;align-items:center;gap:2px;background:var(--bg);border-radius:10px;padding:10px 6px}
+.mc-leg{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.mc-leg .mc-n{font-size:19px;font-weight:700;line-height:1}
+.mc-leg .mc-l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.mc-arrow{color:var(--mut);font-size:15px;flex:none}
+.mc-money{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.mc-cell{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mc-cell .mc-l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.mc-cell .mc-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.mc-per{margin-left:auto;font-size:12px;font-weight:700;padding:5px 9px;border-radius:8px;background:var(--info-bg);color:var(--info-tx);white-space:nowrap}
+.mc-basis{font-size:11px;color:var(--mut)}
+.mc-skel{height:118px;border-radius:12px;background:var(--card);position:relative;overflow:hidden}
+.mc-skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--brd),transparent);animation:mc-sh 1.1s infinite}
+@keyframes mc-sh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.mc-empty-h{font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.mc-form{display:flex;flex-direction:column;gap:12px}
+.mc-field{display:flex;flex-direction:column;gap:5px}
+.mc-field>label{font-size:12px;font-weight:700;letter-spacing:.2px}
+.mc-field input,.mc-field select{min-height:44px;border:1px solid var(--brd);border-radius:10px;padding:8px 12px;font-size:16px;background:var(--card);color:var(--txt);width:100%;font-family:inherit}
+.mc-field select[disabled],.mc-field input[disabled]{opacity:.6}
+.mc-two{display:flex;gap:10px}
+.mc-two>.mc-field{flex:1;min-width:0}
+.mc-money-in{display:flex;align-items:center;gap:6px}
+.mc-money-in span{font-size:15px;color:var(--mut);flex:none}
+.mc-hint{font-size:11px;color:var(--mut);line-height:1.45}
+.mc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mc-chip{min-height:38px;border:1px solid var(--brd);border-radius:19px;background:var(--card);color:var(--txt);font-size:13px;font-weight:500;padding:6px 13px;cursor:pointer}
+.mc-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:transparent;font-weight:700}
+.mc-preview{background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.mc-preview-row{display:flex;align-items:baseline;gap:8px;font-size:12px}
+.mc-preview-row.mut{color:var(--mut)}
+.mc-preview-ch{font-weight:700;flex:none}
+.mc-preview-row code{font-size:11px;color:var(--mut);word-break:break-all}
+.mc-err{background:var(--bad-bg);color:var(--bad-tx);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.45}
+.mc-ready{text-align:center}
+.mc-ready .bd{display:flex;flex-direction:column;gap:10px;color:var(--txt)}
+.mc-ready-tick{width:52px;height:52px;margin:4px auto 0;border-radius:50%;background:var(--ok-bg);color:var(--ok-tx);font-size:28px;line-height:52px;font-weight:700}
+.mc-ready-h{font-size:22px;font-weight:700}
+.mc-ready-s{font-size:13px;color:var(--mut);line-height:1.45}
+.mc-ready-list{display:flex;flex-direction:column;gap:6px;text-align:left}
+.mc-ready-row,.mc-code-row{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:10px;padding:11px 12px;min-height:48px;cursor:pointer}
+.mc-ready-ch,.mc-code-ch{font-size:14px;font-weight:600;flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mc-code-pl{font-size:11px;font-weight:400;color:var(--mut)}
+.mc-short{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;letter-spacing:1px}
+.mc-code-sc{font-size:11px;color:var(--mut);white-space:nowrap}
+.mc-go{color:var(--mut);font-size:17px;flex:none}
+.mc-codes{display:flex;flex-direction:column;gap:6px;padding:12px 16px 16px}
+.mc-money-card{display:flex;flex-direction:column;gap:0;color:var(--txt)}
+.mc-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:.5px solid var(--brd)}
+.mc-row:last-child{border-bottom:none}
+.mc-row .mc-l{font-size:13px;color:var(--mut)}
+.mc-row .mc-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mc-row.mc-strong .mc-v{font-size:19px;font-weight:700}
+.mc-code-sheet{display:flex;flex-direction:column;gap:10px}
+.mc-qr{width:100%;max-width:280px;aspect-ratio:1;align-self:center;background:#fff;border-radius:12px;padding:10px;display:block}
+.mc-payload{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--mut);text-align:center;word-break:break-all;line-height:1.5}
+.mc-note{background:var(--info-bg);color:var(--info-tx);border-radius:8px;padding:9px 11px;font-size:13px;text-align:center;line-height:1.45}
+/* A failed WRITE is loud but NOT destructive — it sits above the card it
+   failed on, it never replaces it (G6 F2). */
+.mc-note-bad{background:var(--bad-bg);color:var(--bad-tx);text-align:left;font-weight:600}
+.mc-actions{display:flex;gap:6px}
+.mc-actions .mc-btn{flex:1;font-size:13px;padding:10px 6px}
+    </style>
+    <div id="mc-root" data-view="list" data-status="idle">
+      <div id="mc-banner" hidden></div>
+      <section id="mc-view-list"></section>
+      <section id="mc-view-create" hidden></section>
+      <section id="mc-view-ready" hidden></section>
+      <section id="mc-view-detail" hidden></section>
+      <section id="mc-view-code" hidden></section>
     </div>
+    <script src="marketing/campaigns.js" defer></script>
   </div>
 
   <!-- ═══ SECTION 3: SUBSCRIBERS — labeled placeholder ═══ -->

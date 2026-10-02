@@ -1,0 +1,429 @@
+=== RED-FIRST: tests/marketing-campaigns.spec.js against the PRE-CHANGE tree ===
+HEAD=94ad3b30fc64b6df6b16dd9907774f00b45d3ac5
+git status (the spec is the only new file):
+?? .night-crew/runs/2026-10-02-autonomous/logs/h2/
+?? tests/marketing-campaigns.spec.js
+
+$ grep -c mc-root marketing.html ; ls marketing/campaigns.js
+0
+ls: cannot access 'marketing/campaigns.js': No such file or directory
+
+$ npx bddgen && npx playwright test tests/marketing-campaigns.spec.js --retries=0 --reporter=line
+[1A[2K[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_h2_20261002" does not exist, skipping
+
+[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_h2_20261002 on localhost:5434 ──
+
+[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.468967415-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.469241465-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.487538643-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.5535644-04:00","level":"INFO","msg":"OK   0001_users.sql (38.93ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.602812052-04:00","level":"INFO","msg":"OK   0002_sessions.sql (48.78ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.647844014-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (44.78ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.689021101-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (40.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.741596115-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (52.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.771957819-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (29.51ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.801702332-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (29.63ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.846336325-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (44.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.879222822-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (32.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.913367801-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (31.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:55.954074112-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (40.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.020596938-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (66.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.056515665-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (35.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.08970601-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (33.05ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.138085015-04:00","level":"INFO","msg":"OK   0015_ops.sql (48.26ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.152511255-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.31ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.170568434-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (17.93ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.228664758-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (57.92ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.294180993-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (65.35ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.34247887-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (48.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.383007193-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (40.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.422476535-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (39.36ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.488581071-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (65.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.691320907-04:00","level":"INFO","msg":"OK   0024_inventory.sql (202.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.735456043-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (43.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.74390176-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.751116086-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.13ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.76559038-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (14.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.772148246-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.51ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.796825419-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (24.56ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.805399412-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (8.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.81829026-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (12.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.850843648-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (32.45ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.925491917-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (74.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.938353007-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.74ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.949491619-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (11.02ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.978449957-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (28.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:56.995555319-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (16.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.018825347-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (23.17ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.125013725-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (105.97ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.137471381-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.35ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.197753101-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (60.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.243076638-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (45.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.296515109-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (53.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.353298055-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (56.57ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.367189635-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (13.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.432485645-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (65.13ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.440482474-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.484172446-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (43.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.493746662-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.503739503-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (9.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.522321686-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (18.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.53215392-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (9.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.546639423-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (14.36ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.556810983-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (10.08ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.573694418-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.588464001-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (14.65ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.603945447-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (15.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.614490248-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (10.43ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.724085852-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (109.38ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.797888889-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (73.66ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.854185889-04:00","level":"INFO","msg":"OK   0062_recipes.sql (56.1ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.882692785-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (28.38ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.896051927-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (13.25ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.907346528-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (11.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.918583668-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (11.12ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.971192851-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (52.49ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:57.992312541-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (20.98ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.003603209-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (11.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.020801212-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (17.1ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.041606887-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (20.68ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.05633458-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (14.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.078614505-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (22.02ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.088920355-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.11ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.136092118-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (47.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.164073053-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (27.86ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.20247294-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (38.25ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.212618957-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (10.03ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.237227084-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (24.51ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.248176194-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (10.83ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.265804547-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (17.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.280007219-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (14.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.41169233-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (131.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.41174863-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 83","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.411760816-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.510709183-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.540866242-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"29b4f8c8-a6e9-4cd0-907a-7453af272d86"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.540922843-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.578058569-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"e89e6d71-5cb3-48f8-8446-24c5cd72e68c"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.598973418-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.682537941-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:58.813116006-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305217561-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.30528146-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305338606-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305397364-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305434857-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305739434-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305843446-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305870053-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305880838-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305898878-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.305982934-04:00","level":"INFO","msg":"alerts queue started"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.329293356-04:00","level":"INFO","msg":"server listening","port":"8521"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.339906283-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8521"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.3399469-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8521"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.339962219-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8521"}
+[2m[WebServer] [22m{"time":"2026-10-01T20:31:59.3399854-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 6 tests using 1 worker
+
+[1A[2K[1/6] [chromium] › tests/marketing-campaigns.spec.js:95:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-01] create sheet mints N codes and lands on "N codes ready"
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:02.570637373-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  1) [chromium] › tests/marketing-campaigns.spec.js:95:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-01] create sheet mints N codes and lands on "N codes ready" 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-root')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-root')[22m
+
+
+      83 |   await page.goto('/marketing.html');
+      84 |   await page.click('#t2');
+    > 85 |   await expect(page.locator('#mc-root')).toBeVisible();
+         |                                          ^
+      86 |   await page.waitForFunction(() => {
+      87 |     const r = document.getElementById('mc-root');
+      88 |     return r && r.dataset.status && r.dataset.status !== 'loading' && r.dataset.status !== 'idle';
+        at openCampaigns (/home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:85:42)
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:97:5
+
+    Error Context: test-results/marketing-campaigns-Campai-65a48-and-lands-on-N-codes-ready--chromium/error-context.md
+
+
+[1A[2K[2/6] [chromium] › tests/marketing-campaigns.spec.js:135:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-02] list renders funnel + money strip
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:10.118908971-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"6bbffb0f-2ebc-437a-a2aa-bd19c1c80870"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:10.347003599-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  2) [chromium] › tests/marketing-campaigns.spec.js:135:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-02] list renders funnel + money strip 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-root')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-root')[22m
+
+
+      83 |   await page.goto('/marketing.html');
+      84 |   await page.click('#t2');
+    > 85 |   await expect(page.locator('#mc-root')).toBeVisible();
+         |                                          ^
+      86 |   await page.waitForFunction(() => {
+      87 |     const r = document.getElementById('mc-root');
+      88 |     return r && r.dataset.status && r.dataset.status !== 'loading' && r.dataset.status !== 'idle';
+        at openCampaigns (/home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:85:42)
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:144:5
+
+    Error Context: test-results/marketing-campaigns-Campai-7c2b4--renders-funnel-money-strip-chromium/error-context.md
+
+
+[1A[2K[3/6] [chromium] › tests/marketing-campaigns.spec.js:179:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03a] code sheet Share calls navigator.share with the PNG file (API installed by the test)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:17.079446414-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"84f114a9-e224-4a9a-a698-7210697a251d"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:17.114397883-04:00","level":"ERROR","msg":"GetStock query failed","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:17.236945938-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  3) [chromium] › tests/marketing-campaigns.spec.js:179:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03a] code sheet Share calls navigator.share with the PNG file (API installed by the test) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-root')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-root')[22m
+
+
+      83 |   await page.goto('/marketing.html');
+      84 |   await page.click('#t2');
+    > 85 |   await expect(page.locator('#mc-root')).toBeVisible();
+         |                                          ^
+      86 |   await page.waitForFunction(() => {
+      87 |     const r = document.getElementById('mc-root');
+      88 |     return r && r.dataset.status && r.dataset.status !== 'loading' && r.dataset.status !== 'idle';
+        at openCampaigns (/home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:85:42)
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:209:5
+
+    Error Context: test-results/marketing-campaigns-Campai-4cf2c--API-installed-by-the-test--chromium/error-context.md
+
+
+[1A[2K[4/6] [chromium] › tests/marketing-campaigns.spec.js:235:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03b] with no Web Share API the code sheet renders Save PNG + Copy link (un-stubbed)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:24.002449255-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"95b510a4-40a2-451f-98f6-beaaf1063c38"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:24.158216172-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  4) [chromium] › tests/marketing-campaigns.spec.js:235:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03b] with no Web Share API the code sheet renders Save PNG + Copy link (un-stubbed) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-root')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-root')[22m
+
+
+      83 |   await page.goto('/marketing.html');
+      84 |   await page.click('#t2');
+    > 85 |   await expect(page.locator('#mc-root')).toBeVisible();
+         |                                          ^
+      86 |   await page.waitForFunction(() => {
+      87 |     const r = document.getElementById('mc-root');
+      88 |     return r && r.dataset.status && r.dataset.status !== 'loading' && r.dataset.status !== 'idle';
+        at openCampaigns (/home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:85:42)
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:246:5
+
+    Error Context: test-results/marketing-campaigns-Campai-ef069-e-PNG-Copy-link-un-stubbed--chromium/error-context.md
+
+
+[1A[2K[5/6] [chromium] › tests/marketing-campaigns.spec.js:263:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-04] team_member sees the Locked state
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:31.428112131-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"query my trainings: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:31.803016996-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Camp T. (mc-tm-1790901150998-3665@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  5) [chromium] › tests/marketing-campaigns.spec.js:263:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-04] team_member sees the Locked state 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-locked')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-locked')[22m
+
+
+      275 |     await page.goto('/marketing.html');
+      276 |     await page.click('#t2');
+    > 277 |     await expect(page.locator('#mc-locked')).toBeVisible();
+          |                                              ^
+      278 |     await expect(page.locator('#mc-locked')).toContainText('Managers only');
+      279 |     // Locked means locked: no list, no create affordance.
+      280 |     await expect(page.locator('#mc-new')).toHaveCount(0);
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:277:46
+
+    Error Context: test-results/marketing-campaigns-Campai-b5abc-ember-sees-the-Locked-state-chromium/error-context.md
+
+
+[1A[2K[6/6] [chromium] › tests/marketing-campaigns.spec.js:285:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-05] offline shows the last-synced list + disabled create
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:39.03032912-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"9b9eb157-9eea-4f61-b35d-ae43c81992a2"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-01T20:32:39.236602285-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  6) [chromium] › tests/marketing-campaigns.spec.js:285:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-05] offline shows the last-synced list + disabled create 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#mc-root')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#mc-root')[22m
+
+
+      83 |   await page.goto('/marketing.html');
+      84 |   await page.click('#t2');
+    > 85 |   await expect(page.locator('#mc-root')).toBeVisible();
+         |                                          ^
+      86 |   await page.waitForFunction(() => {
+      87 |     const r = document.getElementById('mc-root');
+      88 |     return r && r.dataset.status && r.dataset.status !== 'loading' && r.dataset.status !== 'idle';
+        at openCampaigns (/home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:85:42)
+        at /home/jcole/projects/hq-worktrees/h2-campaigns-tab-ui/tests/marketing-campaigns.spec.js:294:5
+
+    Error Context: test-results/marketing-campaigns-Campai-9b01c-synced-list-disabled-create-chromium/error-context.md
+
+
+[1A[2K  6 failed
+    [chromium] › tests/marketing-campaigns.spec.js:95:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-01] create sheet mints N codes and lands on "N codes ready" 
+    [chromium] › tests/marketing-campaigns.spec.js:135:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-02] list renders funnel + money strip 
+    [chromium] › tests/marketing-campaigns.spec.js:179:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03a] code sheet Share calls navigator.share with the PNG file (API installed by the test) 
+    [chromium] › tests/marketing-campaigns.spec.js:235:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-03b] with no Web Share API the code sheet renders Save PNG + Copy link (un-stubbed) 
+    [chromium] › tests/marketing-campaigns.spec.js:263:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-04] team_member sees the Locked state 
+    [chromium] › tests/marketing-campaigns.spec.js:285:3 › Campaigns section (#s2) — card h2-campaigns-tab-ui › [MC-05] offline shows the last-synced list + disabled create 
+TEST_EXIT=1
+EXIT=0

@@ -696,7 +696,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   against the local `spike-supabase` substrate from Go, not stubbed
   (`TestProjectionConfiguredUpsertsToSubstrate`).
 
-- **`campaigns-tab-ui`** · **PLANNED** · (H2, track B — UI) The Campaigns section of
+- **`campaigns-tab-ui`** · **LANDED** · (H2, track B — UI) The Campaigns section of
   `marketing.html` per Current Campaigns 1–8: list as funnel cards with the money strip
   (revenue / discount / net / Per $1 pill), the one-sheet create (channels as chips, Value and
   Item visible, payload preview, "Create campaign + N codes"), the "N codes ready" screen,
@@ -708,6 +708,22 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   the PNGs are read back; `sw.js` regenerated + committed, precache count stated. Footprint:
   `marketing.html`, `marketing/campaigns.js` (new), `tests/marketing-campaigns.spec.js` (new),
   `tests/states-marketing-campaigns.spec.js` (new), `sw.js`, `night-crew.toml` (+seam rows).
+  **Landed as slated**, built against H1's REAL endpoints rather than a fixture server (H1 had
+  merged when this started), with four things stated rather than assumed: (1) the State
+  Enumeration rows split **5 real / 3 fixture** — success, locked, offline, not-projected and
+  long-content hit the real endpoints, while empty / loading / error ride `page.route` because a
+  shared e2e database and a real server cannot produce "no campaigns", "slow" or "500" on demand;
+  (2) `not projected` needed **no** fixture at all — `HQ_SYNC_REST_URL` is unset on the test
+  stack, so the handler genuinely returns `projected_at: null` + `warnings:["not_projected"]`;
+  (3) Share is feature-detected per PAYLOAD at sheet-open time with a real `image/png` File, and
+  when the probe says no there is **no Share button** — Save PNG becomes primary — which is the
+  branch `[MC-03b]` asserts un-stubbed beside `[MC-03a]`'s installed-API observation; (4) the
+  create sheet's **Item** field degrades to "Any item · needs Inventory access" for a manager
+  without the `inventory` grant, because the dish catalog read is the Inventory app's — noted as
+  a deviation rather than solved by a backend route in another card's footprint. `night-crew.toml`
+  took a **roll-call comment only** (no new key, no new token): the existing `marketing` token
+  now selects 3 specs, not 1. Precache **48 → 49** (`marketing/campaigns.js`; no `globPatterns`
+  change — `marketing/*.js` already matched it).
 
 - **`toast-orders-and-mirror`** · **PLANNED** · (H3a, track C — backend; the first half of the
   `toast-orders-and-reconciliation` goal, split at the slate sitting 2026-10-01) Supersedes
