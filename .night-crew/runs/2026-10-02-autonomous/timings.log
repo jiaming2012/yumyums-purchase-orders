@@ -14,3 +14,5 @@
 2026-10-01T22:24:08-04:00	implementer-return	Card 3 h3a COMPLETE — 3 commits, 655 PASS/0 FAIL/3 SKIP (+7), precache 48, keyset resume LIVE on substrate, ItemSelection proven untouched, B-424 closed
 2026-10-01T22:30:15-04:00	G6-return	Card 2 G6 APPROVE-WITH-FINDINGS — P1 reproduced (Other-channel field destroyed per keystroke); fix round sent, red-first required
 2026-10-01T22:58:00-04:00	merge	MERGE 2 f245259 — Card 2 h2-campaigns-tab-ui; precache 49 at merged HEAD, G1+G2(Go) green, zero product delta so PW not re-run
+2026-10-01T23:20:26-04:00	implementer-return	Card 6 h5-subscribers-tab COMPLETE — 6 commits, 663 PASS/0 FAIL/3 SKIP (+15), PW 25f/977p one block, 11 state PNGs committed durable, nothing-sends proven 3 ways
+2026-10-01T23:20:26-04:00	g6-dispatch	Card 6 G6 at c506db4 (g6-h5, port 8544)
