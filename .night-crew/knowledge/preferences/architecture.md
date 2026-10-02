@@ -65,3 +65,23 @@
 - **Recorded:** 2026-08-28
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-3 · Prefer one source of truth; a second copy is a cost to justify
+
+- **Preference:** Prefer one source of truth for a given fact. A second copy of the same data is a cost to be justified rather than a default: it buys local reads at the price of two id spaces that must be kept joinable, two sync paths that can diverge, and two places that must honour an erasure request. Before adding a mirror, a projection or a replica, say what it buys that a read from the owning store would not, and what breaks when the two disagree.
+- **Why (operator):** Operator, morning triage 2026-10-02, asking of the campaign-attribution split: "what is wrong with using supabase as a single source of truth" — the question that re-ranked decision 197's options, after the two-source split turned out to be what made attribution unresolvable rather than a missing column.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-4 · Put the check before the step that cannot be undone, not the step that records it
+
+- **Preference:** Put a verification before the step that cannot be undone, not before the step that records it. Identify the actual point of no return — money keyed into a till, a discount honoured, a message sent — and resolve what can be resolved before it, while the situation is still recoverable. Where a pre-commit check is genuinely impossible, refuse or flag explicitly rather than proceeding silently; where it is possible, deferring it converts a refusal into a reversal. Least local evidence should mean most caution, never least.
+- **Why (operator):** Operator, morning triage 2026-10-02, verbatim: "why not just check with the server immediately before the submit happens (one less step)" — asked of a scan flow that verifies before the Submit that logs a redemption rather than before the discount keyed into Toast, so the one case with no local evidence is the one case the crew gets no warning about.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

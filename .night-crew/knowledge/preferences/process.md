@@ -103,3 +103,13 @@
 - **Recorded:** 2026-08-28
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-4 · Explain a decision by the behaviour it changes, not the mechanism
+
+- **Preference:** Explain a decision, a rewrite or a finding by the behaviour it changes: say who sees what differ, and when, before naming any column, constraint, function or migration. Where the question is 'what does this decision do', answer with the sequence at the point of use — what a crew member at the window sees, what a manager's screen shows — and reach for identifiers only once the behaviour is established. A decision whose effect cannot be stated as a behaviour has not been understood well enough to record.
+- **Why (operator):** Operator, morning triage 2026-10-02, verbatim: "instead of explaining as jargon, explain the behavioral effect of the decision rewrite (e.g. when will a qr not scan in offline mode)".
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
