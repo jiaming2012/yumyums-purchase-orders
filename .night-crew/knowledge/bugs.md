@@ -91,10 +91,13 @@ defect in the Inventory page's state management, not a test defect — the test 
 expect 2. **Filed as B-459** with the reproduction recipe and fix direction.
 
 **Reproduced first-hand, not merely reasoned about** (same G6, amended report): three isolated
-passes at one HEAD on an otherwise idle box — `PASS_1_EXIT=0`, then `PASS_2_EXIT=1` with the
-identical shape (`.alias-chip` `toHaveCount(2)` → `Received: 1` at `inventory.spec.js:2214`).
-Green then red, alone, back to back. **That settles it: load contention is not the cause**, and
-"flaky under load" was the wrong label — the one this run first applied, and corrected.
+passes at one HEAD on an otherwise idle box — `PASS_1_EXIT=0`, `PASS_2_EXIT=1`, `PASS_3_EXIT=1`,
+each red with the identical shape (`.alias-chip` `toHaveCount(2)` → `Received: 1` at
+`inventory.spec.js:2214`). **Final tally 1 green / 2 red: alone on an idle box it fails MORE
+OFTEN THAN IT PASSES**, which puts it closer to a hard red than to a flake. **That settles it:
+load contention is not the cause**, and "flaky under load" was the wrong label — the one this run
+first applied, and corrected. (This entry first recorded the tally as "green then red" from the
+first two passes; the third landed red and is folded in here rather than left to imply a 50/50.)
 
 🛑 **The user-facing hazard is worse than the test failure.** A manager who adds a nickname
 while the Setup list is still loading sees the chip **silently vanish**, while the server has
