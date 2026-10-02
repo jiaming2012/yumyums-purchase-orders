@@ -85,3 +85,66 @@ Inventory/Recipes frontend surfaces and found none.
 Merged notwithstanding: the contracted scope is delivered and twice-verified, parking H1 would end
 the night at zero cards (the other six cannot start without 0083 and the package seam), and
 nothing deploys tonight.
+
+### Merge 2 — `card/h2-campaigns-tab-ui` → `overnight-20261002` (`f245259`), 2026-10-01 ~23:00
+
+**Cards involved:** H2 only. H3a, H3b and H5 were in flight in their own worktrees; none had merged.
+
+**Conflicted:** nothing. `git merge --no-ff --no-commit` reported *"Automatic merge went well"*.
+
+**Files and hunks.** 20 files. Product: `marketing.html` (**two hunks, both inside the `#s2`
+wrapper** — the section itself and one `.mc-note-bad` rule in `#s2`'s own `<style>`),
+`marketing/campaigns.js` (new, 1173 lines), `tests/marketing-campaigns.spec.js` (new),
+`tests/states-marketing-campaigns.spec.js` (new), `tests/marketing.spec.js` (narrow edit),
+`sw.js`, `night-crew.toml` (roll-call comment only), `.gitignore` (one block). Plus the
+merge-intent, its fix-round appendix, the gate logs and **18 committed state screenshots**.
+
+**Intents read.** H2's merge-intent plus its appended fix-round section. It declares `#s2` and
+only `#s2`; names `tests/marketing.spec.js` as a declared out-of-footprint edit with the
+instruction *"keep Card 7's content, keep `#s2` asserting `#mc-root`/`#mc-locked`"*; and flags
+that its own `#mc-f-item` is the surface making D-1 reachable. No second intent met it on any
+file, so nothing had to be resolved **against** intent at this merge — the declarations were
+read and checked, not arbitrated.
+
+**Resolution taken.** None required by git. What needed *checking*: the card branched at
+`94ad3b3`, so against the current tip it showed **phantom deletions** in
+`.night-crew/knowledge/bugs.md` (−48), `BACKLOG.md` (−2) and `timings.log` (−7) — pure
+staleness, 0 insertions and 0 commits by the card on any of them. H2's G6 warned explicitly
+that **a squash-from-diff would have silently deleted B-459**, filed after the card branched.
+This was a normal 3-way merge and it did not. Verified by assertion afterwards rather than
+assumed: B-459 present, the one-sample-baseline method note present, the B-459 tally correction
+present, **15** timings entries, the Merge-1 entry intact.
+`roadmap.md` took both sides (H2 → **LANDED**).
+
+**`task sw` at merged HEAD.** `node build-sw.js` ×2 → **49 files precached** (2990.0 KB) both
+runs, byte-identical, reachability *"36 parsed, 63 refs, 0 outside"*, `git status` clean for
+`sw.js` and `version.json`. Count **48 → 49**, exactly the one new module, as the slate
+predicted. Log `logs/merge2-G4-sw.log`.
+
+**Gate result after the merge.** G1 `go build` + `go vet` exit 0; **G2 (Go) `EXIT_TEST=0`**.
+Log `logs/merge2-G1-G2go.log`.
+
+🛑 **G2 (Playwright) was NOT re-run at the merged HEAD**, on the same stated basis as Merge 1:
+`git diff card/h2-campaigns-tab-ui..HEAD` over `backend/`, `tests/`, `*.html`, `marketing/`,
+`*.js`, `*.json` and `night-crew.toml` is **empty** — the merged tree is identical to the card
+HEAD in every product file. The card's suite (28 failed / 6 skipped / 977 passed, one summary
+block) therefore *is* this tree's result. Orchestrator call, stated rather than silent.
+
+**Reds judged.** 23 of 28 are exact baseline matches; one baseline red (`inventory.spec.js:2931`)
+went **green**. Of the 5 non-baseline: `tests/marketing.spec.js:141` was **the card's own and
+expected** — it asserted `#s2` was a labelled placeholder, which this card makes false by
+construction — and the card updated it narrowly, leaving the Scan-live and `#s3`/`#s4`
+assertions byte-identical. The other four were cleared confined. 🛑 **`inventory.spec.js:2186`
+was investigated properly rather than waved through**: H2's G6 reproduced it **1 green / 2 red**
+in isolation at the card HEAD **and 2 red / 1 green on the base**, an identical rate with and
+without the card — so it is conclusively not this card's, and it is now filed as **B-459**, a
+diagnosed `ALL_ITEMS` race in pre-existing Inventory code. That control also produced tonight's
+**method note**: a one-sample baseline cannot classify a high-rate race, and a single confined
+green does not establish "flake" either.
+
+**G6:** APPROVE-WITH-FINDINGS → **fix round → re-verified**. One P1 (the "Other" channel could
+not be named — reproduced, and invisible to both specs because they used `page.fill()`), plus a
+failed-write-reported-as-failed-read that wiped the detail view, plus non-durable screenshot
+evidence. All three fixed red-first on the card branch before this merge; `[MC-06]` and `[MC-07]`
+landed as permanent coverage.
+
