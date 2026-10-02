@@ -148,3 +148,61 @@ failed-write-reported-as-failed-read that wiped the detail view, plus non-durabl
 evidence. All three fixed red-first on the card branch before this merge; `[MC-06]` and `[MC-07]`
 landed as permanent coverage.
 
+### Merge 3 — `card/h3a-toast-orders-and-mirror` → `overnight-20261002` (`799a748`), 2026-10-01 ~23:30
+
+**Cards involved:** H3a. H3b was being built **on this branch** concurrently; H5 was in flight.
+
+**Conflicted:** nothing. Git auto-merged `.night-crew/knowledge/BACKLOG.md` and `roadmap.md`
+line-locally and reported *"Automatic merge went well"*.
+
+**Files and hunks.** 25 files. Product: `backend/internal/toast/orderdetails.go` (new, 497 lines)
++ `sync.go` (**49 insertions / 0 deletions**), `backend/internal/marketing/mirror.go` (new, 405
+lines, a FILE added to H1's package with every identifier `Mirror…`-prefixed),
+`backend/internal/db/migrations/0084_toast_orders_reconciliation.sql`,
+`backend/internal/redemption/store.go` (one `ON CONFLICT` clause), plus one line of H1's
+`zz_migration_down_test.go`. **`routes.go` NOT touched** — the mirror registers no HTTP route, so
+a `routes.go` hunk from this card would have been wrong. `main.go`: exactly one call site.
+
+**Intents read.** H3a's merge-intent plus its fix-round appendix. Load-bearing claims checked
+rather than taken: `routes.go` untouched (confirmed), one `main.go` call site inside the existing
+`schedulersDisabled` region (confirmed), and the `zz_migration_down_test.go` edit — which its
+intent explains as a **cross-package defect fix**: the old final leg `db.MigrateTo(pool, 83)` left
+the shared Go test DB pinned at 83, so under `-p 1` every alphabetically-later package
+(`redemption`, `toast`) got a database with 0084's tables and B-424's index dropped. **Took this
+side**, as the intent asks and as its G6 independently confirmed keeps every assertion.
+
+**Resolution taken.** Nothing to arbitrate — no second intent met it on any file. The
+phantom-deletion check was run again and is clean: B-459, the one-sample-baseline method note, 18
+timings entries, **Card 2's entire frontend** (`marketing/campaigns.js` 1173 lines, `#s2` intact)
+and B-424's `closed → toast-orders-and-mirror` disposition all survive. 🛑 One check of the
+orchestrator's own was **wrong**: a grep for `closed → toast` returned 0 and briefly looked like a
+missing disposition — the text carries a backtick (`closed → \`toast-orders-and-mirror\``) and the
+pattern missed it. Card and G6 were both right; the check was not. Recorded because a false
+negative at merge time is exactly how a real one would be dismissed.
+
+**`task sw` at merged HEAD.** `node build-sw.js` ×2 → **49 files precached** both runs,
+byte-identical, `git status` clean. Count **49 → 49**: this card adds no precached asset, as the
+slate predicted. Log `logs/merge3-G4-sw.log`.
+
+**Gate result after the merge.** G1 `go build` + `go vet` exit 0; **G2 (Go) `EXIT_TEST=0`**.
+Log `logs/merge3-G1-G2go.log`. G2 (Playwright) not re-run: the card is backend-only, its own
+full suite measured 26/963 with one summary block, and no frontend file moved in this merge.
+
+**Reds judged.** 22 of 26 baseline matches, **two** baseline reds went green, 4 non-baseline — all
+in B-459's `ALL_ITEMS` cluster. G6 pushed on the most suspicious (`inventory.spec.js:1469`, red
+3/3 confined but green on the base) and got it to flip **3 failed / 1 passed** with
+`--repeat-each=4` at one HEAD — which is B-459's own reproduction criterion, and its failure is
+the auto-open reading a stale `ALL_ITEMS`, the same mechanism.
+
+**G6:** APPROVE-WITH-FINDINGS → fix round → re-verified. Six findings; the two that mattered were
+a **false justification comment** (the file claimed purchasing and recipes use America/Chicago;
+they all read `users.DefaultTimezone` = America/New_York, decision 83 / migration 0072) and an
+**unconfirmed zone** feeding H3b's ±30-minute matcher, now parked as **D-3**. The zone *value* is
+untouched; only the comment was corrected, with a `TODO` naming the parked decision. Also fixed
+red-first: a business-date/export-directory disagreement now warns; the upsert count reported rows
+*parsed* rather than *landed*; and `parseCents` accepted a blank required money cell as a confident
+`0` plus `NaN`/`Inf`/`1e3`. G6's F4 ("half the gate artifacts are missing") was a **wrong-SHA
+finding** — all 16 exist at the tip, each with an `EXIT=` marker inside, verified independently at
+merge; the card's real defect was citing paths without naming the carrying SHA, now fixed with a
+committed artifact inventory.
+
