@@ -292,3 +292,45 @@ red-first: `GET /campaigns` rendered a confident `$0.00` while the money sat in 
 than the spec's words and undisclosed (3/5 vs 2/5 against a 10% line), now self-describing and
 pinned by a test naming **D-5**, with the rule itself left unchanged.
 
+### Merge 6 — `card/h6-scanner-polish` → `overnight-20261002` (`23be14a`), 2026-10-02 ~02:00
+
+**Cards involved:** H6. Card 5 (H4) was live on the box, holding the suite lock.
+
+**Conflicted by git:** nothing — `BACKLOG.md` (four closures) and `night-crew.toml` (comment only,
+no key, no token) auto-merged.
+
+🛑 **But ONE resolution was taken BY HAND, and git would never have asked.** H6's full-suite leg
+re-ran `states-marketing-subscribers.spec.js`, which writes into **Card 6's** log directory — so
+H6's close-out commit carried **seven of Card 6's ATTESTED evidence PNGs overwritten as a side
+effect** (`04-success`, `06-detail-sheet`, `08-locked`, `09-offline-list`, `10-offline-sheet`,
+`11-offline-filter-refused`, `12-offline-cold`). Git saw a clean fast-forward of those blobs and
+offered no conflict. **All seven restored to the `overnight-20261002` versions.** Taking H6's side
+would have left Card 6's screenshots no longer corresponding to Card 6's tree — editing another
+card's evidence after the fact, which is the shape the "do not edit a run branch once HANDOFF.md is
+written" rule exists to prevent. **Found by H6's own G6, not by the merge**; a clean conflict list is
+not proof that nothing moved.
+
+**Intents read.** H6's merge-intent, which declares the harness files touched beyond the slate's
+named list (`harness.mjs`, `clock-harness.mjs`, `recovery-clear-harness.mjs` — one `addRxPlugin`
+line each, forced by the campaigns schema bump) and states the three-part rule: schema **version +
+strategies + plugin travel together, or the Scan page bricks**. G6 enumerated **all six** builders
+of that collection and confirmed every one has the plugin.
+
+**`task sw` at merged HEAD.** **50 files precached**, both runs byte-identical, `sw.js` unmodified —
+this card adds no asset. The whole `sw.js` delta is four `revision` hashes plus a minifier-local
+rename, with the api-cache route block **character-identical**, which is why `[B1-XT-01]` cannot be
+reached by it. Log `logs/merge6-G4-sw.log`.
+
+**Gate result after the merge.** G1 exit 0; **G2 (Go) `EXIT_TEST=0` — 699 PASS / 0 FAIL / 3 SKIP
+across 15 packages, counts checked**, `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both
+unset in-log (`logs/merge6-G1-G2go.log`). That run also **discharges G6's INFO finding 4** — H6's own
+`g2-go.log` reported `ok` per package rather than counts, which the ladder requires; this is the
+counted measurement of the same tree. G2 (Playwright) not re-run: the card's own suite carried one
+summary block and Card 5 held the lock.
+
+**G6:** APPROVE-WITH-FINDINGS, and it **retracted its own mutation-probe claim** mid-report rather
+than let an unattributable pass stand — the probe is recorded **NOT RUN** (box contention), with
+`sp-red.log` as the mutation-equivalent. The slate's named demand for this card — *"are the harness
+legs' exit codes GRADED, or narrated?"* — is answered: **graded**, live, red-first then green, with
+`EXIT=` inside each log and exits propagated through `exit "$NODE_EXIT"`.
+

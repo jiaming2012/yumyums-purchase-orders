@@ -207,6 +207,14 @@ decision 166** on precisely the devices least able to recover — a crew phone w
 and that is an affordance withdrawal nobody asked for. B-436's own harm statement is about every
 **known** code.
 
+🛑 **Its G6 went further and read the ledger itself: the shipped reading is not merely defensible,
+it is the ONLY one consistent with ratified decision 171** (`ledger.md:3912`), which rules
+explicitly that 166's `unknown → false` covers genuinely-unknown **codes**, and that reading it
+broadly *"would convert an operator's narrow yes into standing cover."* So the literal *"any code"*
+reading would contradict **two** ratified decisions, not one. G6 also confirmed by reading the code
+that neither untouchable is weakened — the B-432 predicate line is untouched and both of the card's
+changes move strictly **toward** refusal.
+
 **One honest consequence the card flagged:** B-436 makes a population **strictly smaller**. Rows
 shaped `(unverified_code=false, offline_override=true, policy_unresolved=true)` — a *known* code
 force-submitted offline on a no-source device — are now refused and never written. Fewer

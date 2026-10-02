@@ -25,3 +25,4 @@
 2026-10-02T00:43:08-04:00	gate-rerun	merge5 G2(Go) clean on re-run — EXIT_TEST=0, 699 PASS/0 FAIL/3 SKIP, 15 pkgs; first run was substrate contention (B-460)
 2026-10-02T01:38:09-04:00	implementer-return	Card 7 h6 COMPLETE — 5 commits, both harness legs GRADED live red-first then green, precache 50, 27f/1001p one block; decision 191 contradiction -> D-6
 2026-10-02T01:38:09-04:00	g6-dispatch	Card 7 G6 at ff82bb6 (g6-h6, port 8546)
+2026-10-02T02:01:41-04:00	merge	MERGE 6 23be14a — Card 7 h6; 7 of Card 6 attested PNGs restored to run-branch side (G6 finding, git offered no conflict); precache 50; 699 PASS/0 FAIL/15 pkgs with counts
