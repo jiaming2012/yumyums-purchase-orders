@@ -1,0 +1,3 @@
+# internal/sync alone at merged HEAD 65ef5dc 2026-10-02T00:35:43-04:00
+ok  	github.com/yumyums/hq/internal/sync	78.981s
+EXIT=0

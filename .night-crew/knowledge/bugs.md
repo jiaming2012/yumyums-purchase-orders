@@ -141,6 +141,32 @@ isolation on **both** the card HEAD **and** the base, several passes each, and c
 when it holds — but when it does not, nothing short of a two-tree rate comparison distinguishes
 "the card broke it" from "it was already broken this often".
 
+### 🛑 The `spike-supabase` substrate is SHARED and UNLOCKED, and contention on it fakes an RLS regression
+
+Measured on run `20261002`. The box has a lock for Playwright (`flock /tmp/hq-full-suite.lock`,
+which worked all night and serialised six full suites without a single overlap). **There is no
+equivalent lock for the local `spike-supabase` substrate**, and several legs mutate it: Card 1's
+projection test, Card 3's mirror keyset test, Card 7's `f2-run.sh` and `campaigns-harness.mjs`
+legs, and `internal/sync`'s whole `TestRowVisibilityRLS` attack suite.
+
+**What it looks like when they collide**, because it does not look like contention: a post-merge
+`go test ./... -p 1` came back `EXIT_TEST=1` with **13 failures, every one inside
+`TestRowVisibilityRLS`** — including `V8/revocation replay`, `V9/live grant`,
+`W14/revocation replay on the WRITE path`, `W16/ESCALATION BY UPDATE` and
+`W17/the using clause`, plus `TestRowVisibilitySubtestCount_Executed`. That reads exactly like a
+**row-level-security regression** — the most alarming possible shape — and it was nothing of the
+kind. `internal/sync` re-run **alone** on the identical tree: `ok … 78.981s`, `EXIT=0`.
+
+*Handling:* **before reporting an `internal/sync` RLS failure, re-run that package alone.** If it
+passes in isolation, you hit substrate contention, not a security defect — say so with both exit
+lines. Do not chase it, and do not report it as a regression. Conversely, do not dismiss a red that
+*survives* isolation.
+
+*The real fix is a lock.* The substrate deserves the same treatment the Playwright box already has
+— one `flock` around any leg that mutates it, named in the slate's box rules beside the suite lock.
+Tonight's slate carefully serialised the box and said nothing about the substrate, which is how six
+cards shared one mutable fixture all night. **Filed as B-460.**
+
 **Silent numeric coercion presenting as a valid state.** `fmtMoney` did
 `Number(n)||0`, so a malformed price (`"1.90.00"` — what you get typing `1.90`
 into a pre-filled `0.00`) rendered a confident `$0.00` subtotal. Because
