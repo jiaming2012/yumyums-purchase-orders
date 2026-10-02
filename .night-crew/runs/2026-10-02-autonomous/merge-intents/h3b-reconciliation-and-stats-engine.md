@@ -79,7 +79,31 @@ EXIT=1
 All four `done_when` tests — `TestQueueOrdersOverridesThenOrphansThenUnmatched`,
 `TestDeclineOtherRequiresNote`, `TestOrphanRateCountsDeclinesExceptDuplicateScan`,
 `TestSlicesReconcileToOverview` — are inside that build failure, i.e. red by
-`[build failed]`, exit 1. The green run is logged beside it as `g2-go.log`.
+`[build failed]`, exit 1.
+
+## Gate results
+
+| Gate | Command | EXIT | Log |
+|---|---|---|---|
+| G1 | `go build ./...` + `go vet ./...` from `backend/` | 0 / 0 | `logs/h3b/g1-build-vet.log` |
+| G2 Go | `go test -p 1 -count=1 -v ./...`, `DB_TEST_URL` set | 0 — **672 PASS / 0 FAIL / 3 SKIP** (base 655/0/3; +17 = 18 new test funcs − 1 inverted) | `logs/h3b/g2-go-final.log` |
+| G2 Playwright | full suite under `flock /tmp/hq-full-suite.lock` | 1 — **22 failed / 5 flaky / 6 skipped / 962 passed**, ONE summary block | `logs/h3b/g2-playwright-full.log` |
+| G2 PW delta | `tests/marketing.spec.js` at the last commit | 0 — 47 passed | `logs/h3b/g2-playwright-marketing-subset.log` |
+| G4 | `node build-sw.js`, twice | 0 — **48 precached**, unchanged, `sw.js` not modified | `logs/h3b/g4-sw.log` |
+
+**Playwright red-set diff against tonight's measured baseline of 24** (`logs/base-pw.log`):
+my 22 are the baseline's 24 **minus two that now PASS** — `inventory.spec.js:2767`
+("user can set store_location", the B-453 flake) and `inventory.spec.js:2931`
+("creating item opens edit form with store location dropdown"). **ZERO new reds.**
+The 5 flaky all passed on retry and are all Inventory/Recipes specs this card does
+not touch. `tests/marketing.spec.js` — this card's own seam — is fully green in both
+legs.
+
+**Why the full suite and not the slate's subset:** `backend/internal/marketing/` is
+not a key in `night-crew.toml` `[e2e.seams]` (the `marketing` key is a path prefix
+over the FRONTEND tree), so this footprint is undeclared and de-confines. Adding the
+key would be a new key = PARK, so the suite was run instead and the gap recorded as
+a roll-call comment.
 
 ## Was `subscribers` present when I computed signups?
 
