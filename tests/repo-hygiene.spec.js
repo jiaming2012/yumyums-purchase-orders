@@ -142,8 +142,13 @@ function doneCardSlugs() {
     if (/^roadmap-.*\.md$/.test(f)) roadmapFiles.push(path.join(refDir, f));
   }
   const slugs = new Set();
-  // `- **`slug`** · **DONE...`  — the roadmap card status line format.
-  const re = /^\s*-\s*\*\*`([a-z0-9][a-z0-9-]*)`\*\*\s*·\s*\*\*DONE/gm;
+  // `- `slug` · **DONE...` — the roadmap card status line format. The slug may
+  // also be wrapped in bold (`- **`slug`** · **DONE`): the archived roadmaps under
+  // reference/ keep that older shape, the current roadmap dropped the bold on
+  // 2026-10-02 so night-crew's narrative parser can read its cards (it treats a
+  // bolded slug as prose). Both shapes must match or the current roadmap silently
+  // drops out of this guard while the archives keep it above the vacuity floor.
+  const re = /^\s*-\s*(?:\*\*)?`([a-z0-9][a-z0-9-]*)`(?:\*\*)?\s*·\s*\*\*DONE/gm;
   for (const file of roadmapFiles) {
     const txt = fs.readFileSync(file, 'utf8');
     let m;

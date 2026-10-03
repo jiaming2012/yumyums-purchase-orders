@@ -242,7 +242,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > **Why first:** three build-blocking facts and two multi-week external processes must not sit on
 > the critical path. Nothing expensive is built on an unanswered #6. **Trace:** Product objective.
 
-- **`redemption-unknowns-spike`** · **PLANNED** · Attended / field observation. Answer handoff
+- `redemption-unknowns-spike` · **PLANNED** · Attended / field observation. Answer handoff
   §14 #1 (business-date cutoff hour), #2 (order-number format — digit count, prefix, reset
   behavior), #3 (which Toast scheduled report carries order# + business date + discounts), and
   **#6 — the load-bearing one: do the truck's three devices genuinely lose connectivity
@@ -251,7 +251,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   likely over-built and proposes the lighter live-shared-server alternative before B is planned in
   detail. `n/a — no code change`. Footprint: planning docs (ledger) + Toast settings read-only.
 
-- **`external-accounts-provision`** · **PLANNED** · Attended (operator holds accounts/billing).
+- `external-accounts-provision` · **PLANNED** · Attended (operator holds accounts/billing).
   Stand up the two external dependencies the whole cycle needs: (a) a **Supabase project**
   (account, project, anon/service keys wired into HQ's existing secret pattern — dev/test project
   distinct from any prod project, per decision 155's spirit); (b) a **Twilio account + toll-free
@@ -267,7 +267,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > `redeem()`. The single conditional `UPDATE` is the **only** thing enforcing single use (§6).
 > **Trace:** Product + Engineering objectives.
 
-- **`supabase-schema-and-rls`** · **DONE** (overnight-20260904, branch
+- `supabase-schema-and-rls` · **DONE** (overnight-20260904, branch
   `wo-supabase-schema-and-rls` — migration + seed + verify harness landed in `supabase/`, all
   gates green fresh+warm against the local substrate; triaged 2026-09-04, merged to dev) · The `campaigns` / `codes` / `scan_attempts`
   schema (§4 — including the `unverified_code boolean` flag on `scan_attempts`, F2) with
@@ -278,7 +278,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   in-repo under `supabase/`. done_when: schema applies clean against a fresh Supabase project and
   a row inserted on one client appears on a second subscriber. Footprint: supabase arbiter.
 
-- **`redeem-rpc-race-proof`** · **DONE** (overnight-20260904, branch
+- `redeem-rpc-race-proof` · **DONE** (overnight-20260904, branch
   `wo-redeem-rpc-race-proof` — atomic `redeem()` with the operator-signed v2 body landed as
   `supabase/migrations/20260904000200_redeem_rpc.sql` + repeatable race harness
   `supabase/verify/04-redeem-race.sh`; 20 rounds × 2 clients, 0 double-wins, red-first against the
@@ -300,7 +300,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > independently offline, this activity collapses to a thin live cache and its cards shrink.
 > **Trace:** Engineering objective.
 
-- **`rxdb-pull-replica`** · **DONE** (overnight-20260905, branch `wo-rxdb-pull-replica` —
+- `rxdb-pull-replica` · **DONE** (overnight-20260905, branch `wo-rxdb-pull-replica` —
   `marketing/sync/` pull modules with the keyset `{updated_at, id}` checkpoint closing GAP-1,
   vendor surface widened (`replicateRxCollection` + `Subject`), standalone substrate harness
   green, wired by Cards 5/6; triaged 2026-09-05, merged to dev) ·
@@ -317,7 +317,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   renders offline; and an un-synced customer falls back to the embedded offer. Footprint: rxdb
   replica.
 
-- **`scan-attempts-push-conflict`** · **DONE** (overnight-20260905, branch
+- `scan-attempts-push-conflict` · **DONE** (overnight-20260905, branch
   `wo-scan-attempts-push-conflict` — `marketing/sync/push-replication.js` device-owned push
   module: offline queue + `enqueueAttempt` dedupe + redeem-then-land handler with GAP-1's two
   belts (persisted burn outcome before landing; own-device `already_used` = accepted), loser's
@@ -331,7 +331,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   used at 6:42pm" (§6). done_when: a lost-race attempt renders "already used" with the winning
   time/device. Footprint: rxdb replica.
 
-- **`clock-offset-on-sync`** · **DONE** (overnight-20260905, branch
+- `clock-offset-on-sync` · **DONE** (overnight-20260905, branch
   `wo-clock-offset-on-sync` — `marketing/sync/clock.js` sync clock capturing
   `offset = serverNow − deviceNow` from the pull response's `Date` header on every successful
   pull (spike-proven source), persisted-beside-the-checkpoint state via injected `persist`,
@@ -342,7 +342,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   a tablet with a wrong date must not silently accept dead codes. done_when: with the device clock
   set 2 days fast, an expired code is still rejected offline. Footprint: rxdb replica.
 
-- **`requires-online-replication`** · **DONE** (overnight-20260906, branch
+- `requires-online-replication` · **DONE** (overnight-20260906, branch
   `wo-requires-online-replication` — campaigns pull replica on the shipped pull mechanism
   (`buildPullUrl` expiry bound now optional, never removed; the codes-embed alternative CLOSED
   by the spike), replica-fed §8 policy (`createCampaignPolicySource` becomes the
@@ -370,7 +370,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   an entitlement holder (the branch-3 e2e flips from seam-injected to real-data); an unknown-code
   override lands without poisoning the push queue. Footprint: rxdb replica + supabase arbiter.
 
-- **`refusal-holds-before-sync`** · **LANDED** (run `20260906-2`, branch
+- `refusal-holds-before-sync` · **LANDED** (run `20260906-2`, branch
   `card/c1-refusal-holds-before-sync`) · **UNBLOCKS close-bar leg 3 / Q-KR1** (authored at morning triage 2026-09-05, ledger T-54 decision 170 — the
   same "triage authors the unblocking card" precedent as decision 167). `requires-online-replication`
   armed the refusal on real data but left it **failing open during the window before the
@@ -439,7 +439,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   codes-arrive-first sub-case for real. Riders B-434 (a)(b)(c) all disposed; residual B-436
   (the policy source failing to CONSTRUCT) filed, stated, not closed.
 
-- **`sync-coordinates-provisioning`** · **LANDED** (run `20260907`, branch
+- `sync-coordinates-provisioning` · **LANDED** (run `20260907`, branch
   `card/sync-coordinates-provisioning`) — scan-page.js gained the tree's only `SYNC_KEY`
   writer: page init with a session mints `POST /api/v1/sync/token` and on 200 writes
   `{restUrl: '/sync/rest', bearer, deviceId: sub}` then calls the exported `startSync`;
@@ -499,7 +499,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > HQ's vanilla-JS context before the scanner cards are built. Adopting XState is a new client
 > dependency in a deliberately no-framework app; the spike settles it against the real screen.
 
-- **`marketing-tile-and-page`** · **DONE** (overnight-20260905, branch
+- `marketing-tile-and-page` · **DONE** (overnight-20260905, branch
   `wo-marketing-tile-and-page` — tile + `TILE_SLUGS` entry, `marketing.html` shell (Scan live,
   three labeled placeholders), `SeedHQApps` seeds `marketing` + the `marketing-offline-override`
   entitlement surface with first-registration-only grants, precache 31→32; triaged 2026-09-05,
@@ -512,7 +512,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   deliberately) and commit it. done_when: a `team_member` sees Scan; a non-granted user sees no
   tile; `build-sw.js` exits 0. Footprint: scanner UI + redemption backend (seed) + `sw.js`.
 
-- **`camera-scanner-decode`** · **DONE** (overnight-20260905, branch
+- `camera-scanner-decode` · **DONE** (overnight-20260905, branch
   `wo-camera-scanner-decode` — scanner screen wired into `#scanner-host`: vendored
   html5-qrcode (single classic script, `lib/`, registry-verified sha256 660b1243…8b1d8e),
   on-device WebCrypto hash, replica-first resolution with embedded-offer fallback + F3
@@ -530,7 +530,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   shows its offer offline — synced (replica) and un-synced (embedded); and a locally-redeemed code
   rejects offline but defers to the server online (F3). Footprint: scanner UI.
 
-- **`redemption-submit-flow`** · **DONE** (overnight-20260905, branch
+- `redemption-submit-flow` · **DONE** (overnight-20260905, branch
   `wo-redemption-submit-flow` — strict XState submit machine (vendored xstate 5.32.6,
   registry-verified sha256 e7f04e1f…38fa28), conformance 18/18 + strictness 460 declared
   pairs re-proven at triage; parked overnight on fork D-1, ratified at morning triage
@@ -568,7 +568,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > orchestrator; R2 puts it in HQ Go. **Trace:** Engineering objective. The DB stays the arbiter
 > (§18 edge-case 1); the machine only reacts to its verdict.
 
-- **`gstate-arbitration-machine`** · **DONE** (overnight-20260905, branch
+- `gstate-arbitration-machine` · **DONE** (overnight-20260905, branch
   `wo-gstate-arbitration-machine` — gstate v0.3.1, go 1.26.2 toolchain bump,
   `POST /api/v1/marketing/redeem`, F4 read-model migration 0077; G6 FAIL→fix `98e189e`→PASS;
   triaged 2026-09-05, merged to dev) · `backend/internal/redemption` — the §18
@@ -590,7 +590,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > **Compliance is non-optional (R5).** Needs Activity 0's number live. **Locks §14 #10 (URL-wrapped
 > QR).**
 
-- **`identity-code-and-qr`** · **PLANNED** · **One permanent identity code per customer** — the
+- `identity-code-and-qr` · **PLANNED** · **One permanent identity code per customer** — the
   QR is primarily *who they are*, not *what they get*; the customer's full, current entitlement
   list lives server-side and replicates down keyed on customer hash (§10). **Hybrid payload
   (operator call, this round):** the QR is a **URL wrapping the identity token** (so the
@@ -607,7 +607,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   yet in the local replica) still shows its embedded offer, and an **online** scan of the same
   code shows the full server-side list. Footprint: delivery + supabase arbiter (entitlements).
 
-- **`mms-send-on-signup`** · **PLANNED** · Form submit → generate the identity code in Supabase →
+- `mms-send-on-signup` · **PLANNED** · Form submit → generate the identity code in Supabase →
   **send the QR as an MMS image, not a link** (§11 — an image lives in the thread and opens with
   no signal; a link needs signal at the window). Explicit **consent capture at point of
   collection**, working **STOP handling**, sends over the registered number (§11 compliance,
@@ -619,13 +619,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > **Why here:** needs codes actually redeemed to have something to reconcile; it is the close
 > bar's leg 2. Everything is **T+1** by design (§13). **Trace:** Product + QA objectives.
 
-- **`smtp-toast-ingest`** · **SUPERSEDED** (T-60, decision 188 — Activity H `toast-orders-and-reconciliation` reads `OrderDetails.csv` off the Toast SFTP export HQ already syncs; this card returns to PLANNED only if H3 finds the export lacks the file) · A dedicated ingest mailbox receives the scheduled Toast
+- `smtp-toast-ingest` · **SUPERSEDED** (T-60, decision 188 — Activity H `toast-orders-and-reconciliation` reads `OrderDetails.csv` off the Toast SFTP export HQ already syncs; this card returns to PLANNED only if H3 finds the export lacks the file) · A dedicated ingest mailbox receives the scheduled Toast
   report (#3); an inbox watcher extracts the CSV, normalizes, and loads a staging table. **Key on
   `(business_date, order_number)` and upsert — never blind-insert** (§13 idempotency; the same
   report *will* arrive twice). Dedicated mailbox, restricted access, no forwarding (§13 security).
   done_when: ingesting the same report twice leaves one row per order. Footprint: toast join.
 
-- **`reconciliation-view`** · **ABSORBED → Activity H** (`toast-orders-and-reconciliation` + `stats-tab-ui`, T-60) · The three-bucket view built from day one (§13): `matched`
+- `reconciliation-view` · **ABSORBED → Activity H** (`toast-orders-and-reconciliation` + `stats-tab-ui`, T-60) · The three-bucket view built from day one (§13): `matched`
   (scan joined to a Toast order), `unmatched` (order number with no Toast match → fuzzy-match on
   `scanned_at` timestamp), `orphan` (accepted with no order number — lost attribution). The
   **orphan rate is the health metric** — surfaced in the Marketing → Redemption-stats section; if
@@ -642,7 +642,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > never slated, so they reddened the close through no fault of their own. Carried, not re-derived.
 > **Trace:** QA objective.
 
-- **`backlog-machine-migration`** · **DONE** (overnight-20260904, branch
+- `backlog-machine-migration` · **DONE** (overnight-20260904, branch
   `wo-backlog-machine-migration` — all 297 issues retired: `backlog check --repo .` exit 0
   `valid — 209 entries`, list count == the checker's own parse, whole-document token-multiset
   containment proven 0-lost against the red-baseline commit, handles B-350..B-414 assigned,
@@ -654,7 +654,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   document cannot drift back. done_when is mechanical: `check` exit 0, and `backlog list` count ==
   document entry count. Footprint: planning docs.
 
-- **`team-records-from-hand-runs`** · **DONE** (overnight-20260904, branch
+- `team-records-from-hand-runs` · **DONE** (overnight-20260904, branch
   `wo-team-records-from-hand-runs` — template landed at
   `.night-crew/knowledge/scorecard/TEMPLATE.md` (.md by design — inert to the union read,
   proven) + closeout ritual stanza armed under COMMANDS.md step 5; validation render green:
@@ -727,7 +727,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > spike (`campaigns-tab-ui / web-share-files-enumerated`, webkit/firefox binaries); and
 > decision 196's check — read one real Toast export's `Opened` column against a known order time.
 
-- **`campaign-codes-api`** · **LANDED** (run `20261002`, branch `card/h1-campaign-codes-api`) · (H1, track A — backend) Campaign admin in HQ Go +
+- `campaign-codes-api` · **LANDED** (run `20261002`, branch `card/h1-campaign-codes-api`) · (H1, track A — backend) Campaign admin in HQ Go +
   Postgres (decision 187): migration `0083_campaigns_admin` (`campaigns_admin`, `qr_codes`,
   `qr_scans`), `POST /api/v1/marketing/campaigns` mints **one `qr_codes` row per channel** in
   one transaction, projects the four tablet columns to Supabase `campaigns` over PostgREST
@@ -757,7 +757,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   against the local `spike-supabase` substrate from Go, not stubbed
   (`TestProjectionConfiguredUpsertsToSubstrate`).
 
-- **`campaigns-tab-ui`** · **LANDED** · (H2, track B — UI) The Campaigns section of
+- `campaigns-tab-ui` · **LANDED** · (H2, track B — UI) The Campaigns section of
   `marketing.html` per Current Campaigns 1–8: list as funnel cards with the money strip
   (revenue / discount / net / Per $1 pill), the one-sheet create (channels as chips, Value and
   Item visible, payload preview, "Create campaign + N codes"), the "N codes ready" screen,
@@ -786,7 +786,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   now selects 3 specs, not 1. Precache **48 → 49** (`marketing/campaigns.js`; no `globPatterns`
   change — `marketing/*.js` already matched it).
 
-- **`toast-orders-and-mirror`** · **LANDED** (run `20261002`, branch `card/h3a-toast-orders-and-mirror`) · (H3a, track C — backend; the first half of the
+- `toast-orders-and-mirror` · **LANDED** (run `20261002`, branch `card/h3a-toast-orders-and-mirror`) · (H3a, track C — backend; the first half of the
   `toast-orders-and-reconciliation` goal, split at the slate sitting 2026-10-01) Supersedes
   `smtp-toast-ingest`, closes **B-424**. The Toast SFTP sync fetches `OrderDetails.csv` beside
   `ItemSelectionDetails.csv` and upserts `toast_orders` keyed `(business_date, order_number)` —
@@ -813,7 +813,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   migration 0084, `backend/internal/redemption/store.go`, `backend/cmd/server/main.go` (poller
   start beside the Toast worker → undeclared seam → full Playwright suite).
 
-- **`reconciliation-and-stats-engine`** · **LANDED** (run `20261002`, branch `card/h3b-reconciliation-and-stats-engine`, merge `65ef5dc`) · (H3b, track C, serial after H3a — backend;
+- `reconciliation-and-stats-engine` · **LANDED** (run `20261002`, branch `card/h3b-reconciliation-and-stats-engine`, merge `65ef5dc`) · (H3b, track C, serial after H3a — backend;
   the second half of the `toast-orders-and-reconciliation` goal) Absorbs `reconciliation-view`.
   The engine buckets attempts matched / unmatched (±30 min nearest-order suggestion) / orphan,
   orders the queue overrides → orphans → unmatched, and records `reconciliation_decisions`
@@ -831,7 +831,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   spike `stats-tab-ui/01-slices-reconcile` arithmetic, as a Go test) red → green. Footprint:
   `backend/internal/marketing/` (`reconciliation.go`, `stats.go`, `routes.go`), no migration.
 
-- **`stats-tab-ui`** · **LANDED** (run `20261002`, branch `card/h4-stats-tab-ui`, merge `15ebc00`) · (H4, track B after H2, starts once H3b has landed — UI, two
+- `stats-tab-ui` · **LANDED** (run `20261002`, branch `card/h4-stats-tab-ui`, merge `15ebc00`) · (H4, track B after H2, starts once H3b has landed — UI, two
   pages per **decision 192**) **Reports in BI:** a third `hub-row` "Campaigns" on `bi.html`
   (behind the `bi` grant, idiom of Trends / Food cost) rendering Current Stats 1–5 — overview
   (period, funnel with revenue / discount / net lines, "implied −$X · actual −$Y" where they
@@ -853,7 +853,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `tests/marketing-stats.spec.js`, `tests/states-marketing-stats.spec.js`,
   `tests/states-bi-hub.spec.js`, `sw.js`, `night-crew.toml`.
 
-- **`subscribers-tab`** · **LANDED** (run `20261002`, branch `card/h5-subscribers-tab`, merge `78e768f`) · (H5, track E — full-stack) Migration `0085_subscribers`
+- `subscribers-tab` · **LANDED** (run `20261002`, branch `card/h5-subscribers-tab`, merge `78e768f`) · (H5, track E — full-stack) Migration `0085_subscribers`
   (`subscribers`, `subscriber_events`), three source adapters behind one interface — Fluent
   Forms reader (`FF_DB_*` env; maps the live form's REAL keys per spike 2026-10-01 — `names.first_name`,
   `email`, `input_text` → phone, `checkbox[]` → consent, `source` nullable; fixture committed; live import is an
@@ -867,7 +867,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/subscribers.js` (new), `tests/marketing-subscribers.spec.js`,
   `tests/states-marketing-subscribers.spec.js`, `sw.js`, `night-crew.toml`.
 
-- **`scanner-polish`** · **LANDED** (run `20261002`, branch `card/h6-scanner-polish`, merge `23be14a`) · (H6, serial after H3b — touches `marketing/sync/*`) Closes
+- `scanner-polish` · **LANDED** (run `20261002`, branch `card/h6-scanner-polish`, merge `23be14a`) · (H6, serial after H3b — touches `marketing/sync/*`) Closes
   **B-446** (render the `requires_online` refusal at scan-resolve while offline, same copy,
   earlier; post-submit guard stays), **B-447** (add `name` to the campaigns pull selection;
   offer card shows the campaign name and the code's last four), **B-440** (divert predicate
@@ -893,7 +893,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > **B (backend)** I3 → I4. Spike ledgers under
 > `.night-crew/knowledge/spikes/activity-i-honest-gates-verify-first/`.
 
-- **`test-integrity-fix`** · **PLANNED** · (I1, track A — the operator's stated condition for
+- `test-integrity-fix` · **PLANNED** · (I1, track A — the operator's stated condition for
   merging run 20261002) Three gates pass against inverted or widened production code, and all
   three are fixed so they red on the mutation that fooled them. **B-462** — `campaigns-harness.mjs`
   leg 3 reimplements `failClosed` instead of importing `marketing/submit-flow.js`'s; it must
@@ -921,7 +921,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `backend/internal/marketing/subscribers_test.go`, `sw.js` (regenerated, count unchanged),
   BACKLOG dispositions B-462 / B-465 / B-466.
 
-- **`scan-time-verify`** · **PLANNED** · (I2, track A after I1 — **B-468**, decision 200)
+- `scan-time-verify` · **PLANNED** · (I2, track A after I1 — **B-468**, decision 200)
   Today `marketing/scanner.js` `resolve()` consults three LOCAL sources only and contains no
   network call, so a code minted since the phone last synced resolves `unknownCode` even on a
   fully-online phone, the crew keys the discount into Toast, and only the submit asks the server.
@@ -949,7 +949,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/submit-flow.js` (copy only), `tests/marketing.spec.js`, `sw.js`; **no backend file**
   (a `backend/` diff is scope drift, stated). BACKLOG B-468 `promoted → scan-time-verify`.
 
-- **`dish-merge-and-erasure-backstop`** · **PLANNED** · (I3, track B — decision 194) Migration
+- `dish-merge-and-erasure-backstop` · **PLANNED** · (I3, track B — decision 194) Migration
   `0083`'s `campaigns_admin.item_id` and `qr_codes.item_id` reference `menu_items(id)` with no
   `ON DELETE`, so `recipes.MergeMenuItem` (re-point recipes, delete the source dish) fails
   `23503` once any campaign references the dish — API-only today, no frontend calls the merge.
@@ -976,7 +976,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `backend/internal/recipes/repository.go` (+`repository_test.go`),
   `backend/internal/marketing/*_test.go` (new test file), `CLAUDE.md`.
 
-- **`atomic-scan-dedupe`** · **PLANNED** · (I4, track B after I3 — decision 195) The public
+- `atomic-scan-dedupe` · **PLANNED** · (I4, track B after I3 — decision 195) The public
   landing's 10-minute scan dedupe (`landing.go` `INSERT … WHERE NOT EXISTS`) is a read-then-write
   under READ COMMITTED: 12 concurrent hits from one IP left 3/7/8/8/8 rows where one was wanted,
   on an unauthenticated route, so the orphan rate's denominator (P-KR3) is inflatable from
