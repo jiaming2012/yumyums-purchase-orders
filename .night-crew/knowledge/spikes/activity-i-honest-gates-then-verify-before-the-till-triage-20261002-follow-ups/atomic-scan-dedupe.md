@@ -29,7 +29,11 @@ that, a bucket computed in the insert) exists on this server version.
   leave more than one `qr_scans` row in at least one of five runs.
 - plan: create + migrate the spike DB, seed a user/campaign/code, fire 12 psql clients in
   parallel five times, count rows after each, print the counts.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/atomic-scan-dedupe/01-concurrent-landing-inserts-overcount.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/atomic-scan-dedupe/01-concurrent-landing-inserts-overcount.sh
+
+### Runs
+
+- 2026-10-03T13:37:48Z · exit 0 · passed
 
 ## Spike: bucket-unique-index-makes-it-one
 
@@ -40,7 +44,11 @@ that, a bucket computed in the insert) exists on this server version.
   two; a NULL `ip_hash` inserts every time.
 - plan: same DB, apply the candidate DDL (the card's migration draft), re-run the load and the
   two edge cases, print the counts and the expression that worked.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/atomic-scan-dedupe/02-bucket-unique-index-makes-it-one.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/atomic-scan-dedupe/02-bucket-unique-index-makes-it-one.sh
+
+### Runs
+
+- 2026-10-03T13:38:04Z · exit 0 · passed
 
 ## Verdict (hand-run 2026-10-02)
 

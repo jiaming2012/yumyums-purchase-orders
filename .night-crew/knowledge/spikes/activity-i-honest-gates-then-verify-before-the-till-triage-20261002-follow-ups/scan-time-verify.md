@@ -32,7 +32,11 @@ probe's 3.5 s budget, and an unknown hash answers an empty list rather than an e
   the seed has one) is also readable, so "already used" can be shown at scan time.
 - plan: mint a device JWT with `.night-crew/qa/spike-supabase/mintjwt`, curl the local
   PostgREST, time each call, assert shape and count.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/scan-time-verify/01-device-reads-one-code-by-token-hash.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/scan-time-verify/01-device-reads-one-code-by-token-hash.sh
+
+### Runs
+
+- 2026-10-03T13:37:11Z · exit 0 · passed
 
 ## Verdict (hand-run 2026-10-02)
 

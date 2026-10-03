@@ -81,6 +81,18 @@ ln -s "$REPO_ROOT/node_modules" "$WT/node_modules"
 ln -s "$REPO_ROOT/marketing/sync/harness/node_modules" "$WT/marketing/sync/harness/node_modules"
 ln -s "$REPO_ROOT/.night-crew/qa/spike-supabase/rxdb/node_modules" "$WT/.night-crew/qa/spike-supabase/rxdb/node_modules"
 echo "#   HEAD=$(git -C "$WT" rev-parse --short HEAD); node_modules symlinked (root, harness, qa/rxdb)"
+
+# ── warm the backend build OUTSIDE Playwright's 60s webServer window ────────────
+# 2026-10-03: the control leg timed out ("Timed out waiting 60000ms from
+# config.webServer") because this was the first compile of the server since the
+# 20261002 merge, cold, in a fresh worktree, 14s after `task spike:up` loaded the
+# box — 371 build-cache objects written inside the window, the server's first log
+# line never reached Playwright. Warm by hand, in the worktree, so the webServer
+# command only has to LINK and start. Same tree, same cache key; not a mutation.
+leg "warm build (backend, in the worktree)"
+( cd "$WT/backend" && go build -o /dev/null ./cmd/server/ ) \
+  || cannot_run "backend did not compile in the worktree — see output above"
+echo "#   backend compiled; build cache warm for the Playwright legs"
 MAIN_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
 # Per-spec outcome from Playwright's JSON reporter — the line reporter's totals

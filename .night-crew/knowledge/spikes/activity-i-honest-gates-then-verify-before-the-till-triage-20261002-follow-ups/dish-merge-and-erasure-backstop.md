@@ -33,7 +33,11 @@ since a timeline row cannot be blanked) makes every one of those deletes succeed
   first-touched fails `23503`.
 - plan: create + migrate the spike DB, seed the minimum rows (a user, two dishes, a campaign
   with its code, a subscriber with an event), run the three deletes, assert each SQLSTATE.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/dish-merge-and-erasure-backstop/01-merge-and-erasure-blocked-by-fks.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/dish-merge-and-erasure-backstop/01-merge-and-erasure-blocked-by-fks.sh
+
+### Runs
+
+- 2026-10-03T13:37:21Z · exit 0 · passed
 
 ## Spike: backstop-shape-makes-the-deletes-plain
 
@@ -43,7 +47,11 @@ since a timeline row cannot be blanked) makes every one of those deletes succeed
   survive with a null item, the subscriber's events are gone with the subscriber, and the
   code's deletion blanks the subscriber's first-touch link.
 - plan: same DB, apply the candidate ALTERs (the card's migration `0086` draft), re-run.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/dish-merge-and-erasure-backstop/02-backstop-shape-makes-the-deletes-plain.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/dish-merge-and-erasure-backstop/02-backstop-shape-makes-the-deletes-plain.sh
+
+### Runs
+
+- 2026-10-03T13:37:29Z · exit 0 · passed
 
 ## Verdict (hand-run 2026-10-02)
 

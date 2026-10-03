@@ -38,7 +38,12 @@ is what sizes the card.
 - plan: `git worktree add --detach` off `dev`, symlink node_modules, mutate, run the three
   legs with their exit codes captured, restore, remove the worktree. Spike-owned
   `TEST_DB_NAME=hq_test_spike_i1_20261003`, `TEST_PORT=8311`, Go `hq_test_spike_i1_go`.
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/test-integrity-fix/01-false-gates-pass-against-inverted-code.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/test-integrity-fix/01-false-gates-pass-against-inverted-code.sh
+
+### Runs
+
+- 2026-10-03T13:19:55Z · exit 2 · failed
+- 2026-10-03T13:31:43Z · exit 0 · passed
 
 ## Spike: required-campaign-id-needs-a-replica-migration
 
@@ -50,7 +55,12 @@ is what sizes the card.
 - plan: node against the vendored RxDB (the harness's own imports), a persistent storage so
   the reopen is real, three opens: v0 insert → v0+required (expect the schema-mismatch error)
   → v1+required+strategy (expect the row present).
-- script: .night-crew/spikes/activity-i-honest-gates-verify-first/test-integrity-fix/02-required-campaign-id-needs-a-replica-migration.sh
+- script: .night-crew/spikes/activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/test-integrity-fix/02-required-campaign-id-needs-a-replica-migration.sh
+
+### Runs
+
+- 2026-10-03T13:23:08Z · exit 0 · passed
+- 2026-10-03T13:36:50Z · exit 0 · passed
 
 ## Verdict (hand-run 2026-10-02)
 
