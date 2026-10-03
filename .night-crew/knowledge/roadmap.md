@@ -111,7 +111,11 @@ still pending.
 ## How this roadmap works
 
 - **Activity-level cards**, WO-sized, each carrying a module footprint and a KR trace.
-- **Status:** `DONE` · `DRAFTING` (overnight) · `PLANNED` (white) · `BLOCKED`.
+- **Status:** `DONE` / `LANDED` (green — the card's run merged to `dev`; `DONE` is the word the
+  `20260904`–`20260906` runs used and `LANDED` the word every run from `20260906-2` on uses — one
+  state, two spellings) · `DRAFTING` (overnight) · `PLANNED` (white) · `BLOCKED` ·
+  `SUPERSEDED` / `ABSORBED → <card>` (retired — the work moved into a named card or is no longer
+  needed; neither green nor white, and outside the Current state tally's green/white split).
 - **Build order is load-bearing.** Activity 0 (unknowns + longest external leads) gates the
   spine; Activity A (the Supabase arbiter) gates every client that reads or burns a code;
   Activity B (the offline replica) gates the scanner's offline reads; the scanner (C) gates the
