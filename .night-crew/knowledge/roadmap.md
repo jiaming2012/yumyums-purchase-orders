@@ -21,12 +21,11 @@
 > (merge `5753ddf`); its morning triage settled six forks and is recorded at ledger **T-62**
 > (decisions 194–200). Campaign admin, subscribers and the designed stats tabs are in.
 >
-> **Activity I is the signed, unrun slate.** `reference/slate-20261003.md` — "Honest gates, then
-> verify before the till" — carries the four triage-20261002 follow-ups as cards on two tracks:
-> **A (client)** `test-integrity-fix` → `scan-time-verify`, **B (backend)**
-> `dish-merge-and-erasure-backstop` → `atomic-scan-dedupe`. It is signed off and has not had its
-> night. The operator's stated condition at triage was that the test-integrity fix lands before
-> any new product work, and B-468 was promoted above the backlog (decision 200).
+> **Activity I has had its night and is triaged.** Run `overnight-20261003` landed three of four
+> cards (merge `cf0a482`): `test-integrity-fix`, `scan-time-verify`, `dish-merge-and-erasure-backstop`.
+> Triage is recorded at ledger **T-64** (decisions 203–205). `atomic-scan-dedupe` stays **PLANNED**:
+> its parked question is settled (decision 203 — ship as built), and it owes only its full
+> browser-suite run and a merge on the next slate (branch `card/i4-atomic-scan-dedupe` @ `8251ac9`).
 >
 > **The remaining white cards are the cycle's two open fronts.** Activity 0
 > (`redemption-unknowns-spike`, `external-accounts-provision`) still gates the spine, and
@@ -1004,7 +1003,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### atomic-scan-dedupe
 
-- `atomic-scan-dedupe` · **PLANNED** · (I4, track B after I3 — decision 195) The public
+- `atomic-scan-dedupe` · **PLANNED** · (I4, track B after I3 — decision 195; built and reviewed in run `20261003`, parked on its cleanup of past scan rows, settled at triage as decision 203 — ship as built; owes its full browser-suite run and a merge) The public
   landing's 10-minute scan dedupe (`landing.go` `INSERT … WHERE NOT EXISTS`) is a read-then-write
   under READ COMMITTED: 12 concurrent hits from one IP left 3/7/8/8/8 rows where one was wanted,
   on an unauthenticated route, so the orphan rate's denominator (P-KR3) is inflatable from

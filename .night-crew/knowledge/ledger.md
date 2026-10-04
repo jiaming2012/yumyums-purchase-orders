@@ -4773,3 +4773,55 @@ flag; COMMANDS.md's invocation corrected); `backlog render` writes `backlog.html
 (removed); `slate price` finds no class data in `card-actuals.md` under either `--repo` (priced
 by hand); `spikes gate` refuses the narrative card shape (above). Each is a verb reading a path
 differently from the binary that ran this morning.
+
+### T-64 — Morning triage: run 20261003 merged, three of four cards landed, the parked scan-cleanup question settled (2026-10-04)
+
+Attended, `/nc-morning-triage`. Binary `v3.6.1+4`, skills preflight satisfied (13 of 13 verbs).
+`night-crew next` named `/nc-slate-plan`, not triage — "untriaged nights: NOT KNOWABLE", because no
+triage receipt had ever been written in this repo; reported, and the operator's invocation stood.
+`worktrees check`: tonight's four card worktrees plus `card/a3-rls-fixture-own` and
+`card/s2-demo-sync-target` (left in place under the 2026-09-05 ruling, B-442). `run-evidence check`:
+`ran (this run closed)`. Conflict log: 3 entries for 3 merges; 3 merge-intent notes, each with the
+three fields filled and matching its merge's diff; the one conflict (`sw.js`) resolved by
+regeneration and confirmed byte-identical by the reviewer. Ratification queue empty; ratchet empty.
+
+**Gate evidence is the adversarial reviewer's, not the closeout's.** Fresh subagent, own worktrees,
+own `:5434` databases: build + vet exit 0; Go 449 pass / 0 fail / 3 skip, 15 packages; `sw.js` 51
+precached, byte-identical; full browser suite 26 valid reds, 24 of them the base set. None of the
+run's "10 reds outside base" reproduced. Every claim for the dish merge and erasure card survived,
+including the merge driven over HTTP with a campaign and code attached (the run never did that).
+Reviewer's own error, stated: one browser run did not carry its scratch database name, wrote
+fixture rows into the shared `hq_test_e2e` on `:5434` and produced 11 false reds (excluded).
+Findings filed as **B-475 … B-481**. Merged `--no-ff` to `dev` at `cf0a482` on the operator's yes.
+
+**Decision 203 (operator) — the double-tap fix ships as built; past repeat taps are removed on first
+deploy.** Chosen over counting the live scans first (the sitting's recommendation) and over keeping
+every past row (a rework night, past totals inflated for good). The operator's reason, theirs:
+they have not used the QR feature yet, so there is no history whose numbers could change, and the
+report's period filter is what gives the numbers significance going forward. Checked at the
+sitting: both scan reports count from a chosen start date (`campaigns.go` `loadCodes`, `stats.go`).
+**Not checked: the live scan table was not counted** — "unused" is the operator's statement. The
+card (`atomic-scan-dedupe`, branch `card/i4-atomic-scan-dedupe` @ `8251ac9`) stays unmerged until
+its full browser-suite run on the next slate. Logged via `decisions log` → escalated (correct: it
+was put to the operator; no adopted preference covers it).
+
+**Decision 204 (engineer-level, stated not asked) — `inventory.spec.js:2931` is not this run's and
+did not block the merge.** What a crew member sees: typing an item name immediately after opening
+Inventory Setup can have the name wiped by a late redraw, and Add then does nothing. The reviewer
+forced it 1/1 on both the base and the merged tree with a 600 ms delay on one fetch; the page and
+the spec are identical between trees; alone it was 2 red of 14 merged vs 0 of 14 base, which
+supports no attribution. Chosen over holding the merge for more samples. Filed as B-478 — a real
+defect, older than the run.
+
+**Decision 205 (operator, at the merge question) — `dev` takes the run with the scanner stuck state
+on it.** What a crew member sees: if they pick a photo of a second code while the phone is still
+checking the first with the server (up to 3.5 s), the first customer's offer appears with no
+submit control until they dismiss and re-scan. No wrong discount results. Chosen over holding
+`scan-time-verify` back, which would also hold the verify-before-the-till behaviour the operator
+promoted above the backlog (decision 200). B-475 is the fix; it and B-476 (the scan-time check's
+untested arms) want to ride the same card. Nothing deploys from this decision.
+
+**Unknown after this triage:** the scan-time read through the real door and login; the local-data
+upgrade on a real phone (B-441); production row counts for `0086` (B-474) and for the parked
+cleanup; whether `campaigns-run.sh` catches an inverted fail-closed rule; `persistence.spec.js:1463`
+(B-481).

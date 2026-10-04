@@ -1,5 +1,16 @@
 # HANDOFF — overnight run `20261003` (night of 2026-10-03 → morning 2026-10-04)
 
+> **TRIAGED 2026-10-04 — merged to `dev` at `cf0a482`; ledger T-64 (decisions 203–205); receipt
+> `reference/triage-20261003.md`.** Standing flags after triage:
+> - **D-1 — cleared** (decision 203, ship as built). Re-arms if anyone reports real scan history on production before the card deploys.
+> - **`inventory.spec.js:2931` — cleared as not this run's**: a Setup add-bar race reproduced identically on base and merged trees (B-478). Stays red-prone until B-478 lands.
+> - **The nine load reds — cleared**: none reproduced in an independent full-suite run.
+> - **Two un-re-reviewed fix rounds — cleared for I1** (comments and tests only, mutations red); **I2's is thinner than claimed** (B-476).
+> - **Scanner stuck state on photo-scan during the server wait — ARMED** (B-475), new with I2, on `dev`.
+> - **Count dangling `qr_scans.subscriber_id` on production before the deploy carrying `0086` — ARMED** (B-474).
+> - **`atomic-scan-dedupe` full browser-suite run — ARMED**, owed at its re-gate.
+> - **Run not driven through night-crew's run loop — unchanged**; re-arms every night launched from the saved prompt.
+
 **Branch:** `overnight-20261003`, cut from `dev` at `ec2830c`. Nothing pushed, `main` untouched, no
 deploy. **Slate:** `reference/slate-20261003.md`, signed 2026-10-02. **4 cards, Activity I.**
 Launched 21:41, closeout written ~02:55 America/New_York (~5 h 15 m — the slate's mid projection).

@@ -1,5 +1,11 @@
 # DECISIONS-NEEDED — overnight run `20261003`
 
+> **RESOLVED 2026-10-04 — recorded as `.night-crew/knowledge/ledger.md` T-64, decision 203.**
+> D-1 → **ship as built.** The operator has not used QR campaigns yet, so there is no scan history
+> whose totals matter, and both reports count scans from a chosen start date forward. The live scan
+> table was NOT counted; the basis is the operator's statement. The card stays parked on its branch
+> until its full browser-suite run and merge on the next slate. Kept as the analysis record.
+
 ## D-1 · OPEN · Card 4 `atomic-scan-dedupe` is PARKED: its migration deletes past scan rows on first deploy
 
 **As the owner, I want to choose what happens to scan rows already in the table when the
