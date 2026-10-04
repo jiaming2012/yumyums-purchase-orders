@@ -945,7 +945,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### scan-time-verify
 
-- `scan-time-verify` · **PLANNED** · (I2, track A after I1 — **B-468**, decision 200)
+- `scan-time-verify` · **LANDED** (run `20261003`, branch `card/i2-scan-time-verify`) · (I2, track A after I1 — **B-468**, decision 200)
   Today `marketing/scanner.js` `resolve()` consults three LOCAL sources only and contains no
   network call, so a code minted since the phone last synced resolves `unknownCode` even on a
   fully-online phone, the crew keys the discount into Toast, and only the submit asks the server.
