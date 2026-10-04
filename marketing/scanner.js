@@ -144,13 +144,21 @@ const byExpiry = (a, b) => Date.parse(a.expires_at) - Date.parse(b.expires_at);
  * @param {function} deps.resolveOffers    Card 2's resolveOffers(col, hash, {now})
  * @param {object}  deps.clock             Card 4's createSyncClock instance
  * @param {function} deps.hashToken        createTokenHasher instance
+ * @param {function} [deps.serverLookup]   OPTIONAL (card scan-time-verify,
+ *   B-468): `async (token_hash) => row | null`, REJECTING on timeout / network
+ *   failure / non-200 (createServerLookup below builds one). Consulted at step
+ *   3 ONLY — `online` true AND the token in neither replica — and NEVER when
+ *   offline. Omitted, this resolver makes no network call at all, exactly as
+ *   before the card.
  * @returns {{resolve: function(string, {online?: boolean}=): Promise<object>}}
  *   result kinds: invalidPayload | offerReady | spentLocally | deferToServer |
  *   expiredLocally | embeddedOffer | unknownCode — every result except
- *   invalidPayload carries token_hash (never the raw token).
+ *   invalidPayload carries token_hash (never the raw token). A result the
+ *   SERVER decided carries `source: 'server'`; a step-3 fallback reached
+ *   because the server could not be asked carries `verified: false`.
  */
 export function createScanResolver({
-  codesCollection, offersCollection, resolveOffers, clock, hashToken,
+  codesCollection, offersCollection, resolveOffers, clock, hashToken, serverLookup,
 }) {
   async function resolve(payload, { online = false } = {}) {
     const token = extractToken(payload);
@@ -208,17 +216,138 @@ export function createScanResolver({
       return { kind: 'expiredLocally', token_hash, expires_at: latest.expires_at };
     }
 
-    // 3 — in no replica: the not-yet-synced walk-up (D-KR3 fallback), else F2.
+    // 3 — in no replica.
+    //
+    // 3a (card scan-time-verify, B-468 / decision 200) — an ONLINE phone asks
+    // the server about the hash it has already computed, BEFORE the embedded
+    // fallback: a server row beats an unauthenticated descriptor. This is the
+    // only network call this module can cause, and its two guards are the
+    // card's whole safety argument:
+    //
+    //   `online`        🛑 an OFFLINE phone never calls it — zero requests,
+    //                   and the result below is byte-for-byte what it was
+    //                   (decisions 166 / 199 govern the never-seen code
+    //                   offline; this card does not touch them).
+    //   in no replica   reached only after steps 1 and 2 returned nothing, so
+    //                   a code this device holds keeps its replica verdicts
+    //                   (F3's deferToServer included).
+    //
+    // Four outcomes:
+    //   live row      → offerReady, source 'server', shaped like a replica
+    //                   offer ({code_id, campaign_id, expires_at}) so the card
+    //                   and the submit path read it exactly as they read one.
+    //   redeemed row  → the existing "already used" result (spentLocally),
+    //                   source 'server', redeemed_at / redeemed_by from the
+    //                   server. Not deferToServer: that kind means "the LOCAL
+    //                   copy may be stale, ask the server" — and the server
+    //                   has just answered.
+    //   expired row   → the existing expired result, source 'server' (the
+    //                   device role reads expired rows too — spike build-fact).
+    //   no row        → falls through: today's embedded / unknownCode.
+    //   rejected      → falls through with `verified: false`: today's result,
+    //   (timeout,       plus the one fact the crew did not have before — the
+    //    network,       server could not be checked. Never an error card: a
+    //    non-200)       dead link must not be worse than no link.
+    let unverified = false;
+    if (online && typeof serverLookup === 'function') {
+      let row = null;
+      try {
+        row = await serverLookup(token_hash);
+      } catch (e) {
+        unverified = true;
+      }
+      if (row && typeof row === 'object') {
+        if (row.redeemed_at) {
+          return {
+            kind: 'spentLocally', token_hash, source: 'server',
+            redeemed_at: row.redeemed_at, redeemed_by: row.redeemed_by || null,
+          };
+        }
+        // PostgREST serialises timestamps with `+00:00`, not `Z` (spike
+        // build-fact) — clock.isExpired parses ISO offsets (Date.parse).
+        if (clock.isExpired(row.expires_at)) {
+          return { kind: 'expiredLocally', token_hash, source: 'server', expires_at: row.expires_at };
+        }
+        return { kind: 'offerReady', token_hash, offers: [offerShape(row)], source: 'server' };
+      }
+    }
+
+    // 3b — the not-yet-synced walk-up (D-KR3 fallback), else F2. `verified`
+    // is ADDED only on the could-not-ask path; every other caller gets the
+    // exact object shape this function returned before the card.
     if (embedded) {
       return {
         kind: 'embeddedOffer', token_hash, offer: embedded, source: 'embedded',
         expired: embedded.expires_at ? clock.isExpired(embedded.expires_at) : false,
+        ...(unverified ? { verified: false } : {}),
       };
     }
-    return { kind: 'unknownCode', token_hash };
+    return { kind: 'unknownCode', token_hash, ...(unverified ? { verified: false } : {}) };
   }
 
   return { resolve };
+}
+
+// ── Scan-time server lookup (card scan-time-verify, B-468) ──────────────────
+
+/** The five columns the resolver needs — the spike's exact select. */
+export const SERVER_LOOKUP_SELECT = 'id,campaign_id,expires_at,redeemed_at,redeemed_by';
+
+/**
+ * Build the resolver's `serverLookup` dep: ONE read of `public.codes` by
+ * `token_hash` on the connection the device already has (decision 200 — no
+ * new backend surface). Dependency-injected like everything else here.
+ *
+ * Contract (what createScanResolver relies on):
+ *   resolves  row   the server holds this hash (live, redeemed or expired —
+ *                   the device role reads all three, spike 01)
+ *   resolves  null  HTTP 200 and an empty list: the server does not know it
+ *   REJECTS         timeout, network failure, non-200, or a body that is not
+ *                   a JSON array — every way of "could not ask"
+ *
+ * The timeout is a RACE as well as an abort: `AbortController` frees the
+ * socket, but the race is what guarantees this promise settles — a fetchImpl
+ * that ignores `signal`, or a response whose body never finishes, still
+ * rejects on time. A hung LTE link cannot wedge the scan.
+ *
+ * @param {object} cfg
+ * @param {string} cfg.restUrl
+ * @param {string|function(): string} cfg.bearer  same value the pull handlers
+ *   get (inert at the HQ door, which mints the session's device JWT)
+ * @param {function} cfg.fetchImpl
+ * @param {number} cfg.timeoutMs
+ * @returns {function(string): Promise<object|null>}
+ */
+export function createServerLookup({ restUrl, bearer, fetchImpl, timeoutMs }) {
+  return function serverLookup(token_hash) {
+    const url = `${restUrl}/codes?token_hash=eq.${encodeURIComponent(token_hash)}&select=${SERVER_LOOKUP_SELECT}`;
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    let kill = null;
+    const timedOut = new Promise((_, reject) => {
+      kill = setTimeout(() => {
+        if (ctl) { try { ctl.abort(); } catch (e) { /* already settled */ } }
+        reject(new Error(`[marketing-scan] server lookup timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    const asked = (async () => {
+      const token = typeof bearer === 'function' ? bearer() : bearer;
+      const res = await fetchImpl(url, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        cache: 'no-store',
+        signal: ctl ? ctl.signal : undefined,
+      });
+      if (res.status !== 200) {
+        throw new Error(`[marketing-scan] server lookup answered HTTP ${res.status}`);
+      }
+      const rows = await res.json();
+      if (!Array.isArray(rows)) throw new Error('[marketing-scan] server lookup answered a non-list body');
+      return rows.length ? rows[0] : null;
+    })();
+    // The loser of the race must not surface as an unhandled rejection.
+    asked.catch(() => {});
+    timedOut.catch(() => {});
+    return Promise.race([asked, timedOut]).finally(() => { if (kill) clearTimeout(kill); });
+  };
 }
 
 // ── Serialized enqueue (Card 6's mandatory entry point) ─────────────────────

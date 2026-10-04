@@ -23,8 +23,12 @@ import {
 } from './sync/push-replication.js';
 import { createSyncClock } from './sync/clock.js';
 import {
-  createTokenHasher, createScanResolver, makeSerializedEnqueue,
+  createTokenHasher, createScanResolver, makeSerializedEnqueue, createServerLookup,
 } from './scanner.js';
+// The scan-time lookup's budget IS the connectivity probe's (card
+// scan-time-verify): one number says how long this app waits on a link before
+// calling it dead, whichever question it was asking.
+import { PROBE_TIMEOUT_MS } from './submit-support.js';
 import { sha256Hex } from './sync/sha256.js';
 import { reportBootFailure, SECURE_ADDRESS } from './boot-failure.js';
 
@@ -132,6 +136,17 @@ function statusLine() {
 // a SUBMIT-time affordance (Card 6), so the slot must exist there.
 const SLOT_KINDS = new Set(['offerReady', 'embeddedOffer', 'unknownCode', 'deferToServer']);
 
+// Card scan-time-verify (B-468): the one line added to today's fallback card
+// when an ONLINE phone tried to ask the server about a never-synced code and
+// could not (timeout / dead link / non-200). Empty for every other result —
+// in particular for every OFFLINE result, whose markup is byte-for-byte what
+// it was before the card ([SV-04] compares it against a pre-change capture).
+function uncheckedNote(r) {
+  if (r.verified !== false) return '';
+  return `<div class="result-note" id="scan-server-unchecked">Couldn&#39;t check the server just now &mdash; treat this code as unverified until the submit goes through.</div>
+        `;
+}
+
 function resultCard(r) {
   const slot = SLOT_KINDS.has(r.kind) ? '<div id="scan-submit-slot"></div>' : '';
   const again = '<button class="scan-again" data-action="scan-again">Scan next</button>';
@@ -155,14 +170,24 @@ function resultCard(r) {
         <div class="rc-head">${esc(r.offer.label)} <span class="badge-inline">Unverified</span></div>
         ${exp}
         <div class="result-note">Read from the code itself &mdash; not yet verified with the server. Redemption is still checked at submit.</div>
-        ${slot}${again}</div>`;
+        ${uncheckedNote(r)}${slot}${again}</div>`;
     }
     case 'unknownCode':
       return `<div class="rc rc-warn">
         <div class="rc-head">Code not recognized</div>
         <div class="result-note">Can&#39;t verify this code on this device &mdash; it may not have synced yet. Connect to verify at submit.</div>
-        ${slot}${again}</div>`;
+        ${uncheckedNote(r)}${slot}${again}</div>`;
     case 'spentLocally':
+      // Card scan-time-verify: the SERVER said so (an online phone asked about
+      // a code it had never synced). Same head, same shape, no submit slot —
+      // only the sentence about WHO says it is used differs.
+      if (r.source === 'server') {
+        return `<div class="rc rc-bad">
+        <div class="rc-head">Already used</div>
+        <div class="offer-sub">at ${esc(fmtWhen(r.redeemed_at))}${r.redeemed_by ? ` by ${esc(r.redeemed_by)}` : ''}</div>
+        <div class="result-note">The server shows this code already redeemed &mdash; don&#39;t apply the discount.</div>
+        ${again}</div>`;
+      }
       return `<div class="rc rc-bad">
         <div class="rc-head">Already used</div>
         <div class="offer-sub">at ${esc(fmtWhen(r.redeemed_at))}${r.redeemed_by ? ` by ${esc(r.redeemed_by)}` : ''}</div>
@@ -222,6 +247,7 @@ function render() {
     box.removeAttribute('data-kind');
     box.removeAttribute('data-token-hash');
     box.removeAttribute('data-source');
+    box.removeAttribute('data-verified');
     box.innerHTML = '';
     sfCall('onRender'); // Card 6: the cleared view repaints too
     return;
@@ -232,6 +258,9 @@ function render() {
   else box.removeAttribute('data-token-hash');
   if (r.source) box.setAttribute('data-source', r.source);
   else box.removeAttribute('data-source');
+  // Present ONLY on the could-not-ask-the-server fallback (scan-time-verify).
+  if (r.verified === false) box.setAttribute('data-verified', 'false');
+  else box.removeAttribute('data-verified');
   box.innerHTML = resultCard(r);
   // Card 6 repaint: the submit flow repaints its slot content after EVERY
   // card render (this function rebuilds #scan-result's DOM, the
@@ -282,13 +311,23 @@ async function boot() {
   // No `subtle` handed in: the hasher takes WebCrypto when the origin has it
   // and the JS digest otherwise (same reason as hashFunction above).
   const hashToken = createTokenHasher();
-  const resolver = createScanResolver({
+  // Card scan-time-verify (B-468): the resolver is rebuilt WITH the
+  // `serverLookup` dep the moment sync coordinates exist (startSync below),
+  // and `resolver` is a stable facade over whichever one is current — the
+  // object handed to window.MarketingScan never changes identity.
+  //
+  // 🛑 A device with NO coordinates has no lookup at all, on purpose: there
+  // is no door to ask, so an unprovisioned phone — online or not — resolves
+  // exactly as it did before the card (no request, no `verified` key).
+  const resolverDeps = {
     codesCollection: cols.codes,
     offersCollection: cols.offers,
     resolveOffers,
     clock,
     hashToken,
-  });
+  };
+  let activeResolver = createScanResolver(resolverDeps);
+  const resolver = { resolve: (payload, opts) => activeResolver.resolve(payload, opts) };
   const enqueue = makeSerializedEnqueue(enqueueAttempt, cols.scan_attempts);
 
   // ── replica wiring. The MECHANISM is fully threaded (clock included — §5.1);
@@ -327,6 +366,21 @@ async function boot() {
     // costs exactly one full pull of a table with a handful of rows.
     const campaignsRep = startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull-v2'));
     campaignPolicy.attach(campaignsRep);
+
+    // Card scan-time-verify (B-468 / decision 200): arm the scan-time lookup
+    // from the SAME coordinates the pull replicas just got — same door
+    // (`restUrl`), same bearer path, same fetch — with the connectivity
+    // probe's timeout. One GET per never-synced code, online only (the guard
+    // lives in scanner.js resolve() step 3); no new backend surface.
+    activeResolver = createScanResolver({
+      ...resolverDeps,
+      serverLookup: createServerLookup({
+        restUrl,
+        bearer,
+        fetchImpl: (...a) => fetch(...a),
+        timeoutMs: PROBE_TIMEOUT_MS,
+      }),
+    });
 
     syncHandles = {
       codes: startCodesReplica(deps(cols.codes, 'marketing-codes-pull')),
@@ -393,8 +447,21 @@ async function boot() {
     SCAN_STATE.result = result;
     render();
     if (submitFlow) {
-      try { await submitFlow.onResult(result); } catch (e) {
-        console.error('[marketing scan] submit-flow onResult failed', e);
+      if (result.kind === 'spentLocally' && result.source === 'server') {
+        // Card scan-time-verify: the SERVER has already said "used", so there
+        // is nothing left for the submit machine to decide and no session to
+        // hold open. Handing it RESOLVED would take the machine's F3-online
+        // arm (spentLocally + online → offerReady, "the server decides at
+        // submit") — a submit session for a code the server just refused, and
+        // a "finish the current customer first" prompt on the next scan.
+        // Close the session through the EXISTING hook instead: onScanAgain
+        // sends NEXT_CUSTOMER, a pair `resolving` already declares. No new
+        // state, event or pair; the "Already used" card stays on screen.
+        sfCall('onScanAgain');
+      } else {
+        try { await submitFlow.onResult(result); } catch (e) {
+          console.error('[marketing scan] submit-flow onResult failed', e);
+        }
       }
     }
     return result;
