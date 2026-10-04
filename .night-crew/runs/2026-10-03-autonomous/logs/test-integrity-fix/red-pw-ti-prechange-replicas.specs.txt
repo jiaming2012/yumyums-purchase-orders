@@ -1,0 +1,4 @@
+# per-spec outcome from the Playwright JSON reporter (red-pw-ti-prechange-replicas.json)
+# stats {"startTime":"2026-10-04T02:15:21.272Z","duration":19307.811,"expected":0,"skipped":0,"unexpected":2,"flaky":0}
+FAIL [TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows
+FAIL [TI-02] in the page, a v0 codes/offers store on IndexedDB reopens at v1 through the shipped spec with its rows

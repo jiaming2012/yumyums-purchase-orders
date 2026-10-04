@@ -1,0 +1,42 @@
+# RED-FIRST for the [SP-03b] replacements: post-change SPEC + harness, PRE-CHANGE marketing/sync/replicas.js (git show ec2830c:…) — -g 'TI-0' — expected both red
+ M marketing/sync/replicas.js
+# hand-provisioned stack: server pid 37077 on :8211, DB hq_test_e2e_i1_20261003 on :5434 (reset), NIGHTCREW_ENV_URL set — the webServer spawn wedged at 60s under box load
+Running 2 tests using 1 worker
+    Error: replica-schema-harness.mjs exit status
+    ── leg 0: the shipped schema ──
+      shipped MARKETING_REPLICA_SCHEMA: version=0 required=[id,token_hash,expires_at,updated_at]
+    RED: expected version 1, got 0
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m1[39m
+      1566 |     // The verdict is the exit status; the lines below pin WHICH facts it saw,
+      1567 |     // so a harness that exits 0 having checked nothing cannot pass.
+    > 1568 |     expect(run.status, `replica-schema-harness.mjs exit status\n${out}`).toBe(0);
+           |                                                                          ^
+      1569 |     expect(out).toContain('version=1 required=[id,token_hash,campaign_id,expires_at,updated_at]');
+      1570 |     expect(out, 'v0 rows survive, codes').toContain('codes: 2/2 rows present at schema.version=1, every field unchanged');
+      1571 |     expect(out, 'v0 rows survive, offers').toContain('offers: 2/2 rows present at schema.version=1, every field unchanged');
+        at /home/jcole/projects/hq-worktrees/i1-test-integrity-fix/tests/marketing.spec.js:1568:74
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/pw-i1-red-pw-ti-prechange-replicas/marketing-Test-integrity-c-3b204-reopens-at-v1-with-its-rows-chromium/error-context.md
+    Error: the live Scan-page collections are at schema version 1
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+    [32m- Expected  - 2[39m
+    [31m+ Received  + 2[39m
+    [2m  Object {[22m
+    [32m-   "codes": 1,[39m
+    [32m-   "offers": 1,[39m
+    [31m+   "codes": 0,[39m
+    [31m+   "offers": 0,[39m
+    [2m  }[22m
+      1585 |       return { codes: c.codes.schema.version, offers: c.offers.schema.version };
+      1586 |     });
+    > 1587 |     expect(live, 'the live Scan-page collections are at schema version 1').toEqual({ codes: 1, offers: 1 });
+           |                                                                            ^
+      1588 |
+      1589 |     const result = await page.evaluate(async (V0) => {
+      1590 |       // The SAME module instances scan-page.js imported (ES module cache).
+        at /home/jcole/projects/hq-worktrees/i1-test-integrity-fix/tests/marketing.spec.js:1587:76
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/pw-i1-red-pw-ti-prechange-replicas/marketing-Test-integrity-c-e4d2b--shipped-spec-with-its-rows-chromium/error-context.md
+    [chromium] › tests/marketing.spec.js:1549:3 › Test integrity (card test-integrity-fix, roadmap I1) › [TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows 
+    [chromium] › tests/marketing.spec.js:1578:3 › Test integrity (card test-integrity-fix, roadmap I1) › [TI-02] in the page, a v0 codes/offers store on IndexedDB reopens at v1 through the shipped spec with its rows 
+EXIT=1

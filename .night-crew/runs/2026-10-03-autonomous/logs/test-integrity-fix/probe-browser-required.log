@@ -1,0 +1,5 @@
+# PROBE (not a gate, throwaway spec deleted after): on the post-change tree 982bed3, does the PAGE (Dexie, no validator) accept a codes row without campaign_id?
+# hand-provisioned stack: server pid 70464 on :8211, DB hq_test_e2e_i1_20261003 on :5434 (reset), NIGHTCREW_ENV_URL set — the webServer spawn wedged at 60s under box load
+Running 1 test using 1 worker
+PROBE_RESULT {"accepted":true,"stored":true,"version":1}
+EXIT=0
