@@ -2412,4 +2412,120 @@ test.describe('Scan-time verify (card scan-time-verify, roadmap I2)', () => {
     await expect(result).toHaveAttribute('data-kind', 'offerReady');
     await expect(result).toHaveAttribute('data-source', 'server');
   });
+  // ── fix round (G6 findings on 424b2e5) ─────────────────────────────────────
+
+  test('[SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state', async ({ page }) => {
+    // The guard "only when in NEITHER replica" had no test: a lookup added to
+    // steps 1 and 2 left the whole spec green (G6 mutation). This pins it.
+    await openProvisionedScanner(page);
+    await seedLocal(page, {
+      offers: [fixture1Row()],
+      codes: [fixture1Row(), fixture4RedeemedRow()],
+      campaigns: [campaignLowRow()],
+    });
+    // ⚪ UN-STUBBED COUNT, same construction as [SV-04]: a wrongly-sent call
+    // would be answered, and counted.
+    const lookups = await serveLookupRows(page, {
+      [FIXTURE_1_TOKEN_HASH]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a551' }),
+      [FIXTURE_4_TOKEN_HASH]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a554' }),
+      [svHash('sv05-control-never-seen')]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a555' }),
+    });
+    // Every data-kind #scan-result ever takes, so a transient checking card
+    // cannot slip past between two assertions.
+    await page.evaluate(() => {
+      window.__svKinds = [];
+      const box = document.getElementById('scan-result');
+      new MutationObserver(() => window.__svKinds.push(box.getAttribute('data-kind')))
+        .observe(box, { attributes: true, attributeFilter: ['data-kind'], childList: true });
+    });
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+    const result = page.locator('#scan-result');
+
+    // Held locally, LIVE → the replica's offer; the server is not asked.
+    const live = await timedScan(page, FIXTURE_1_PAYLOAD);
+    expect(live.result.kind).toBe('offerReady');
+    expect(live.result.source).toBe('replica');
+    await expect(result.locator('.offer-row')).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-000000000001');
+    expect(lookups, 'live code held locally: no lookup').toHaveLength(0);
+
+    // Held locally, REDEEMED → F3 online (deferToServer), unchanged; the
+    // server is asked at SUBMIT as before, not at scan.
+    await page.click('[data-action="scan-again"]');
+    const spent = await timedScan(page, FIXTURE_4_PAYLOAD);
+    expect(spent.result.kind).toBe('deferToServer');
+    expect(spent.result.source).toBeUndefined();
+    await expect(result).toHaveAttribute('data-kind', 'deferToServer');
+    expect(lookups, 'redeemed-locally code: no lookup').toHaveLength(0);
+
+    const kindsHeld = await page.evaluate(() => window.__svKinds.slice());
+    expect(kindsHeld).not.toContain('checkingServer');
+    await expect(page.locator('#scan-server-checking')).toHaveCount(0);
+
+    // CONTROL — the counter sees a call for a code that is NOT held.
+    await page.click('[data-action="scan-again"]');
+    await scanText(page, svPayload('sv05-control-never-seen'));
+    expect(lookups, 'control: a never-seen code is looked up exactly once').toHaveLength(1);
+    await expect(result).toHaveAttribute('data-source', 'server');
+  });
+
+  test('[SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it', async ({ page }) => {
+    const token = 'sv06-slow-link';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    await expectAbsentLocally(page, hash);
+
+    // The door is slow: the lookup is held until the test releases it.
+    const held = [];
+    await page.route(isLookupUrl, (route) => { held.push(route); });
+
+    // Start the scan WITHOUT awaiting it.
+    await page.evaluate((p) => { window.__svScan = window.MarketingScan.scanText(p); }, svPayload(token));
+    await expect.poll(() => held.length, { timeout: 5000 }).toBe(1);
+
+    // During the wait: a plain, named state in the EXISTING result area.
+    const result = page.locator('#scan-result');
+    await expect(result).toBeVisible();
+    await expect(result).toHaveAttribute('data-kind', 'checkingServer');
+    await expect(result.locator('.rc-head')).toHaveText('Checking with the server…');
+    await expect(page.locator('#scan-server-checking')).toBeVisible();
+    expect((await result.innerHTML()).trim(), 'blank render is a defect (UI rules)').not.toBe('');
+    // Nothing to act on yet: no offer, no submit control, no discount prompt.
+    await expect(result.locator('.offer-row')).toHaveCount(0);
+    await expect(page.locator('#scan-submit-slot')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]')).toHaveCount(0);
+
+    // The server answers → the outcome replaces the checking state.
+    await held[0].fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([svServerRow({ id: 'c0000000-0000-4000-8000-00000000a506' })]) });
+    await page.evaluate(() => window.__svScan);
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(page.locator('#scan-server-checking')).toHaveCount(0);
+    await expect(result).not.toContainText('Checking with the server');
+    await expect(page.locator('#ms-order')).toBeVisible();
+  });
+
+  test('[SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card', async ({ page }) => {
+    await openProvisionedScanner(page);
+    let body = '[{}]';
+    const calls = [];
+    await page.route(isLookupUrl, async (route) => {
+      calls.push(route.request().url());
+      await route.fulfill({ status: 200, contentType: 'application/json', body });
+    });
+    const result = page.locator('#scan-result');
+    const shapes = ['[{}]', '[null]', '["str"]', '[{"id":""}]'];
+    for (let i = 0; i < shapes.length; i += 1) {
+      body = shapes[i];
+      const token = `sv07-malformed-${i}`;
+      const { result: r } = await timedScan(page, svPayload(token));
+      expect(r, `body ${body}`).toEqual({ kind: 'unknownCode', token_hash: svHash(token), verified: false });
+      await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+      await expect(result).toHaveAttribute('data-verified', 'false');
+      await expect(page.locator('#scan-server-unchecked')).toContainText("Couldn't check the server");
+      await expect(result).not.toContainText('undefined');
+      await expect(result).not.toContainText('Expired');
+      await page.click('[data-action="scan-again"]');
+    }
+    expect(calls).toHaveLength(shapes.length);
+  });
 });
