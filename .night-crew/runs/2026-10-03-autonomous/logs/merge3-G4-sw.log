@@ -1,0 +1,12 @@
+# merge3 (I2) @ 3986161 — G4: sw.js regenerated at merged HEAD (conflict resolution)
+  skipped (not in HEAD): backlog-round.html
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3121.1 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+diff vs placeholder: [ M sw.js]
+count=51
+  skipped (not in HEAD): backlog-round.html
+EXIT_SW2=0
+sw.js dirty after regen at fb3a35d: []
+count=51

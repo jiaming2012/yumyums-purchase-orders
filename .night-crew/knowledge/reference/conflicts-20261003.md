@@ -57,3 +57,31 @@ One entry per merge into `overnight-20261003`, clean or conflicted (§15ad.66).
   tree; `sync.spec.js:1327` is in no previously measured set. Fix round: `tests/marketing.spec.js`
   whole file 54 passed, `EXIT=0`.
 - **G6:** APPROVE-WITH-FINDINGS, 0 P1 / 1 P2 (fixed in the fix round) / 6 P3 (see HANDOFF).
+
+## Merge 3 — Card I2 `scan-time-verify` → `3986161` (+ `fb3a35d`) · ONE CONFLICT, resolved by regeneration
+
+- **Cards involved:** I2 onto a run branch holding I3 (`ed4f568`) and I1 with its fix round (`8a7065d`).
+  I2 was branched from I1's pre-fix-round tip `73521b1`, so this merge is where I1's fix round and
+  I2 first meet.
+- **Branch:** `card/i2-scan-time-verify` @ `7ca1adb`. Review ran at `424b2e5`; `e45728e..7ca1adb` are
+  the G6 fix round (tests `[SV-05]`/`[SV-06]`/`[SV-07]`, the "Checking with the server…" state, the
+  unusable-row handling, regenerated `sw.js`, logs). The fix round was NOT sent back through a
+  second fresh review. Three-way `--no-ff`, not squashed (branched off an unmerged base).
+- **Conflict:** `sw.js` only — I1's fix round and I2 each regenerated it from different trees.
+  `tests/marketing.spec.js` and `roadmap.md` auto-merged (I1's fix round edits `[TI-01]`/`[TI-02]`;
+  I2 appends its own `describe`).
+- **Intents read:** `test-integrity-fix.md` and `scan-time-verify.md`. Both say `sw.js` is a generated
+  artifact that is safe to drop and must be regenerated. I2's must-survive list: the lookup stays
+  inside the online-and-not-held branch of step 3 (guarded by `[SV-04]`/`[SV-05]`), `[SV-03b]` (the
+  timeout's only guard), no change to `submit-flow.js` / `submit-machine.js`.
+- **Resolution:** `sw.js` NOT hand-merged. The card's copy was taken as a placeholder in the merge
+  commit `3986161`, then the file was regenerated at that merged HEAD and committed as `fb3a35d`
+  (it differed from the placeholder, as expected). A second regeneration at `fb3a35d` leaves the
+  tree clean. 51 precached, reachability 38 / 67 / 0 outside (`logs/merge3-G4-sw.log`).
+- **Gates after merge:** the FINAL full Go + full Playwright run on the complete tree `fb3a35d` is
+  this merge's gate — see `logs/final-*.log` and HANDOFF.
+- **Card's own full-suite gates, as reported (at `ebcb384`, before the fix round):** G2-Go
+  `EXIT_TEST=0`, 444 / 0 / 3. G2-Playwright `EXIT=1`, 27 failed / 7 skipped / 1035 passed vs base
+  25 / 7 / 1030; the 3 reds outside base behaved the same on both trees in 3× isolation. Fix round:
+  `tests/marketing.spec.js` whole file 63 passed, `EXIT=0`.
+- **G6:** APPROVE-WITH-FINDINGS, 0 P1 / 2 P2 (both fixed) / 4 P3 (see HANDOFF).
