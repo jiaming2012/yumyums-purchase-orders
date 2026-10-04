@@ -1,0 +1,42 @@
+# isolation of the 3 full-suite reds outside tonight's base-reds.txt — 3 passes per tree, same server (:8212) and DB as the full run (state accumulated by it). 2026-10-04T01:06:22-04:00
+## POST-change tree ebcb384
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.1s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.3s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+  1 failed
+  2 passed (37.7s)
+EXIT=1 (pass 1)
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (10.6s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.3s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+    Error: expect(locator).toBeVisible() failed
+  2 failed
+  1 passed (48.7s)
+EXIT=1 (pass 2)
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.3s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.4s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+  1 failed
+  2 passed (37.8s)
+EXIT=1 (pass 3)
+## PRE-change files: marketing/ + sw.js checked out from 73521b1 ( 2 files changed, 11 insertions(+), 207 deletions(-))
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (6.4s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.3s)
+  ✘  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+  2 failed
+  1 passed (41.5s)
+EXIT=1 (pass 1)
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (13.2s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.3s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+    Error: expect(locator).toBeVisible() failed
+  2 failed
+  1 passed (49.8s)
+EXIT=1 (pass 2)
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.5s)
+  ✘  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (30.4s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct
+  1 failed
+  2 passed (37.9s)
+EXIT=1 (pass 3)
+## restored: [] (empty = clean)

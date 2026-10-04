@@ -1,0 +1,165 @@
+# RED-first, PRE-change tree. card scan-time-verify. HEAD=ff61ec15ae1cbec6dad19de5d8e013c9e9a1d750 (merge-intent only on top of 73521b1); marketing/ diff vs 73521b1: [] (empty = pre-change). start 2026-10-04T00:24:11-04:00
+
+Running 6 tests using 1 worker
+
+  ✘  1 [chromium] › tests/marketing.spec.js:2137:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used (1.2s)
+  ✘  2 [chromium] › tests/marketing.spec.js:2199:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today (1.2s)
+  ✘  3 [chromium] › tests/marketing.spec.js:2227:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt (1.3s)
+  ✘  4 [chromium] › tests/marketing.spec.js:2280:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03] the server killed at the NETWORK layer → today's unknown-code card plus "couldn't check the server", inside the budget (1.2s)
+  ✘  5 [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders (1.2s)
+  ✘  6 [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one (1.3s)
+
+
+  1) [chromium] › tests/marketing.spec.js:2137:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 9[39m
+    [31m+ Received  + 1[39m
+
+    [2m  Object {[22m
+    [32m-   "kind": "offerReady",[39m
+    [32m-   "offers": Array [[39m
+    [32m-     Object {[39m
+    [32m-       "campaign_id": "a0000000-0000-4000-8000-000000000001",[39m
+    [32m-       "code_id": "c0000000-0000-4000-8000-00000000a501",[39m
+    [32m-       "expires_at": "2028-01-01T00:00:00+00:00",[39m
+    [32m-     },[39m
+    [32m-   ],[39m
+    [32m-   "source": "server",[39m
+    [31m+   "kind": "unknownCode",[39m
+    [2m    "token_hash": "eb6c468696e127c33811622045b0e4a125e339973697d5d78ab768d51e4ccf54",[22m
+    [2m  }[22m
+
+      2147 |     // The resolver's own answer: an offer, from the SERVER, shaped like a
+      2148 |     // replica offer.
+    > 2149 |     expect(r).toEqual({
+           |               ^
+      2150 |       kind: 'offerReady', token_hash: hash, source: 'server',
+      2151 |       offers: [{ code_id: 'c0000000-0000-4000-8000-00000000a501', campaign_id: 'a0000000-0000-4000-8000-000000000001', expires_at: '2028-01-01T00:00:00+00:00' }],
+      2152 |     });
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2149:15
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-1ea29--any-submit-control-is-used-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:2199:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      2212 |     await expect(result).not.toHaveAttribute('data-verified', 'false');
+      2213 |     await expect(page.locator('#scan-server-unchecked')).toHaveCount(0);
+    > 2214 |     expect(lookups).toHaveLength(1);
+           |                     ^
+      2215 |
+      2216 |     // Server holds it → the server row wins over the unauthenticated descriptor.
+      2217 |     rows[WALKUP_TOKEN_HASH] = svServerRow({ id: 'c0000000-0000-4000-8000-00000000b777' });
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2214:21
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-fd0b6-dded-offer-renders-as-today-chromium/error-context.md
+
+  3) [chromium] › tests/marketing.spec.js:2227:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 4[39m
+    [31m+ Received  + 1[39m
+
+    [2m  Object {[22m
+    [32m-   "kind": "spentLocally",[39m
+    [32m-   "redeemed_at": "2026-10-01T15:04:05+00:00",[39m
+    [32m-   "redeemed_by": "window-phone-2",[39m
+    [32m-   "source": "server",[39m
+    [31m+   "kind": "unknownCode",[39m
+    [2m    "token_hash": "8b8ccfd41f969def0961a39e0c3be1e5a2912057e9f7f46e7bbafc5c3b94abe9",[22m
+    [2m  }[22m
+
+      2240 |
+      2241 |     const { result: r } = await timedScan(page, svPayload(token));
+    > 2242 |     expect(r).toEqual({
+           |               ^
+      2243 |       kind: 'spentLocally', token_hash: hash, source: 'server',
+      2244 |       redeemed_at: '2026-10-01T15:04:05+00:00', redeemed_by: 'window-phone-2',
+      2245 |     });
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2242:15
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-cc7a5-can-with-no-discount-prompt-chromium/error-context.md
+
+  4) [chromium] › tests/marketing.spec.js:2280:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03] the server killed at the NETWORK layer → today's unknown-code card plus "couldn't check the server", inside the budget 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 0[39m
+
+    [2m  Object {[22m
+    [2m    "kind": "unknownCode",[22m
+    [2m    "token_hash": "c112f2b91346daf644eb6ee73063a1143f6da50bc7e53f1ea621bda648bbc8b2",[22m
+    [32m-   "verified": false,[39m
+    [2m  }[22m
+
+      2298 |
+      2299 |     // Today's result, plus the one new fact.
+    > 2300 |     expect(r).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+           |               ^
+      2301 |     const result = page.locator('#scan-result');
+      2302 |     await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+      2303 |     await expect(result).toHaveAttribute('data-verified', 'false');
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2300:15
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-06865-he-server-inside-the-budget-chromium/error-context.md
+
+  5) [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders 
+
+    Error: the lookup was sent
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      2337 |     try {
+      2338 |       const { ms, result: r } = await timedScan(page, svPayload(token));
+    > 2339 |       expect(held, 'the lookup was sent').toHaveLength(1);
+           |                                           ^
+      2340 |       expect(r).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+      2341 |       // It waited for the link (so the server path really was attempted)…
+      2342 |       expect(ms).toBeGreaterThanOrEqual(SV_PROBE_TIMEOUT_MS - 100);
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2339:43
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-e87b6-ut-and-the-fallback-renders-chromium/error-context.md
+
+  6) [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one 
+
+    Error: online, the same phone asks the server exactly once
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      2409 |     await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+      2410 |     await scanText(page, svPayload('sv04-control-online'));
+    > 2411 |     expect(lookups, 'online, the same phone asks the server exactly once').toHaveLength(1);
+           |                                                                            ^
+      2412 |     await expect(result).toHaveAttribute('data-kind', 'offerReady');
+      2413 |     await expect(result).toHaveAttribute('data-source', 'server');
+      2414 |   });
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2411:76
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-f4435-ne-online-makes-exactly-one-chromium/error-context.md
+
+  6 failed
+    [chromium] › tests/marketing.spec.js:2137:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used 
+    [chromium] › tests/marketing.spec.js:2199:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today 
+    [chromium] › tests/marketing.spec.js:2227:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt 
+    [chromium] › tests/marketing.spec.js:2280:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03] the server killed at the NETWORK layer → today's unknown-code card plus "couldn't check the server", inside the budget 
+    [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders 
+    [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one 
+EXIT=1
+# end 2026-10-04T00:24:30-04:00

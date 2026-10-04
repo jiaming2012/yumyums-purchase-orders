@@ -81,5 +81,114 @@ submit machine all run for real in every clause.
 
 ## Red-first
 
-Filled in below as the evidence lands (logs under
-`.night-crew/runs/2026-10-03-autonomous/logs/scan-time-verify/`).
+Logs under `.night-crew/runs/2026-10-03-autonomous/logs/scan-time-verify/`. The stack was
+hand-provisioned on `:8212` (`hq_test_e2e_i2_20261003` on `:5434`) with `NIGHTCREW_ENV_URL`.
+
+| Leg | Tree | Log | Exit line |
+|---|---|---|---|
+| RED, all six | PRE-change (`ff61ec1` = `73521b1` + this file; `marketing/` diff vs `73521b1` empty) | `red-pw-sv-prechange.log` | `6 failed` · `EXIT=1` |
+| GREEN, all six | POST-change working tree (committed unchanged as `0d45d50` + `49b434b`) | `green-pw-sv-postchange.log` | `6 passed` · `EXIT=0` |
+| GREEN, whole `tests/marketing.spec.js` | same | `green-pw-marketing-spec-postchange.log` | `60 passed` · `EXIT=0` |
+| MUTATION RED, `[SV-04]` | POST-change with `online &&` deleted from `scanner.js` step 3 | `red-pw-sv04-mutation-online-guard.log` | `1 failed` · `EXIT=1` |
+| fixture capture | PRE-change | `fixture-capture-prechange.log` | `EXIT=0`, sha256 `bfb6bb7c…2040c`, 972 bytes |
+
+Where each test reds on the pre-change tree, and why that is the feature's absence:
+
+* `[SV-01]` — the resolver answers `{kind:'unknownCode'}` where the test requires the
+  server-sourced `offerReady` object (first assertion after the scan).
+* `[SV-01b]` — the lookup counter reads 0: no request was sent.
+* `[SV-02]` — `{kind:'unknownCode'}` where the test requires the server-sourced "already used".
+* `[SV-03]` — the result has no `verified: false` (the phone never tried, so it cannot say it
+  failed).
+* `[SV-03b]` — "the lookup was sent": 0 requests held by the hanging route.
+* `[SV-04]` — 🛑 the OFFLINE half passes on the pre-change tree, as it must (zero calls, exact
+  object, markup equal to the capture — that is what "byte-identical to today" means); the test
+  reds at its ONLINE control, "the same phone asks the server exactly once" — 0. So that
+  `[SV-04]` is not green merely because nothing ever calls the server, the mutation leg deletes
+  the `online &&` guard on the post-change tree: the offline scan then sends the lookup, gets
+  the would-be live row, and the test reds at `data-mstate` (`offerReady`, expected
+  `unknownCode`).
+
+## What `failClosed` / `policyFor` see for a `source: 'server'` offer
+
+The server row is shaped by the SAME `offerShape` the codes-replica rows go through:
+`{code_id: row.id, campaign_id: row.campaign_id || null, expires_at}`. `submit-flow.js`
+`onResult` handles it in its existing `offerReady` arm, untouched:
+`policyFor(CAMPAIGN_POLICY, o.campaign_id || null, result.offers)` and
+`policyUnresolvedFor(o.campaign_id || null)`, `stash.code_id = o.code_id`.
+
+* **The row carries `campaign_id`** — the lookup's select names it, `[SV-01]` asserts the exact
+  resolver object, and `public.codes.campaign_id` is what the spike read back populated. This
+  path does not go through RxDB at all, so Card 1's "the phone has no validator wrapped" fact
+  does not bite here: nothing is inserted into a collection.
+* **Campaign replicated** (the `[SV-01]` case, LOW campaign): `policyFor` → the replica's
+  `requires_online`; the online submit posts the hash and redeems (`[SV-01]` drives it to
+  `redeemed` and asserts the posted body).
+* **Campaign NOT yet replicated** (plausible for exactly this card's customer — a campaign
+  minted since the last sync): the policy source answers unresolved for a KNOWN id, so
+  `requiresOnline` is `true` and `policy_unresolved` is `true` — the B-432 fail-closed arm, by
+  the unchanged predicates. Online, that changes nothing (the submit goes to the server). If
+  the link drops before submit, the crew see the existing `requires-online-unresolved` refusal
+  and no override. Read from the code; **not driven by a test in this card.**
+* **A server row with a null `campaign_id`** (not expected — stated for completeness):
+  `namesNoCampaign` → `policyFor` false → the decision-166 override stays available offline,
+  with `unverified_code: false` because the machine kind is `offerReady`.
+
+No predicate body, no submit-time behaviour and no machine pair needed changing to make the
+server-sourced offer submit. No PARK condition was hit.
+
+## Engineer-level calls made here (the slate left them to the night)
+
+* **Timeout:** `PROBE_TIMEOUT_MS` (3500 ms), imported — one number for "how long before this
+  link is dead".
+* **Copy:** "Couldn't check the server just now — treat this code as unverified until the
+  submit goes through." (one extra `.result-note`, `#scan-server-unchecked`, under today's
+  unchanged sentence); server-redeemed: "The server shows this code already redeemed — don't
+  apply the discount."
+* **Result shape:** `verified: false` is ADDED only on the could-not-ask path; every other
+  result keeps the exact keys it had. The box gets `data-verified="false"` in that case only.
+* **Redeemed server row → kind `spentLocally` + `source: 'server'`** (the existing "Already
+  used" card, which has no submit slot), and `scan-page.js` closes the machine session via the
+  existing `onScanAgain` hook instead of sending `RESOLVED` — otherwise the machine's F3-online
+  arm would open a submit session for a code the server just refused, and the next customer's
+  scan would hit "finish the current customer first".
+* **Expired server row → kind `expiredLocally` + `source: 'server'`** (the slate names three
+  outcomes; an unredeemed-but-expired row is a fourth the spike showed the device can read).
+  Existing card, existing machine pair. Not covered by a named test.
+* **Could-not-ask with an embedded descriptor** falls back to today's `embeddedOffer` (not
+  `unknownCode`) with `verified: false` and the same extra line — "today's behaviour" for that
+  payload is the embedded card.
+* **No coordinates → no lookup.** An unprovisioned phone that is online resolves as before,
+  without the "couldn't check" line. It is true that the server was not checked; the phone has
+  no door to check through, and today's sentence already says "can't verify … on this device".
+* **The door on the e2e stack does not serve this read** (no substrate; the real
+  `/api/v1/sync/token` is 503 there) — so the row is stubbed, as the slate anticipated. No
+  route was built.
+
+## Gates (tree `ebcb384` — every code, test and `sw.js` commit; later commits are docs/logs only)
+
+| Gate | Log | Result |
+|---|---|---|
+| G1 | `g1.log` | `EXIT_BUILD=0`, `EXIT_VET=0`; `backend/` diff vs `73521b1` empty |
+| G2-Go (`-p 1`, under the lock) | `g2-go.log` | `EXIT_TEST=0` — 15 packages `ok`, 447 top-level tests: 444 pass / 0 fail / 3 skip (same counts as tonight's base). `TestRowVisibilityRLS` PASS |
+| G2-Playwright FULL (under the lock, hand-provisioned `:8212`, `--retries=0`) | `g2-pw-full.log`, `g2-pw-full.reds.txt` | `EXIT=1` — 27 failed / 7 skipped / 1035 passed (34.6m), 1069 tests. All 60 `tests/marketing.spec.js` tests green, the six `[SV-*]` included |
+| G4 | `g4-sw.log` | 51 precached (unchanged); regenerating at the committed HEAD reproduces the committed file (`EXIT_GITDIFF_SW=0`); only `marketing/scanner.js` and `marketing/scan-page.js` changed revision |
+
+Reds vs tonight's base (`logs/base-reds.txt`, 25): 24 of the 27 are in the base set. Base red
+but green here: `inventory.spec.js:1469`. The 3 outside the base — `inventory.spec.js:2931`,
+`onboarding.spec.js:2233` (both also seen by Card 1's run on this base) and
+`recipes.spec.js:216` (new to tonight's lists) — were each run 3× in isolation on BOTH trees
+(`iso-extra-reds.log`; the pre-change leg swaps in `marketing/` + `sw.js` from `73521b1`):
+
+| Test | POST-change red | PRE-change red |
+|---|---|---|
+| `onboarding.spec.js:2233` | 3 / 3 | 3 / 3 |
+| `inventory.spec.js:2931` | 1 / 3 | 1 / 3 |
+| `recipes.spec.js:216` | 0 / 3 | 1 / 3 |
+
+None of the three loads a file this card changed, and each behaves the same on both trees —
+not attributed to this card. (The isolation ran against the database the full suite had just
+used, so it measures "same on both trees", not "green on a clean database".)
+
+The suite rewrote tracked PNGs under `.night-crew/runs/2026-10-02-autonomous/`; they were
+restored with `git checkout` and none is committed.
