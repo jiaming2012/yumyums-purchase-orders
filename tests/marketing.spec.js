@@ -29,6 +29,8 @@
 
 const { test, expect } = require('@playwright/test');
 const path = require('path');
+const fs = require('fs');
+const { spawnSync } = require('child_process');
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
@@ -1472,30 +1474,173 @@ test.describe('Scanner polish (card scanner-polish, roadmap H6)', () => {
     expect(calls.length).toBe(0);
   });
 
-  // ── [SP-03b] …and decision 166 survives it, by construction ───────────────
+  // ── [SP-03b] is RETIRED (B-465, card test-integrity-fix, run 20261003) ────
   //
-  // "uniform with the source's own predicate" (decision 191) is the operative
-  // half: createCampaignPolicySource answers `null` for a code that names NO
-  // campaign, and that is what keeps F2's ratified offline override alive
-  // (decision 166). A fail-closed arm that also swallowed the
-  // genuinely-unknown code would delete that affordance on exactly the
-  // devices least able to recover it — an operator-level change nobody
-  // decided. Pinned here so the choice is visible rather than implied.
-  test('[SP-03b] decision 166 survives the no-source device: a code naming NO campaign keeps its override', async ({ page }) => {
+  // It was named "decision 166 survives the no-source device: a code naming
+  // NO campaign keeps its override" and it scanned a never-seen token. For
+  // kind = 'unknownCode' submit-flow.js never CALLS the policy predicate —
+  // requiresOnline stays at its initial `false` — so the test passed against
+  // an INVERTED failClosed (proven by mutation at triage 2026-10-02 and again
+  // by the card's spike). It guarded nothing it named.
+  //
+  // What replaced it, and where each half now lives:
+  //   * the branch it claimed to guard — policyFor(null, …) reached through
+  //     the offerReady path — existed only because the codes-replica schema
+  //     did not require `campaign_id`. It does now (schema v1); [TI-01] pins
+  //     that as a schema fact, and [TI-02] pins that the bump cannot brick a
+  //     phone that already synced.
+  //   * decision 166's predicate half ("names no campaign → not fail-closed,
+  //     source or no source") is asserted on the SHIPPED function by
+  //     marketing/sync/harness/campaigns-harness.mjs leg 3, which imports
+  //     failClosed / policyFor from submit-flow.js since B-462 and reds on the
+  //     same inversion.
+  //   * the never-seen-code override itself is pinned by the F2 tests in the
+  //     "Redemption submit flow" describe above; nothing here weakens it.
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Test integrity — card test-integrity-fix (run 20261003, roadmap I1; B-465 +
+// decision-191 rider 1; goal ledger .night-crew/knowledge/spikes/
+// activity-i-honest-gates-then-verify-before-the-till-triage-20261002-follow-ups/
+// test-integrity-fix.md)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// MARKETING_REPLICA_SCHEMA (codes AND offers) is version 1 with `campaign_id`
+// in `required`. Two tests, and what each one does and does not claim:
+//
+//   [TI-01] runs marketing/sync/harness/replica-schema-harness.mjs — node,
+//           the vendored RxDB, MEMORY storage wrapped in ajv. v0 rows survive
+//           the reopen at v1; a row without campaign_id is refused with VD2.
+//   [TI-02] reopens a v0 store at v1 in the PAGE — the shipped bundle, the
+//           shipped spec, Chromium's IndexedDB through Dexie. It claims the
+//           migration ran and kept the rows on the storage the phone uses.
+//           It does NOT claim VD2: scan-page.js wraps no validator, so on the
+//           phone `required` is a declared shape and the enforcement is the
+//           server's NOT NULL. And it does not retire B-441, which is about
+//           the scan_attempts migration.
+//
+// RED-FIRST: on the pre-change tree [TI-01] reds at the harness's leg 0
+// (version 0, campaign_id not required) and [TI-02] reds on its first
+// assertion (the live codes collection is at schema version 0). Evidence:
+// .night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/.
+test.describe('Test integrity (card test-integrity-fix, roadmap I1)', () => {
+
+  // The codes/offers schema exactly as it shipped before this card (git
+  // ec2830c, marketing/sync/replicas.js:57-72). A frozen literal on purpose:
+  // the shipped object is v1 now, and a v0 store can only be built from what
+  // v0 was.
+  const REPLICA_SCHEMA_V0 = {
+    version: 0,
+    primaryKey: 'id',
+    type: 'object',
+    properties: {
+      id: { type: 'string', maxLength: 100 },
+      token_hash: { type: 'string', maxLength: 128 },
+      campaign_id: { type: 'string', maxLength: 100 },
+      expires_at: { type: 'string' },
+      redeemed_at: { type: ['string', 'null'] },
+      redeemed_by: { type: ['string', 'null'] },
+      updated_at: { type: 'string' },
+    },
+    required: ['id', 'token_hash', 'expires_at', 'updated_at'],
+    indexes: [['token_hash']],
+  };
+
+  test('[TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows', async () => {
+    const harnessDir = path.join(__dirname, '..', 'marketing', 'sync', 'harness');
+    const qaModules = path.join(__dirname, '..', '.night-crew', 'qa', 'spike-supabase', 'rxdb', 'node_modules');
+    // The harness resolves `rxdb` by walk-up from its own directory, through
+    // the same gitignored symlink the *-run.sh scripts create. A box without
+    // the vendored modules FAILS here — a skip would be a silent green.
+    expect(
+      fs.existsSync(path.join(qaModules, 'rxdb', 'package.json')),
+      'the vendored rxdb is missing — `npm ci` in .night-crew/qa/spike-supabase/rxdb',
+    ).toBe(true);
+    const link = path.join(harnessDir, 'node_modules');
+    if (!fs.existsSync(link)) fs.symlinkSync(qaModules, link);
+
+    const run = spawnSync(process.execPath, [path.join(harnessDir, 'replica-schema-harness.mjs')], {
+      encoding: 'utf8', timeout: 90_000,
+    });
+    const out = `${run.stdout || ''}\n${run.stderr || ''}`;
+    // The verdict is the exit status; the lines below pin WHICH facts it saw,
+    // so a harness that exits 0 having checked nothing cannot pass.
+    expect(run.status, `replica-schema-harness.mjs exit status\n${out}`).toBe(0);
+    expect(out).toContain('version=1 required=[id,token_hash,campaign_id,expires_at,updated_at]');
+    expect(out, 'v0 rows survive, codes').toContain('codes: 2/2 rows present at schema.version=1, every field unchanged');
+    expect(out, 'v0 rows survive, offers').toContain('offers: 2/2 rows present at schema.version=1, every field unchanged');
+    expect(out, 'the invariant as a schema fact, codes').toContain('codes: refused with VD2, nothing written');
+    expect(out, 'the invariant as a schema fact, offers').toContain('offers: refused with VD2, nothing written');
+    expect(out, 'the bare-edit control').toContain('refused with DB6');
+    expect(out).toContain('all legs held');
+  });
+
+  test('[TI-02] in the page, a v0 codes/offers store on IndexedDB reopens at v1 through the shipped spec with its rows', async ({ page }) => {
     await openSubmitScanner(page);
-    const calls = await mockRedeem(page);
-    await page.evaluate(() => { window.MarketingSubmit.setCampaignPolicy(null); });
-    await killProbe(page);
-    await scanText(page, UNKNOWN_TOKEN_PAYLOAD);
-    await expect(page.locator('#scan-result')).toHaveAttribute('data-kind', 'unknownCode');
-    await page.fill('#ms-order', '55');
-    await page.click('[data-action="ms-submit"]');
-    await expect(
-      page.locator('#ms-gate'),
-      'decision 166: a genuinely-unknown code is not fail-closed, even with no source',
-    ).toHaveAttribute('data-branch', 'override');
-    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(1);
-    expect(calls.length).toBe(0);
+
+    // The scanner booted (openSubmitScanner waited on it) — so the live
+    // database already opened the v1 collections with the migration plugin.
+    const live = await page.evaluate(() => {
+      const c = window.MarketingScan.collections;
+      return { codes: c.codes.schema.version, offers: c.offers.schema.version };
+    });
+    expect(live, 'the live Scan-page collections are at schema version 1').toEqual({ codes: 1, offers: 1 });
+
+    const result = await page.evaluate(async (V0) => {
+      // The SAME module instances scan-page.js imported (ES module cache).
+      const R = await import('/vendor/rxdb.bundle.js');
+      const rep = await import('/marketing/sync/replicas.js');
+      const { sha256Hex } = await import('/marketing/sync/sha256.js');
+      R.addRxPlugin(R.RxDBMigrationSchemaPlugin);
+      const name = `ti02_reopen_${Date.now()}`;
+      const openDb = () => R.createRxDatabase({ name, storage: R.getRxStorageDexie(), hashFunction: sha256Hex });
+      const row = (n, campaign) => ({
+        id: `c0000000-0000-4000-8000-00000000000${n}`,
+        token_hash: String(n).repeat(64),
+        campaign_id: campaign,
+        expires_at: '2028-01-01T00:00:00.000Z',
+        redeemed_at: n === 2 ? '2026-09-02T00:00:00.000Z' : null,
+        redeemed_by: n === 2 ? 'device-a' : null,
+        updated_at: '2026-09-01T00:00:00.000Z',
+      });
+      const rows = [row(1, 'a0000000-0000-4000-8000-000000000001'), row(2, 'a0000000-0000-4000-8000-000000000002')];
+
+      // (1) the store a synced phone holds today: v0 collections with rows.
+      const db0 = await openDb();
+      const c0 = await db0.addCollections({ codes: { schema: V0 }, offers: { schema: V0 } });
+      await c0.codes.bulkInsert(rows);
+      await c0.offers.bulkInsert(rows);
+      const v0 = { codes: c0.codes.schema.version, offers: c0.offers.schema.version };
+      await db0.close();
+
+      // (2) the same IndexedDB store, reopened by the SHIPPED spec.
+      const out = { v0, rows, reopenError: null, after: {} };
+      let db1;
+      try {
+        db1 = await openDb();
+        const c1 = await db1.addCollections(rep.marketingCollectionSpec());
+        for (const col of ['codes', 'offers']) {
+          const docs = await c1[col].find({ sort: [{ id: 'asc' }] }).exec();
+          out.after[col] = {
+            version: c1[col].schema.version,
+            docs: docs.map((d) => { const j = d.toJSON(); delete j._deleted; return j; }),
+          };
+        }
+      } catch (e) {
+        out.reopenError = `${e && e.code}: ${String(e && e.message).slice(0, 300)}`;
+      }
+      if (db1) await db1.remove();   // hygiene: this test's own database only
+      return out;
+    }, REPLICA_SCHEMA_V0);
+
+    expect(result.v0, 'the store really was created at v0').toEqual({ codes: 0, offers: 0 });
+    expect(result.reopenError, 'a rejection here is "Scanner failed to start" on every synced phone').toBeNull();
+    for (const col of ['codes', 'offers']) {
+      expect(result.after[col].version, `${col} reopened at v1`).toBe(1);
+      expect(result.after[col].docs, `${col}: every v0 row is still there, unchanged`).toEqual(result.rows);
+    }
+    // …and the page that did all this is still a working scanner.
+    await expect(page.locator('#ms-unexpected')).toHaveCount(0);
   });
 });
 

@@ -55,7 +55,36 @@ export const offersWindowBound = (now = Date.now) => new Date(now()).toISOString
  * `_deleted` is not declared: RxDB owns the soft-delete field itself.
  */
 export const MARKETING_REPLICA_SCHEMA = {
-  version: 0,
+  // v1 (card test-integrity-fix, run 20261003, B-465 / decision-191 rider 1):
+  // + `campaign_id` in `required`.
+  //
+  // 🛑 THE THIRD RxDB SCHEMA MIGRATION IN THIS TREE, the same three-part shape
+  // as SCAN_ATTEMPTS_SCHEMA and CAMPAIGNS_REPLICA_SCHEMA below — and it covers
+  // TWO collections, because `codes` and `offers` share this object. All three
+  // parts move together or the Scan page bricks:
+  //   1. `version: 1` here;
+  //   2. MARKETING_MIGRATION_STRATEGIES below, passed to addCollections by
+  //      marketingCollectionSpec() for BOTH `codes` and `offers`;
+  //   3. `RxDBMigrationSchemaPlugin` registered by every caller that builds
+  //      these collections — marketing/scan-page.js and all seven harnesses
+  //      under marketing/sync/harness/ already do (verified by the card, not
+  //      assumed). A caller that builds a collection from this bare schema
+  //      WITHOUT the strategies is refused by RxDB; take the entry from
+  //      marketingCollectionSpec() instead (push-harness.mjs does).
+  // Why a bare `required` edit is not an option (spike
+  // required-campaign-id-needs-a-replica-migration, measured): widening
+  // `required` at the SAME version changes the schema hash, and RxDB refuses to
+  // reopen a store that already holds the collection — error DB6 — on every
+  // phone that has ever synced.
+  //
+  // What `required` buys, stated at its true size: both databases already
+  // forbid a code without a campaign (`qr_codes.campaign_id` and
+  // `public.codes.campaign_id` are each NOT NULL REFERENCES), so no pulled row
+  // lacks it. Under a VALIDATING storage (every node harness wraps ajv) a row
+  // without it is refused with VD2. The browser's Dexie storage is not wrapped
+  // in a validator, so on the phone this is a declared shape, not an enforced
+  // one — the enforcement there is the server's NOT NULL.
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -67,8 +96,23 @@ export const MARKETING_REPLICA_SCHEMA = {
     redeemed_by: { type: ['string', 'null'] },
     updated_at: { type: 'string' },
   },
-  required: ['id', 'token_hash', 'expires_at', 'updated_at'],
+  required: ['id', 'token_hash', 'campaign_id', 'expires_at', 'updated_at'],
   indexes: [['token_hash']],
+};
+
+/**
+ * Part (2) of the codes/offers migration. Total and lossless: v1 adds no
+ * property and renames none, it only declares `campaign_id` required, and
+ * every row the pull ever delivered carries one (NOT NULL on both databases).
+ * A v0 row therefore migrates unchanged.
+ *
+ * Returning `null` — RxDB's "drop this document" — for a row with no
+ * `campaign_id` was considered and rejected: dropping a codes row changes what
+ * the scanner SAYS about that code (known → unknown), which is a change to
+ * what the phone does, and this card changes none of that.
+ */
+export const MARKETING_MIGRATION_STRATEGIES = {
+  1: (oldDoc) => oldDoc,
 };
 
 /**
@@ -147,8 +191,16 @@ export const CAMPAIGNS_COLLECTION = 'campaigns';
 /** addCollections() argument covering all three replicas. */
 export function marketingCollectionSpec() {
   return {
-    [CODES_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
-    [OFFERS_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
+    // Part (2) of the three-part migration — see MARKETING_REPLICA_SCHEMA.
+    // BOTH collections: they share the schema, so they share the version.
+    [CODES_COLLECTION]: {
+      schema: MARKETING_REPLICA_SCHEMA,
+      migrationStrategies: MARKETING_MIGRATION_STRATEGIES,
+    },
+    [OFFERS_COLLECTION]: {
+      schema: MARKETING_REPLICA_SCHEMA,
+      migrationStrategies: MARKETING_MIGRATION_STRATEGIES,
+    },
     [CAMPAIGNS_COLLECTION]: {
       schema: CAMPAIGNS_REPLICA_SCHEMA,
       // Part (2) of the three-part migration — see CAMPAIGNS_REPLICA_SCHEMA.

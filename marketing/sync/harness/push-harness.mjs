@@ -218,7 +218,7 @@ const {
   scanAttemptsCollectionSpec, enqueueAttempt, makePushHandler, startScanAttemptsReplica,
 } = await import('../push-replication.js');
 const {
-  startCodesReplica, MARKETING_REPLICA_SCHEMA, CODES_COLLECTION,
+  startCodesReplica, marketingCollectionSpec, CODES_COLLECTION,
 } = await import('../replicas.js');
 
 // One device = one RxDB db holding the scan_attempts queue AND its own
@@ -228,7 +228,11 @@ const {
 // already-proven leg.
 async function makeDevice(name, jwt, { inject } = {}) {
   const db = await makeDb(name.replace(/-/g, '_'), {
-    [CODES_COLLECTION]: { schema: MARKETING_REPLICA_SCHEMA },
+    // The codes entry comes from the PRODUCTION spec, not the bare schema:
+    // MARKETING_REPLICA_SCHEMA is version 1 since card test-integrity-fix (run
+    // 20261003, B-465) and RxDB refuses a v1 collection built without its
+    // migration strategies. No leg or assertion changed.
+    [CODES_COLLECTION]: marketingCollectionSpec()[CODES_COLLECTION],
     ...scanAttemptsCollectionSpec(),
   });
   const { wrapper, trace, injected } = recordingFetch({ inject });
