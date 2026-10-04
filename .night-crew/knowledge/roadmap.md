@@ -975,7 +975,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### dish-merge-and-erasure-backstop
 
-- `dish-merge-and-erasure-backstop` · **PLANNED** · (I3, track B — decision 194) Migration
+- `dish-merge-and-erasure-backstop` · **LANDED** (run `20261003`, branch `card/i3-dish-merge-and-erasure-backstop`) · (I3, track B — decision 194) Migration
   `0083`'s `campaigns_admin.item_id` and `qr_codes.item_id` reference `menu_items(id)` with no
   `ON DELETE`, so `recipes.MergeMenuItem` (re-point recipes, delete the source dish) fails
   `23503` once any campaign references the dish — API-only today, no frontend calls the merge.
