@@ -1,0 +1,14 @@
+# RED leg 2 — migration 0086 applied, MergeMenuItem still WITHOUT the re-point: the backstop alone blanks the rows, it does not re-point them. 2026-10-04T01:46:32Z
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.80s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+    repository_test.go:202: rows re-pointed = 0, want 2 (one campaign + one code)
+    repository_test.go:211: campaigns_admin.item_id = NULL, want B (84235d5a-5e34-40cd-ba5e-3764a44f6e1d)
+    repository_test.go:218: qr_codes.item_id = NULL, want B (84235d5a-5e34-40cd-ba5e-3764a44f6e1d)
+--- FAIL: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (1.16s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.99s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	2.971s
+FAIL
+EXIT=1
