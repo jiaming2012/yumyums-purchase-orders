@@ -40,6 +40,72 @@ const $ = (id) => document.getElementById(id);
 
 const ENTITLEMENT_KEY = 'hq_marketing_entitlement_v1';
 
+// ── the §8 predicates, at MODULE scope and EXPORTED (B-462, card
+// test-integrity-fix, run 20261003) ─────────────────────────────────────────
+//
+// These three used to be closures inside boot(). They moved up here, bodies
+// unchanged, for one reason: marketing/sync/harness/campaigns-harness.mjs leg
+// 3 must measure THESE functions, and it could not import a closure — so it
+// carried a hand-copied mirror, and stayed GREEN against an inverted
+// failClosed (proven by mutation at triage 2026-10-02 and again by the card's
+// spike). A gate that reimplements what it guards is the silent-green class
+// B-09/B-36 taught this repo.
+//
+// 🛑 Exports only. The single shape change is that policyFor takes the policy
+// source as its FIRST PARAMETER instead of closing over boot()'s
+// CAMPAIGN_POLICY — the name is kept so the body reads exactly as it did.
+// boot() passes its own CAMPAIGN_POLICY at both call sites. No predicate body
+// changed; changing one is an operator-level decision (decisions 166/191/199),
+// not a refactor.
+
+// A code that names no campaign at all. Written once because both the
+// policy arm and the fail-closed arm below must agree about what "names a
+// campaign" means, and `''` is as absent as `null` here.
+export const namesNoCampaign = (campaignId) =>
+  campaignId === null || campaignId === undefined || campaignId === '';
+
+// requiresOnline — the boolean the machine's RESOLVED event carries.
+//
+// ── B-436 / decision 191 (card scanner-polish, run 20261002) ──────────────
+// 🛑 THE `!CAMPAIGN_POLICY` ARM NOW FAILS CLOSED. It used to answer `false`
+// unconditionally, which meant a device whose policy source could not be
+// CONSTRUCTED — a stale-cached scan-page with no `campaigns` collection, or
+// createCampaignPolicySource throwing — left EVERY known code
+// offline-overridable, a `requires_online = true` one included. That is
+// B-432's harm one layer up, through a narrower door, and it was the last
+// door through which a requires_online code could burn offline.
+//
+// The predicate is "uniform with the source's own predicate" — decision
+// 191's operative words — so it mirrors createCampaignPolicySource exactly:
+//
+//   names a campaign      → refuse. Nothing resolved it, so we cannot tell,
+//                           and "cannot tell" is not permission.
+//   names NO campaign     → do NOT refuse. The source answers `null` here
+//                           and the coercion keeps F2's override alive:
+//                           **decision 166 survives by construction, not by
+//                           care.** A fail-closed arm that swallowed the
+//                           genuinely-unknown code too would silently
+//                           repeal a ratified affordance on exactly the
+//                           devices least able to recover it — an
+//                           operator-level change nobody made.
+//
+// The attempt record is unchanged: policyUnresolvedFor still answers TRUE
+// for this device, so an override it DOES still write (an unknown code)
+// lands `policy_unresolved = true` exactly as before.
+export function failClosed(campaignId) {
+  return !namesNoCampaign(campaignId);
+}
+export function policyFor(CAMPAIGN_POLICY, campaignId, offers) {
+  if (!CAMPAIGN_POLICY) return failClosed(campaignId);
+  try {
+    const p = CAMPAIGN_POLICY(campaignId, offers);
+    return !!(p && p.requiresOnline);
+  } catch (e) {
+    // A throwing source is a source that resolved nothing — same arm.
+    return failClosed(campaignId);
+  }
+}
+
 async function boot() {
   let MS;
   try {
@@ -147,53 +213,10 @@ async function boot() {
     CAMPAIGN_POLICY = null;
   }
 
-  // A code that names no campaign at all. Written once because both the
-  // policy arm and the fail-closed arm below must agree about what "names a
-  // campaign" means, and `''` is as absent as `null` here.
-  const namesNoCampaign = (campaignId) =>
-    campaignId === null || campaignId === undefined || campaignId === '';
-
-  // requiresOnline — the boolean the machine's RESOLVED event carries.
-  //
-  // ── B-436 / decision 191 (card scanner-polish, run 20261002) ──────────────
-  // 🛑 THE `!CAMPAIGN_POLICY` ARM NOW FAILS CLOSED. It used to answer `false`
-  // unconditionally, which meant a device whose policy source could not be
-  // CONSTRUCTED — a stale-cached scan-page with no `campaigns` collection, or
-  // createCampaignPolicySource throwing — left EVERY known code
-  // offline-overridable, a `requires_online = true` one included. That is
-  // B-432's harm one layer up, through a narrower door, and it was the last
-  // door through which a requires_online code could burn offline.
-  //
-  // The predicate is "uniform with the source's own predicate" — decision
-  // 191's operative words — so it mirrors createCampaignPolicySource exactly:
-  //
-  //   names a campaign      → refuse. Nothing resolved it, so we cannot tell,
-  //                           and "cannot tell" is not permission.
-  //   names NO campaign     → do NOT refuse. The source answers `null` here
-  //                           and the coercion keeps F2's override alive:
-  //                           **decision 166 survives by construction, not by
-  //                           care.** A fail-closed arm that swallowed the
-  //                           genuinely-unknown code too would silently
-  //                           repeal a ratified affordance on exactly the
-  //                           devices least able to recover it — an
-  //                           operator-level change nobody made.
-  //
-  // The attempt record is unchanged: policyUnresolvedFor still answers TRUE
-  // for this device, so an override it DOES still write (an unknown code)
-  // lands `policy_unresolved = true` exactly as before.
-  function failClosed(campaignId) {
-    return !namesNoCampaign(campaignId);
-  }
-  function policyFor(campaignId, offers) {
-    if (!CAMPAIGN_POLICY) return failClosed(campaignId);
-    try {
-      const p = CAMPAIGN_POLICY(campaignId, offers);
-      return !!(p && p.requiresOnline);
-    } catch (e) {
-      // A throwing source is a source that resolved nothing — same arm.
-      return failClosed(campaignId);
-    }
-  }
+  // namesNoCampaign / failClosed / policyFor — the §8 predicates — live at
+  // module scope above boot() since B-462, so the campaigns harness imports
+  // the shipped functions instead of mirroring them. policyFor is called below
+  // with this boot's CAMPAIGN_POLICY as its first argument.
 
   // The B-432 discriminator, captured at SCAN time (never at push time — by
   // the time the queue drains the replica may have recovered, and the record
@@ -393,7 +416,7 @@ async function boot() {
       case 'offerReady': {
         const o = result.offers[0];
         stash.code_id = o.code_id;
-        requiresOnline = policyFor(o.campaign_id || null, result.offers);
+        requiresOnline = policyFor(CAMPAIGN_POLICY, o.campaign_id || null, result.offers);
         stash.policy_unresolved = policyUnresolvedFor(o.campaign_id || null);
         kind = 'offerReady';
         break;
@@ -405,7 +428,7 @@ async function boot() {
           const docs = await MS.collections.codes.find({ selector: { token_hash: result.token_hash } }).exec();
           if (docs.length) {
             stash.code_id = docs[0].id;
-            requiresOnline = policyFor(docs[0].campaign_id || null, []);
+            requiresOnline = policyFor(CAMPAIGN_POLICY, docs[0].campaign_id || null, []);
             stash.policy_unresolved = policyUnresolvedFor(docs[0].campaign_id || null);
           }
         } catch (e) { /* replica unreadable — token_hash fallback below */ }
