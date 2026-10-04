@@ -1,0 +1,112 @@
+# RED leg 1 — tests only, pre-change tree (no 0086). 2026-10-04T01:45:31Z
+2026/10/03 21:45:35 OK   0001_users.sql (58.88ms)
+2026/10/03 21:45:35 OK   0002_sessions.sql (86.14ms)
+2026/10/03 21:45:35 OK   0003_invite_tokens.sql (68ms)
+2026/10/03 21:45:35 OK   0004_hq_apps.sql (75.97ms)
+2026/10/03 21:45:35 OK   0005_app_permissions.sql (93.22ms)
+2026/10/03 21:45:35 OK   0006_checklist_templates.sql (44.6ms)
+2026/10/03 21:45:35 OK   0007_checklist_schedules.sql (39.67ms)
+2026/10/03 21:45:35 OK   0008_template_assignments.sql (64.06ms)
+2026/10/03 21:45:35 OK   0009_checklist_sections.sql (44.32ms)
+2026/10/03 21:45:35 OK   0010_checklist_fields.sql (46.03ms)
+2026/10/03 21:45:35 OK   0011_checklist_submissions.sql (60.23ms)
+2026/10/03 21:45:35 OK   0012_submission_responses.sql (90.98ms)
+2026/10/03 21:45:35 OK   0013_submission_fail_notes.sql (51.35ms)
+2026/10/03 21:45:35 OK   0014_submission_rejections.sql (93.42ms)
+2026/10/03 21:45:35 OK   0015_ops.sql (81.17ms)
+2026/10/03 21:45:35 OK   0016_lamport_ts.sql (25.37ms)
+2026/10/03 21:45:36 OK   0017_users_naming.sql (44.47ms)
+2026/10/03 21:45:36 OK   0018_ob_templates.sql (122.49ms)
+2026/10/03 21:45:36 OK   0019_ob_items.sql (123.95ms)
+2026/10/03 21:45:36 OK   0020_ob_progress.sql (75.73ms)
+2026/10/03 21:45:36 OK   0021_ob_signoffs.sql (74.38ms)
+2026/10/03 21:45:36 OK   0022_ob_template_assignments.sql (62.24ms)
+2026/10/03 21:45:36 OK   0023_multi_role.sql (96.35ms)
+2026/10/03 21:45:36 OK   0024_inventory.sql (318.5ms)
+2026/10/03 21:45:36 OK   0025_pending_purchases.sql (65.21ms)
+2026/10/03 21:45:36 OK   0026_ob_progress_faq.sql (14.52ms)
+2026/10/03 21:45:36 OK   0027_ob_section_signoff_roles.sql (9.23ms)
+2026/10/03 21:45:37 OK   0028_ob_video_upgrade.sql (25.37ms)
+2026/10/03 21:45:37 OK   0029_ob_templates_archived_at.sql (8.93ms)
+2026/10/03 21:45:37 OK   0030_item_groups_unique_name.sql (39.45ms)
+2026/10/03 21:45:37 OK   0031_remove_placeholder_items.sql (28.92ms)
+2026/10/03 21:45:37 OK   0032_item_group_thresholds.sql (18.07ms)
+2026/10/03 21:45:37 OK   0033_stock_count_overrides.sql (47.06ms)
+2026/10/03 21:45:37 OK   0034_purchase_orders.sql (236.43ms)
+2026/10/03 21:45:37 OK   0035_purchase_items_photo_store.sql (26.5ms)
+2026/10/03 21:45:37 OK   0036_purchase_items_full_name.sql (19.92ms)
+2026/10/03 21:45:37 OK   0037_cutoff_config.sql (57.56ms)
+2026/10/03 21:45:37 OK   0038_po_status_extend.sql (31.27ms)
+2026/10/03 21:45:37 OK   0039_purchase_items_vendor.sql (42.77ms)
+2026/10/03 21:45:37 OK   0040_shopping_lists.sql (240.09ms)
+2026/10/03 21:45:37 OK   0041_notification_channel.sql (34.89ms)
+2026/10/03 21:45:38 OK   0042_repurchase_tracking.sql (162.89ms)
+2026/10/03 21:45:38 OK   0043_alert_log.sql (106.87ms)
+2026/10/03 21:45:38 OK   0044_low_stock_alert_log.sql (140.65ms)
+2026/10/03 21:45:38 OK   0045_notification_channel_array.sql (132.81ms)
+2026/10/03 21:45:38 OK   0046_user_timezone.sql (34.61ms)
+2026/10/03 21:45:38 OK   0047_employee_fields.sql (80.3ms)
+2026/10/03 21:45:38 OK   0048_notification_default_both.sql (12.26ms)
+2026/10/03 21:45:38 OK   0049_ob_sub_items.sql (58.74ms)
+2026/10/03 21:45:38 OK   0050_ob_progress_sub_item.sql (13.31ms)
+2026/10/03 21:45:38 OK   0051_rejection_field_fk.sql (11.34ms)
+2026/10/03 21:45:38 OK   0052_template_name_unique.sql (26.12ms)
+2026/10/03 21:45:38 OK   0053_response_field_fk.sql (12.36ms)
+2026/10/03 21:45:38 OK   0054_failnote_field_fk.sql (15.81ms)
+2026/10/03 21:45:38 OK   0055_item_location_in_store.sql (11.17ms)
+2026/10/03 21:45:38 OK   0056_ob_progress_photo.sql (43.43ms)
+2026/10/03 21:45:38 OK   0057_ob_items_photo_type.sql (41.06ms)
+2026/10/03 21:45:38 OK   0058_ob_sub_items_photos.sql (28.6ms)
+2026/10/03 21:45:38 OK   0059_cleanup_photo_items.sql (11.55ms)
+2026/10/03 21:45:38 OK   0060_menu_items.sql (130.77ms)
+2026/10/03 21:45:39 OK   0061_daily_menu_sales.sql (94.05ms)
+2026/10/03 21:45:39 OK   0062_recipes.sql (161.34ms)
+2026/10/03 21:45:39 OK   0063_drift_check_results.sql (84.11ms)
+2026/10/03 21:45:39 OK   0064_no_itemized_receipt_seed.sql (70.65ms)
+2026/10/03 21:45:39 OK   0065_mercury_category_on_purchase_events.sql (38.23ms)
+2026/10/03 21:45:39 OK   0066_mercury_category_on_pending_purchases.sql (35.74ms)
+2026/10/03 21:45:39 OK   0067_receipt_sync_runs.sql (131.43ms)
+2026/10/03 21:45:39 OK   0068_pending_purchases_bank_tx_uniq.sql (90ms)
+2026/10/03 21:45:39 OK   0069_pending_purchases_parse_error.sql (52.77ms)
+2026/10/03 21:45:39 OK   0070_receipt_urls.sql (50.18ms)
+2026/10/03 21:45:39 OK   0071_submission_fail_notes_unique.sql (80.6ms)
+2026/10/03 21:45:39 OK   0072_app_timezone_new_york.sql (78.12ms)
+2026/10/03 21:45:39 OK   0073_sync_fdw_views.sql (102.35ms)
+2026/10/03 21:45:40 OK   0074_sync_fdw_approver_view.sql (98.79ms)
+2026/10/03 21:45:40 OK   0075_item_aliases.sql (156.62ms)
+2026/10/03 21:45:40 OK   0076_checklist_template_app.sql (47.56ms)
+2026/10/03 21:45:40 OK   0077_race_lost_notifications.sql (109.68ms)
+2026/10/03 21:45:40 OK   0078_card_holder_on_purchases.sql (55.28ms)
+2026/10/03 21:45:40 OK   0079_pending_purchases_retry_requested.sql (71.73ms)
+2026/10/03 21:45:40 OK   0080_receipt_sync_runs_cancelled.sql (55.78ms)
+2026/10/03 21:45:40 OK   0081_item_alias_display.sql (57.53ms)
+2026/10/03 21:45:40 OK   0082_bi_grants.sql (40.36ms)
+2026/10/03 21:45:41 OK   0083_campaigns_admin.sql (351.6ms)
+2026/10/03 21:45:41 OK   0084_toast_orders_reconciliation.sql (330.4ms)
+2026/10/03 21:45:41 OK   0085_subscribers.sql (234.96ms)
+2026/10/03 21:45:41 goose: successfully migrated database to version: 85
+2026/10/03 21:45:41 INFO database migrations applied successfully
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+    erasure_test.go:104: DELETE FROM subscribers: ERROR: update or delete on table "subscribers" violates foreign key constraint "subscriber_events_subscriber_id_fkey" on table "subscriber_events" (SQLSTATE 23503)
+--- FAIL: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.60s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+    erasure_test.go:147: DELETE FROM qr_codes: ERROR: update or delete on table "qr_codes" violates foreign key constraint "subscribers_source_short_fkey" on table "subscribers" (SQLSTATE 23503)
+--- FAIL: TestCodeDeleteBlanksFirstTouch (0.44s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.40s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/03 21:45:43 goose: no migrations to run. current version: 85
+2026/10/03 21:45:43 INFO database migrations applied successfully
+    erasure_test.go:313: at HEAD: campaigns_admin_item_id_fkey confdeltype = "a", want "n"
+    erasure_test.go:313: at HEAD: qr_codes_item_id_fkey confdeltype = "a", want "n"
+    erasure_test.go:313: at HEAD: subscribers_source_short_fkey confdeltype = "a", want "n"
+    erasure_test.go:313: at HEAD: subscriber_events_subscriber_id_fkey confdeltype = "a", want "c"
+    erasure_test.go:313: at HEAD: qr_scans_subscriber_id_fkey is missing, want confdeltype "n"
+    erasure_test.go:315: no *_merge_repoint_and_erasure_backstop.sql migration found in ../db/migrations
+2026/10/03 21:45:43 goose: no migrations to run. current version: 85
+2026/10/03 21:45:43 INFO database migrations applied successfully
+--- FAIL: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.01s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	8.249s
+FAIL
+EXIT=1
