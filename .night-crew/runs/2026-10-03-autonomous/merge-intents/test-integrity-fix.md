@@ -136,3 +136,31 @@ harness) and is NOT enforced in the browser; there the enforcement is the server
 both tables. So the branch `policyFor(…, null)` via `offerReady` is unreachable from pulled data
 and still reachable from a locally written row. Wrapping the browser storage in a validator
 would change what the phone does on a bad row — not this card's call.
+
+## Gates (observed)
+
+* **G1** `g1.log` — `go build ./...` `EXIT_BUILD=0`, `go vet ./...` `EXIT_VET=0` (from `backend/`).
+* **G2-Go** `g2-go.log` — `go test -p 1 -count=1 -v ./...` under the suite lock, `EXIT_TEST=0`:
+  15 packages `ok`, 447 top-level tests — 444 pass / 0 fail / 3 skip (identical to tonight's
+  base); `TestRowVisibilityRLS` 59 subtests pass; `HQ_SYNC_SUBSTRATE_OPTIONAL` and
+  `HQ_SYNC_GATE_CHILD` unset; `DB_TEST_URL` = `:5434/hq_test_go_i1`.
+* **G2-Playwright** `g2-pw-full.log` / `g2-pw-full.specs.txt` — full suite under the suite lock,
+  hand-provisioned stack (`NIGHTCREW_ENV_URL`, `:8211`, `hq_test_e2e_i1_20261003` reset), one
+  summary block: **28 failed / 7 skipped / 1028 passed (32.9m), `EXIT=1`**, 1063 tests (base 1062:
+  −`[SP-03b]` +`[TI-01]` +`[TI-02]`). Every `tests/marketing.spec.js` test passed.
+  Base tonight: 25 failed. **All 25 base reds are red here; 3 + 1 more:**
+  `inventory.spec.js:2931` (in the 24-red set, green in tonight's one base sample),
+  `onboarding.spec.js:2233` / `:2268` (the named pair in the 29-red set), and
+  **`sync.spec.js:1327` "checkbox answer converges (live + catch-up)" — in neither measured set.**
+  Attribution: (a) mechanical — the card's diff outside `.night-crew/` is seven files under
+  `marketing/` + `tests/marketing.spec.js` + one Go test + `sw.js`; only `marketing.html` loads
+  the changed modules and service workers are blocked in the suite, so none of the four specs can
+  execute a changed line; (b) `iso-extra-reds.log` — the four, ×3 each, confined on the card tree:
+  **12 passed, `EXIT=0`**. NOT done: the same isolation on the base tree (the base worktree is the
+  orchestrator's). So: order/load-dependent at whole-suite position, not reproduced in isolation,
+  not attributable to this diff; `sync.spec.js:1327` is new to the named lists and wants a
+  `bugs.md` line at triage.
+* **G4** `g4-sw.log` — `node build-sw.js` `EXIT=0`, **51 files precached** (51 before); a second
+  run at the `sw.js` commit left the tree clean (idempotent).
+* The full suite rewrote 16 tracked PNGs under `.night-crew/runs/2026-10-02-autonomous/logs/`
+  (B-467); restored with `git checkout --`, none committed.
