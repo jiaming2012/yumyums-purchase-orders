@@ -1,0 +1,13 @@
+# fix round GREEN: [SV-05]/[SV-06]/[SV-07] on the fixed working tree. 2026-10-04T01:27:13-04:00
+ marketing/scan-page.js | 19 ++++++++++++++++++-
+ marketing/scanner.js   | 25 +++++++++++++++++++++----
+ 2 files changed, 39 insertions(+), 5 deletions(-)
+
+Running 3 tests using 1 worker
+
+  ✓  1 [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state (1.1s)
+  ✓  2 [chromium] › tests/marketing.spec.js:2471:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it (1.0s)
+  ✓  3 [chromium] › tests/marketing.spec.js:2507:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card (1.1s)
+
+  3 passed (4.8s)
+EXIT=0
