@@ -160,7 +160,12 @@ const byExpiry = (a, b) => Date.parse(a.expires_at) - Date.parse(b.expires_at);
 export function createScanResolver({
   codesCollection, offersCollection, resolveOffers, clock, hashToken, serverLookup,
 }) {
-  async function resolve(payload, { online = false } = {}) {
+  // `onServerLookup(token_hash)` (optional, fix round): called synchronously
+  // just before the step-3 lookup is issued — and ONLY then — so the page can
+  // say "checking" instead of standing blank for the wait. Never called
+  // offline or for a code either replica holds. A throwing observer is
+  // ignored: it must not cost the scan its answer.
+  async function resolve(payload, { online = false, onServerLookup } = {}) {
     const token = extractToken(payload);
     if (!token) return { kind: 'invalidPayload' };
     const token_hash = await hashToken(token);
@@ -251,6 +256,9 @@ export function createScanResolver({
     let unverified = false;
     if (online && typeof serverLookup === 'function') {
       let row = null;
+      if (typeof onServerLookup === 'function') {
+        try { onServerLookup(token_hash); } catch (e) { /* observer only */ }
+      }
       try {
         row = await serverLookup(token_hash);
       } catch (e) {
@@ -302,8 +310,9 @@ export const SERVER_LOOKUP_SELECT = 'id,campaign_id,expires_at,redeemed_at,redee
  *   resolves  row   the server holds this hash (live, redeemed or expired —
  *                   the device role reads all three, spike 01)
  *   resolves  null  HTTP 200 and an empty list: the server does not know it
- *   REJECTS         timeout, network failure, non-200, or a body that is not
- *                   a JSON array — every way of "could not ask"
+ *   REJECTS         timeout, network failure, non-200, a body that is not a
+ *                   JSON array, or a first element that is not an object with
+ *                   a non-empty `id` — every way of "could not ask"
  *
  * The timeout is a RACE as well as an abort: `AbortController` frees the
  * socket, but the race is what guarantees this promise settles — a fetchImpl
@@ -341,7 +350,15 @@ export function createServerLookup({ restUrl, bearer, fetchImpl, timeoutMs }) {
       }
       const rows = await res.json();
       if (!Array.isArray(rows)) throw new Error('[marketing-scan] server lookup answered a non-list body');
-      return rows.length ? rows[0] : null;
+      if (!rows.length) return null;
+      // A 200 list whose first element is not a usable row (`[null]`,
+      // `["x"]`, `[{}]`) is NOT "the server doesn't know it" and is certainly
+      // not an offer — it is an answer we cannot read: could-not-check.
+      const row = rows[0];
+      if (!row || typeof row !== 'object' || typeof row.id !== 'string' || !row.id) {
+        throw new Error('[marketing-scan] server lookup answered an unusable row');
+      }
+      return row;
     })();
     // The loser of the race must not surface as an unhandled rejection.
     asked.catch(() => {});

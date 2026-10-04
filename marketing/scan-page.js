@@ -172,6 +172,15 @@ function resultCard(r) {
         <div class="result-note">Read from the code itself &mdash; not yet verified with the server. Redemption is still checked at submit.</div>
         ${uncheckedNote(r)}${slot}${again}</div>`;
     }
+    case 'checkingServer':
+      // Fix round (UI rules — blank render is a defect): shown from the
+      // moment the scan-time lookup is issued until its outcome replaces it
+      // (at most the probe timeout). ONLINE + never-synced code only; no
+      // control on it — there is nothing to act on until the server answers.
+      return `<div class="rc rc-warn" id="scan-server-checking">
+        <div class="rc-head">Checking with the server&hellip;</div>
+        <div class="result-note">This code isn&#39;t on this device yet &mdash; asking the server before any discount is applied.</div>
+        </div>`;
     case 'unknownCode':
       return `<div class="rc rc-warn">
         <div class="rc-head">Code not recognized</div>
@@ -443,7 +452,15 @@ async function boot() {
       }
       if (proceed === false) { render(); return null; }
     }
-    const result = await resolver.resolve(payload, { online: isOnline() });
+    const result = await resolver.resolve(payload, {
+      online: isOnline(),
+      // Fires only when the resolver is about to ask the server (online AND
+      // the code in neither replica) — never offline, never for a held code.
+      onServerLookup: (token_hash) => {
+        SCAN_STATE.result = { kind: 'checkingServer', token_hash };
+        render();
+      },
+    });
     SCAN_STATE.result = result;
     render();
     if (submitFlow) {
