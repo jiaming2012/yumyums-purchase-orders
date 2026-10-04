@@ -28,3 +28,32 @@ One entry per merge into `overnight-20261003`, clean or conflicted (§15ad.66).
   isolated on the card tree, two of them 1/3 red on the base tree, and the diff holds no HTML/JS.
   Three samples per tree is thin; `onboarding.spec.js:2233` reproduced on neither tree.
 - **G6:** APPROVE-WITH-FINDINGS, 0 P1 / 0 P2 / 5 P3 (see HANDOFF).
+
+## Merge 2 — Card I1 `test-integrity-fix` → `8a7065d` · CLEAN
+
+- **Cards involved:** I1 onto a run branch already holding I3 (`ed4f568`).
+- **Branch:** `card/i1-test-integrity-fix` @ `f09d314`. Review ran at `d14248a`; `73521b1` adds gate
+  logs; `adcef9d` + `f09d314` are the G6 P2 fix round (comment-only change in
+  `marketing/sync/replicas.js` — checked by diff: zero non-comment lines — plus harness leg 5,
+  `[TI-01]`/`[TI-02]`, regenerated `sw.js`). The fix round was NOT sent back through a second fresh
+  review; the orchestrator checked its diff shape only.
+- **Files / hunks:** no conflict. `roadmap.md` auto-merged (I1 and I3 flip different lines).
+  Three-way `--no-ff`, not squashed (Card 2 is branched off `73521b1`).
+- **Intent read:** `merge-intents/test-integrity-fix.md` — outside-footprint files
+  `marketing/sync/harness/push-harness.mjs` (takes the spec entry; bare v1 schema is refused with
+  COL12) and new `replica-schema-harness.mjs`; must survive: the harness IMPORT of
+  `failClosed`/`policyFor`, schema v1 + strategies for both `codes` and `offers`, the egress
+  allowlist. No overlap with I3's intent (`backend/internal/marketing` tests are disjoint files).
+- **Resolution:** none needed.
+- **Gates after merge (`logs/merge2-*.log`):** G1 `EXIT_BUILD=0` `EXIT_VET=0`; confined G2-Go
+  (`internal/recipes` + `internal/marketing/...`) `EXIT_TEST=0`, 130 pass / 0 fail / 1 skip; schema
+  harness exit 0, all five legs held; G4 `sw.js` regenerated at merged HEAD — 51 precached, no diff
+  against the card's committed file. Full Go / Playwright suites NOT re-run at this merge; the final
+  full suite covers the combined tree.
+- **Card's own full-suite gates, as reported (at `73521b1`, before the fix round):** G2-Go
+  `EXIT_TEST=0`, 444 / 0 / 3. G2-Playwright `EXIT=1`, 28 failed / 7 skipped / 1028 passed vs base
+  25 / 7 / 1030; 4 extra reds (`inventory.spec.js:2931`, `onboarding.spec.js:2233`, `:2268`,
+  `sync.spec.js:1327`) passed 12/12 isolated on the card tree; isolation NOT repeated on the base
+  tree; `sync.spec.js:1327` is in no previously measured set. Fix round: `tests/marketing.spec.js`
+  whole file 54 passed, `EXIT=0`.
+- **G6:** APPROVE-WITH-FINDINGS, 0 P1 / 1 P2 (fixed in the fix round) / 6 P3 (see HANDOFF).

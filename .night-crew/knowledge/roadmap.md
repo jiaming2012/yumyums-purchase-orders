@@ -915,7 +915,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### test-integrity-fix
 
-- `test-integrity-fix` · **LANDED** (run `20261003`, branch `card/i1-test-integrity-fix`) · (I1, track A — the operator's stated condition for
+- `test-integrity-fix` · **LANDED** (run `20261003`, branch `card/i1-test-integrity-fix`, merge `8a7065d`) · (I1, track A — the operator's stated condition for
   merging run 20261002) Three gates pass against inverted or widened production code, and all
   three are fixed so they red on the mutation that fooled them. **B-462** — `campaigns-harness.mjs`
   leg 3 reimplements `failClosed` instead of importing `marketing/submit-flow.js`'s; it must

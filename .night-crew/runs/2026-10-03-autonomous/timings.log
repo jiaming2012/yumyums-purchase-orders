@@ -10,3 +10,5 @@
 2026-10-03T23:47:21-04:00 merge1 i3 -> ed4f568 CLEAN; G1 0/0, confined Go 126/0/1, sw 51 idempotent
 2026-10-04T00:16:17-04:00 i1 reported @73521b1 (G2-Go 444/0/3 EXIT 0; PW 28/7/1028 EXIT 1); i2 dispatched off unmerged i1 tip
 2026-10-04T00:18:31-04:00 i4 final report @8251ac9: G2-Go 454/0/3 EXIT 0; PW NOT RUN (parked)
+2026-10-04T00:30:41-04:00 G6 i1 @d14248a APPROVE-WITH-FINDINGS (0 P1, 1 P2 strategy not total under validating storage, 6 P3); fix round sent to i1
+2026-10-04T00:37:33-04:00 merge2 i1 -> 8a7065d CLEAN; G1 0/0, confined Go 130/0/1, schema harness 0, sw 51
