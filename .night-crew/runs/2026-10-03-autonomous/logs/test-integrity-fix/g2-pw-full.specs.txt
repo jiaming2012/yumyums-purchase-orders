@@ -1,0 +1,1065 @@
+# per-spec outcome, full suite
+# stats {"startTime":"2026-10-04T03:41:39.098Z","duration":1974209.963,"expected":1028,"skipped":7,"unexpected":28,"flaky":0}
+ok   tests/tests/broadcast-rerender.spec.js:61 › A) live SAVE_TEMPLATE re-renders open runner: surviving answer kept, new field empty
+ok   tests/tests/broadcast-rerender.spec.js:116 › B) silent gate: catch-up replay shows no toast, live edit surfaces one
+ok   tests/tests/broadcast-rerender.spec.js:157 › D) schedule drops today: open runner is removed live from the device
+ok   tests/tests/broadcast-rerender.spec.js:232 › E) cutting a field with a crew draft warns naming the count, confirm discards
+ok   tests/tests/broadcast-rerender.spec.js:277 › F) cutting a field with NO drafts surfaces no warning
+ok   tests/tests/broadcast-rerender.spec.js:307 › G) dropping today from the schedule with a crew draft warns naming the count
+skip tests/tests/db-isolation.spec.js:43 › the e2e database carries nothing over from the previous invocation
+ok   tests/tests/grant-enforcement-parity.spec.js:270 › PARITY-EQ: every SeedHQApps slug is enforced by a RequirePermission mount or recorded N/A-with-reason
+ok   tests/tests/grant-enforcement-parity.spec.js:307 › PARITY-NA-FRESH: N/A placeholder slugs still have no routes in main.go
+ok   tests/tests/grant-enforcement-parity.spec.js:321 › WITHOUT operations: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe
+ok   tests/tests/grant-enforcement-parity.spec.js:359 › WITH operations: the same probes serve 200 once the user holds the operations grant
+ok   tests/tests/grant-enforcement-parity.spec.js:321 › WITHOUT inventory: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe
+ok   tests/tests/grant-enforcement-parity.spec.js:359 › WITH inventory: the same probes serve 200 once the user holds the inventory grant
+ok   tests/tests/grant-enforcement-parity.spec.js:321 › WITHOUT purchasing: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe
+ok   tests/tests/grant-enforcement-parity.spec.js:359 › WITH purchasing: the same probes serve 200 once the user holds the purchasing grant
+ok   tests/tests/grant-enforcement-parity.spec.js:321 › WITHOUT onboarding: ungranted team_member gets 403 {forbidden, missing_grant} on every data probe
+ok   tests/tests/grant-enforcement-parity.spec.js:359 › WITH onboarding: the same probes serve 200 once the user holds the onboarding grant
+ok   tests/tests/grant-enforcement-parity.spec.js:321 › WITHOUT users: ungranted admin gets 403 {forbidden, missing_grant} on every data probe
+ok   tests/tests/grant-enforcement-parity.spec.js:359 › WITH users: the same probes serve 200 once the user holds the users grant
+ok   tests/tests/grant-enforcement-parity.spec.js:386 › AXIS: users grant on a team_member does NOT open the admin-only users list
+ok   tests/tests/grant-enforcement-parity.spec.js:413 › EXCEPTION notification-preference: self access needs NO users grant (admin-or-self contract)
+ok   tests/tests/health-banner.spec.js:28 › a healthy server shows nothing at all
+ok   tests/tests/health-banner.spec.js:34 › an unreachable server is SAID, not swallowed
+ok   tests/tests/health-banner.spec.js:44 › unreachable storage names the consequence, not the subsystem
+ok   tests/tests/health-banner.spec.js:50 › a failing Toast sync is surfaced — it used to be in health and shown nowhere
+ok   tests/tests/health-banner.spec.js:56 › an unreachable sync substrate is surfaced
+ok   tests/tests/health-banner.spec.js:62 › "unconfigured" is silence, not a warning
+ok   tests/tests/health-banner.spec.js:70 › the admin prompt appears ONCE however many warnings, and carries a diagnostic
+ok   tests/tests/health-banner.spec.js:83 › the health fetch bypasses the service-worker cache
+ok   tests/tests/health-banner.spec.js:102 › a banner clears without a reload once the server recovers
+ok   tests/tests/health-banner.spec.js:119 › each tool page warns only about what its user can act on
+ok   tests/tests/index.spec.js:14 › index.html shows user display name after login
+ok   tests/tests/index.spec.js:23 › logout button redirects to login.html
+ok   tests/tests/index.spec.js:35 › superadmin sees all tiles after restricted user logged out
+ok   tests/tests/index.spec.js:101 › onboarding badge only shows when user has incomplete trainings
+ok   tests/tests/index.spec.js:136 › onboarding badge does not reappear after visiting onboarding and returning
+ok   tests/tests/index.spec.js:169 › after logout, visiting index.html redirects to login.html (session cleared)
+ok   tests/tests/index.spec.js:211 › logout deletes api-cache so the next user is not served the previous one
+ok   tests/tests/index.spec.js:245 › B-10: logout awaits the device purge before redirecting (the await is honored)
+ok   tests/tests/index.spec.js:297 › checkAuth evicts cached /api/v1/me responses instead of trusting them
+ok   tests/tests/index.spec.js:327 › the /api/v1/me identity probe is cache-busted so api-cache cannot answer it
+ok   tests/tests/index.spec.js:430 › a second user signing in never inherits the previous user cached tile list [B1-XT-03]
+ok   tests/tests/index.spec.js:493 › login.html signIn() purges the previous user device state before the redirect lands [B1-XT-06]
+ok   tests/tests/index.spec.js:524 › login.html acceptInvite() purges the previous user device state before the redirect lands [B1-XT-07]
+ok   tests/tests/index.spec.js:564 › the same crew member re-authenticating keeps their offline dataset [B1-XT-08]
+ok   tests/tests/index.spec.js:602 › the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]
+ok   tests/tests/index.spec.js:663 › inventory tile shows a Needs Attention badge and the description lists every hub fact
+ok   tests/tests/index.spec.js:676 › inventory tile shows no badge and its own description when nothing needs attention
+ok   tests/tests/index.spec.js:687 › inventory tile badge appears for any single hub fact, and the description lists only those present
+ok   tests/tests/index.spec.js:696 › a failed status call drops only its own fact from the inventory tile
+ok   tests/tests/index.spec.js:705 › no inventory status call is made for a user without the inventory grant
+ok   tests/tests/inventory.spec.js:133 › the hub lists 4 rows: Receipts, Stock, Recipes, Setup — no Menu, no Trends, no Cost
+ok   tests/tests/inventory.spec.js:147 › legacy #tab=5 and #tab=6 deep links redirect to the matching bi.html section
+ok   tests/tests/inventory.spec.js:156 › the pending count is the Receipts row badge, and the row stays one line at phone width
+ok   tests/tests/inventory.spec.js:171 › legacy #tab=3 (the old Menu tab) lands on Recipes › By dish
+ok   tests/tests/inventory.spec.js:183 › a bare /inventory.html lands on the hub; #tab=1 opens Receipts
+ok   tests/tests/inventory.spec.js:199 › Recipes tab activates on #tab=4 hash
+ok   tests/tests/inventory.spec.js:214 › Recipes tab loads /api/v1/inventory/recipes and /api/v1/inventory/recipes/drift
+ok   tests/tests/inventory.spec.js:227 › Recipes tab shows empty state when no ingredients
+ok   tests/tests/inventory.spec.js:233 › menu-item picker uses YYYY-MM-DD since format (contract + source)
+ok   tests/tests/inventory.spec.js:269 › tapping a menu item name triggers renderRecipeSummary
+ok   tests/tests/inventory.spec.js:320 › tapping a dish in Recipes › By dish selects it in the summary card
+ok   tests/tests/inventory.spec.js:354 › Setup tab (now tab 7) renders catalog content when activated
+ok   tests/tests/inventory.spec.js:377 › Purchases tab loads purchase events from API
+ok   tests/tests/inventory.spec.js:387 › Purchases tab shows empty state when no purchases exist
+ok   tests/tests/inventory.spec.js:398 › vendor filter dropdown is present with All Vendors default
+ok   tests/tests/inventory.spec.js:405 › each event card shows vendor name and total
+ok   tests/tests/inventory.spec.js:415 › tapping an event card expands line items
+ok   tests/tests/inventory.spec.js:428 › vendor filter has options from API
+ok   tests/tests/inventory.spec.js:440 › selecting a vendor filters history events
+ok   tests/tests/inventory.spec.js:466 › selecting All Vendors resets filter
+ok   tests/tests/inventory.spec.js:485 › Stock tab loads stock levels from API
+ok   tests/tests/inventory.spec.js:495 › Stock tab groups items by tag category
+ok   tests/tests/inventory.spec.js:506 › stock item badges are right-aligned in a single container
+ok   tests/tests/inventory.spec.js:523 › tapping tag header collapses and expands section
+ok   tests/tests/inventory.spec.js:543 › tapping stock item expands detail with purchase info
+ok   tests/tests/inventory.spec.js:557 › reorder suggestions section shows Low/Medium items if any exist
+ok   tests/tests/inventory.spec.js:569 › Override Level button shows override form
+ok   tests/tests/inventory.spec.js:586 › Trends renders the spend-by-group surface on bi.html
+ok   tests/tests/inventory.spec.js:594 › Food cost renders the cost surface on bi.html
+ok   tests/tests/inventory.spec.js:604 › By dish renders empty state when API returns []
+ok   tests/tests/inventory.spec.js:622 › By dish renders rows when API returns data
+ok   tests/tests/inventory.spec.js:655 › pending review items show Needs Review badge
+ok   tests/tests/inventory.spec.js:690 › tapping pending card opens review form
+ok   tests/tests/inventory.spec.js:696 › review form has confirm and discard buttons
+ok   tests/tests/inventory.spec.js:702 › review form shows pre-filled vendor and date fields
+ok   tests/tests/inventory.spec.js:708 › review form allows adding a new line item
+ok   tests/tests/inventory.spec.js:716 › All caught up shows when no pending items in review queue
+ok   tests/tests/inventory.spec.js:750 › double-tapping a line price negates it and flips back
+ok   tests/tests/inventory.spec.js:761 › a negated line price makes a refund receipt balance
+ok   tests/tests/inventory.spec.js:779 › a negative line total renders as -$X.XX, not $-X.XX
+ok   tests/tests/inventory.spec.js:786 › tapping the Review Receipt title collapses the form back to the card
+ok   tests/tests/inventory.spec.js:797 › edits survive collapsing and reopening the review form
+ok   tests/tests/inventory.spec.js:808 › a negative line price round-trips through confirm and persists
+ok   tests/tests/inventory.spec.js:841 › a malformed price never reads as $0.00 or as a matching total
+ok   tests/tests/inventory.spec.js:866 › a malformed price survives re-render as typed, not as "NaN"
+ok   tests/tests/inventory.spec.js:876 › tapping a number box selects it so the next keystroke replaces the value
+ok   tests/tests/inventory.spec.js:890 › the review Date field is boxed and aligned like the Vendor field
+ok   tests/tests/inventory.spec.js:908 › Deep Sync date inputs line up with the Cancel/Run buttons below them
+FAIL tests/tests/inventory.spec.js:949 › a parse failure states its cause instead of only that it failed
+FAIL tests/tests/inventory.spec.js:955 › a parse failure with no recorded cause says so rather than standing bare
+FAIL tests/tests/inventory.spec.js:961 › Retry parse is offered on a pending row with no parse_error and no items
+FAIL tests/tests/inventory.spec.js:969 › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth
+FAIL tests/tests/inventory.spec.js:982 › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload
+FAIL tests/tests/inventory.spec.js:993 › line items from a failed parse pre-fill the review form
+FAIL tests/tests/inventory.spec.js:1008 › a transient failure is still described in words
+ok   tests/tests/inventory.spec.js:1017 › formatElapsed reads as a duration at every scale
+FAIL tests/tests/inventory.spec.js:1025 › a running sync shows elapsed time that actually advances
+ok   tests/tests/inventory.spec.js:1047 › the elapsed ticker stops when no run is in flight
+ok   tests/tests/inventory.spec.js:1058 › POST /items stores nickname and location alongside the new item
+ok   tests/tests/inventory.spec.js:1087 › an alias equal to the description is not stored as a nickname
+ok   tests/tests/inventory.spec.js:1108 › the finished-sync chip is amber and a failed sync stays a distinct red
+ok   tests/tests/inventory.spec.js:1144 › Sync Receipts runs a normal sync straight from the primary button
+ok   tests/tests/inventory.spec.js:1158 › the Receipts tab has exactly one control row above the queue
+ok   tests/tests/inventory.spec.js:1172 › More opens the sheet; Deep sync… routes to the range picker
+ok   tests/tests/inventory.spec.js:1190 › Retry parse (all) in the sheet fires reprocess-all after confirmation
+ok   tests/tests/inventory.spec.js:1206 › Close and the backdrop both dismiss the sheet without starting anything
+ok   tests/tests/inventory.spec.js:1220 › a non-admin gets no More button, so no deep sync and no retry-all
+ok   tests/tests/inventory.spec.js:1245 › the button paints Cancel before the server answers
+ok   tests/tests/inventory.spec.js:1271 › a failed start rolls the button back instead of leaving a fake Cancel
+FAIL tests/tests/inventory.spec.js:1288 › a run in flight turns the primary button into a red, ENABLED Cancel
+FAIL tests/tests/inventory.spec.js:1296 › cancelling asks first, and backing out does not cancel
+FAIL tests/tests/inventory.spec.js:1313 › confirming posts the cancel
+FAIL tests/tests/inventory.spec.js:1325 › a cancelled run reports what it finished, not just that it stopped
+FAIL tests/tests/inventory.spec.js:1346 › back link navigates to HQ
+ok   tests/tests/inventory.spec.js:1355 › HQ launcher has Inventory tile linking to inventory.html
+ok   tests/tests/inventory.spec.js:1365 › Trends and Cost containers live on bi.html, not inventory.html
+ok   tests/tests/inventory.spec.js:1375 › Setup tab exists as 7th tab
+ok   tests/tests/inventory.spec.js:1379 › Setup tab has Items and Vendors sub-tabs
+ok   tests/tests/inventory.spec.js:1386 › Vendors sub-tab shows vendor list
+ok   tests/tests/inventory.spec.js:1399 › Vendors sub-tab has add vendor form
+ok   tests/tests/inventory.spec.js:1406 › tapping vendor expands inline edit form
+ok   tests/tests/inventory.spec.js:1419 › Items sub-tab shows item list or empty state
+ok   tests/tests/inventory.spec.js:1430 › Items tab has search filter
+ok   tests/tests/inventory.spec.js:1437 › Items search filters items by name
+ok   tests/tests/inventory.spec.js:1461 › Items tab has add item form
+FAIL tests/tests/inventory.spec.js:1469 › create new item via Items tab
+ok   tests/tests/inventory.spec.js:1493 › review form line item name is readonly (dropdown-only)
+ok   tests/tests/inventory.spec.js:1511 › clicking line item name opens item picker modal
+ok   tests/tests/inventory.spec.js:1533 › item modal shows create option when searching
+ok   tests/tests/inventory.spec.js:1556 › item modal create option shows title-cased name
+ok   tests/tests/inventory.spec.js:1579 › item modal pre-fills search with current line item text
+ok   tests/tests/inventory.spec.js:1600 › create item form pre-fills name with title case
+ok   tests/tests/inventory.spec.js:1626 › confirm receipt blocked when line items not linked to catalog items
+ok   tests/tests/inventory.spec.js:1646 › selecting item from modal fills name and sets item id
+ok   tests/tests/inventory.spec.js:1677 › pending review form shows vendor search with + button
+ok   tests/tests/inventory.spec.js:1694 › vendor search filters known vendors as you type
+ok   tests/tests/inventory.spec.js:1719 › vendor dropdown item click fills the vendor field
+ok   tests/tests/inventory.spec.js:1748 › review form has tax field and grand total
+ok   tests/tests/inventory.spec.js:1766 › editing tax updates grand total in real-time
+ok   tests/tests/inventory.spec.js:1785 › green match banner shows when total equals bank transaction
+ok   tests/tests/inventory.spec.js:1803 › yellow mismatch banner shows when total differs from bank transaction
+ok   tests/tests/inventory.spec.js:1820 › bank total displays as positive in mismatch banner
+ok   tests/tests/inventory.spec.js:1837 › banner switches from mismatch to match when amounts are corrected
+ok   tests/tests/inventory.spec.js:1860 › price input is text type, not number (no spinner arrows)
+ok   tests/tests/inventory.spec.js:1879 › typing in price field does not lose focus
+ok   tests/tests/inventory.spec.js:1901 › view receipt button appears on pending review with receipt_url
+ok   tests/tests/inventory.spec.js:1944 › view receipt button opens fullscreen overlay
+ok   tests/tests/inventory.spec.js:1974 › confirmed event shows view receipt button when expanded
+ok   tests/tests/inventory.spec.js:1989 › pending reason shows friendly message not raw API error
+ok   tests/tests/inventory.spec.js:2019 › merge vendors: source deleted, events migrated (positive)
+ok   tests/tests/inventory.spec.js:2045 › merge vendors: cannot merge into self (negative)
+ok   tests/tests/inventory.spec.js:2058 › merge vendors: invalid source returns error (negative)
+ok   tests/tests/inventory.spec.js:2073 › merge items: source deleted, line items migrated (positive)
+ok   tests/tests/inventory.spec.js:2094 › merge items: cannot merge into self (negative)
+ok   tests/tests/inventory.spec.js:2112 › alias auto-matches receipt line in review form
+ok   tests/tests/inventory.spec.js:2145 › linking a receipt line learns the raw name as an alias and future receipts auto-match
+FAIL tests/tests/inventory.spec.js:2186 › Setup item editor shows alias chips, adds and removes nicknames
+ok   tests/tests/inventory.spec.js:2228 › selecting item in modal changes border from orange to no highlight
+ok   tests/tests/inventory.spec.js:2266 › creating item without group is rejected (negative)
+ok   tests/tests/inventory.spec.js:2277 › creating item with group succeeds (positive)
+ok   tests/tests/inventory.spec.js:2289 › backend rejects confirm when total does not match bank transaction (negative)
+ok   tests/tests/inventory.spec.js:2315 › backend allows confirm when total matches bank transaction (positive)
+ok   tests/tests/inventory.spec.js:2338 › create item modal shows error when no group selected
+ok   tests/tests/inventory.spec.js:2365 › create item modal error clears when group is selected and item created
+ok   tests/tests/inventory.spec.js:2394 › creating duplicate group via API returns existing group (case-insensitive)
+ok   tests/tests/inventory.spec.js:2406 › duplicate group shows toast warning in items tab
+ok   tests/tests/inventory.spec.js:2433 › unlinked line items show orange border
+ok   tests/tests/inventory.spec.js:2450 › auto-matched line items do not show orange border
+ok   tests/tests/inventory.spec.js:2475 › item selection in review form persists after navigating away and back
+ok   tests/tests/inventory.spec.js:2535 › reorder suggestions show item name not group name
+ok   tests/tests/inventory.spec.js:2562 › collapsing a stock group also collapses expanded items within it
+ok   tests/tests/inventory.spec.js:2590 › expand all button expands all items in a stock group
+ok   tests/tests/inventory.spec.js:2610 › stock tab reflects threshold changes from Setup without page refresh
+ok   tests/tests/inventory.spec.js:2667 › backend rejects negative threshold values
+ok   tests/tests/inventory.spec.js:2680 › frontend shows error for negative threshold values
+ok   tests/tests/inventory.spec.js:2700 › medium shows n/a when low=0 and high=1 (no medium range)
+ok   tests/tests/inventory.spec.js:2718 › items with different store_locations appear under separate group headers
+ok   tests/tests/inventory.spec.js:2746 › items with null store_location appear under "Category, Unassigned"
+ok   tests/tests/inventory.spec.js:2767 › user can set store_location from Setup tab edit form
+ok   tests/tests/inventory.spec.js:2815 › item edit form shows photo thumbnail area and change photo link
+ok   tests/tests/inventory.spec.js:2843 › Setup tab no longer links out to Purchase Orders (that is an HQ tile)
+ok   tests/tests/inventory.spec.js:2876 › badge reset saves the app timezone, not the device's (device=Asia/Tokyo)
+ok   tests/tests/inventory.spec.js:2876 › badge reset saves the app timezone, not the device's (device=America/Chicago)
+ok   tests/tests/inventory.spec.js:2911 › add item bar does not allow No Group selection
+ok   tests/tests/inventory.spec.js:2919 › create item without group shows alert
+FAIL tests/tests/inventory.spec.js:2931 › creating item opens edit form with store location dropdown
+ok   tests/tests/inventory.spec.js:2952 › item with non-vendor store_location shows current value in dropdown, not None
+ok   tests/tests/inventory.spec.js:2984 › store location edit form shows dropdown with vendor names and + Add new option
+ok   tests/tests/inventory.spec.js:3015 › store location "+ Add new" navigates to Vendors sub-tab and focuses new vendor input
+ok   tests/tests/inventory.spec.js:3043 › View in Setup link navigates to Setup tab with item expanded
+ok   tests/tests/inventory.spec.js:3089 › tapping reorder suggestion expands the stock item below
+ok   tests/tests/inventory.spec.js:3132 › PO suggestions excludes items with no purchase history or stock override
+ok   tests/tests/inventory.spec.js:3167 › tapping item photo in PO opens fullscreen lightbox
+ok   tests/tests/inventory.spec.js:3223 › after simulate-cutoff, Order tab shows next week draft
+ok   tests/tests/inventory.spec.js:3265 › simulate-cutoff returns 409 when locked PO already exists
+ok   tests/tests/inventory.spec.js:3306 › seed runs idempotently without duplicating items
+ok   tests/tests/inventory.spec.js:3331 › PO suggestions count matches inventory reorder suggestions
+ok   tests/tests/inventory.spec.js:3435 › admin can add and save items on a locked PO without 409
+ok   tests/tests/inventory.spec.js:3507 › PO tab groups items by store location
+ok   tests/tests/inventory.spec.js:3532 › editing a locked PO returns 403 for non-admin users
+ok   tests/tests/inventory.spec.js:3602 › upsert with require_draft=true rejects locked PO even for admin
+ok   tests/tests/inventory.spec.js:3648 › cutoff pill is admin-interactive and would be hidden for non-admin without config
+FAIL tests/tests/inventory.spec.js:3685 › navigating to inventory.html with newItem hash prefills item name and shows Setup tab
+ok   tests/tests/inventory.spec.js:3718 › clicking Sync Receipts turns the button into Cancel immediately
+ok   tests/tests/inventory.spec.js:3744 › reload mid-run shows the Cancel state (survives via GET /status)
+ok   tests/tests/inventory.spec.js:3770 › completed run shows summary chip with counts
+ok   tests/tests/inventory.spec.js:3803 › completed run with cached > 0 shows skipped segment
+ok   tests/tests/inventory.spec.js:3830 › manual sync chip shows Synced from {date} using lookback_days
+ok   tests/tests/inventory.spec.js:3867 › reprocess_all sync chip shows Reprocessed N pending with correct semantics
+ok   tests/tests/inventory.spec.js:3902 › renders Parser error line when parse_error is set
+ok   tests/tests/inventory.spec.js:3934 › a transient (out-of-credits) failure reads as a sentence, not a truncated request
+ok   tests/tests/inventory.spec.js:3966 › is shown when pending row has parse_error
+ok   tests/tests/inventory.spec.js:3994 › is still offered when parse_error is empty
+ok   tests/tests/inventory.spec.js:4027 › keeps the cause on the card after a successful retry request
+ok   tests/tests/inventory.spec.js:4085 › PDF receipt opens in iframe with new-tab link
+ok   tests/tests/inventory.spec.js:4138 › Confirm Receipt button is disabled when totals do not match and items are non-empty
+ok   tests/tests/inventory.spec.js:4166 › Confirm Receipt button is disabled when items are empty and pending reason is parse-failed
+ok   tests/tests/inventory.spec.js:4189 › Confirm Receipt button is enabled when items match bank total
+ok   tests/tests/inventory.spec.js:4218 › retry-parse click auto-triggers sync and flips row to Reparsing…
+ok   tests/tests/inventory.spec.js:4395 › a row with a stored receipt is re-read in place — no flag, no full sync
+ok   tests/tests/inventory.spec.js:4435 › when the re-read finishes the row refreshes itself and no sync chip lingers
+ok   tests/tests/inventory.spec.js:4460 › a row with no stored receipt still goes through Mercury
+ok   tests/tests/inventory.spec.js:4472 › a 409 from another tab’s run queues the row and says so
+ok   tests/tests/inventory.spec.js:4486 › Re-download from source asks Mercury for this charge and rides the same in-flight visual
+ok   tests/tests/inventory.spec.js:4521 › a Missing Receipt row offers Re-download from source — that is the row a file was since attached to
+ok   tests/tests/inventory.spec.js:4529 › when Mercury has nothing new, the failure is said and the row is left as it was
+FAIL tests/tests/inventory.spec.js:4550 › the amount is centred on the card and shares the confirmed cards’ right edge
+ok   tests/tests/inventory.spec.js:4579 › Re-download while a sync is running is refused in words, not queued
+ok   tests/tests/inventory.spec.js:4609 › FR-3: item-picker selection persists across reload
+ok   tests/tests/inventory.spec.js:4685 › FR-5: discard sets discarded_at and removes row from queue
+ok   tests/tests/inventory.spec.js:4731 › FR-11: vendor filter + pagination work against a real seed
+ok   tests/tests/inventory.spec.js:4896 › FR-12: /stock classifies low/medium/high against group thresholds
+ok   tests/tests/inventory.spec.js:4940 › FR-13: stock override value wins over derived sum (COALESCE)
+ok   tests/tests/inventory.spec.js:4975 › FR-14: manual count requires reason (400) and persists (204)
+ok   tests/tests/inventory.spec.js:5019 › FR-15: reorder-tap expands item + View-in-Setup jumps to Setup tab
+ok   tests/tests/inventory.spec.js:5101 › FR-26: item create title-cases, update persists, merge deletes source
+ok   tests/tests/inventory.spec.js:5159 › FR-28: group thresholds persist and low<high validation rejects invalid
+ok   tests/tests/inventory.spec.js:5202 › FR-29: vendor create title-cases, update renames, merge deletes source
+ok   tests/tests/inventory.spec.js:5254 › FR-30: tags list endpoint returns a well-formed array
+ok   tests/tests/inventory.spec.js:5272 › FR-31: repurchase-reset config edit persists and reads back (cross-pkg, read+write via HTTP)
+skip tests/tests/inventory.spec.js:5307 › FR-27: photo upload convert/resize (PARKED — needs live DO Spaces S3 client)
+ok   tests/tests/inventory.spec.js:5332 › FR-16: Recipes › By dish renders from the LIVE menu-items handler (no stub)
+ok   tests/tests/inventory.spec.js:5371 › NFR-1: create-vendor and create-item title-case; item-EDIT gap is exposed
+ok   tests/tests/inventory.spec.js:5430 › NFR-3: unauthenticated Inventory API call redirects to /login.html
+ok   tests/tests/inventory.spec.js:5464 › a pending card names who swiped and the last four, next to the Mercury category
+ok   tests/tests/inventory.spec.js:5483 › a pending card with no resolved card shows the Mercury line unchanged — no dangling separator
+ok   tests/tests/inventory.spec.js:5499 › confirming a pending purchase carries the card label onto the history card
+ok   tests/tests/inventory.spec.js:5568 › default view is one list in event-date order — a fresh auto-added event sits between the queue cards at its date
+ok   tests/tests/inventory.spec.js:5578 › chips filter the list: Needs review → queue only, Recently added → last-7-day events only, All → everything
+ok   tests/tests/inventory.spec.js:5598 › against the real API: an event created today renders above an older queue card
+ok   tests/tests/inventory.spec.js:5636 › a photo URL that 404s renders the letter placeholder in the row and in the editor
+ok   tests/tests/inventory.spec.js:5705 › tapping a linked line opens that item in Setup even though the receipt text differs from the catalog name
+ok   tests/tests/inventory.spec.js:5725 › a nickname typed in Setup is the label; a nickname that is just the receipt text is not
+ok   tests/tests/inventory.spec.js:5739 › a line with no linked item is not a link and tapping it only toggles the card
+ok   tests/tests/inventory.spec.js:5822 › Reorder + Stock rows show the promoted nickname, keyed by the description
+ok   tests/tests/inventory.spec.js:5850 › an unpromoted alias never becomes the label
+ok   tests/tests/inventory.spec.js:5892 › the first nickname typed in Setup is starred by default; the second is not
+ok   tests/tests/inventory.spec.js:5915 › a nickname typed in Setup is not starred when another nickname already exists, even unstarred
+ok   tests/tests/inventory.spec.js:5933 › the Setup star promotes an alias and a second tap clears it
+ok   tests/tests/inventory.spec.js:5978 › a stock-count override survives promoting a nickname
+ok   tests/tests/marketing-campaigns.spec.js:95 › [MC-01] create sheet mints N codes and lands on "N codes ready"
+ok   tests/tests/marketing-campaigns.spec.js:135 › [MC-02] list renders funnel + money strip
+ok   tests/tests/marketing-campaigns.spec.js:179 › [MC-03a] code sheet Share calls navigator.share with the PNG file (API installed by the test)
+ok   tests/tests/marketing-campaigns.spec.js:235 › [MC-03b] with no Web Share API the code sheet renders Save PNG + Copy link (un-stubbed)
+ok   tests/tests/marketing-campaigns.spec.js:263 › [MC-04] team_member sees the Locked state
+ok   tests/tests/marketing-campaigns.spec.js:297 › [MC-06] typing the "Other" channel label survives more than one keystroke
+ok   tests/tests/marketing-campaigns.spec.js:336 › [MC-07] a failed Pause reports the write, non-destructively — the detail stays on screen
+ok   tests/tests/marketing-campaigns.spec.js:374 › [MC-05] offline shows the last-synced list + disabled create
+ok   tests/tests/marketing-stats.spec.js:268 › [MS-01] the BI Campaigns overview renders the funnel, revenue/discount/net and the orphan rate against the 10% line
+ok   tests/tests/marketing-stats.spec.js:332 › [MS-02] the by-item slice carries a discount and a Per $1 on every row, and keeps the unattributed money visible
+ok   tests/tests/marketing-stats.spec.js:378 › [MS-03] the decline sheet will not post without a reason, requires a note for Other, and posts both
+ok   tests/tests/marketing-stats.spec.js:447 › [MS-04] the declined bucket shows the reason, the note and who decided, and Reopen puts the row back in the queue
+ok   tests/tests/marketing-stats.spec.js:486 › [MS-05] an empty period renders "No redemptions yet" on the BI report AND on the Marketing queue
+ok   tests/tests/marketing-stats.spec.js:508 › [MS-06] a user holding bi but not marketing reads the BI Campaigns row and gets the Locked state on the Marketing queue
+ok   tests/tests/marketing-stats.spec.js:560 › a team_member with the marketing grant gets the Locked state from managers_only
+ok   tests/tests/marketing-stats.spec.js:571 › the add-order sheet offers the nearest order with its basis and gap, and matching clears the row
+ok   tests/tests/marketing-stats.spec.js:608 › an order number Toast does not have is reported on the sheet and the row stays open
+ok   tests/tests/marketing-stats.spec.js:623 › the Marketing queue carries its own health card with matched / open / declined and the orphan rate
+ok   tests/tests/marketing-subscribers.spec.js:97 › [SB-01] list masks phone to last 4 — and the full number never reaches the browser
+ok   tests/tests/marketing-subscribers.spec.js:133 › [SB-02] STOP renders an opted-out row, and the Opted out chip isolates it
+ok   tests/tests/marketing-subscribers.spec.js:170 › [SB-03] the sheet shows identity-code status, the consent trail and the timeline
+ok   tests/tests/marketing-subscribers.spec.js:204 › [SB-04] Resend records an event and sends nothing
+ok   tests/tests/marketing-subscribers.spec.js:259 › a team_member sees the Locked state, from the real 403 managers_only
+ok   tests/tests/marketing-subscribers.spec.js:277 › the empty state names what is missing rather than rendering nothing
+ok   tests/tests/marketing.spec.js:108 › SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants
+ok   tests/tests/marketing.spec.js:132 › a team_member with the app grant sees the Marketing tile on the launcher
+ok   tests/tests/marketing.spec.js:152 › marketing.html shows Scan live and Campaigns, Subscribers and Stats all gated to their designed Locked state
+ok   tests/tests/marketing.spec.js:223 › a user without the marketing grant sees NO Marketing tile
+ok   tests/tests/marketing.spec.js:255 › the offline_override entitlement renders as a grantable row in the Users access editor
+ok   tests/tests/marketing.spec.js:279 › a per-user offline_override grant round-trips to that user's /me/apps
+ok   tests/tests/marketing.spec.js:451 › a printed QR decodes from an image and its on-device hash equals the committed seed literal
+ok   tests/tests/marketing.spec.js:469 › done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode)
+ok   tests/tests/marketing.spec.js:491 › done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode)
+ok   tests/tests/marketing.spec.js:510 › resolution order: the local replica beats the QR-embedded offer when both exist
+ok   tests/tests/marketing.spec.js:524 › a token in neither replica with no descriptor resolves unknownCode (F2 display)
+ok   tests/tests/marketing.spec.js:532 › a payload that is not a Yumyums code resolves invalidPayload, loudly
+ok   tests/tests/marketing.spec.js:542 › F3 offline: a locally-redeemed code rejects immediately as spentLocally
+ok   tests/tests/marketing.spec.js:560 › F3 online: the local redeemed flag does NOT reject — the server decides at submit
+ok   tests/tests/marketing.spec.js:583 › offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live
+ok   tests/tests/marketing.spec.js:603 › the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset
+ok   tests/tests/marketing.spec.js:627 › hash caching: repeated scans of one token digest once
+ok   tests/tests/marketing.spec.js:636 › enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt
+ok   tests/tests/marketing.spec.js:653 › F6: re-scanning the same code re-shows the result instead of erroring or duplicating
+ok   tests/tests/marketing.spec.js:665 › camera failure is loud and retryable (headless has no camera; live decode is the attended morning check)
+ok   tests/tests/marketing.spec.js:695 › a live camera hides the Start camera control and shows no error
+ok   tests/tests/marketing.spec.js:706 › starting the camera twice does not report it unavailable
+ok   tests/tests/marketing.spec.js:720 › a camera failure names the real reason, even when the library throws a string
+ok   tests/tests/marketing.spec.js:815 › a persistent online/offline indicator renders from boot and reads online on a live probe
+ok   tests/tests/marketing.spec.js:829 › confirm-then-burn: no path to redeemed without a validator-passing Toast order number
+ok   tests/tests/marketing.spec.js:872 › offline branch 1: no entitlement -> blocked, no override affordance
+ok   tests/tests/marketing.spec.js:891 › offline branch 2: the entitlement offers force-submit behind the §13 confirmation
+ok   tests/tests/marketing.spec.js:934 › offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)
+ok   tests/tests/marketing.spec.js:999 › B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)
+ok   tests/tests/marketing.spec.js:1039 › P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction
+ok   tests/tests/marketing.spec.js:1064 › F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true
+ok   tests/tests/marketing.spec.js:1126 › done_when(2): a replica-FAILURE override lands policy_unresolved=true, distinguishable from the genuinely-unknown one
+ok   tests/tests/marketing.spec.js:1175 › B-434(c): the policy predicate — resolved flag / KNOWN-but-unresolved fails closed / no campaign stays null (decision 166)
+ok   tests/tests/marketing.spec.js:1219 › F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state
+ok   tests/tests/marketing.spec.js:1260 › already_used verdict renders when + which device from the local codes replica
+ok   tests/tests/marketing.spec.js:1280 › an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor
+ok   tests/tests/marketing.spec.js:1323 › [SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds
+ok   tests/tests/marketing.spec.js:1372 › [SP-01b] an offline-ELIGIBLE campaign keeps its order-# field and override path
+ok   tests/tests/marketing.spec.js:1395 › [SP-02] the offer card names the campaign and the code last-4, not a bare UUID
+ok   tests/tests/marketing.spec.js:1418 › [SP-02b] a campaign row with no name degrades to its id prefix, never "undefined"
+ok   tests/tests/marketing.spec.js:1449 › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code
+ok   tests/tests/marketing.spec.js:1549 › [TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows
+ok   tests/tests/marketing.spec.js:1578 › [TI-02] in the page, a v0 codes/offers store on IndexedDB reopens at v1 through the shipped spec with its rows
+ok   tests/tests/marketing.spec.js:1740 › done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut
+ok   tests/tests/marketing.spec.js:1775 › done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed
+ok   tests/tests/marketing.spec.js:1792 › done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub
+ok   tests/tests/marketing.spec.js:1840 › done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false
+ok   tests/tests/marketing.spec.js:1867 › done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false
+ok   tests/tests/marketing.spec.js:1893 › done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch
+ok   tests/tests/marketing.spec.js:1945 › both flows boot with NO crypto.subtle, and the token hash still equals the WebCrypto seed literal
+ok   tests/tests/marketing.spec.js:1956 › a boot failure reads as a plain sentence with the technical detail tucked away — not an exception dump
+ok   tests/tests/marketing.spec.js:1980 › on a LAN/dev address the hint says https, NOT "go to hq.yumyums.kitchen"
+ok   tests/tests/marketing.spec.js:1999 › the Details cause reads as a sentence, not an internal symbol name
+ok   tests/tests/marketing.spec.js:2014 › camera failure on an insecure origin names the fix: open the https address, or scan from a photo
+ok   tests/tests/multi-role.spec.js:31 › invite user with multiple roles returns roles as array
+ok   tests/tests/multi-role.spec.js:49 › list users returns roles as array not string
+ok   tests/tests/multi-role.spec.js:60 › update user roles returns updated roles array
+ok   tests/tests/multi-role.spec.js:82 › onboarding template create with multiple roles returns roles array
+ok   tests/tests/multi-role.spec.js:99 › onboarding template update roles from single to multi
+ok   tests/tests/multi-role.spec.js:123 › me endpoint returns roles as array
+ok   tests/tests/multi-role.spec.js:131 › users.html role chips render for edit form
+ok   tests/tests/multi-role.spec.js:158 › users.html invite form shows role chips with team_member selected by default
+ok   tests/tests/multi-role.spec.js:181 › onboarding.html builder shows role chips
+ok   tests/tests/onboarding.spec.js:118 › shows empty state when no templates assigned
+ok   tests/tests/onboarding.spec.js:127 › shows assigned template after assignment via API
+ok   tests/tests/onboarding.spec.js:153 › checkbox progress persists after page reload
+ok   tests/tests/onboarding.spec.js:249 › video part watched state persists after page reload
+ok   tests/tests/onboarding.spec.js:310 › section unlocks after completing all items in previous section
+ok   tests/tests/onboarding.spec.js:357 › video part with URL shows play button in My Trainings
+ok   tests/tests/onboarding.spec.js:415 › video modal close button dismisses the player
+ok   tests/tests/onboarding.spec.js:456 › progress survives template edit — adding new item preserves existing progress
+ok   tests/tests/onboarding.spec.js:516 › progress lost when item is removed from template — negative test
+ok   tests/tests/onboarding.spec.js:571 › FAQ section shows questions and answers
+ok   tests/tests/onboarding.spec.js:651 › manager sees hire with assigned training
+ok   tests/tests/onboarding.spec.js:696 › sign-off form requires readiness rating (notes optional)
+ok   tests/tests/onboarding.spec.js:782 › signed-off section shows "By {manager} @ {datetime}" attribution
+ok   tests/tests/onboarding.spec.js:822 › video part progress persists after page reload
+ok   tests/tests/onboarding.spec.js:887 › completing a section unlocks next section and collapses completed one
+ok   tests/tests/onboarding.spec.js:954 › video part checked state returned by hireTraining API
+ok   tests/tests/onboarding.spec.js:994 › backend rejects progress updates for completed sections awaiting sign-off
+ok   tests/tests/onboarding.spec.js:1026 › sign-off succeeds with rating only (notes optional)
+ok   tests/tests/onboarding.spec.js:1069 › sign-off via API rejects missing rating
+ok   tests/tests/onboarding.spec.js:1096 › sign-off records attribution on hire view
+ok   tests/tests/onboarding.spec.js:1152 › My Trainings list shows section-level progress (not item-level)
+ok   tests/tests/onboarding.spec.js:1186 › FAQ section shows viewed count and completes when all expanded
+ok   tests/tests/onboarding.spec.js:1234 › FAQ last question stays expanded after completing section
+ok   tests/tests/onboarding.spec.js:1283 › Manager tab shows hires with role-auto-assigned templates
+ok   tests/tests/onboarding.spec.js:1324 › user with matching role sees template without explicit assignment
+ok   tests/tests/onboarding.spec.js:1367 › hire with pending sign-off stays in Active tab, not Completed
+ok   tests/tests/onboarding.spec.js:1436 › builder shows sign-off role picker when Require Sign-off is enabled
+ok   tests/tests/onboarding.spec.js:1468 › sign-off role picker disappears when sign-off is disabled
+ok   tests/tests/onboarding.spec.js:1491 › selected sign-off roles persist after save and reopen
+ok   tests/tests/onboarding.spec.js:1531 › manager navigates directly to Manager tab when pending sign-offs exist
+ok   tests/tests/onboarding.spec.js:1596 › non-authorized role cannot sign off even if section is complete
+ok   tests/tests/onboarding.spec.js:1646 › shows existing seed template in Builder list
+ok   tests/tests/onboarding.spec.js:1657 › HQ back link prompts when builder has unsaved changes
+ok   tests/tests/onboarding.spec.js:1686 › can create a new template via Builder
+ok   tests/tests/onboarding.spec.js:1744 › FAQ question typed in the Builder persists through save (label contract)
+ok   tests/tests/onboarding.spec.js:1792 › sub-items persist after save and reopen
+ok   tests/tests/onboarding.spec.js:1832 › save-video-for-later requires part title
+ok   tests/tests/onboarding.spec.js:1883 › save-video-for-later uses part title in filename
+ok   tests/tests/onboarding.spec.js:1933 › completing all sub-items marks section complete on My Trainings list
+ok   tests/tests/onboarding.spec.js:1999 › Manager tab shows correct completion for sub-item checkboxes
+ok   tests/tests/onboarding.spec.js:2065 › reference photo URL persists through template save and displays in training
+ok   tests/tests/onboarding.spec.js:2205 › crew can unsubmit a completed section and re-edit
+FAIL tests/tests/onboarding.spec.js:2233 › manager can reject a signed-off section
+FAIL tests/tests/onboarding.spec.js:2268 › manager can reject before sign-off (complete section)
+ok   tests/tests/onboarding.spec.js:2294 › unsubmitted section allows proof photo capture button
+ok   tests/tests/onboarding.spec.js:2379 › reopen reverts a video-led section to active (NFR-5)
+ok   tests/tests/onboarding.spec.js:2399 › reject reverts a video-led signed-off section to active (NFR-5 / FR-15)
+ok   tests/tests/onboarding.spec.js:2445 › unassign is idempotent — second unassign is a no-op, template stays gone
+ok   tests/tests/onboarding.spec.js:2474 › unassign of an explicitly-assigned template leaves the role-auto-assign intact
+ok   tests/tests/onboarding.spec.js:2585 › FR-10: proof-photo URL persists via saveProgress value and round-trips on reload
+ok   tests/tests/onboarding.spec.js:2631 › FR-14: a manager lacking the sign_off role is refused 403 sign_off_role_required
+ok   tests/tests/onboarding.spec.js:2668 › FR-21: archived template disappears from /templates and /myTrainings
+ok   tests/tests/onboarding.spec.js:2702 › FR-29: manager and hire progress % agree for the same template
+ok   tests/tests/onboarding.spec.js:2760 › NFR-3: team_member is refused 403 across the manager onboarding endpoints
+ok   tests/tests/onboarding.spec.js:2810 › FR-28: seed template is present after boot (indirect — idempotent re-seed itself is UNTESTABLE via E2E)
+skip tests/tests/onboarding.spec.js:2831 › FR-18: custom-thumbnail upload persists/renders — PARKED (needs photos/presign + S3 PUT plumbing beyond a fixture)
+ok   tests/tests/onboarding.spec.js:2846 › a dead video source shows the error overlay instead of a silent black modal [OB-VID-ERR]
+ok   tests/tests/onboarding.spec.js:2882 › a manager can mark a broken video watched for a hire, with attribution [OB-VID-OVR]
+ok   tests/tests/ops-authz-coverage.spec.js:526 › COVERAGE-EQ: the covered op set equals the set workflowOpRouter handles
+ok   tests/tests/ops-authz-coverage.spec.js:561 › DEFAULT-REFUSES: an unlisted op type is refused, not silently accepted
+ok   tests/tests/ops-authz-coverage.spec.js:576 › GATED APPROVE_ITEM: refused (403) at BOTH the REST door and /ops
+ok   tests/tests/ops-authz-coverage.spec.js:576 › GATED REJECT_ITEM: refused (403) at BOTH the REST door and /ops
+ok   tests/tests/ops-authz-coverage.spec.js:598 › OPEN SET_FIELD: accepted at BOTH the REST door and /ops
+ok   tests/tests/ops-authz-coverage.spec.js:598 › OPEN SUBMIT_CHECKLIST: accepted at BOTH the REST door and /ops
+ok   tests/tests/ops-authz-coverage.spec.js:617 › EXCEPTION SAVE_TEMPLATE: still knowingly ungated on /ops (run 2026-07-20c DECISIONS-NEEDED §1-B — is template mutation meant to be crew-writable?)
+ok   tests/tests/ops-authz-coverage.spec.js:617 › EXCEPTION ARCHIVE_TEMPLATE: still knowingly ungated on /ops (run 2026-07-20c DECISIONS-NEEDED §1-B — is template mutation meant to be crew-writable?)
+ok   tests/tests/ops-save-template-validation.spec.js:174 › CREATE: an approverless approval template is refused at /ops AND not written
+ok   tests/tests/ops-save-template-validation.spec.js:196 › CREATE: the REST twin refuses the identical payload (parity, in the same run)
+ok   tests/tests/ops-save-template-validation.spec.js:204 › UPDATE: stripping the approver over /ops is refused AND the template is untouched
+ok   tests/tests/ops-save-template-validation.spec.js:234 › NOT-A-GATE: the same unprivileged caller's VALID /ops SAVE_TEMPLATE is still accepted
+ok   tests/tests/persistence.spec.js:94 › template with sections and fields round-trips through API [BLD-17]
+ok   tests/tests/persistence.spec.js:124 › assignments and approvers persist [BLD-18]
+ok   tests/tests/persistence.spec.js:160 › submitted checklist persists in pending approvals [APR-02]
+ok   tests/tests/persistence.spec.js:191 › approved submission no longer appears in pending [APR-11]
+ok   tests/tests/persistence.spec.js:222 › archived template does not appear in template list [BLD-15]
+ok   tests/tests/persistence.spec.js:242 › updated template reflects changes on next read [BLD-19]
+ok   tests/tests/persistence.spec.js:278 › section with show-on-days matching today is visible in checklist runner [VIS-02]
+ok   tests/tests/persistence.spec.js:331 › section condition days persist through save and reload [VIS-02]
+ok   tests/tests/persistence.spec.js:353 › checked items persist after page reload [FLD-02]
+ok   tests/tests/persistence.spec.js:385 › draft progress bar reflects saved items after reload [LST-03 RUN-02]
+ok   tests/tests/persistence.spec.js:406 › submitted checklist shows as submitted after reload [LST-06]
+ok   tests/tests/persistence.spec.js:443 › submitted checklist fields are not blank after reload [FLD-R3 FLD-R5]
+ok   tests/tests/persistence.spec.js:507 › checkboxes entered OFFLINE survive back-to-list and reopen [OFF-01]
+ok   tests/tests/persistence.spec.js:591 › progress counts pending answers and says they are pending [OFF-02]
+ok   tests/tests/persistence.spec.js:616 › a field whose save failed is marked Unsaved [OFF-03]
+ok   tests/tests/persistence.spec.js:645 › a failed save says why, once per burst [OFF-04]
+ok   tests/tests/persistence.spec.js:681 › pending answers sync by themselves when the connection returns [OFF-05]
+ok   tests/tests/persistence.spec.js:715 › a failure while ONLINE retries itself on the timer tick [OFF-06]
+ok   tests/tests/persistence.spec.js:741 › checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18]
+ok   tests/tests/persistence.spec.js:807 › yes/no button is highlighted after save and reopen [FLD-06 FLD-07]
+ok   tests/tests/persistence.spec.js:857 › text field without quotes renders without quotes after reload [FLD-09]
+ok   tests/tests/persistence.spec.js:900 › text field with quotes renders with quotes after reload [FLD-09]
+ok   tests/tests/persistence.spec.js:945 › temperature value survives back-to-list and reopen [FLD-11]
+ok   tests/tests/persistence.spec.js:996 › sub-step checks survive back-to-list and reopen [FLD-03]
+ok   tests/tests/persistence.spec.js:1054 › corrective action note and severity survive back-and-reopen [FLD-15]
+ok   tests/tests/persistence.spec.js:1135 › corrective action note survives SUBMIT, reload and reopen [FLD-15b]
+ok   tests/tests/persistence.spec.js:1203 › fail photo survives back-to-list and reopen as https:// URL [FLD-16]
+ok   tests/tests/persistence.spec.js:1303 › photo upload failure notifies the user, not silently [FLD-16D]
+ok   tests/tests/persistence.spec.js:1350 › fail photo captured through the camera path survives back-to-list and reopen [FLD-16B]
+ok   tests/tests/persistence.spec.js:1463 › correction photo survives back-to-list and reopen as https:// URL [FLD-CORRECTION-PHOTO]
+ok   tests/tests/persistence.spec.js:1540 › correction photo captured through the camera path survives back-to-list and reopen [FLD-16C]
+ok   tests/tests/persistence.spec.js:1694 › video max_watched_time survives back-to-list and reopen
+ok   tests/tests/persistence.spec.js:1780 › video_watch_position progress does not mark section complete
+ok   tests/tests/persistence.spec.js:1877 › max_watched_time persists after video marked as watched
+skip tests/tests/persistence.spec.js:1974 › recipe usage_pct round-trips through PUT and GET
+ok   tests/tests/purchasing.spec.js:152 › shows 4 tabs: Order, Shopping, PO, History
+ok   tests/tests/purchasing.spec.js:159 › Order tab is active by default
+ok   tests/tests/purchasing.spec.js:165 › tab switching shows correct section
+ok   tests/tests/purchasing.spec.js:190 › Shopping tab shows specific empty-state stub when no active list exists
+ok   tests/tests/purchasing.spec.js:217 › Shopping tab renders grouped vendor sections with checks, thumbnails, and locations
+ok   tests/tests/purchasing.spec.js:269 › shopping item check-off survives page reload
+skip tests/tests/purchasing.spec.js:302 › vendor section completion persists after reload
+ok   tests/tests/purchasing.spec.js:352 › store location edit persists after reload
+ok   tests/tests/purchasing.spec.js:396 › shopping aisle location does not overwrite catalog store_location
+skip tests/tests/purchasing.spec.js:422 › toast appears when checking item without photo
+FAIL tests/tests/purchasing.spec.js:455 › No photo badge shows on checked item without photo and disappears after photo upload
+ok   tests/tests/purchasing.spec.js:542 › FR-12: completing the last vendor section cascades list and PO to completed
+ok   tests/tests/purchasing.spec.js:579 › FR-24: completing a vendor section with checked items records a repurchase_log row
+ok   tests/tests/purchasing.spec.js:668 › History tab renders #history-content container
+ok   tests/tests/purchasing.spec.js:681 › empty state shows "No completed" when there is no history
+ok   tests/tests/purchasing.spec.js:702 › history tab shows seeded completed shopping list with week label
+ok   tests/tests/purchasing.spec.js:714 › tapping history entry expands the vendor breakdown detail
+ok   tests/tests/purchasing.spec.js:736 › history card shows vendor breakdown and section count
+ok   tests/tests/purchasing.spec.js:753 › FR-17: shopping/history returns completed lists with vendor-section shape
+ok   tests/tests/purchasing.spec.js:792 › PO tab shows stub or locked PO
+skip tests/tests/purchasing.spec.js:804 › PO tab shows approve button for admin when PO is locked
+ok   tests/tests/purchasing.spec.js:848 › item without store_location shows "Set location in Setup" instead of Add button
+ok   tests/tests/purchasing.spec.js:876 › item with store_location shows normal Add button
+ok   tests/tests/purchasing.spec.js:906 › items grouped by store_location with headers in picker
+ok   tests/tests/purchasing.spec.js:953 › item picker renders all items when catalog exceeds 30
+ok   tests/tests/purchasing.spec.js:984 › item picker stays open after scrolling to bottom of list
+ok   tests/tests/purchasing.spec.js:1005 › addItemToPO guard blocks items without store_location via toast
+ok   tests/tests/purchasing.spec.js:1043 › clicking item info on Order tab navigates to Inventory Setup with item expanded
+ok   tests/tests/purchasing.spec.js:1091 › suggestions from inventory appear on purchasing.html Order tab
+ok   tests/tests/purchasing.spec.js:1160 › FR-1: locked-week draft rolls to next week (POST /orders returns a next-week draft)
+ok   tests/tests/purchasing.spec.js:1192 › FR-2: qty stepper persists across reload and qty-0 removes the line
+ok   tests/tests/purchasing.spec.js:1244 › FR-4: restock suggestions render and Add Selected persists them onto the order
+ok   tests/tests/purchasing.spec.js:1297 › FR-6: cutoff config is admin-settable and returns 403 for a non-admin
+ok   tests/tests/purchasing.spec.js:1414 › FR-13: locked PO renders read-only with a Locked status badge
+ok   tests/tests/purchasing.spec.js:1447 › FR-14: admin edits a locked PO (200) but a non-admin is refused 403
+ok   tests/tests/purchasing.spec.js:1513 › FR-15: approve button visible for admin+locked, hidden for a non-admin
+ok   tests/tests/purchasing.spec.js:1560 › FR-16: approve snapshots the PO and both 409 refusals fire
+ok   tests/tests/purchasing.spec.js:1697 › NFR-1: PO state machine valid transitions + optimistic-lock 409 on stale transition
+ok   tests/tests/purchasing.spec.js:1748 › NFR-2: non-admin (team_member) is refused 403 across 5+ purchasing admin endpoints
+ok   tests/tests/purchasing.spec.js:1799 › FR-23: manual repurchase-reset advances last_reset_at (observable effect)
+FAIL tests/tests/receipt-carousel.spec.js:54 › single attachment renders simple iframe overlay without carousel nav
+FAIL tests/tests/receipt-carousel.spec.js:123 › multi attachment renders carousel with prev/next and counter
+ok   tests/tests/recipes.spec.js:45 › GET /api/v1/inventory/recipes returns ingredients-shaped envelope
+ok   tests/tests/recipes.spec.js:59 › GET /api/v1/inventory/recipes accepts from/to date params
+ok   tests/tests/recipes.spec.js:69 › GET /api/v1/inventory/recipes/drift returns JSON object (200 even when empty)
+ok   tests/tests/recipes.spec.js:88 › POST /api/v1/inventory/recipes with non-multiple-of-5 returns 422 invalid_usage_pct
+ok   tests/tests/recipes.spec.js:109 › POST /api/v1/inventory/recipes with out-of-range returns 422
+ok   tests/tests/recipes.spec.js:128 › PUT /api/v1/inventory/recipes/{id} with non-existent id returns 404
+ok   tests/tests/recipes.spec.js:146 › PUT /api/v1/inventory/recipes/{id} with non-multiple-of-5 returns 422
+ok   tests/tests/recipes.spec.js:163 › POST /api/v1/inventory/recipes/merge with same source+target returns 400
+ok   tests/tests/recipes.spec.js:182 › GET /api/v1/inventory/menu-cogs without Bearer returns 401 or 503
+ok   tests/tests/recipes.spec.js:202 › GET /api/v1/inventory/menu-cogs with wrong Bearer returns 401 or 503
+ok   tests/tests/recipes.spec.js:216 › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body
+ok   tests/tests/recipes.spec.js:273 › slider input event updates the chip live without firing PUT
+ok   tests/tests/recipes.spec.js:327 › drift banner renders from non-empty drift state
+ok   tests/tests/recipes.spec.js:365 › summary card shows placeholder on first render before any selection
+ok   tests/tests/recipes.spec.js:372 › clear-menu-summary action restores the placeholder
+ok   tests/tests/recipes.spec.js:449 › FR-23: cost summary computes real per-ingredient COGS (spend × pct/100)
+ok   tests/tests/recipes.spec.js:497 › NFR-8: slider past-100 → 422 → slider value + chip roll back and inline error shows
+ok   tests/tests/recipes.spec.js:564 › NFR-9: Recipes tab fetches live /drift and renders the returned payload
+ok   tests/tests/repo-hygiene.spec.js:41 › no source file under sync-rxdb/ contains a NUL byte
+ok   tests/tests/repo-hygiene.spec.js:66 › scopeFingerprint still joins its operands with a real NUL at runtime
+ok   tests/tests/repo-hygiene.spec.js:104 › no sync-rxdb source spells the merged row-visibility-rls slug (narrow, subset)
+ok   tests/tests/repo-hygiene.spec.js:189 › no live comment gates activation on a DONE roadmap card (fact-shaped, whole tree)
+ok   tests/tests/repo-hygiene.spec.js:249 › night-crew.toml records the spec files its Operations tokens really select
+ok   tests/tests/repro-cut-task.spec.js:88 › cut a task mid-run → surviving checkbox stays checked on the observing device (live + catch-up)
+ok   tests/tests/repro-cut-task.spec.js:153 › a later edit (rename + add + cut) does not change the submitted record’s rendered review
+ok   tests/tests/states-bi-hub.spec.js:149 › Loading: both badges are skeletons and subtitles read Loading…
+ok   tests/tests/states-bi-hub.spec.js:165 › Empty: no badge on either row, descriptive subtitles, rows still open
+ok   tests/tests/states-bi-hub.spec.js:184 › Populated: latest-week spend and average food cost as muted readings; subtitles are plain text
+ok   tests/tests/states-bi-hub.spec.js:208 › Error: both calls fail → "Status unavailable", no badge, and the row still opens to the error card
+ok   tests/tests/states-bi-hub.spec.js:225 › Edge: one call fails — that row says so, the other keeps its reading
+ok   tests/tests/states-bi-hub.spec.js:237 › Edge: deep link #tab=2 opens Food cost with the BI · Food cost back link; back gesture returns to the hub
+ok   tests/tests/states-bi-hub.spec.js:258 › Edge: 393px — every row is a ≥44px target and the badge never overlaps the title
+ok   tests/tests/states-bi-hub.spec.js:276 › Edge: retry — a Retry that succeeds inside a section refreshes its hub row
+ok   tests/tests/states-bi-hub.spec.js:299 › Edge: contrast — the muted badge reads at ≥4.5:1 in dark mode
+ok   tests/tests/states-bi-hub.spec.js:323 › Edge: the Campaigns row opens #tab=3 with the BI · Campaigns back link, and back returns to the hub
+ok   tests/tests/states-bi-hub.spec.js:343 › Edge: Trends and Food cost are unchanged by the third row
+ok   tests/tests/states-cost.spec.js:187 › Empty — no sales data renders the honest low-data card
+ok   tests/tests/states-cost.spec.js:207 › Loading — skeleton shown in #s2 while the request is in flight
+ok   tests/tests/states-cost.spec.js:218 › Error — inline error card + Retry, never a blank tab
+ok   tests/tests/states-cost.spec.js:228 › Populated — sortable table + two movers strips
+ok   tests/tests/states-cost.spec.js:276 › Populated — table sorts on header click
+ok   tests/tests/states-cost.spec.js:303 › Edge: no recipe — revenue + units shown, cost/margin/% marked, never a silent 0
+ok   tests/tests/states-cost.spec.js:324 › Edge: zero revenue — % renders "—", units + cost + negative margin still shown
+ok   tests/tests/states-cost.spec.js:343 › Edge: partially-sparse — reads as "no sales data yet", not "everything is losing money"
+ok   tests/tests/states-cost.spec.js:372 › Loss-red marks a REAL loss in a populated window
+ok   tests/tests/states-cost.spec.js:388 › Loss-red is WITHHELD when the window has no sales at all
+ok   tests/tests/states-cost.spec.js:403 › Edge: one rankable row — shown once as Best, never mirrored into Worst
+ok   tests/tests/states-cost.spec.js:421 › Edge: long menu item name — does not blow out the 480px mobile shell
+ok   tests/tests/states-cost.spec.js:443 › Edge: known 0%-food-cost gap — rendered as the data says, not papered over
+ok   tests/tests/states-cost.spec.js:553 › Edge: ungated user — GET /inventory/cost 403s naming `bi`, no BI tile, no Cost row in Inventory
+ok   tests/tests/states-cost.spec.js:587 › Ungated deep link (inventory.html#tab=6) redirects to bi.html and shows the error card, not a blank page
+ok   tests/tests/states-cost.spec.js:605 › Granted user — the BI tile shows, bi.html#tab=2 renders, GET /inventory/cost returns 200
+ok   tests/tests/states-cost.spec.js:624 › Superadmin with zero explicit grants sees the BI hub and gets 200 from both reports
+ok   tests/tests/states-inventory-nav.spec.js:123 › Hub, admin: four rows in daily-first order, back link is HQ, no hash
+ok   tests/tests/states-inventory-nav.spec.js:151 › Hub, crew: four rows; the server 403 reads as "Status unavailable" and rows still open
+ok   tests/tests/states-inventory-nav.spec.js:174 › Hub badges populated: 10 to review · 2 below par · Drift · Synced 4 min ago
+ok   tests/tests/states-inventory-nav.spec.js:191 › Hub badges zero: no badge at all, never "0 to review"
+ok   tests/tests/states-inventory-nav.spec.js:208 › Hub row loading: skeleton badge and "Loading…" until the call lands
+ok   tests/tests/states-inventory-nav.spec.js:227 › Edge: a status call that fails reads "Status unavailable" and the row still opens
+ok   tests/tests/states-inventory-nav.spec.js:242 › Sync subtitle: "Not synced yet" with no run, "Syncing now…" while one runs
+ok   tests/tests/states-inventory-nav.spec.js:256 › Edge: a failed or cancelled sync is named, never "Synced N min ago"
+ok   tests/tests/states-inventory-nav.spec.js:274 › Edge: the phone back gesture returns from a section to the hub
+ok   tests/tests/states-inventory-nav.spec.js:288 › Edge: #tab=0 on a page without a hub still paints its first tab
+ok   tests/tests/states-inventory-nav.spec.js:297 › Edge: the hub is painted before boot — no Receipts flash while /me hangs
+ok   tests/tests/states-inventory-nav.spec.js:312 › Section page: tapping Receipts opens it full-page with a back link; back returns to the hub
+ok   tests/tests/states-inventory-nav.spec.js:333 › Deep link #tab=2 opens Stock directly, hub hidden, back link to Inventory
+ok   tests/tests/states-inventory-nav.spec.js:347 › Edge: a crew member pasting legacy #tab=5 is sent to bi.html and sees the error card, not a blank page
+ok   tests/tests/states-inventory-nav.spec.js:358 › Edge: a legacy #tab=3 bookmark lands on Recipes › By dish
+ok   tests/tests/states-inventory-nav.spec.js:375 › Hub, admin, dark: rows are cards on the dark ground and the badge keeps its warn colour
+ok   tests/tests/states-inventory-nav.spec.js:393 › Receipts, admin: one control row (Sync + More), queue directly below
+ok   tests/tests/states-inventory-nav.spec.js:407 › More sheet: Deep sync… and Retry parse (all), with a labeled Close
+ok   tests/tests/states-inventory-nav.spec.js:426 › Edge: the deep-sync range picker is still reachable, from the sheet
+ok   tests/tests/states-inventory-nav.spec.js:438 › Recipes › By ingredient is the default view; the summary card is not on it
+ok   tests/tests/states-inventory-nav.spec.js:449 › Recipes › By dish, empty: "No menu items" under the placeholder summary
+ok   tests/tests/states-inventory-nav.spec.js:462 › Recipes › By dish, populated: tapping a dish selects it and its cost renders above
+ok   tests/tests/states-inventory-nav.spec.js:488 › Recipes › By dish, error: inline error with a retry, not a blank list
+ok   tests/tests/states-inventory-nav.spec.js:498 › Setup: Items / Vendors, no link out to Purchase Orders
+ok   tests/tests/states-inventory-nav.spec.js:510 › tapping a dish does not refetch or skeleton-flash the dish list
+ok   tests/tests/states-inventory-nav.spec.js:529 › Escape closes the More sheet and focus returns to More
+ok   tests/tests/states-marketing-campaigns.spec.js:114 › Row: empty — "No campaigns yet", and New campaign is still the way forward
+ok   tests/tests/states-marketing-campaigns.spec.js:127 › Row: loading — three skeletons, aria-busy, and no number on screen yet
+ok   tests/tests/states-marketing-campaigns.spec.js:144 › Row: error — loud banner naming the failure, with Retry (UI-R6)
+ok   tests/tests/states-marketing-campaigns.spec.js:168 › Row: success — funnel legs and the money strip, from the REAL endpoint
+ok   tests/tests/states-marketing-campaigns.spec.js:190 › Row: locked — a real team_member gets 403 managers_only and the Managers only card
+ok   tests/tests/states-marketing-campaigns.spec.js:210 › Row: offline — the last-synced list stays on screen and create is disabled
+ok   tests/tests/states-marketing-campaigns.spec.js:234 › Row: not projected — projected_at null renders the "Not on tablets yet" pill
+ok   tests/tests/states-marketing-campaigns.spec.js:258 › Row: long content — a 94-char offer clamps with "more" and opens in full on tap
+ok   tests/tests/states-marketing-campaigns.spec.js:289 › Edge: 393px — every tappable row clears 44px and the code sheet fits
+ok   tests/tests/states-marketing-campaigns.spec.js:321 › Edge: the create sheet with channels picked — payload preview and the counted button
+ok   tests/tests/states-marketing-stats.spec.js:288 › BI success (REAL): funnel, money, the split line, the unknown-rows note, the health card and both slice rows
+ok   tests/tests/states-marketing-stats.spec.js:301 › BI empty (REAL): "No redemptions yet", and NO money figures at all
+ok   tests/tests/states-marketing-stats.spec.js:313 › BI loading (FIXTURE): skeletons, and no figure on screen before one is known
+ok   tests/tests/states-marketing-stats.spec.js:324 › BI error (FIXTURE): one honest failure card with a Retry, and NOT a figure beside it
+ok   tests/tests/states-marketing-stats.spec.js:340 › BI no-bi-grant (FIXTURE): a 403 names the missing grant instead of an empty report
+ok   tests/tests/states-marketing-stats.spec.js:350 › BI offline (FIXTURE): the failure says it is the network and stays retryable
+ok   tests/tests/states-marketing-stats.spec.js:367 › BI unavailable basis (FIXTURE): an unavailable figure is an em dash with a reason, never 0
+ok   tests/tests/states-marketing-stats.spec.js:382 › BI long content (FIXTURE): 40 slices with 90-char labels — no clipped word, no sideways scroll
+ok   tests/tests/states-marketing-stats.spec.js:397 › MS success (REAL): the header count, the health card, and all three buckets in ladder order
+ok   tests/tests/states-marketing-stats.spec.js:413 › MS empty (REAL): "No redemptions yet" and no health figures
+ok   tests/tests/states-marketing-stats.spec.js:424 › MS locked (REAL): a team_member gets Managers only, and the section still names itself
+ok   tests/tests/states-marketing-stats.spec.js:439 › MS loading (FIXTURE): skeletons, and no count claimed before one is known
+ok   tests/tests/states-marketing-stats.spec.js:451 › MS error (FIXTURE): one failure card with a Retry, no "No redemptions yet", no zeros
+ok   tests/tests/states-marketing-stats.spec.js:465 › MS offline (FIXTURE): the failure says it is the network and stays retryable
+ok   tests/tests/states-marketing-stats.spec.js:476 › MS long content (FIXTURE): 30 rows with 90-char names — the row keeps both buttons reachable
+ok   tests/tests/states-marketing-stats.spec.js:493 › MS sheets (FIXTURE): the add-order sheet shows basis + gap; the decline sheet states what declining does
+ok   tests/tests/states-marketing-subscribers.spec.js:114 › loading — count skeletons and four row skeletons, never a blank card
+ok   tests/tests/states-marketing-subscribers.spec.js:127 › empty — "No subscribers yet" names the four ways in, and zeroed counts
+ok   tests/tests/states-marketing-subscribers.spec.js:141 › error — loud red banner naming the failure, with a Retry that works
+ok   tests/tests/states-marketing-subscribers.spec.js:169 › success + long content — real rows from a real import, masked, with pills
+ok   tests/tests/states-marketing-subscribers.spec.js:221 › empty-filtered — "No subscribers match" is not the same message as "none yet"
+ok   tests/tests/states-marketing-subscribers.spec.js:232 › locked — a team_member gets the real 403 and the whole tab is the Locked state
+ok   tests/tests/states-marketing-subscribers.spec.js:245 › offline — last-synced reading kept, rows kept, Resend disabled
+ok   tests/tests/states-marketing-subscribers.spec.js:282 › offline-filter — a filter tap that cannot load NEVER leaves the chip over another filter's rows
+ok   tests/tests/states-marketing-subscribers.spec.js:316 › offline-cold — nothing cached says so, and never claims "No subscribers yet"
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:321 › empty — no banner; copy scoped to the record and to the retention window
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:346 › loading — two skeletons, no spinner, NO COUNT in the header
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:360 › success — banner carries BOTH A-1 figures; a restored row names the value back and keeps Undo
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:386 › error — a FAILED restore is still to review, and the count does not move
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:426 › edge/outcomes — Keep theirs and Undo, drawn: headline frozen, second figure moving
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:451 › edge/novalue — no Restore, "Not recoverable", and TWO actions (not one)
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:476 › edge/many — ONE banner, per-group chips, collapse sheet-wide, attribution parity
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:518 › edge/confirm — A-2: the tap does NOT write; the confirm lists every value it replaces
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:558 › edge/a1-banner — FOUR banner lines coexist at 480px, and collapse takes no row exit
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:599 › edge/longvalue — wraps inside the card, never truncated, no sideways scroll
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:644 › edge/removed — A-3: the question keeps its LABEL, struck through and read-only
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:677 › edge/removed-fallback — a snapshot with no label falls back to the raw field id, and does not throw
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:701 › edge/storage — both halves, bad one first, and half (a) is not muted-only
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:729 › edge/cap — 10 groups shown, "and N more", and the banner reports the TRUE total
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:768 › Restore -> green + Undo -> back to two values, with the headline never moving
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:788 › a restore that does not land leaves the row failed, both values on screen, and still to review
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:800 › the batch confirm COMMITS only on Replace, and only the still-to-review rows
+ok   tests/tests/states-sync-rxdb-conflict-notice.spec.js:817 › Dismiss is the only way a row leaves the sheet
+ok   tests/tests/states-trends.spec.js:227 › Empty — no confirmed COGS in the window renders the honest empty card
+ok   tests/tests/states-trends.spec.js:242 › Loading — skeleton shown in #s1 while the request is in flight
+ok   tests/tests/states-trends.spec.js:252 › Error — 500 renders an inline error with Retry, never a zeroed chart
+ok   tests/tests/states-trends.spec.js:265 › Populated — chart, legend, completeness block and table all render
+ok   tests/tests/states-trends.spec.js:306 › Populated — tapping a column opens that week’s per-group breakdown
+ok   tests/tests/states-trends.spec.js:321 › Edge: net-zero cell — omitted cells are disclosed, never drawn as $0.00
+ok   tests/tests/states-trends.spec.js:343 › Edge: offsetting unitemized — near-zero net is labelled net, not clean
+ok   tests/tests/states-trends.spec.js:364 › Edge: rounding drift — hero stays the payroll figure and the gap is named
+ok   tests/tests/states-trends.spec.js:382 › Edge: all-unlinked — unlinked-only window is a chart, not the empty card
+ok   tests/tests/states-trends.spec.js:395 › Edge: long group name — the 480px shell does not scroll horizontally
+ok   tests/tests/states-trends.spec.js:511 › Edge: ungated user — GET /inventory/trends 403s naming `bi`, no BI tile, no Trends row in Inventory
+ok   tests/tests/states-trends.spec.js:547 › Ungated deep link (inventory.html#tab=5) redirects to bi.html and shows the error card, not a blank page
+ok   tests/tests/states-trends.spec.js:565 › Granted user — the BI tile shows, bi.html#tab=1 renders, GET /inventory/trends returns 200
+ok   tests/tests/states-trends.spec.js:583 › Retired umbrella: a whole-app `inventory` grant alone no longer opens Trends or Cost
+ok   tests/tests/storage-banner.spec.js:47 › banner shows when health reports storage unreachable
+ok   tests/tests/storage-banner.spec.js:58 › banner stays hidden when storage is ok
+ok   tests/tests/storage-banner.spec.js:67 › banner stays hidden when storage is unconfigured
+ok   tests/tests/storage-banner.spec.js:76 › banner stays hidden when health omits the storage field (old backend)
+ok   tests/tests/storage-banner.spec.js:85 › live /api/v1/health carries the storage field
+ok   tests/tests/sw-api-cache-partition.spec.js:92 › offline, user B is served user A cached /api/v1/users roster from api-cache [B1-XT-01]
+ok   tests/tests/sw-api-cache-partition.spec.js:144 › api-cache entries are keyed by the identity that fetched them [B1-XT-02]
+ok   tests/tests/sw-api-cache-partition.spec.js:237 › with no device identity the worker writes NOTHING to api-cache [B1-XT-05]
+ok   tests/tests/sw-manifest.spec.js:38 › every URL in the committed precache manifest is committed in HEAD
+ok   tests/tests/sw-manifest.spec.js:60 › the RxDB client layer IS precached, from a fresh build and from the committed artifact
+ok   tests/tests/sw-manifest.spec.js:200 › every precached URL is actually staged into the production image
+ok   tests/tests/sw-manifest.spec.js:226 › the Obligation-5 guard actually fails when a precached asset is not staged
+ok   tests/tests/sw-manifest.spec.js:249 › a STAGED-but-uncommitted file never enters a freshly built manifest
+ok   tests/tests/sw-manifest.spec.js:296 › an untracked file in the repo root never enters a freshly built manifest
+ok   tests/tests/sw-manifest.spec.js:345 › the reachability guard REDS when a precached page imports a SKIPPED path
+ok   tests/tests/sw-manifest.spec.js:366 › the reachability guard REDS when a precached page imports a NEVER-GLOBBED path
+ok   tests/tests/sw-manifest.spec.js:382 › the reachability guard STAYS GREEN on a skipped file nobody references
+ok   tests/tests/sw-manifest.spec.js:400 › a BARE module specifier is not read as a missing file
+ok   tests/tests/sw-manifest.spec.js:415 › the reachability guard reports itself UNTRUSTWORTHY rather than passing vacuously
+ok   tests/tests/sw-manifest.spec.js:433 › every canary edge in build-sw.js still exists in the real tree
+ok   tests/tests/sw-manifest.spec.js:462 › build-sw.js exits NON-ZERO when a precached page imports a dropped file
+ok   tests/tests/sync-fill-view.spec.js:200 › a response that exists ONLY in RxDB answers the field in the runner
+ok   tests/tests/sync-fill-view.spec.js:264 › with the flag OFF the same fixture renders unanswered — no scope, no database, no IndexedDB
+ok   tests/tests/sync-fill-view.spec.js:314 › setup + food prep live at once, pairwise-distinct identifiers, and cancelling one leaves the other
+ok   tests/tests/sync-fill-view.spec.js:368 › the fill scope carries the crew member — two users on one phone do not share a checkpoint [F-2]
+ok   tests/tests/sync-fill-view.spec.js:451 › a resident foreign-submission row and a foreign-user draft do NOT answer the fields
+ok   tests/tests/sync-fill-view.spec.js:510 › ...while THIS submission's rows and MY OWN draft do answer them
+ok   tests/tests/sync-fill-view.spec.js:554 › switching to the Approvals tab closes the open checklist's scope [F-B]
+ok   tests/tests/sync-fill-view.spec.js:590 › a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C]
+ok   tests/tests/sync-fill-view.spec.js:643 › a rejected createDatabase is EVICTED — the next open succeeds, and no dead scope is reported live
+ok   tests/tests/sync-one-row.spec.js:186 › a value written by POST /saveResponse is served to the page out of RxDB, behind the flag
+ok   tests/tests/sync-one-row.spec.js:261 › the flag is OFF by default — no database, no IndexedDB, and the surface stays absent
+ok   tests/tests/sync-one-row.spec.js:293 › the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope
+ok   tests/tests/sync-rxdb-client.spec.js:52 › vendor/package.json, the generated bundle and PINNED_VENDOR all agree
+ok   tests/tests/sync-rxdb-client.spec.js:69 › assertVendorPin throws with an actionable message when the bundle moves
+ok   tests/tests/sync-rxdb-client.spec.js:86 › given <origin>/sync it derives <origin>/sync/rest/v1 and <origin>/sync/realtime/v1
+ok   tests/tests/sync-rxdb-client.spec.js:117 › the REST rewrite case table is non-empty
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /sync/rest/v1/checklist_templates -> /sync/rest/checklist_templates
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /sync/rest/v1/rpc/hq_can_see_template -> /sync/rest/rpc/hq_can_see_template
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /sync/rest/v1 -> /sync/rest
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /sync/rest/v1/v1 -> /sync/rest/v1
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /sync/realtime/v1/websocket -> /sync/realtime/v1/websocket
+ok   tests/tests/sync-rxdb-client.spec.js:123 › rewriteRestPath: /api/v1/workflow/templates -> /api/v1/workflow/templates
+ok   tests/tests/sync-rxdb-client.spec.js:129 › rewriteRealtimeUrl points at /sync/realtime/socket/websocket and DROPS apikey
+ok   tests/tests/sync-rxdb-client.spec.js:141 › the constants match backend/internal/sync/proxy.go
+ok   tests/tests/sync-rxdb-client.spec.js:157 › a REST query lands on /sync/rest/<table> with no /v1 and no credentials
+ok   tests/tests/sync-rxdb-client.spec.js:183 › the realtime handshake goes to /sync/realtime/socket/websocket?vsn=1.0.0
+ok   tests/tests/sync-rxdb-client.spec.js:204 › nothing anywhere in the client layer fetches /api/v1/sync/token
+ok   tests/tests/sync-rxdb-client.spec.js:215 › construction makes no network request at all
+ok   tests/tests/sync-rxdb-client.spec.js:228 › createHQSyncClient exposes the HQ conflict handler, not RxDB's default
+ok   tests/tests/sync-rxdb-client.spec.js:628 › the fixture really does hold rows for a checklist this device never opened
+ok   tests/tests/sync-rxdb-client.spec.js:664 › the vendored plugin still offers pull.queryBuilder as the scoping seam
+ok   tests/tests/sync-rxdb-client.spec.js:672 › a device does NOT hold rows for a checklist it never opened
+ok   tests/tests/sync-rxdb-client.spec.js:692 › an offline DRAFT on the open checklist still replicates
+ok   tests/tests/sync-rxdb-client.spec.js:707 › replication REFUSES to start unscoped — C-2 is not a default, it is a gate
+ok   tests/tests/sync-rxdb-client.spec.js:717 › scoped AND batched — the pull keeps its batch size
+ok   tests/tests/sync-rxdb-client.spec.js:731 › scope values are QUOTED, so an id cannot rewrite the predicate [F-4]
+ok   tests/tests/sync-rxdb-client.spec.js:753 › an omitted templateId is REFUSED, not widened to every template [F-5]
+ok   tests/tests/sync-rxdb-client.spec.js:772 › a collection with no scope case refuses EAGERLY, not inside pull.handler [F-3]
+ok   tests/tests/sync-rxdb-client.spec.js:840 › the list fixture is DISCRIMINATING, not merely populated
+ok   tests/tests/sync-rxdb-client.spec.js:871 › a list scope with NO DATE FLOOR is REFUSED — the floor is the bound, not a default
+ok   tests/tests/sync-rxdb-client.spec.js:904 › a list scope with no userId and no templates is REFUSED too
+ok   tests/tests/sync-rxdb-client.spec.js:917 › a date floor cannot carry PostgREST logic-tree punctuation [F-4, on the new key]
+ok   tests/tests/sync-rxdb-client.spec.js:927 › the list scope holds THIS user's rows since the floor, and nothing else
+ok   tests/tests/sync-rxdb-client.spec.js:943 › the floor really is applied per collection, on each one's OWN time column
+ok   tests/tests/sync-rxdb-client.spec.js:960 › the list scope is still BATCHED — C-2 is both halves
+ok   tests/tests/sync-rxdb-client.spec.js:970 › the FILL scope is untouched — a second mode is not a rewrite of the first
+ok   tests/tests/sync-rxdb-client.spec.js:983 › two crew members on ONE phone do not inherit each other's checkpoint
+ok   tests/tests/sync-rxdb-client.spec.js:1032 › the vendored plugin still subscribes with no filter of its own
+ok   tests/tests/sync-rxdb-client.spec.js:1040 › [fill] the filter is present on EXACTLY THREE collections and ABSENT on responses
+ok   tests/tests/sync-rxdb-client.spec.js:1040 › [list] the filter is present on EXACTLY THREE collections and ABSENT on responses
+ok   tests/tests/sync-rxdb-client.spec.js:1059 › every emitted filter is ONE `column=op.value` clause — the only shape Realtime takes
+ok   tests/tests/sync-rxdb-client.spec.js:1086 › the filter reaches the plugin's channel — registered under the replication identifier
+ok   tests/tests/sync-rxdb-client.spec.js:1123 › the channel shim injects the registered filter into the postgres_changes binding
+ok   tests/tests/sync-rxdb-client.spec.js:1156 › the shim is installed by createHQSupabaseClient, not left to the caller
+ok   tests/tests/sync-rxdb-client.spec.js:1291 › RxDB really keys the checkpoint meta store by [collection.name, replicationIdentifier]
+ok   tests/tests/sync-rxdb-client.spec.js:1302 › opening an OLDER checklist after a newer one still replicates its rows
+ok   tests/tests/sync-rxdb-client.spec.js:1320 › ...and that is the SAME set a device with a fresh checkpoint would get
+ok   tests/tests/sync-rxdb-client.spec.js:1330 › a different scope mints a different replicationIdentifier — per collection
+ok   tests/tests/sync-rxdb-client.spec.js:1340 › the SAME scope still RESUMES — the fix did not just disable checkpoints
+ok   tests/tests/sync-rxdb-client.spec.js:1353 › the fingerprint is deterministic and scope-sensitive
+ok   tests/tests/sync-rxdb-client.spec.js:1430 › TWO concurrent fill scopes — setup + food prep — are two replications with pairwise-distinct identifiers
+ok   tests/tests/sync-rxdb-client.spec.js:1442 › ...and neither concurrent scope starves the other — a shared meta store, both sets of rows
+ok   tests/tests/sync-rxdb-client.spec.js:1459 › a SECOND crew member on the same phone gets their own identifiers, not a resumed cursor [F-2]
+ok   tests/tests/sync-rxdb-client.spec.js:1474 › the FILL scope REFUSES a missing userId — it is not an optional argument [F-2]
+ok   tests/tests/sync-rxdb-client.spec.js:1504 › the fill scope's userId is IDENTITY, not a filter clause — no collection filters on it
+ok   tests/tests/sync-rxdb-client.spec.js:1522 › the same crew member re-opening the same checklist still RESUMES
+ok   tests/tests/sync-rxdb-client.spec.js:1538 › inventory expands to itself only — Trends and Cost are the `bi` app now (B-455 / WO-2b)
+ok   tests/tests/sync-rxdb-client.spec.js:1544 › the umbrella table matches what main.go actually mounts
+ok   tests/tests/sync-rxdb-client.spec.js:1555 › a narrow per-tab grant is NOT widened — expansion is one-way
+ok   tests/tests/sync-rxdb-client.spec.js:1560 › idempotent, de-duplicating, order-independent, and empty-safe
+ok   tests/tests/sync-rxdb-client.spec.js:1606 › window.HQSync is constructed, pinned and umbrella-expanded
+ok   tests/tests/sync-rxdb-client.spec.js:1660 › B-149: a grant envelope whose uid mismatches the device is treated as nothing cached
+ok   tests/tests/sync-rxdb-client.spec.js:1700 › the RxDB collections carry HQ's conflict handler, not RxDB's default
+ok   tests/tests/sync-rxdb-client.spec.js:1742 › no user write path was rerouted — workflows.html still autosaves through the API
+ok   tests/tests/sync-rxdb-client.spec.js:1786 › nothing reads from RxDB on a code path that can execute offline — window.HQSync.db is undefined at end of load (B-88)
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:144 › the malformed-snapshot fixture is non-empty and covers every level
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:152 › reads a top-level field label
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:158 › reads a label nested in sub_steps — Field.SubSteps is a real nested list
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:163 › returns null — never throws — for an id the snapshot does not carry
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (undefined) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (null) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a string) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a number) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (an array) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (no sections key) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (sections is a string) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (sections is an object) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a section is null) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a section is a string) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (fields is missing) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (fields is a number) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a field is null) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (a field has no id) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (the label is a number) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (the label is empty) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (the label is an object) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:171 › malformed snapshot (sub_steps is a string) returns null and does not throw
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:184 › a CYCLIC snapshot terminates rather than blowing the stack
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:193 › a THROWING accessor is a malformed snapshot, not a crash
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:201 › a row falls back to the RAW FIELD ID when the snapshot carries no label
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:215 › a removed row PREFERS the frozen label, and is read-only
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:235 › counting follows READING A — a removed row is in the chip base, not the +N
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:262 › rule 1/2 — headline counts answer rows; the chip is the same figure per group
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:271 › rule 3 — what was DONE to a row never changes the headline
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:283 › rule 4 — unidentifiable rows are counted SEPARATELY, never folded in
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:299 › rule 5 — the record id is document + field, so a retry REPLACES a row
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:311 › rule 6 — reviewed is restored/kept; untouched, FAILED and in-flight are not
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:333 › rule 6 wording — nothing handled / some handled / all handled
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:343 › rule 7 — Restore all N is the still-to-review figure, never the chip base
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:362 › rule 8 — collapse triggers on >1 group OR >2 rows, and applies sheet-wide
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:382 › the window is READ from sync-schema, not restated
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:393 › records outside the window are swept and are NOT in any count
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:406 › an unreadable timestamp is KEPT, not silently swept
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:433 › caps at MAX_GROUPS groups
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:444 › rows below the line are NOT dropped and the banner reports the TRUE total
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:479 › the two ids the shipped plate collided on now render different chips
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:492 › no two groups on one sheet EVER carry the same chip
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:501 › assignDocChips is total and stable, and grouping never depended on it
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:523 › a truthy non-array is an empty sheet, not a TypeError
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:547 › values render as a crew member reads them, and are NEVER truncated
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:597 › F-2 — a deep `_v` chain is BOUNDED, not a stack overflow
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:628 › F-2 — a throwing getter on `_v` degrades, it does not propagate
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:646 › F-2 — and it holds THROUGH buildSheetModel, which is where it renders
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:678 › a null actor degrades to "someone else" — never an invented name
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:685 › A-2.3 — every row carries name AND time, collapsed or not
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:703 › one record per clash, keyed by document + field, carrying BOTH values
+ok   tests/tests/sync-rxdb-conflict-notice.spec.js:724 › an emission with no clashes writes nothing
+ok   tests/tests/sync-rxdb-conflict.spec.js:262 › the case table is non-empty and names exactly the decided rules
+ok   tests/tests/sync-rxdb-conflict.spec.js:283 › the default is unconditional master-wins: a strictly-LATER local write is discarded
+ok   tests/tests/sync-rxdb-conflict.spec.js:311 › the default destroys an edit to a DIFFERENT field than the one master changed
+ok   tests/tests/sync-rxdb-conflict.spec.js:327 › assumedMasterState is present in the input RxDB actually hands the handler
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: different fields, different people — BOTH survive
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: only the fork changed a field — the fork value survives
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: only master changed a field — the master value survives
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: genuine same-field clash — master wins AND the fork value is recorded
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: both sides made the SAME edit — convergent, not a clash
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: a clash on one field does not destroy a clean merge on another
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: a field the fork invented (present in NEITHER assumed nor master) survives
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: nested values compare by VALUE, not by identity
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: _deleted participates in the merge — an UNCONTESTED local delete survives
+ok   tests/tests/sync-rxdb-conflict.spec.js:358 › resolve: an enum clash on checklists — status completed vs approved
+ok   tests/tests/sync-rxdb-conflict.spec.js:376 › the resolved document keeps master's RxDB metadata, never the fork's
+ok   tests/tests/sync-rxdb-conflict.spec.js:393 › provenance (who-and-when) is merged but NEVER reported as a clash
+ok   tests/tests/sync-rxdb-conflict.spec.js:419 › an unchanged row on both sides resolves to master with no clashes
+ok   tests/tests/sync-rxdb-conflict.spec.js:430 › the resolved document never carries a field absent from all three inputs
+ok   tests/tests/sync-rxdb-conflict.spec.js:447 › no clock, no timestamp, participates in any decision (decision 50 rejected LWW)
+ok   tests/tests/sync-rxdb-conflict.spec.js:468 › with no baseline, master wins on EVERY field and every difference is recorded
+ok   tests/tests/sync-rxdb-conflict.spec.js:494 › with no baseline, a diverging _deleted IS reported (the only path that reaches it)
+ok   tests/tests/sync-rxdb-conflict.spec.js:505 › with no baseline and an identical fork, nothing is reported
+ok   tests/tests/sync-rxdb-conflict.spec.js:518 › with no baseline, provenance and metadata are still never reported
+ok   tests/tests/sync-rxdb-conflict.spec.js:528 › the baseline flag distinguishes a three-way merge from the fallback
+ok   tests/tests/sync-rxdb-conflict.spec.js:538 › a missing realMasterState throws loudly rather than guessing
+ok   tests/tests/sync-rxdb-conflict.spec.js:548 › isEqual is the injected one, byte-for-byte — the handler does not redefine equality
+ok   tests/tests/sync-rxdb-conflict.spec.js:558 › constructed with the REAL RxDB isEqual, the reproduced loss no longer happens
+ok   tests/tests/sync-rxdb-conflict.spec.js:577 › resolve returns a bare document (RxDB overwrites _rev/_meta/_attachments itself)
+ok   tests/tests/sync-rxdb-conflict.spec.js:590 › onClash fires once per clashing field, with the discarded value recoverable
+ok   tests/tests/sync-rxdb-conflict.spec.js:612 › onClash does NOT fire when nothing was lost
+ok   tests/tests/sync-rxdb-conflict.spec.js:624 › a throwing onClash never breaks replication
+ok   tests/tests/sync-rxdb-conflict.spec.js:658 › extracts the document id, the baseline mode and every discarded value
+ok   tests/tests/sync-rxdb-conflict.spec.js:669 › carries who-and-when for the WINNING write, so the sheet can say "Dana M., 6:12 PM"
+ok   tests/tests/sync-rxdb-conflict.spec.js:676 › honours a custom primary path
+ok   tests/tests/sync-rxdb-conflict.spec.js:683 › reports nothing when the merge lost nothing
+ok   tests/tests/sync-rxdb-conflict.spec.js:719 › a handler exposes the merge options it was constructed with
+ok   tests/tests/sync-rxdb-conflict.spec.js:733 › a CUSTOM provenanceFields entry is suppressed by BOTH the handler and describeConflict
+ok   tests/tests/sync-rxdb-conflict.spec.js:765 › a CUSTOM reservedFields entry is suppressed by BOTH the handler and describeConflict
+ok   tests/tests/sync-rxdb-conflict.spec.js:782 › the call SHAPE startHQReplication uses is the one that threads (simulated, not driven)
+ok   tests/tests/sync-rxdb-conflict.spec.js:815 › startHQReplication REALLY threads the handler options into conflict$ (driven)
+ok   tests/tests/sync-schema.spec.js:106 › the fixture list is non-empty and names the four collections the card owns
+ok   tests/tests/sync-schema.spec.js:112 › the module exports exactly the four replicated collections and one local collection
+ok   tests/tests/sync-schema.spec.js:120 › templates — satisfies the RxDB schema contract and maps to checklist_templates
+ok   tests/tests/sync-schema.spec.js:150 › templates — does NOT declare _modified or _deleted (decision 78)
+ok   tests/tests/sync-schema.spec.js:167 › templates — carries who-and-when (updated_by + updated_at) (decision 79)
+ok   tests/tests/sync-schema.spec.js:177 › templates — carries none of the retired op-log columns
+ok   tests/tests/sync-schema.spec.js:120 › checklists — satisfies the RxDB schema contract and maps to checklist_submissions
+ok   tests/tests/sync-schema.spec.js:150 › checklists — does NOT declare _modified or _deleted (decision 78)
+ok   tests/tests/sync-schema.spec.js:167 › checklists — carries who-and-when (updated_by + updated_at) (decision 79)
+ok   tests/tests/sync-schema.spec.js:177 › checklists — carries none of the retired op-log columns
+ok   tests/tests/sync-schema.spec.js:120 › responses — satisfies the RxDB schema contract and maps to submission_responses
+ok   tests/tests/sync-schema.spec.js:150 › responses — does NOT declare _modified or _deleted (decision 78)
+ok   tests/tests/sync-schema.spec.js:167 › responses — carries who-and-when (answered_by + answered_at) (decision 79)
+ok   tests/tests/sync-schema.spec.js:177 › responses — carries none of the retired op-log columns
+ok   tests/tests/sync-schema.spec.js:120 › approvals — satisfies the RxDB schema contract and maps to submission_rejections
+ok   tests/tests/sync-schema.spec.js:150 › approvals — does NOT declare _modified or _deleted (decision 78)
+ok   tests/tests/sync-schema.spec.js:167 › approvals — carries who-and-when (rejected_by + rejected_at) (decision 79)
+ok   tests/tests/sync-schema.spec.js:177 › approvals — carries none of the retired op-log columns
+ok   tests/tests/sync-schema.spec.js:191 › is declared local, replication-ready in shape, and carries no table mapping
+ok   tests/tests/sync-schema.spec.js:214 › retention is ONE named constant, and the number 30 is not scattered
+ok   tests/tests/sync-schema.spec.js:257 › the SQL file exists and creates exactly the four replicated tables
+ok   tests/tests/sync-schema.spec.js:265 › checklist_templates — carries all six items of the self-hosted table contract
+ok   tests/tests/sync-schema.spec.js:265 › checklist_submissions — carries all six items of the self-hosted table contract
+ok   tests/tests/sync-schema.spec.js:265 › submission_responses — carries all six items of the self-hosted table contract
+ok   tests/tests/sync-schema.spec.js:265 › submission_rejections — carries all six items of the self-hosted table contract
+ok   tests/tests/sync-schema.spec.js:296 › writes NO policy — RLS predicates belong to sync-rxdb-row-visibility-rls
+ok   tests/tests/sync-schema.spec.js:303 › declares NO table for the overwritten-answer record (decision 89)
+ok   tests/tests/sync-schema.spec.js:311 › carries no lamport_ts column — the op-log layer is being retired
+ok   tests/tests/sync.spec.js:117 › two contexts see the same checklist from My Checklists [LC-04]
+ok   tests/tests/sync.spec.js:135 › Device B sees field changes from Device A after reload [SYN-03]
+ok   tests/tests/sync.spec.js:172 › saving a field generates a SET_FIELD op visible via ops/since [SYN-01]
+ok   tests/tests/sync.spec.js:192 › template creation generates SAVE_TEMPLATE op [SYN-10]
+ok   tests/tests/sync.spec.js:204 › archiving template generates ARCHIVE_TEMPLATE op [SYN-10]
+ok   tests/tests/sync.spec.js:217 › multiple ops on same entity have incrementing lamport_ts [SYN-01]
+ok   tests/tests/sync.spec.js:255 › checking a field does not uncheck itself via WS echo [SYN-02]
+ok   tests/tests/sync.spec.js:272 › no "updated by" toast appears for own field saves [RUN-16 SYN-02]
+ok   tests/tests/sync.spec.js:289 › catch-up replay of the op backlog shows no "updated by" toast flood [SYN-02]
+ok   tests/tests/sync.spec.js:328 › live field edit from another device still shows the "updated by" toast [SYN-02]
+ok   tests/tests/sync.spec.js:357 › SET_FIELD op includes user_name in payload [SYN-01]
+ok   tests/tests/sync.spec.js:374 › save status clears after rapid field saves [RUN-04]
+ok   tests/tests/sync.spec.js:398 › field attribution shows user name not undefined after save [RUN-03]
+ok   tests/tests/sync.spec.js:414 › unchecked field stays unchecked after navigating away and returning [FLD-01 RUN-18]
+ok   tests/tests/sync.spec.js:446 › list page progress decrements when another device unchecks a field [LST-17]
+ok   tests/tests/sync.spec.js:491 › unchecking "Do C" on Device A live-unchecks it on Device B's OPEN runner (Friday-checklist shape) [FLD-LIVE-01]
+ok   tests/tests/sync.spec.js:553 › two TABS same browser: unchecking Do C on tab A live-unchecks tab B (shared IndexedDB) [FLD-LIVE-02]
+ok   tests/tests/sync.spec.js:655 › rejection reason live-reaches the submitter's other device without reload [RJT-LIVE-01]
+ok   tests/tests/sync.spec.js:719 › observer list count reflects live state after a rejection, not the frozen submission snapshot [RJT-LIVE-02]
+ok   tests/tests/sync.spec.js:786 › approval live-updates the submitter's other device to Approved without reload [RJT-LIVE-03]
+ok   tests/tests/sync.spec.js:836 › sub-step checks on Device A appear checked on Device B [SYN-03]
+ok   tests/tests/sync.spec.js:883 › submit on Device A updates runner view to submitted on Device B [SYN-03]
+ok   tests/tests/sync.spec.js:928 › temperature input keeps cursor position while typing [SYN-09]
+ok   tests/tests/sync.spec.js:958 › generateUUID works when crypto.randomUUID is unavailable [SYN-11]
+ok   tests/tests/sync.spec.js:977 › two tabs on same origin have different device_ids for sync [SYN-07]
+ok   tests/tests/sync.spec.js:1006 › list page progress updates when another device completes a field [LST-17]
+ok   tests/tests/sync.spec.js:1040 › ops/since endpoint requires authentication [SYN-08]
+ok   tests/tests/sync.spec.js:1048 › WebSocket endpoint requires authentication [SYN-08]
+FAIL tests/tests/sync.spec.js:1327 › checkbox answer converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1343 › yes/no answer converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1359 › text answer converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1372 › temperature answer converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1394 › sub-step checked state converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1413 › fail-note text AND fail severity converge (live + catch-up)
+ok   tests/tests/sync.spec.js:1472 › fail-note photo-URL value converges (live + catch-up)
+ok   tests/tests/sync.spec.js:1545 › submit transition converges live on the observing device (+ catch-up)
+ok   tests/tests/sync.spec.js:1581 › unsubmit transition converges live on the observing device (+ catch-up)
+ok   tests/tests/sync.spec.js:1643 › list-view progress indicator converges live + catch-up (field completion)
+ok   tests/tests/sync.spec.js:1691 › list-view denominator converges live + catch-up when a field is CUT on the bare list
+ok   tests/tests/sync.spec.js:1756 › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1]
+ok   tests/tests/sync.spec.js:1960 › yes/no: a losing No re-renders the winning Yes [FR-9 INV-1]
+ok   tests/tests/sync.spec.js:1983 › temperature: a losing 350 re-renders the winning 375 [FR-9 INV-1]
+ok   tests/tests/sync.spec.js:2002 › sub-step: a losing sub-step B re-renders the winning sub-step A [FR-9 INV-1]
+ok   tests/tests/sync.spec.js:2029 › checkbox: a losing uncheck re-renders the winning checked box [FR-9 INV-1]
+ok   tests/tests/sync.spec.js:2452 › MTX-FLD-ADM-VAL: non-assignee admin field edit converges on the same admin's 2nd device (live + catch-up) [ESC-1]
+ok   tests/tests/sync.spec.js:2478 › MTX-FLD-ADM-CNT: non-assignee admin field edit converges the 2nd device's list count (live + catch-up)
+ok   tests/tests/sync.spec.js:2504 › MTX-SUB-ASG-VAL/ERO: assignee submit converges value + readonly on device B (live + catch-up)
+ok   tests/tests/sync.spec.js:2509 › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up)
+ok   tests/tests/sync.spec.js:2514 › MTX-SUB-ASG-CNT: assignee submit surfaces the Pending Approval badge on device B's bare list (live + catch-up)
+ok   tests/tests/sync.spec.js:2519 › MTX-SUB-ADM-CNT: non-assignee-admin submit surfaces the Pending Approval badge on device B's bare list (live + catch-up)
+ok   tests/tests/sync.spec.js:2526 › MTX-APR-ADM-ERO: non-assignee-admin approval flips device B's open runner to Approved (live + catch-up)
+ok   tests/tests/sync.spec.js:2558 › MTX-APR-ASG-CNT: approval surfaces Approved ✓ on device B's bare list (live + catch-up)
+ok   tests/tests/sync.spec.js:2563 › MTX-APR-ADM-CNT: non-assignee-admin approval surfaces Approved ✓ on device B's bare list (live + catch-up)
+ok   tests/tests/sync.spec.js:2570 › MTX-RJT-ASG-BAN/ERO/VAL + MTX-SUB-ASG-BAN: reject→fix→resubmit cycle converges on device B (live + catch-up) [ESC-2a]
+ok   tests/tests/sync.spec.js:2575 › MTX-RJT-ADM-BAN/ERO/VAL + MTX-SUB-ADM-BAN: non-assignee-admin reject→fix→resubmit cycle converges on device B (live + catch-up)
+ok   tests/tests/sync.spec.js:2580 › MTX-RJT-ADM-CNT: non-assignee-admin rejection clears the pending badge and re-derives the live count on device B's bare list (live + catch-up)
+ok   tests/tests/sync.spec.js:2617 › MTX-RJT-ASG-BAN-SUBSTEP: rejecting a SUB-STEP surfaces its correction banner live on the submitter's 2nd device (live + catch-up) [ESC-3]
+ok   tests/tests/sync.spec.js:2690 › N queued SUBMIT ops replay into a bounded myChecklists fetch count
+ok   tests/tests/sync.spec.js:2797 › fixture honesty: T1/T2/T3 are one Wednesday in CT and in ET, but straddle UTC midnight [A1-TZ-00]
+ok   tests/tests/sync.spec.js:2813 › a period stamped 6:30pm CT is still current at 6:45pm AND at 7:30pm [A1-TZ-01]
+ok   tests/tests/sync.spec.js:2829 › a queued submission still lends its idempotency_key at 7:30pm CT [A1-TZ-02]
+ok   tests/tests/sync.spec.js:2923 › every hand-copied frontend literal equals users.DefaultTimezone
+ok   tests/tests/sync.spec.js:2945 › the running page agrees with the Go constant
+FAIL tests/tests/sync.spec.js:2976 › a remote yes/no flip adds and removes the corrective-action card live [SYNC-FC-01]
+FAIL tests/tests/sync.spec.js:3062 › a live redo op clears the rejection flag on other devices [SYNC-RF-01]
+FAIL tests/tests/sync.spec.js:3136 › rejected sub-steps reset to NULL, deduct from the count, and redo clears them [SYNC-RF-02]
+ok   tests/tests/users.spec.js:50 › shows admin user in user list on load
+ok   tests/tests/users.spec.js:59 › shows skeleton loading state before data arrives
+ok   tests/tests/users.spec.js:83 › can create new user via invite form
+ok   tests/tests/users.spec.js:119 › invite link copy button works
+ok   tests/tests/users.spec.js:148 › accept-invite page shows welcome heading
+ok   tests/tests/users.spec.js:176 › accept-invite sets password and redirects to index
+ok   tests/tests/users.spec.js:206 › expired token shows error on accept-invite page
+ok   tests/tests/users.spec.js:219 › can edit user name and role
+ok   tests/tests/users.spec.js:253 › nickname collision shows 409 error
+ok   tests/tests/users.spec.js:304 › force logout revokes user sessions
+ok   tests/tests/users.spec.js:337 › delete user removes from list
+ok   tests/tests/users.spec.js:377 › reset password generates new token link
+ok   tests/tests/users.spec.js:415 › email notice is prominent and appears above the invite link
+ok   tests/tests/users.spec.js:459 › shows all apps without needing to select a user
+ok   tests/tests/users.spec.js:480 › can toggle a role permission on an app
+ok   tests/tests/users.spec.js:509 › edit form shows full last name, not abbreviated
+ok   tests/tests/users.spec.js:528 › new user has both Zoho Cliq and Email enabled by default
+ok   tests/tests/users.spec.js:554 › alert channel chips show both enabled when editing new user
+ok   tests/tests/users.spec.js:585 › alert channel chips toggle on and off
+ok   tests/tests/users.spec.js:682 › NFR-1: non-admin (team_member) is refused 403 across all 8 admin endpoints
+ok   tests/tests/users.spec.js:735 › NFR-2: invite token is single-use — second accept-invite is refused 400 token_expired
+ok   tests/tests/users.spec.js:779 › NFR-3: granting an app to a user makes it appear in that user's /me/apps, and removing it hides it
+ok   tests/tests/users.spec.js:847 › NFR-4: notification-preference is admin-or-self and requires ≥1 channel
+ok   tests/tests/users.spec.js:898 › NFR-5: unauthenticated request to an admin endpoint returns 401 and the UI redirects to login
+ok   tests/tests/users.spec.js:938 › FR-2: users list fetch failure renders "Could not load team." error state
+ok   tests/tests/users.spec.js:953 › FR-4: invite is refused 422 on empty fields and 409 on duplicate email
+ok   tests/tests/users.spec.js:991 › FR-6: reinvite on an invited row mints a fresh reset token and shows a "resent" toast
+ok   tests/tests/users.spec.js:1031 › FR-9: edit form renders the email field read-only
+ok   tests/tests/users.spec.js:1052 › FR-10: PATCH with an invalid notification channel returns 400
+ok   tests/tests/users.spec.js:1083 › FR-11: PATCH with an invalid IANA timezone returns 400
+ok   tests/tests/users.spec.js:1114 › FR-15: inline Get Invite Link mints a token and renders the link inline
+ok   tests/tests/users.spec.js:1143 › FR-16/17: toggling a role permission persists via PUT and survives a reload
+ok   tests/tests/users.spec.js:1185 › FR-18/19: adding then removing an individual user grant persists across reload
+ok   tests/tests/users.spec.js:1260 › a per-tab slug is grantable through the Access list, beside its parent app
+ok   tests/tests/users.spec.js:1280 › an app role grant round-trips through PUT /apps/{slug}/permissions
+ok   tests/tests/users.spec.js:1307 › a tab card carries the "grant the parent app too" nudge
+ok   tests/tests/version-badge.spec.js:91 › version line shows the value from version.json, NOT the value from /api/v1/health
+ok   tests/tests/version-badge.spec.js:124 › version line reports UNKNOWN rather than falling back to /api/v1/health when version.json is unavailable
+ok   tests/tests/version-badge.spec.js:144 › version line flags this device as STALE when the cached bundle differs from the server
+ok   tests/tests/version-badge.spec.js:166 › version line reads CURRENT when the cached bundle matches the server
+ok   tests/tests/version-badge.spec.js:185 › unmocked, the version line shows the real version.json value and the precache manifest carries that file
+ok   tests/tests/version-json-parity.spec.js:66 › version.json: the two generators produce byte-identical output
+ok   tests/tests/workflows.spec.js:151 › create template via Builder [BLD-03 BLD-04]
+ok   tests/tests/workflows.spec.js:172 › saving template navigates back to builder list [BLD-11]
+ok   tests/tests/workflows.spec.js:193 › archive checklist soft-deletes and removes from list [BLD-15]
+ok   tests/tests/workflows.spec.js:225 › archive navigates back to builder list [BLD-15]
+ok   tests/tests/workflows.spec.js:251 › duplicate checklist name shows error toast [BLD-12]
+ok   tests/tests/workflows.spec.js:272 › can reuse name of deleted checklist [BLD-12]
+ok   tests/tests/workflows.spec.js:291 › saving with requires_approval but no approver shows error toast [BLD-13]
+ok   tests/tests/workflows.spec.js:321 › empty builder shows empty state [BLD-02]
+ok   tests/tests/workflows.spec.js:329 › edit existing template [BLD-04]
+ok   tests/tests/workflows.spec.js:346 › archive template [BLD-15]
+ok   tests/tests/workflows.spec.js:377 › today checklists appear from API [LST-02]
+ok   tests/tests/workflows.spec.js:389 › fill and submit checklist [RUN-01 RUN-06]
+ok   tests/tests/workflows.spec.js:412 › checked item shows user display name, not undefined [RUN-03]
+ok   tests/tests/workflows.spec.js:434 › empty state when no checklists [LST-01]
+ok   tests/tests/workflows.spec.js:456 › approve submission [APR-02 APR-11]
+ok   tests/tests/workflows.spec.js:478 › approve with flag comment shows feedback on checklist [APR-11 FLD-19]
+ok   tests/tests/workflows.spec.js:527 › FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter [APR-06 FLD-18 LC-01]
+ok   tests/tests/workflows.spec.js:588 › rejecting with require-photo lands the comment + photo requirement on the checklist [APR-REPRO-0718]
+ok   tests/tests/workflows.spec.js:653 › checkbox rejected with require-photo: attach correction photo unblocks resubmit [APR-DEADEND-0718]
+ok   tests/tests/workflows.spec.js:718 › rejecting a SUB-STEP surfaces its comment + photo requirement on the checklist [APR-SUBSTEP-0718]
+ok   tests/tests/workflows.spec.js:778 › rejecting a SUB-STEP unchecks it on reopen so the crew must redo it [APR-SUBSTEP-UNCHECK]
+ok   tests/tests/workflows.spec.js:832 › reject works after template update (field IDs change) [APR-10]
+ok   tests/tests/workflows.spec.js:875 › empty approvals shows caught up [APR-01]
+ok   tests/tests/workflows.spec.js:891 › submit while offline queues in IndexedDB [GATE-07 LST-15]
+ok   tests/tests/workflows.spec.js:930 › duplicate submit prevented by idempotency key [GATE-08]
+ok   tests/tests/workflows.spec.js:996 › offline re-submit reuses the queued idempotency key [DBL-01]
+ok   tests/tests/workflows.spec.js:1037 › offline re-submit writes ONE submission row after drain, not two [DBL-02]
+ok   tests/tests/workflows.spec.js:1071 › a submission queued in a previous session is reused, not re-minted [DBL-03]
+ok   tests/tests/workflows.spec.js:1110 › answers entered while OFFLINE survive the re-submit [DBL-04]
+ok   tests/tests/workflows.spec.js:1202 › a queue entry from an earlier period does not lend its key to today [DBL-05]
+ok   tests/tests/workflows.spec.js:1271 › a queued submission and an unsaved field do not read the same [VOC-01]
+ok   tests/tests/workflows.spec.js:1326 › superadmin can access Builder tab [GLB-05]
+ok   tests/tests/workflows.spec.js:1378 › answering No without a corrective note blocks submit [FLD-08 GATE-01]
+ok   tests/tests/workflows.spec.js:1407 › answering No with note + severity allows submit [GATE-02]
+ok   tests/tests/workflows.spec.js:1514 › submit is blocked when a required photo is not attached [GATE-04]
+ok   tests/tests/workflows.spec.js:1540 › submit is allowed once a photo URL is attached [GATE-04]
+ok   tests/tests/workflows.spec.js:1588 › clicking My Checklists tab while runner is open returns to list [RUN-18]
+ok   tests/tests/workflows.spec.js:1615 › workflows tab persists on reload [GLB-07]
+ok   tests/tests/workflows.spec.js:1626 › onboarding tab persists on reload
+FAIL tests/tests/workflows.spec.js:1641 › inventory tab persists on reload
+ok   tests/tests/workflows.spec.js:1652 › users tab persists on reload
+ok   tests/tests/workflows.spec.js:1670 › submit is blocked when fail trigger fires but corrective action is empty [FLD-12 GATE-01]
+ok   tests/tests/workflows.spec.js:1723 › server rejects submission with triggered fail but no corrective action [GATE-03]
+ok   tests/tests/workflows.spec.js:1774 › submitted checklist fields are not interactive [RUN-09 FLD-R1]
+ok   tests/tests/workflows.spec.js:1834 › a no-approval checklist stays submitted and read-only across a reload [RUN-09b]
+ok   tests/tests/workflows.spec.js:1905 › a no-approval submitted checklist RENDERS as submitted — list badge + read-only runner, optimistic and after reload [RUN-09c]
+ok   tests/tests/workflows.spec.js:1998 › skeleton screens show during load [GLB-09]
+ok   tests/tests/workflows.spec.js:2007 › workflows page loads and shows tabs [GLB-02]
+ok   tests/tests/workflows.spec.js:2015 › checklist progress is shared across team members [LC-04]
+ok   tests/tests/workflows.spec.js:2084 › field attribution shows who actually checked it, not the viewer [RUN-03]
+ok   tests/tests/workflows.spec.js:2145 › re-checking a field updates attribution to the new user [RUN-03]
+ok   tests/tests/workflows.spec.js:2216 › yes/no field attribution updates when different user answers [RUN-03]
+ok   tests/tests/workflows.spec.js:2282 › sub-step completion attributes parent checkbox to the user who completed it [FLD-04]
+ok   tests/tests/workflows.spec.js:2362 › sub-step attribution appears before divider line [FLD-03 FLD-04]
+ok   tests/tests/workflows.spec.js:2406 › sub-steps visible in read-only submitted view [FLD-R2]
+ok   tests/tests/workflows.spec.js:2457 › sub-steps visible in approvals review tab [APR-05]
+ok   tests/tests/workflows.spec.js:2508 › list view item count matches runner count with conditional fields [LST-05]
+ok   tests/tests/workflows.spec.js:2548 › conditional field appears after dependent checkbox is checked [VIS-06]
+ok   tests/tests/workflows.spec.js:2600 › conditional field appears after dependent text field is filled [VIS-07]
+ok   tests/tests/workflows.spec.js:2653 › submitted responses survive template update [LC-02]
+ok   tests/tests/workflows.spec.js:2713 › submitted checklist survives builder edit with assignment change [LC-02]
+ok   tests/tests/workflows.spec.js:2770 › draft responses survive template update (assignment change) [LC-03]
+ok   tests/tests/workflows.spec.js:2824 › unsubmit returns checklist to editable draft [RUN-10]
+ok   tests/tests/workflows.spec.js:2872 › incomplete submit shows confirmation prompt [GATE-06]
+ok   tests/tests/workflows.spec.js:2909 › sub-step progress counts correctly in list view [LST-04]
+ok   tests/tests/workflows.spec.js:2951 › skip logic condition persists after save and reload [BLD-07]
+ok   tests/tests/workflows.spec.js:3022 › new section defaults to Same as schedule [BLD-07]
+ok   tests/tests/workflows.spec.js:3048 › text field in read-only view shows answer below label [FLD-R4]
+ok   tests/tests/workflows.spec.js:3095 › team_member cannot see Builder tab [GLB-03]
+ok   tests/tests/workflows.spec.js:3242 › team member completes checklist, manager approves [RUN-07 APR-11]
+ok   tests/tests/workflows.spec.js:3288 › team member completes checklist, manager rejects 2 items, crew resubmits, manager approves [APR-09 FLD-18 LC-01]
+ok   tests/tests/workflows.spec.js:3400 › approved checklist shows Approved badge and cannot be resubmitted [LST-08 RUN-08]
+ok   tests/tests/workflows.spec.js:3476 › FR-6 duplicate submit with same idempotency key creates exactly one submission [GATE-08]
+ok   tests/tests/workflows.spec.js:3528 › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11]
+ok   tests/tests/workflows.spec.js:3596 › FR-8 myHistory returns at most the last 50 submissions in DESC order [LST-13]
+ok   tests/tests/workflows.spec.js:3644 › FR-16 DOW schedule shows today-scheduled checklist and hides off-day one [LST-10]
+ok   tests/tests/workflows.spec.js:3692 › FR-17 section day-condition hides the section and its fields in the runner [VIS-03]
+ok   tests/tests/workflows.spec.js:3739 › FR-18 skip logic shows then re-hides a field as the source answer changes [VIS-05 VIS-08]
+ok   tests/tests/workflows.spec.js:3828 › NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed) [FLD-20]
+ok   tests/tests/workflows.spec.js:3861 › NFR-6 submitting an archived template returns 409 template_archived and creates no submission [GATE-09]
+ok   tests/tests/workflows.spec.js:3909 › NFR-7 an unauthenticated workflows load redirects to /login.html [GLB-01]
+ok   tests/tests/workflows.spec.js:3927 › FR-19 a submitted checklist freezes a template snapshot that later edits do not change [LC-02]
+ok   tests/tests/workflows.spec.js:3983 › FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed [BLD-13]
+ok   tests/tests/workflows.spec.js:4113 › APPROVE_ITEM via /ops is refused for a non-approver and mutates nothing
+ok   tests/tests/workflows.spec.js:4144 › REJECT_ITEM via /ops is refused for a non-approver and writes no rejection
+ok   tests/tests/workflows.spec.js:4174 › APPROVE_ITEM via /ops still succeeds for an admin
+ok   tests/tests/workflows.spec.js:4214 › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen
+ok   tests/.features-gen/features/user-invite-onboarding.feature.spec.js:6 › Manager invites a new team member who accepts and sees permitted apps

@@ -1,0 +1,26 @@
+# POST-CHANGE tree 982bed3 + failClosed INVERTED (1-line) — whole tests/marketing.spec.js, --retries=0 — expected [SP-03] red
+-  return !namesNoCampaign(campaignId);
++  return namesNoCampaign(campaignId);
+# hand-provisioned stack: server pid 46450 on :8211, DB hq_test_e2e_i1_20261003 on :5434 (reset), NIGHTCREW_ENV_URL set — the webServer spawn wedged at 60s under box load
+Running 54 tests using 1 worker
+    Error: a no-source device refuses, loudly
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+    Locator: locator('#ms-gate')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+    Call log:
+    [2m  - a no-source device refuses, loudly with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-gate')[22m
+      1464 |
+      1465 |     const gate = page.locator('#ms-gate');
+    > 1466 |     await expect(gate, 'a no-source device refuses, loudly').toBeVisible();
+           |                                                              ^
+      1467 |     await expect(gate).toContainText(/can.t verify/i);
+      1468 |     await expect(gate).toContainText('try again');
+      1469 |     await expect(
+        at /home/jcole/projects/hq-worktrees/i1-postchange-mut/tests/marketing.spec.js:1466:62
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/pw-i1-red-pw-postchange-inverted/marketing-Scanner-polish-c-e54a7-nce-exists-for-a-known-code-chromium/error-context.md
+    [chromium] › tests/marketing.spec.js:1449:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code 
+  53 passed (3.9m)
+EXIT=1

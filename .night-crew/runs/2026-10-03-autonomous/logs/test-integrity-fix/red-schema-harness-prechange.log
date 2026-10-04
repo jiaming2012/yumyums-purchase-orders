@@ -1,0 +1,6 @@
+# replica-schema-harness.mjs against the PRE-CHANGE marketing/sync/replicas.js (git show ec2830c:…) — expected RED
+── leg 0: the shipped schema ──
+  shipped MARKETING_REPLICA_SCHEMA: version=0 required=[id,token_hash,expires_at,updated_at]
+
+RED: expected version 1, got 0
+EXIT=1

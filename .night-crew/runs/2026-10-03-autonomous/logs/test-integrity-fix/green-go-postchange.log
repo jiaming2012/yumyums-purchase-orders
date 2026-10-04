@@ -1,0 +1,12 @@
+# POST-CHANGE test, spikeEgress() REMOVED (git checkout -- campaigns.go) — expected GREEN
+grep -c spikeEgress campaigns.go: 0
+ M backend/internal/marketing/subscribers_test.go
+2026/10/03 21:47:35 goose: no migrations to run. current version: 85
+2026/10/03 21:47:35 INFO database migrations applied successfully
+=== RUN   TestNothingInThisPackageSends
+    subscribers_test.go:395: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
+    subscribers_test.go:395: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
+--- PASS: TestNothingInThisPackageSends (0.02s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	0.040s
+EXIT=0

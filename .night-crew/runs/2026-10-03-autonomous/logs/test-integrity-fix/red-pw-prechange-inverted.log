@@ -1,0 +1,215 @@
+# PRE-CHANGE tree ec2830c + failClosed INVERTED (1-line) — whole tests/marketing.spec.js, --retries=0
+# TEST_DB_NAME=hq_test_e2e_i1_20261003 TEST_PORT=8211 (:5434/hqtest)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Running 53 tests using 1 worker
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    Error: a no-source device refuses, loudly
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#ms-gate')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - a no-source device refuses, loudly with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-gate')[22m
+
+
+      1462 |
+      1463 |     const gate = page.locator('#ms-gate');
+    > 1464 |     await expect(gate, 'a no-source device refuses, loudly').toBeVisible();
+           |                                                              ^
+      1465 |     await expect(gate).toContainText(/can.t verify/i);
+      1466 |     await expect(gate).toContainText('try again');
+      1467 |     await expect(
+        at /home/jcole/projects/hq-worktrees/i1-prechange-mut/tests/marketing.spec.js:1464:62
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/pw-i1-pre/marketing-Scanner-polish-c-e54a7-nce-exists-for-a-known-code-chromium/error-context.md
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    [chromium] › tests/marketing.spec.js:1447:3 › Scanner polish (card scanner-polish, roadmap H6) › [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code 
+  52 passed (5.3m)
+EXIT=1

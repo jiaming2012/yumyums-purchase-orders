@@ -1,0 +1,12 @@
+# G4 — node build-sw.js at HEAD 982bed3
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3107.7 KB)
+Frontend version: 1.10.2
+EXIT=0
+precache count (grep -o revision sw.js | wc -l): 51
+ M .night-crew/runs/2026-10-03-autonomous/merge-intents/test-integrity-fix.md
+ M sw.js
+?? .night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/g4-sw.log
+?? .night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/red-harness-prechange-inverted.log
+?? .night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/red-pw-prechange-inverted.json
+?? .night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/red-pw-prechange-inverted.log
