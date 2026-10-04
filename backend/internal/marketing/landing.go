@@ -1,6 +1,7 @@
 package marketing
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // scanDedupeWindow is §5's "10-minute (short, ip_hash) dedupe". It is enforced
@@ -299,10 +301,25 @@ func logScan(r *http.Request, d Deps, t codeTarget) {
 		referrer = &ref
 	}
 
+	if err := insertScan(ctx, d.Pool, t.Short, family, referrer, nullIfEmpty(ipHash)); err != nil {
+		slog.Error("marketing: log qr scan", "error", err, "short", t.Short)
+	}
+}
+
+// scanExecer is the one method insertScan needs. The pool, a single pooled
+// connection and a transaction all satisfy it, which is what lets the
+// concurrency test run THIS statement on twelve connections it opened itself.
+type scanExecer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// insertScan writes one qr_scans row under the 10-minute (short, ip_hash)
+// dedupe. It is the only statement in the tree that inserts a scan.
+func insertScan(ctx context.Context, db scanExecer, short, family string, referrer, ipHash *string) error {
 	// The dedupe lives in the WHERE NOT EXISTS, so it is one statement and one
 	// definition. A NULL ip_hash never dedupes — we cannot tell two anonymous
 	// scans apart, and over-counting is the honest failure here.
-	_, err := d.Pool.Exec(ctx, `
+	_, err := db.Exec(ctx, `
 		INSERT INTO qr_scans (short, ua_family, referrer, ip_hash)
 		SELECT $1, $2, $3, $4
 		WHERE $4::text IS NULL OR NOT EXISTS (
@@ -310,10 +327,8 @@ func logScan(r *http.Request, d Deps, t codeTarget) {
 		  WHERE s.short = $1 AND s.ip_hash = $4
 		    AND s.scanned_at > now() - $5::interval
 		)`,
-		t.Short, family, referrer, nullIfEmpty(ipHash), scanDedupeWindow.String())
-	if err != nil {
-		slog.Error("marketing: log qr scan", "error", err, "short", t.Short)
-	}
+		short, family, referrer, ipHash, scanDedupeWindow.String())
+	return err
 }
 
 func nullIfEmpty(s string) *string {
