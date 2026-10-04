@@ -1,0 +1,187 @@
+# POST-CHANGE tree ad7d649, UNMUTATED — run.sh (default mode) — a builder of the v1 codes/offers collections
+# target coordinates (read-only statement before any write):
+#   compose project : spike-supabase (throwaway LOCAL substrate)
+#   compose file    : /home/jcole/projects/hq-worktrees/i1-test-integrity-fix/docker-compose.supabase.yml
+#   mode            : RECONCILE (env-up.sh, no flags — never --fresh from a harness)
+#   NOT :5433 (dev/prod cluster), NOT :5434 (test pg), NOT any hosted supabase.com project
+
+── substrate up (env-up.sh, idempotent reconcile) ──
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/i1-test-integrity-fix
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-10-04T02:53:29Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED       STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         8 weeks ago   Up 14 hours (healthy)   0.0.0.0:53269->5432/tcp, [::]:53269->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   8 weeks ago   Up 14 hours             0.0.0.0:53383->4000/tcp, [::]:53383->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       8 weeks ago   Up 14 hours             0.0.0.0:53277->3000/tcp, [::]:53277->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=53269 rest=53277 realtime=53383
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=53277 realtime=53383 db=53269  run=r1791082423529
+PASS  ports — db=53269 rest=53277 realtime=53383
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1791082428555 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=53269  rest=53277  realtime=53383   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-10-04T02:53:48Z
+══════════════════════════════════════════════════════════
+#   db container    : 51a51ade6921be3867acd4c87c19bd22dba4d7221c236dec46376d3a85850f3d
+#   db host port    : 53269 (Docker-assigned)
+#   db role         : supabase_admin, via docker exec (no host psql involved)
+
+── built schema: reset_bare + apply_all (committed migrations + seed) ──
+  → migrations/20260904000100_qr_attribution_spine.sql
+psql:<stdin>:134: NOTICE:  policy "campaigns_select_device" for relation "public.campaigns" does not exist, skipping
+psql:<stdin>:138: NOTICE:  policy "codes_select_device" for relation "public.codes" does not exist, skipping
+psql:<stdin>:142: NOTICE:  policy "scan_attempts_insert_own" for relation "public.scan_attempts" does not exist, skipping
+  → migrations/20260904000200_redeem_rpc.sql
+  → migrations/20260906000100_campaigns_replication.sql
+psql:<stdin>:47: NOTICE:  trigger "campaigns_touch_updated_at" for relation "public.campaigns" does not exist, skipping
+  → migrations/20260906000200_scan_attempts_unverified_landing.sql
+psql:<stdin>:41: NOTICE:  constraint "scan_attempts_names_a_code" of relation "scan_attempts" does not exist, skipping
+  → migrations/20260906000300_scan_attempts_policy_unresolved.sql
+  → seed.sql (TEST fixtures — local/test substrates only, never production)
+
+── per-run rows ──
+  in-window(expired-1d)  = 9423dadd-0509-4c97-b187-a34498e75c78
+  out-of-window(exp-5d)  = 54b49bb0-49b8-4057-bf41-ec454260476f
+  live burn target       = 75cc2f64-e400-4999-a43c-941c20ef24fd
+  synced customer offer  = f75158c4-56c7-43ba-a57d-8f87409a3cba  (hash: c2-hash-customer-f75158c4-56c7-43ba-a57d-8f87409a3cba)
+  GAP-1 tie group (5)    = 8a17c66b-40d9-4e11-a1af-a0a59a08d6fc 934f6b47-0cc0-4fd8-aa19-20f61215fe51 e4f476d6-ac53-4b93-9e7b-d77679dd5df3 e0859349-f888-46f9-869c-7e8fcdedbe93 8e25d4f2-3aaa-463e-9617-34febc3d509c
+
+── device JWTs (throwaway secret from the compose file) ──
+
+── mode: green ──
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+# leg 1 — codes replica after initial sync (12 docs):
+    75cc2f64-e400-4999-a43c-941c20ef24fd
+    8a17c66b-40d9-4e11-a1af-a0a59a08d6fc
+    8e25d4f2-3aaa-463e-9617-34febc3d509c
+    934f6b47-0cc0-4fd8-aa19-20f61215fe51
+    9423dadd-0509-4c97-b187-a34498e75c78
+    c0000000-0000-4000-8000-000000000001
+    c0000000-0000-4000-8000-000000000002
+    c0000000-0000-4000-8000-000000000004
+    c0000000-0000-4000-8000-000000000005
+    e0859349-f888-46f9-869c-7e8fcdedbe93
+    e4f476d6-ac53-4b93-9e7b-d77679dd5df3
+    f75158c4-56c7-43ba-a57d-8f87409a3cba
+# leg 1 — offers replica after initial sync (11 docs):
+    75cc2f64-e400-4999-a43c-941c20ef24fd
+    8a17c66b-40d9-4e11-a1af-a0a59a08d6fc
+    8e25d4f2-3aaa-463e-9617-34febc3d509c
+    934f6b47-0cc0-4fd8-aa19-20f61215fe51
+    c0000000-0000-4000-8000-000000000001
+    c0000000-0000-4000-8000-000000000002
+    c0000000-0000-4000-8000-000000000004
+    c0000000-0000-4000-8000-000000000005
+    e0859349-f888-46f9-869c-7e8fcdedbe93
+    e4f476d6-ac53-4b93-9e7b-d77679dd5df3
+    f75158c4-56c7-43ba-a57d-8f87409a3cba
+  leg 1 HELD — §5.3 window on codes (IN1 present, out-of-window absent both ways),
+               offers bounded to live rows (IN1 absent there — the bounds differ per contract)
+# leg 2 — GAP-1 boundary. tie updated_at=2026-10-04T02:54:04.9064+00:00; 2 request(s) resumed MID-GROUP:
+    cursor=(2026-10-04T02:54:04.9064+00:00, 8a17c66b-40d9-4e11-a1af-a0a59a08d6fc)
+    cursor=(2026-10-04T02:54:04.9064+00:00, 934f6b47-0cc0-4fd8-aa19-20f61215fe51)
+  leg 2 HELD — a batch boundary fell inside the tie group, the keyset checkpoint walked it, all 5 landed
+  realtime channel: SUBSCRIBED
+# leg 3 — checkpoint discipline (8 codes requests so far):
+    #1 epoch; SUBSCRIBED refetch resumed from (2026-10-04T02:54:04.9064+00:00, e4f476d6-ac53-4b93-9e7b-d77679dd5df3)
+  leg 3 HELD — epoch first, every resume carries the keyset cursor, SUBSCRIBED refetches
+# leg 4 — device-a burns the target via POST /rpc/redeem
+  /rpc/redeem HTTP 200 → [{"ok":true,"reason":null}]
+  converged: codes 268 ms, offers 269 ms after redeem (no restart, no manual reSync)
+  leg 4 HELD — a real redeem() propagated to the second device's running replicas live
+  realtime channel: CLOSED
+# leg 5 — offline (both replications cancelled, realtime channel removed)
+  offers(c2-hash-customer-f75158c…) → [f75158c4-56c7-43ba-a57d-8f87409a3cba] (expires 2026-10-07T02:54:04.839095+00:00)
+  burned hash → []; redeemed seed hash → []; unknown hash → [] (fallback signal)
+  leg 5 HELD — the synced customer's full offer list resolves with the radio off
+# request log — codes (9 requests):
+    #1 cursor=(EPOCH, 00000000…)
+    #2 cursor=(2026-10-04T02:54:02.009568+00:00, c0000000…)
+    #3 cursor=(2026-10-04T02:54:02.009568+00:00, c0000000…)
+    #4 cursor=(2026-10-04T02:54:04.839095+00:00, 9423dadd…)
+    #5 cursor=(2026-10-04T02:54:04.9064+00:00, 8a17c66b…)
+    #6 cursor=(2026-10-04T02:54:04.9064+00:00, 934f6b47…)
+    #7 cursor=(2026-10-04T02:54:04.9064+00:00, e4f476d6…)
+    #8 cursor=(2026-10-04T02:54:04.9064+00:00, e4f476d6…)
+    #9 cursor=(2026-10-04T02:54:04.9064+00:00, e4f476d6…)
+# request log — offers (3 requests):
+    #1 cursor=(EPOCH, 00000000…)
+    #2 cursor=(2026-10-04T02:54:04.9064+00:00, e4f476d6…)
+    #3 cursor=(2026-10-04T02:54:04.9064+00:00, e4f476d6…)
+# sample pull URL (codes #1): http://127.0.0.1:53277/codes?select=id%2Ctoken_hash%2Ccampaign_id%2Cexpires_at%2Credeemed_at%2Credeemed_by%2Cupdated_at%2C_deleted&or=(updated_at.gt.%221970-01-01T00%3A00%3A00%2B00%3A00%22,and(updated_at.eq.%221970-01-01T00%3A00%3A00%2B00%3A00%22,id.gt.%2200000000-0000-0000-0000-000000000000%22))&expires_at=gt.2026-10-02T02%3A54%3A17.810Z&order=updated_at.asc,id.asc&limit=2
+ALL LEGS HELD
+
+✅ VERDICT: GREEN — both bounded, keyset-checkpointed replicas hold on the built schema; redeem() propagates live; offers resolve offline; GAP-1 boundary walked.
+EXIT=0

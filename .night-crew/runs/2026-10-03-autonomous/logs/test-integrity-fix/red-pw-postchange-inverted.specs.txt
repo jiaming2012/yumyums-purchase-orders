@@ -1,0 +1,56 @@
+# per-spec outcome from the Playwright JSON reporter (red-pw-postchange-inverted.json)
+# stats {"startTime":"2026-10-04T02:16:22.277Z","duration":236143.98,"expected":53,"skipped":0,"unexpected":1,"flaky":0}
+ok   SEED: SeedHQApps registers marketing + marketing-offline-override with their first-registration grants
+ok   a team_member with the app grant sees the Marketing tile on the launcher
+ok   marketing.html shows Scan live and Campaigns, Subscribers and Stats all gated to their designed Locked state
+ok   a user without the marketing grant sees NO Marketing tile
+ok   the offline_override entitlement renders as a grantable row in the Users access editor
+ok   a per-user offline_override grant round-trips to that user's /me/apps
+ok   a printed QR decodes from an image and its on-device hash equals the committed seed literal
+ok   done_when: a synced customer's offer resolves OFFLINE from the local replica (image decode)
+ok   done_when: an un-synced customer falls back OFFLINE to the QR-embedded offer, marked unverified (image decode)
+ok   resolution order: the local replica beats the QR-embedded offer when both exist
+ok   a token in neither replica with no descriptor resolves unknownCode (F2 display)
+ok   a payload that is not a Yumyums code resolves invalidPayload, loudly
+ok   F3 offline: a locally-redeemed code rejects immediately as spentLocally
+ok   F3 online: the local redeemed flag does NOT reject — the server decides at submit
+ok   offline expiry uses clock.isExpired — a +2h server offset expires a code raw Date.now() calls live
+ok   the clock state round-trips a reload (persist → initialState) so a reloaded-offline device keeps its offset
+ok   hash caching: repeated scans of one token digest once
+ok   enqueue is serialized per code: two rapid same-code enqueues insert exactly one live attempt
+ok   F6: re-scanning the same code re-shows the result instead of erroring or duplicating
+ok   camera failure is loud and retryable (headless has no camera; live decode is the attended morning check)
+ok   a live camera hides the Start camera control and shows no error
+ok   starting the camera twice does not report it unavailable
+ok   a camera failure names the real reason, even when the library throws a string
+ok   a persistent online/offline indicator renders from boot and reads online on a live probe
+ok   confirm-then-burn: no path to redeemed without a validator-passing Toast order number
+ok   offline branch 1: no entitlement -> blocked, no override affordance
+ok   offline branch 2: the entitlement offers force-submit behind the §13 confirmation
+ok   offline branch 3: requires_online=true refuses the override even WITH the entitlement (§8)
+ok   B-432: a requires_online=true code is refused while its campaign is UNRESOLVED (branch-3 minus the campaigns: seed)
+ok   P-KR4: indicator flips and submit re-arms LIVE when reachability returns — zero page interaction
+ok   F2: an unknownCode offline override warns unverifiable and writes offline_override=true AND unverified_code=true
+ok   done_when(2): a replica-FAILURE override lands policy_unresolved=true, distinguishable from the genuinely-unknown one
+ok   B-434(c): the policy predicate — resolved flag / KNOWN-but-unresolved fails closed / no campaign stays null (decision 166)
+ok   F6: same-code re-scan is a no-op; a different code prompts; dismiss returns to the interrupted state
+ok   already_used verdict renders when + which device from the local codes replica
+ok   an undeclared machine event raises the modeled unexpectedEvent card — loud, named, retryable, never a dead actor
+ok   [SP-01] offline + requires_online renders the refusal BEFORE any tap, and the post-submit guard still holds
+ok   [SP-01b] an offline-ELIGIBLE campaign keeps its order-# field and override path
+ok   [SP-02] the offer card names the campaign and the code last-4, not a bare UUID
+ok   [SP-02b] a campaign row with no name degrades to its id prefix, never "undefined"
+FAIL [SP-03] no policy source → the refusal renders and NO Force affordance exists for a known code
+ok   [TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows
+ok   [TI-02] in the page, a v0 codes/offers store on IndexedDB reopens at v1 through the shipped spec with its rows
+ok   done_when(1): provisioning through the SHIPPED path arms sync; a server-side code resolves OFFLINE after the network is cut
+ok   done_when(2): campaignPolicy genuinely attaches — attached() true, size() non-zero, seam NOT stubbed
+ok   done_when(3)/B-438: campaigns upstream killed at the NETWORK layer — a genuinely-unknown override lands policy_unresolved=true, pushed as the mint sub
+ok   done_when(3) control: with the campaigns replica HEALTHY the same override lands policy_unresolved=false
+ok   done_when(4)/B-439: after a post-ready failure + recovery WITH docs, unresolved() returns to false
+ok   done_when(4)/B-439: the recovery-EMPTY shape (zero new rows) ALSO clears the latch
+ok   both flows boot with NO crypto.subtle, and the token hash still equals the WebCrypto seed literal
+ok   a boot failure reads as a plain sentence with the technical detail tucked away — not an exception dump
+ok   on a LAN/dev address the hint says https, NOT "go to hq.yumyums.kitchen"
+ok   the Details cause reads as a sentence, not an internal symbol name
+ok   camera failure on an insecure origin names the fix: open the https address, or scan from a photo

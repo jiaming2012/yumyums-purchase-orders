@@ -1,0 +1,104 @@
+# final-reds — run 20261003, Playwright full suite on the merged run tree (detached worktree final-20261003)
+tree SHA: fb3a35df67338ab6a17b8b94efb5d476f53977b9 (overnight-20261003 with cards I3, I1, I2 merged)
+summary: 34 failed / 7 skipped / 1031 passed (57.7m) — 1072 tests, 1 worker, --retries=0; EXIT_PW=1; summary blocks: 1
+log: logs/final-pw.log (hand-provisioned server on :8230 + NIGHTCREW_ENV_URL, db hq_test_e2e_final_20261003 on :5434 reset before start; server log logs/final-pw-server.log)
+go: EXIT_BUILD=0 EXIT_VET=0 EXIT_TEST=0 — 15 packages ok / 0 FAIL, 452 top-level tests: 449 pass / 0 fail / 3 skip; TestRowVisibilityRLS 59 subtests pass (logs/final-G1-G2go.log)
+sw: EXIT_SW1=0 EXIT_SW2=0, sw.js clean after each, 51 revision entries, 0 references outside the precache (logs/final-G4-sw.log)
+
+## failing tests (34), sorted — spec-file:line › title
+tests/inventory.spec.js:949 › Inventory › a parse failure states its cause instead of only that it failed
+tests/inventory.spec.js:955 › Inventory › a parse failure with no recorded cause says so rather than standing bare
+tests/inventory.spec.js:961 › Inventory › Retry parse is offered on a pending row with no parse_error and no items
+tests/inventory.spec.js:969 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth
+tests/inventory.spec.js:982 › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload
+tests/inventory.spec.js:993 › Inventory › line items from a failed parse pre-fill the review form
+tests/inventory.spec.js:1008 › Inventory › a transient failure is still described in words
+tests/inventory.spec.js:1025 › Inventory › a running sync shows elapsed time that actually advances
+tests/inventory.spec.js:1288 › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel
+tests/inventory.spec.js:1296 › Inventory › cancelling asks first, and backing out does not cancel
+tests/inventory.spec.js:1313 › Inventory › confirming posts the cancel
+tests/inventory.spec.js:1325 › Inventory › a cancelled run reports what it finished, not just that it stopped
+tests/inventory.spec.js:1346 › Inventory › back link navigates to HQ
+tests/inventory.spec.js:2186 › Inventory › Setup item editor shows alias chips, adds and removes nicknames
+tests/inventory.spec.js:2767 › Inventory › user can set store_location from Setup tab edit form
+tests/inventory.spec.js:2931 › Inventory › creating item opens edit form with store location dropdown
+tests/inventory.spec.js:3685 › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab
+tests/inventory.spec.js:4550 › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge
+tests/onboarding.spec.js:2233 › Reject and unsubmit sections › manager can reject a signed-off section
+tests/onboarding.spec.js:2268 › Reject and unsubmit sections › manager can reject before sign-off (complete section)
+tests/purchasing.spec.js:455 › Shopping tab › No photo badge shows on checked item without photo and disappears after photo upload
+tests/receipt-carousel.spec.js:54 › Receipt overlay carousel › single attachment renders simple iframe overlay without carousel nav
+tests/receipt-carousel.spec.js:123 › Receipt overlay carousel › multi attachment renders carousel with prev/next and counter
+tests/sync.spec.js:836 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03]
+tests/sync.spec.js:1691 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list
+tests/sync.spec.js:1756 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1]
+tests/sync.spec.js:2509 › Convergence matrix (systematic): op-type × editor × derived view › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up)
+tests/sync.spec.js:2976 › Cross-device: fail-card reconciliation › a remote yes/no flip adds and removes the corrective-action card live [SYNC-FC-01]
+tests/sync.spec.js:3062 › Cross-device: rejection-flag reconciliation › a live redo op clears the rejection flag on other devices [SYNC-RF-01]
+tests/sync.spec.js:3136 › Cross-device: rejection-flag reconciliation › rejected sub-steps reset to NULL, deduct from the count, and redo clears them [SYNC-RF-02]
+tests/workflows.spec.js:1641 › Tab Persistence › inventory tab persists on reload
+tests/workflows.spec.js:2824 › Loading states › unsubmit returns checklist to editable draft [RUN-10]
+tests/workflows.spec.js:3528 › Checklist submit/unsubmit/history (prove sweep) › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11]
+tests/workflows.spec.js:4214 › B-132 — fireworks confetti canvas › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen
+
+## vs base-reds.txt (25 base reds, dev@ec2830c)
+base reds still red: 24
+tests/inventory.spec.js:949 › Inventory › a parse failure states its cause instead of only that it failed
+tests/inventory.spec.js:955 › Inventory › a parse failure with no recorded cause says so rather than standing bare
+tests/inventory.spec.js:961 › Inventory › Retry parse is offered on a pending row with no parse_error and no items
+tests/inventory.spec.js:969 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth
+tests/inventory.spec.js:982 › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload
+tests/inventory.spec.js:993 › Inventory › line items from a failed parse pre-fill the review form
+tests/inventory.spec.js:1008 › Inventory › a transient failure is still described in words
+tests/inventory.spec.js:1025 › Inventory › a running sync shows elapsed time that actually advances
+tests/inventory.spec.js:1288 › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel
+tests/inventory.spec.js:1296 › Inventory › cancelling asks first, and backing out does not cancel
+tests/inventory.spec.js:1313 › Inventory › confirming posts the cancel
+tests/inventory.spec.js:1325 › Inventory › a cancelled run reports what it finished, not just that it stopped
+tests/inventory.spec.js:1346 › Inventory › back link navigates to HQ
+tests/inventory.spec.js:2186 › Inventory › Setup item editor shows alias chips, adds and removes nicknames
+tests/inventory.spec.js:2767 › Inventory › user can set store_location from Setup tab edit form
+tests/inventory.spec.js:3685 › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab
+tests/inventory.spec.js:4550 › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge
+tests/purchasing.spec.js:455 › Shopping tab › No photo badge shows on checked item without photo and disappears after photo upload
+tests/receipt-carousel.spec.js:54 › Receipt overlay carousel › single attachment renders simple iframe overlay without carousel nav
+tests/receipt-carousel.spec.js:123 › Receipt overlay carousel › multi attachment renders carousel with prev/next and counter
+tests/sync.spec.js:2976 › Cross-device: fail-card reconciliation › a remote yes/no flip adds and removes the corrective-action card live [SYNC-FC-01]
+tests/sync.spec.js:3062 › Cross-device: rejection-flag reconciliation › a live redo op clears the rejection flag on other devices [SYNC-RF-01]
+tests/sync.spec.js:3136 › Cross-device: rejection-flag reconciliation › rejected sub-steps reset to NULL, deduct from the count, and redo clears them [SYNC-RF-02]
+tests/workflows.spec.js:1641 › Tab Persistence › inventory tab persists on reload
+
+base reds GREEN on this tree: 1
+tests/inventory.spec.js:1469 › Inventory › create new item via Items tab
+
+reds OUTSIDE base: 10 — each run 3x alone, database reset + server restarted before every run (logs/final-isolation.log)
+  isolation red 3 / green 0 — tests/inventory.spec.js:2931 › Inventory › creating item opens edit form with store location dropdown
+  isolation red 0 / green 3 — tests/onboarding.spec.js:2233 › Reject and unsubmit sections › manager can reject a signed-off section
+  isolation red 0 / green 3 — tests/onboarding.spec.js:2268 › Reject and unsubmit sections › manager can reject before sign-off (complete section)
+  isolation red 0 / green 3 — tests/sync.spec.js:836 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03]
+  isolation red 0 / green 3 — tests/sync.spec.js:1691 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list
+  isolation red 0 / green 3 — tests/sync.spec.js:1756 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1]
+  isolation red 0 / green 3 — tests/sync.spec.js:2509 › Convergence matrix (systematic): op-type × editor × derived view › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up)
+  isolation red 0 / green 3 — tests/workflows.spec.js:2824 › Loading states › unsubmit returns checklist to editable draft [RUN-10]
+  isolation red 0 / green 3 — tests/workflows.spec.js:3528 › Checklist submit/unsubmit/history (prove sweep) › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11]
+  isolation red 0 / green 3 — tests/workflows.spec.js:4214 › B-132 — fireworks confetti canvas › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen
+
+notes (observation, not attribution):
+  inventory.spec.js:2931 — red 3/3 alone on a fresh database. base-reds.txt lists this title as in bugs.md's 24-set (dev@c4f6db4) and green on tonight's single base sample.
+  onboarding.spec.js:2233, :2268 — green 3/3 alone. base-reds.txt lists both titles as in the 29-set (final Activity H tree) and green on tonight's base sample.
+  the other 7 (sync.spec.js:836, :1691, :1756, :2509; workflows.spec.js:2824, :3528, :4214) — green 3/3 alone; red only inside the full-suite run. Not isolated on the base tree by this leg.
+  previously-seen card-tree reds NOT red here: sync.spec.js:1327, recipes.spec.js:216.
+
+## marketing
+tests/marketing.spec.js: 0 red — 63 of 63 passed in the full suite.
+
+## inventory.spec.js:2931 — both trees, alone (orchestrator follow-up; logs/final-isolation.log, sections "## base ec2830c" and "## merged fb3a35d")
+same procedure on both: database reset + server rebuilt from that tree and restarted before every run, :8230, hq_test_e2e_final_20261003 on :5434, --retries=0
+  base   ec2830c: red 1 / green 4 (5 runs; run 2 red)
+  merged fb3a35d: red 3 / green 2 (5 runs; runs 1-3 red, runs 4-5 green)
+failure messages (NOT the same on the two trees, and not the same within the merged tree):
+  base   run 2:      expect(locator).toBeVisible() failed — locator('.item-edit-form'), Timeout 8000ms, element(s) not found (inventory.spec.js:2942)
+  merged run 1:      TimeoutError: page.waitForSelector: Timeout 5000ms exceeded — waiting for locator('#new-item-name') to be visible (inventory.spec.js:2936)
+  merged runs 2, 3:  page.fill: Test timeout of 30000ms exceeded — waiting for locator('#new-item-name') to be visible, enabled and editable (inventory.spec.js:2938)
+  merged full suite: expect(locator).toBeVisible() failed — locator('.item-edit-form'), Timeout 8000ms, element(s) not found (same message as the base red)
+the test is red alone on the base tree too, so a red is not exclusive to the merged tree. The '#new-item-name' failures (earlier in the test) were observed only on the merged tree; 5 runs per tree do not establish a rate difference or attribute them.

@@ -298,16 +298,37 @@ var senderImports = []string{
 	"service/sns", "service/ses", "mailersend", "plivo", "messagebird",
 }
 
+// egressAllowlist names the ONLY non-test files under internal/marketing and
+// internal/marketing/sources that may contain an outbound HTTP call, each with
+// the reason it is allowed. Paths are relative to this package directory.
+//
+// Adding a file here is a deliberate act — it widens what "nothing in this
+// package sends" means — and belongs in a card that says so. It is never a
+// merge resolution and never a way to turn this test green.
+var egressAllowlist = map[string]string{
+	"projection.go": "decision 187's PostgREST projection: campaigns and codes are written to the " +
+		"Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.",
+	"mirror.go": "the scan-attempts poller: it READS scan_attempts back from the same PostgREST " +
+		"surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.",
+}
+
+// outboundHTTP matches the ways a Go file reaches the network through
+// net/http. Text, not AST, on purpose: a comment that spells one of these out
+// in a non-allowlisted file reds the test too, and that is the loud direction.
+var outboundHTTP = regexp.MustCompile(
+	`http\.(Post|Get|Head|PostForm|NewRequest|NewRequestWithContext)\b|http\.(Client|Transport)\b|\bDefault(Client|Transport)\b`)
+
 // TestNothingInThisPackageSends parses the import graph of internal/marketing
 // and internal/marketing/sources and asserts no sender is reachable from
-// either, then asserts the subscriber FILES contain no outbound HTTP call at
-// all.
+// either, then asserts that NO non-test file in either directory contains an
+// outbound HTTP call unless egressAllowlist names it.
 //
-// The second half is scoped to the subscriber files on purpose:
-// projection.go legitimately speaks HTTP to Supabase (decision 187), so a
-// package-wide ban would be false. What must hold is that NOTHING on the
-// subscriber path — the handlers or any adapter — reaches the network except
-// the attended, env-gated MySQL read.
+// B-466 (card test-integrity-fix, run 20261003): the second half used to read
+// two filenames — subscribers.go and sources/*.go — so an http.Post added to
+// campaigns.go, in the same package, passed. Proven by mutation at triage and
+// again by the card's spike. The claim in this test's NAME is package-wide, so
+// the walk is package-wide now and the exceptions are named with their
+// reasons instead of being implied by omission.
 func TestNothingInThisPackageSends(t *testing.T) {
 	fset := token.NewFileSet()
 	for _, dir := range []string{".", "sources"} {
@@ -329,25 +350,57 @@ func TestNothingInThisPackageSends(t *testing.T) {
 		}
 	}
 
-	// No outbound HTTP on the subscriber path.
-	outbound := regexp.MustCompile(`http\.(Post|Get|Head|PostForm|NewRequest)\b|http\.Client\b|\bDefaultClient\b`)
-	files := []string{"subscribers.go"}
-	entries, err := os.ReadDir("sources")
-	if err != nil {
-		t.Fatalf("read sources dir: %v", err)
-	}
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".go") && !strings.HasSuffix(e.Name(), "_test.go") {
-			files = append(files, filepath.Join("sources", e.Name()))
+	// No outbound HTTP anywhere in the package outside the allowlist.
+	var files []string
+	for _, dir := range []string{".", "sources"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatalf("read dir %s: %v", dir, err)
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+				continue
+			}
+			files = append(files, filepath.ToSlash(filepath.Join(dir, e.Name())))
 		}
 	}
+	// A walk that found nothing would pass vacuously (B-36's class). The
+	// package has well over a dozen source files; subscribers.go — the file
+	// this guard was written for — must be among them.
+	if len(files) < 10 {
+		t.Fatalf("walked only %d non-test .go files (%v) — the walk is not seeing the package", len(files), files)
+	}
+	walked := map[string]bool{}
+	for _, f := range files {
+		walked[f] = true
+	}
+	for _, must := range []string{"subscribers.go", "campaigns.go", "sources/fluentforms.go"} {
+		if !walked[must] {
+			t.Fatalf("the walk did not visit %s — walked %v", must, files)
+		}
+	}
+
 	for _, f := range files {
 		src, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)
 		}
-		if m := outbound.FindString(string(src)); m != "" {
-			t.Errorf("%s contains an outbound HTTP call (%q) — the subscriber path sends nothing and fetches nothing", f, m)
+		m := outboundHTTP.FindString(string(src))
+		reason, allowed := egressAllowlist[f]
+		switch {
+		case m != "" && !allowed:
+			t.Errorf("%s contains an outbound HTTP call (%q) and is not in egressAllowlist — "+
+				"nothing in this package sends, and only the allowlisted files may reach the network at all", f, m)
+		case m != "" && allowed:
+			t.Logf("allowed egress: %s (%q) — %s", f, m, reason)
+		case m == "" && allowed:
+			// A stale entry is a standing permission nobody is using.
+			t.Errorf("%s is in egressAllowlist but contains no outbound HTTP call — remove the stale entry", f)
+		}
+	}
+	for f := range egressAllowlist {
+		if !walked[f] {
+			t.Errorf("egressAllowlist names %s, which the walk did not find — remove or correct the entry", f)
 		}
 	}
 }

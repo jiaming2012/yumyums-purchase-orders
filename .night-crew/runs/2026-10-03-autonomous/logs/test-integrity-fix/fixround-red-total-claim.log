@@ -1,0 +1,25 @@
+# FIX ROUND red-first: replica-schema-harness.mjs + a leg asserting replicas.js's 'Total and lossless' claim for a v0 row WITHOUT campaign_id, on the tree 73521b1 (strategy + comment unchanged) — expected RED
+── leg 0: the shipped schema ──
+  shipped MARKETING_REPLICA_SCHEMA: version=1 required=[id,token_hash,campaign_id,expires_at,updated_at]
+  ✓ version 1, campaign_id required, strategies carried for BOTH codes and offers; v0→v1 differs by version + required only
+
+── leg 1: a v0 store holding rows reopens at v1 through marketingCollectionSpec() ──
+  ✓ v0 store 'replica_schema_1791088272025': 2 rows in codes, 2 in offers; db.close()
+  ✓ codes: 2/2 rows present at schema.version=1, every field unchanged
+  ✓ offers: 2/2 rows present at schema.version=1, every field unchanged
+
+── leg 2: at v1 a row without campaign_id is refused — the [SP-03b] invariant as a schema fact ──
+  ✓ codes: refused with VD2, nothing written
+  ✓ offers: refused with VD2, nothing written
+  ✓ codes: a row WITH campaign_id inserts at v1
+
+── leg 3 (control): widening `required` WITHOUT the version bump is refused on reopen ──
+  ✓ refused with DB6 — a bare `required` edit bricks every store that holds the collection
+
+── leg 4 (control): the bare v1 schema, no migrationStrategies, is refused by addCollections ──
+  ✓ refused with COL12 — every builder must take the entry from marketingCollectionSpec()
+
+── leg 5: a v0 store holding a row WITHOUT campaign_id reopens at v1 ──
+
+RED: the strategy is documented "total and lossless", but the reopen was REFUSED with DM4
+EXIT=1

@@ -1,0 +1,17 @@
+# GREEN, POST-change working tree (uncommitted). card scan-time-verify. base HEAD=ff61ec15ae1cbec6dad19de5d8e013c9e9a1d750. start 2026-10-04T00:24:37-04:00
+ marketing/scan-page.js |  81 ++++++++++++++++++++++++++---
+ marketing/scanner.js   | 137 +++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 207 insertions(+), 11 deletions(-)
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › tests/marketing.spec.js:2137:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used (1.5s)
+  ✓  2 [chromium] › tests/marketing.spec.js:2199:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today (1.2s)
+  ✓  3 [chromium] › tests/marketing.spec.js:2227:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt (1.1s)
+  ✓  4 [chromium] › tests/marketing.spec.js:2280:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03] the server killed at the NETWORK layer → today's unknown-code card plus "couldn't check the server", inside the budget (967ms)
+  ✓  5 [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders (4.7s)
+  ✓  6 [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one (1.2s)
+
+  6 passed (12.3s)
+EXIT=0
+# end 2026-10-04T00:24:50-04:00

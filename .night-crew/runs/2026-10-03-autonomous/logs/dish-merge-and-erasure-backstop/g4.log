@@ -1,0 +1,10 @@
+# G4 at 4adf1adab77b38b8eec70b635b4352056cef7079 2026-10-04T01:48:46Z — no precached file changed by this card
+precache count before: 51
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3103.5 KB)
+Frontend version: 1.10.2
+EXIT_BUILD_SW=0
+precache count after: 51
+git status of sw.js/version.json after regenerate:
+(empty above = idempotent)
+EXIT_SW_UNCHANGED_VS_BASE=0

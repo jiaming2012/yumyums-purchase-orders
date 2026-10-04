@@ -1,0 +1,13 @@
+# fix round G4 sw.js. HEAD before regen ec31f77. 2026-10-04T01:29:37-04:00
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3120.1 KB)
+Frontend version: 1.10.2
+EXIT_BUILD1=0
+precache entries: 51
+# idempotence at HEAD c30dfd4
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3120.1 KB)
+Frontend version: 1.10.2
+EXIT_BUILD2=0
+precache entries: 51
+EXIT_GITDIFF_SW=0

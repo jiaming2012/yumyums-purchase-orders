@@ -1,0 +1,13 @@
+# RED leg 1 — tests only, pre-change tree (no 0086, MergeMenuItem unchanged). 2026-10-04T01:45:48Z
+# (a first attempt reded on an unmigrated fresh database — 42P01, not the bug; the recipes package does not migrate. Re-run after internal/marketing's TestMain migrated hq_test_go_i3 to goose 85.)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.65s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+    repository_test.go:198: MergeMenuItem: ERROR: update or delete on table "menu_items" violates foreign key constraint "campaigns_admin_item_id_fkey" on table "campaigns_admin" (SQLSTATE 23503)
+--- FAIL: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.67s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.60s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	1.925s
+FAIL
+EXIT=1

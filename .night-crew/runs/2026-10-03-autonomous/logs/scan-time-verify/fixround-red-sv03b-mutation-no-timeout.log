@@ -1,0 +1,45 @@
+# fix round MUTATION: the timeout race AND the abort removed from createServerLookup — which SV tests guard the budget? (test timeout 30s). 2026-10-04T01:27:24-04:00
+337c337
+<         if (ctl) { try { ctl.abort(); } catch (e) { /* already settled */ } }
+---
+> 
+366c366
+<     return Promise.race([asked, timedOut]).finally(() => { if (kill) clearTimeout(kill); });
+---
+>     return asked.finally(() => { if (kill) clearTimeout(kill); });
+
+Running 9 tests using 1 worker
+
+  ✓  1 [chromium] › tests/marketing.spec.js:2137:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used (1.2s)
+  ✓  2 [chromium] › tests/marketing.spec.js:2199:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today (937ms)
+  ✓  3 [chromium] › tests/marketing.spec.js:2227:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt (869ms)
+  ✓  4 [chromium] › tests/marketing.spec.js:2280:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03] the server killed at the NETWORK layer → today's unknown-code card plus "couldn't check the server", inside the budget (804ms)
+  ✘  5 [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders (30.0s)
+  ✓  6 [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one (1.5s)
+  ✓  7 [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state (1.5s)
+  ✓  8 [chromium] › tests/marketing.spec.js:2471:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it (1.4s)
+  ✓  9 [chromium] › tests/marketing.spec.js:2507:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card (1.6s)
+
+
+  1) [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.evaluate: Test timeout of 30000ms exceeded.
+
+      2123 | // Scan and time it inside the page (no test-runner round-trip in the figure).
+      2124 | async function timedScan(page, payload) {
+    > 2125 |   return page.evaluate(async (p) => {
+           |               ^
+      2126 |     const t0 = performance.now();
+      2127 |     const result = await window.MarketingScan.scanText(p);
+      2128 |     return { ms: performance.now() - t0, result };
+        at timedScan (/home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2125:15)
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2338:39
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-e87b6-ut-and-the-fallback-renders-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/marketing.spec.js:2323:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders 
+  8 passed (43.0s)
+EXIT=1

@@ -1,0 +1,21 @@
+# G4 sw.js — card scan-time-verify. HEAD before regen: ae26ea18de37965d215c660300b8f94bafdf19b4. 2026-10-04T00:27:10-04:00
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3118.2 KB)
+Frontend version: 1.10.2
+EXIT_BUILD1=0
+precache entries: 51
+ sw.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+d731d944f1ba9f69970193050e98fd45764c765023ac19fd2d14f0435485fb70  sw.js
+# idempotence: regenerate at HEAD ebcb384d3e2831cbc164d99378e4a85540e78838 (sw.js committed)
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3118.2 KB)
+Frontend version: 1.10.2
+EXIT_BUILD2=0
+precache entries: 51
+EXIT_GITDIFF_SW=0 (0 = byte-identical to the committed sw.js)
+d731d944f1ba9f69970193050e98fd45764c765023ac19fd2d14f0435485fb70  sw.js
+marketing/scan-page.js",revision:"76bb5fb8f75e58956f05fdcbc0caf431
+marketing/scan-page.js",revision:"d516bee067dfdd5c05b2bc492c3a8852
+marketing/scanner.js",revision:"22b045ded9f30289abca3d519e03ce52
+marketing/scanner.js",revision:"a8cf616dc70cc2ddcfcbad11bfa46337

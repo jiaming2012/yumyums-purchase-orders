@@ -1,0 +1,4 @@
+# G1 — card scan-time-verify, HEAD ebcb384d3e2831cbc164d99378e4a85540e78838. 2026-10-04T00:27:32-04:00
+EXIT_BUILD=0
+EXIT_VET=0
+backend diff vs 73521b1: [] (empty = none)

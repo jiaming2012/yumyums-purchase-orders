@@ -158,6 +158,83 @@ func TestRepository_MergeMenuItem_RePointsRows(t *testing.T) {
 	}
 }
 
+// Card I3 (decision 194): a campaign and one of its codes name dish A. Merging
+// A into B must re-point BOTH to B before the source dish is deleted — the
+// house convention ("merge re-points all FKs, deletes source"). Before the
+// card the delete was refused with 23503 (campaigns_admin_item_id_fkey); with
+// only the migration's SET NULL backstop and no re-point, both rows would
+// survive with item_id NULL, which this test also reds on.
+func TestRepository_MergeMenuItem_RePointsCampaignsAndCodes(t *testing.T) {
+	pool := setupTestDB(t)
+	ctx := context.Background()
+
+	menuItemA := seedMenuItem(t, pool, "Old Wings")
+	menuItemB := seedMenuItem(t, pool, "New Wings")
+
+	var userID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (email, first_name, last_name, roles, status)
+		 VALUES ('merge-' || gen_random_uuid()::text || '@test.invalid', 'Merge', 'Test', ARRAY['manager'], 'active')
+		 RETURNING id::text`).Scan(&userID); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	var campaignID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO campaigns_admin (id, slug, name, offer_text, face_value_cents, requires_online, item_id, ends_at, created_by)
+		 VALUES (gen_random_uuid(), 'merge-' || gen_random_uuid()::text, 'Wing Wednesday', '$2 off', 200, false, $1, now() + interval '7 days', $2)
+		 RETURNING id::text`, menuItemA, userID).Scan(&campaignID); err != nil {
+		t.Fatalf("seed campaign: %v", err)
+	}
+	var codeID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO qr_codes (short, campaign_id, channel, item_id, created_by)
+		 VALUES ('MERGE2', $1, 'flyer', $2, $3) RETURNING id::text`,
+		campaignID, menuItemA, userID).Scan(&codeID); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+
+	rowsRePointed, err := MergeMenuItem(ctx, pool, menuItemA, menuItemB)
+	if err != nil {
+		t.Fatalf("MergeMenuItem: %v", err)
+	}
+	// No recipes here: the figure counts the campaign and the code.
+	if rowsRePointed != 2 {
+		t.Errorf("rows re-pointed = %d, want 2 (one campaign + one code)", rowsRePointed)
+	}
+
+	var campaignItem, codeItem *string
+	if err := pool.QueryRow(ctx,
+		`SELECT item_id::text FROM campaigns_admin WHERE id = $1`, campaignID).Scan(&campaignItem); err != nil {
+		t.Fatalf("the campaign did not survive the merge: %v", err)
+	}
+	if campaignItem == nil || *campaignItem != menuItemB {
+		t.Errorf("campaigns_admin.item_id = %v, want B (%s)", deref(campaignItem), menuItemB)
+	}
+	if err := pool.QueryRow(ctx,
+		`SELECT item_id::text FROM qr_codes WHERE id = $1`, codeID).Scan(&codeItem); err != nil {
+		t.Fatalf("the code did not survive the merge: %v", err)
+	}
+	if codeItem == nil || *codeItem != menuItemB {
+		t.Errorf("qr_codes.item_id = %v, want B (%s)", deref(codeItem), menuItemB)
+	}
+
+	var aExists bool
+	if err := pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM menu_items WHERE id = $1)`, menuItemA).Scan(&aExists); err != nil {
+		t.Fatalf("exists query: %v", err)
+	}
+	if aExists {
+		t.Errorf("menu_item A still exists after the merge")
+	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return "NULL"
+	}
+	return *s
+}
+
 func TestRepository_MergeMenuItem_SelfFails(t *testing.T) {
 	pool := setupTestDB(t)
 	ctx := context.Background()

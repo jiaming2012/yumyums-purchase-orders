@@ -1,0 +1,10 @@
+# lock acquired 2026-10-03T22:52:46-04:00
+campaigns-run.sh  post-change INVERTED : EXIT=1
+campaigns-run.sh  post-change clean    : EXIT=0
+push-run.sh (default mode, schema-v1 dependent) : EXIT=0
+run.sh (default mode, schema-v1 dependent) : EXIT=0
+clock-run.sh (default mode, schema-v1 dependent) : EXIT=0
+f2-run.sh (default mode, schema-v1 dependent) : EXIT=0
+refusal-run.sh (default mode, schema-v1 dependent) : EXIT=0
+recovery-clear-run.sh (default mode, schema-v1 dependent) : EXIT=0
+# lock released 2026-10-03T22:56:19-04:00

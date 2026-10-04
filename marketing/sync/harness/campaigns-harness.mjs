@@ -24,7 +24,10 @@
 //      REFUSED — flipped by B-436 / decision 191 (card scanner-polish, run
 //      20261002); it used to assert both overridable. Zero undeclared
 //      (state,event) pairs, actor alive — Card 6's 460-pair strictness proof
-//      survives the swap.
+//      survives the swap. Leg 3 IMPORTS failClosed / policyFor from the
+//      shipped marketing/submit-flow.js and asserts that it did (B-462, card
+//      test-integrity-fix, run 20261003) — it used to carry a hand-copied
+//      mirror and stayed GREEN against an inverted failClosed.
 //   4. THE FLIP RE-DELIVERS (done_when clause 3): a POST-sync campaign
 //      DOWNGRADE via a plain `update campaigns set requires_online=false` —
 //      updated_at NOT stamped by the writer; the migration's touch trigger
@@ -37,6 +40,8 @@
 // inferred; the verdict is the exit status, never the prose.
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { Subject } from 'rxjs';
 import { createRxDatabase, addRxPlugin } from 'rxdb';
@@ -61,6 +66,23 @@ import {
 const require = createRequire(import.meta.url);
 const X = require('../../../lib/xstate.umd.min.js');
 const { createSubmitMachine } = await import('../../submit-machine.js');
+
+// ── B-462: the SHIPPED §8 predicates, imported — never mirrored ─────────────
+// marketing/submit-flow.js is a browser page module: on import it starts
+// boot() (which awaits window.MarketingScan.ready) and assigns
+// window.MarketingSubmit. Node has no window, so the harness supplies one
+// whose scanner never becomes ready — the page boot stays parked forever and
+// touches nothing. That shim stands in for the PAGE. It does not stand in for
+// the predicates: failClosed / policyFor are pure module-scope exports and are
+// the only things this harness takes from the module.
+if (typeof globalThis.window !== 'undefined') {
+  console.error('a global `window` already exists — this harness expects plain node');
+  process.exit(2);
+}
+globalThis.window = { MarketingScan: { ready: new Promise(() => {}) } };
+const SUBMIT_FLOW_URL = new URL('../../submit-flow.js', import.meta.url);
+const SUBMIT_FLOW = await import(SUBMIT_FLOW_URL.href);
+const { failClosed, policyFor } = SUBMIT_FLOW;
 
 const env = (k) => {
   const v = process.env[k];
@@ -185,25 +207,36 @@ const policySource = createCampaignPolicySource(db[CAMPAIGNS_COLLECTION]);
 // always meant.
 await until(() => policySource.size() === 2, 5000, 'policy source never saw the synced campaigns');
 
-// submit-flow.js's policyFor, verbatim in behavior — the seam the card feeds.
-//
-// B-436 / decision 191 (card scanner-polish, run 20261002): the
-// `!CAMPAIGN_POLICY` arm FAILS CLOSED, uniform with
-// createCampaignPolicySource's own predicate — refuse for a code that NAMES a
-// campaign, stay silent (false) for one that names none, which is what keeps
-// decision 166's F2 override alive by construction. Mirrors
-// marketing/submit-flow.js's failClosed(); if the two ever disagree, leg 3
-// stops measuring the shipped behavior and this comment is the thing that was
-// wrong.
-const namesNoCampaign = (campaignId) =>
-  campaignId === null || campaignId === undefined || campaignId === '';
-const failClosed = (campaignId) => !namesNoCampaign(campaignId);
-function policyFor(CAMPAIGN_POLICY, campaignId) {
-  if (!CAMPAIGN_POLICY) return failClosed(campaignId);
-  try {
-    const p = CAMPAIGN_POLICY(campaignId);
-    return !!(p && p.requiresOnline);
-  } catch (e) { return failClosed(campaignId); }
+// ── THE IMPORT ASSERTION (B-462 / decision-191 rider 3) ─────────────────────
+// Leg 3 measures marketing/submit-flow.js's OWN failClosed / policyFor. This
+// block is what makes that a checked fact instead of a comment: the previous
+// comment here said the mirror "moves with" the shipped predicate, and
+// mutation proved it never did.
+//   (a) the two names resolved from the submit-flow.js module namespace;
+//   (b) this file declares NO failClosed / policyFor / namesNoCampaign of its
+//       own — a re-introduced mirror reds here, before it can go stale;
+//   (c) the page boot stayed parked (the window shim did its one job).
+// The BEHAVIOURAL half of the proof is the matrix below: with the shipped
+// failClosed inverted, `none + HIGH` / `none + LOW` and the two decision-166
+// checks all disagree and this script exits 1.
+{
+  const problems = [];
+  if (typeof SUBMIT_FLOW.failClosed !== 'function') problems.push('submit-flow.js does not export failClosed');
+  if (typeof SUBMIT_FLOW.policyFor !== 'function') problems.push('submit-flow.js does not export policyFor');
+  if (failClosed !== SUBMIT_FLOW.failClosed || policyFor !== SUBMIT_FLOW.policyFor) {
+    problems.push('leg 3 is not holding the functions submit-flow.js exports');
+  }
+  if (!/[\\/]marketing[\\/]submit-flow\.js$/.test(fileURLToPath(SUBMIT_FLOW_URL))) {
+    problems.push(`imported from ${SUBMIT_FLOW_URL.href}, not marketing/submit-flow.js`);
+  }
+  const self = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const localDecl = self.match(/^\s*(?:async\s+)?(?:function\s+|(?:const|let|var)\s+)(failClosed|policyFor|namesNoCampaign)\b(?!\s*,|\s*\})/m);
+  if (localDecl) problems.push(`this harness declares its own ${localDecl[1]} — a mirror of the shipped predicate (B-462)`);
+  if (!window.MarketingSubmit || window.MarketingSubmit.booted !== false) {
+    problems.push('submit-flow.js\'s page boot did not stay parked under the node window shim');
+  }
+  if (problems.length) { for (const p of problems) console.error(`  ✗ ${p}`); fail('the import assertion failed — leg 3 would not be measuring the shipped predicate'); }
+  console.log('  import asserted: failClosed / policyFor are marketing/submit-flow.js\'s exports; no local mirror');
 }
 
 async function run(label, fixture, source) {

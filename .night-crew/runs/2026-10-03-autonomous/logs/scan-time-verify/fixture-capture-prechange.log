@@ -1,0 +1,10 @@
+# fixture capture for [SV-04]: tests/fixtures/sv04-offline-unknown-code.html, from the PRE-change tree. HEAD=ff61ec15ae1cbec6dad19de5d8e013c9e9a1d750; marketing/ diff vs 73521b1: [empty = none]
+
+Running 1 test using 1 worker
+
+CAPTURED_BYTES=972
+  ✓  1 [chromium] › tests/zz-sv04-capture.spec.js:4:1 › capture sv04 fixture (1.1s)
+
+  1 passed (2.8s)
+EXIT=0
+bfb6bb7c6f39aa8de2f05d298e556b16072de8228169bea4f3c055273222040c  tests/fixtures/sv04-offline-unknown-code.html

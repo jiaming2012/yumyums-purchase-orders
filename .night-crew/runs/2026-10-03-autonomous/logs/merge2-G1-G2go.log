@@ -1,0 +1,14 @@
+# merge2 (I1) @ 8a7065d — G1 + confined G2-Go + schema harness
+EXIT_BUILD=0
+EXIT_VET=0
+EXIT_TEST=0
+top-level tests: {'pass': 130, 'skip': 1}
+── leg 4 (control): the bare v1 schema, no migrationStrategies, is refused by addCollections ──
+  ✓ refused with COL12 — every builder must take the entry from marketingCollectionSpec()
+
+── leg 5: a v0 store holding a row WITHOUT campaign_id — validating vs non-validating storage ──
+  ✓ 5(a) validating storage: the reopen is REFUSED with DM4 — the identity strategy is NOT total under validation
+  ✓ 5(b) non-validating storage: reopened at v1; codes 2/2 and offers 2/2 rows carried, the campaign-less row unchanged
+
+all legs held — memory storage + ajv; the Dexie path is tests/marketing.spec.js [TI-02]
+EXIT_SCHEMA_HARNESS=0 (re-run for the exit line; the first capture mis-escaped it)

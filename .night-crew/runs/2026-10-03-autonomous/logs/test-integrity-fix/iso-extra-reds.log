@@ -1,0 +1,17 @@
+# ISOLATION, card tree d14248a: the 4 full-suite reds outside tonight's 25-red base, each x3 (--repeat-each=3), confined, hand-provisioned stack
+# hand-provisioned stack: server pid 54013 on :8211, DB hq_test_e2e_i1_20261003 on :5434 (reset), NIGHTCREW_ENV_URL set — the webServer spawn wedged at 60s under box load
+Running 12 tests using 1 worker
+  ✓   1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.1s)
+  ✓   2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+  ✓   3 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.8s)
+  ✓   4 [chromium] › tests/sync.spec.js:1327:3 › Convergence matrix (W-3): surviving answers converge across devices › checkbox answer converges (live + catch-up) (4.0s)
+  ✓   5 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (1.8s)
+  ✓   6 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (3.2s)
+  ✓   7 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.8s)
+  ✓   8 [chromium] › tests/sync.spec.js:1327:3 › Convergence matrix (W-3): surviving answers converge across devices › checkbox answer converges (live + catch-up) (3.7s)
+  ✓   9 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (1.8s)
+  ✓  10 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (3.1s)
+  ✓  11 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.4s)
+  ✓  12 [chromium] › tests/sync.spec.js:1327:3 › Convergence matrix (W-3): surviving answers converge across devices › checkbox answer converges (live + catch-up) (4.0s)
+  12 passed (43.2s)
+EXIT=0

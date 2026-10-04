@@ -1,0 +1,41 @@
+# MUTATION red for [SV-04]: POST-change tree with the `online &&` guard removed from scanner.js resolve() step 3 (the one-line recipe). start 2026-10-04T00:25:00-04:00
+252c252
+<     if (online && typeof serverLookup === 'function') {
+---
+>     if (typeof serverLookup === 'function') {
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one (6.5s)
+
+
+  1) [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('#ms-flow')
+    Expected: [32m"unknownCode"[39m
+    Received: [31m"offerReady"[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('#ms-flow')[22m
+    [2m    9 × locator resolved to <div id="ms-flow" data-mstate="offerReady">…</div>[22m
+    [2m      - unexpected value "offerReady"[22m
+
+
+      2374 |     page.on('request', onReq);
+      2375 |     const { result: r } = await timedScan(page, svPayload(token));
+    > 2376 |     await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'unknownCode');
+           |                                            ^
+      2377 |     page.off('request', onReq);
+      2378 |
+      2379 |     // Zero calls. (The 10 s reachability probe is the app's own heartbeat,
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2376:44
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-f4435-ne-online-makes-exactly-one-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/marketing.spec.js:2355:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one 
+EXIT=1

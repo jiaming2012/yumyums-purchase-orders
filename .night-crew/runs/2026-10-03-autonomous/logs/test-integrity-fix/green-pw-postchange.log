@@ -1,0 +1,6 @@
+# POST-CHANGE tree 982bed3, UNMUTATED — whole tests/marketing.spec.js, --retries=0 — expected all green
+# hand-provisioned stack: server pid 87114 on :8211, DB hq_test_e2e_i1_20261003 on :5434 (reset), NIGHTCREW_ENV_URL set — the webServer spawn wedged at 60s under box load
+Running 54 tests using 1 worker
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  54 passed (8.2m)
+EXIT=0

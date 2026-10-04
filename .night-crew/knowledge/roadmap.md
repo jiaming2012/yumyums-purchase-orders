@@ -915,7 +915,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### test-integrity-fix
 
-- `test-integrity-fix` · **PLANNED** · (I1, track A — the operator's stated condition for
+- `test-integrity-fix` · **LANDED** (run `20261003`, branch `card/i1-test-integrity-fix`, merge `8a7065d`) · (I1, track A — the operator's stated condition for
   merging run 20261002) Three gates pass against inverted or widened production code, and all
   three are fixed so they red on the mutation that fooled them. **B-462** — `campaigns-harness.mjs`
   leg 3 reimplements `failClosed` instead of importing `marketing/submit-flow.js`'s; it must
@@ -945,7 +945,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### scan-time-verify
 
-- `scan-time-verify` · **PLANNED** · (I2, track A after I1 — **B-468**, decision 200)
+- `scan-time-verify` · **LANDED** (run `20261003`, branch `card/i2-scan-time-verify`, merge `3986161`) · (I2, track A after I1 — **B-468**, decision 200)
   Today `marketing/scanner.js` `resolve()` consults three LOCAL sources only and contains no
   network call, so a code minted since the phone last synced resolves `unknownCode` even on a
   fully-online phone, the crew keys the discount into Toast, and only the submit asks the server.
@@ -975,7 +975,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### dish-merge-and-erasure-backstop
 
-- `dish-merge-and-erasure-backstop` · **PLANNED** · (I3, track B — decision 194) Migration
+- `dish-merge-and-erasure-backstop` · **LANDED** (run `20261003`, branch `card/i3-dish-merge-and-erasure-backstop`, merge `ed4f568`) · (I3, track B — decision 194) Migration
   `0083`'s `campaigns_admin.item_id` and `qr_codes.item_id` reference `menu_items(id)` with no
   `ON DELETE`, so `recipes.MergeMenuItem` (re-point recipes, delete the source dish) fails
   `23503` once any campaign references the dish — API-only today, no frontend calls the merge.

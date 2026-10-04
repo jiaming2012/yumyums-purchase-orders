@@ -1,0 +1,51 @@
+# GREEN — migration 0086 present. internal/marketing erasure tests + all three Down round-trips (zz_ 0083, zzz_ 0085, 0086). 2026-10-04T01:46:25Z
+2026/10/03 21:46:30 OK   0086_merge_repoint_and_erasure_backstop.sql (48.47ms)
+2026/10/03 21:46:30 goose: successfully migrated database to version: 86
+2026/10/03 21:46:30 INFO database migrations applied successfully
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+--- PASS: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.30s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+--- PASS: TestCodeDeleteBlanksFirstTouch (0.30s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.23s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/03 21:46:31 goose: no migrations to run. current version: 86
+2026/10/03 21:46:31 INFO database migrations applied successfully
+2026/10/03 21:46:31 OK   0086_merge_repoint_and_erasure_backstop.sql (25.92ms)
+2026/10/03 21:46:31 goose: no migrations to run. current version: 85
+2026/10/03 21:46:31 OK   0086_merge_repoint_and_erasure_backstop.sql (60.34ms)
+2026/10/03 21:46:31 goose: successfully migrated database to version: 86
+2026/10/03 21:46:31 INFO database migrations applied successfully
+    erasure_test.go:325: migration 86 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/03 21:46:31 goose: no migrations to run. current version: 86
+2026/10/03 21:46:31 INFO database migrations applied successfully
+--- PASS: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.12s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/03 21:46:31 OK   0086_merge_repoint_and_erasure_backstop.sql (34.27ms)
+2026/10/03 21:46:31 OK   0085_subscribers.sql (26.13ms)
+2026/10/03 21:46:31 OK   0084_toast_orders_reconciliation.sql (38.22ms)
+2026/10/03 21:46:31 OK   0083_campaigns_admin.sql (30.35ms)
+2026/10/03 21:46:31 goose: no migrations to run. current version: 82
+2026/10/03 21:46:31 OK   0083_campaigns_admin.sql (147.02ms)
+2026/10/03 21:46:32 OK   0084_toast_orders_reconciliation.sql (151.9ms)
+2026/10/03 21:46:32 OK   0085_subscribers.sql (146.01ms)
+2026/10/03 21:46:32 OK   0086_merge_repoint_and_erasure_backstop.sql (34.8ms)
+2026/10/03 21:46:32 goose: successfully migrated database to version: 86
+2026/10/03 21:46:32 INFO database migrations applied successfully
+    zz_migration_down_test.go:61: 0083 Down/Up round-trip clean; schema left fully migrated
+--- PASS: TestMigration0083DownAndUpRoundTrip (0.88s)
+=== RUN   TestMigration0085SubscribersDownAndUpRoundTrip
+2026/10/03 21:46:32 goose: no migrations to run. current version: 86
+2026/10/03 21:46:32 INFO database migrations applied successfully
+2026/10/03 21:46:32 OK   0086_merge_repoint_and_erasure_backstop.sql (27.07ms)
+2026/10/03 21:46:32 OK   0085_subscribers.sql (23.13ms)
+2026/10/03 21:46:32 goose: no migrations to run. current version: 84
+2026/10/03 21:46:32 OK   0085_subscribers.sql (139.44ms)
+2026/10/03 21:46:32 OK   0086_merge_repoint_and_erasure_backstop.sql (50.93ms)
+2026/10/03 21:46:32 goose: successfully migrated database to version: 86
+2026/10/03 21:46:32 INFO database migrations applied successfully
+    zzz_subscribers_migration_down_test.go:158: migration 85 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+--- PASS: TestMigration0085SubscribersDownAndUpRoundTrip (0.28s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	2.268s
+EXIT=0

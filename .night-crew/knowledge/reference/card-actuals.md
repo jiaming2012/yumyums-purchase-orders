@@ -1440,3 +1440,41 @@ was not working.
 is a clean-path population and the existing ranges held for every card. The additions above are
 *per-night overheads* (concurrency, substrate contention, the final full suite), not changes to
 per-card estimates.
+
+## Run `20261003` — Activity I (4 cards, concurrent 2 tracks; 3 landed, 1 parked)
+
+Launch 21:41 → closeout ~02:55 America/New_York: **~5 h 15 m wall clock** against the slate's
+5 h 15 m (mid) – 6 h 20 m (high). Times are wall clock from `timings.log`; "code" is dispatch →
+code committed, "report" is dispatch → the card's own gates reported.
+
+| Card | Class | Slate (use) | Code | Report | Review | Fix round | Merge | Outcome |
+|---|---|---|---|---|---|---|---|---|
+| `dish-merge-and-erasure-backstop` (I3) | small-additive + migration | 80 m | ~20 m | ~120 m (≈95 m queued on the suite lock) | 4 m | — | 23:47 | landed `ed4f568` |
+| `test-integrity-fix` (I1) | followup-batch, risk | 130 m | ~75 m | 155 m (lock queue) | 90 m (incl. a lock wait for the harness leg) | 5 m | 00:37 | landed `8a7065d` |
+| `scan-time-verify` (I2) | new-mechanism, risk | 150 m | — | 55 m | 14 m | 4 m | 01:30 | landed `3986161` |
+| `atomic-scan-dedupe` (I4) | small-additive + migration | 80 m | 10 m | 75 m (Go only; ≈60 m queued) | 7 m | — | — | PARKED (D-1) |
+
+**What the night teaches the next slate:**
+
+1. **The suite lock, not implementation, set the pace.** A full Playwright run took **35–58 m**
+   tonight (53.1 base, 57.7 final, 34.6 on I2), against the 37 m the slate priced. With every card
+   de-confining to the full suite, four card suites + base + final is ~5 h of strictly serial lock
+   time. **Price the full suite at 55 m, and price the lock as a serial resource across tracks —
+   two tracks do not halve it.**
+2. **Starting the review when the code is committed, not when the suite reports, recovered ~1–2 h.**
+   Reviews run confined and need no lock. It carries one rule: a fix round or a moved tip after
+   review is checked or re-reviewed. Tonight both fix rounds were diff-checked, not re-reviewed.
+3. **Skipping a parked card's full suite frees the lock for cards that can still land** (I4's
+   Playwright leg was pulled; it is owed at the re-gate).
+4. **Post-merge gates were confined at merges 1 and 2** and the final full run was the combined
+   gate. It surfaced 7 reds no card's own suite showed (all pass alone) — the final suite is still
+   not optional, and its extra reds need an isolation budget (~75 m tonight for 10 tests × 3–5 runs).
+5. **Playwright's `webServer` spawn timed out three times** (base, I1, and once more) — zero tests
+   run each time. Hand-provisioning with `NIGHTCREW_ENV_URL` from the start was reliable.
+6. **A migration that must clean existing rows is a scope question, not plumbing.** I4's slate entry
+   never mentioned existing duplicates; the cleanup it needed parked the card. Slate any future
+   unique-index card with the existing-rows policy decided.
+
+**No size-class range moves on this evidence** for implementation legs (all four built inside their
+class range). The moves are per-night overheads: full suite 37 m → 55 m, and the lock as a serial
+resource.

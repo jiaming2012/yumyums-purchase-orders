@@ -1,0 +1,33 @@
+# fix round MUTATION red for [SV-05] (P2-1): an extra serverLookup(token_hash) at the top of steps 1/2 when online, i.e. also for codes held locally. 2026-10-04T01:27:20-04:00
+175a176
+>     if (online && typeof serverLookup === 'function') { try { await serverLookup(token_hash); } catch (e) { /* MUTATION */ } }
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state (1.2s)
+
+
+  1) [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state 
+
+    Error: live code held locally: no lookup
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m0[39m
+    Received length: [31m1[39m
+    Received array:  [31m[{"authorization": "Bearer e2e-bridge-token", "search": "?token_hash=eq.c5a1641409efd198e5a55417f209eda33500fd199f1fa7fa0d8a2567ee1f9680&select=id,campaign_id,expires_at,redeemed_at,redeemed_by", "url": "http://localhost:8212/sync/rest/codes?token_hash=eq.c5a1641409efd198e5a55417f209eda33500fd199f1fa7fa0d8a2567ee1f9680&select=id,campaign_id,expires_at,redeemed_at,redeemed_by"}][39m
+
+      2447 |     expect(live.result.source).toBe('replica');
+      2448 |     await expect(result.locator('.offer-row')).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-000000000001');
+    > 2449 |     expect(lookups, 'live code held locally: no lookup').toHaveLength(0);
+           |                                                          ^
+      2450 |
+      2451 |     // Held locally, REDEEMED → F3 online (deferToServer), unchanged; the
+      2452 |     // server is asked at SUBMIT as before, not at scan.
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2449:58
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-30e79--path-and-no-checking-state-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state 
+EXIT=1
