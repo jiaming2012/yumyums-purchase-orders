@@ -1713,7 +1713,13 @@ async function mockSyncTransports(page, opts = {}) {
     const req = route.request();
     const p = new URL(req.url()).pathname;
     if (req.method() === 'GET' && p.endsWith('/codes')) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(state.codeRows) });
+      // Card scan-time-verify: an online phone now asks the door about a
+      // never-synced code (`?token_hash=eq.<hash>`). PostgREST FILTERS on
+      // that; answering the whole pull batch would hand the lookup an
+      // unrelated row. Honour the filter the way the substrate does.
+      const m = /^eq\.(.+)$/.exec(new URL(req.url()).searchParams.get('token_hash') || '');
+      const rows = m ? state.codeRows.filter((r) => r.token_hash === m[1]) : state.codeRows;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
     }
     if (req.method() === 'GET' && p.endsWith('/campaigns')) {
       if (state.campaignsMode === '503') return route.fulfill({ status: 503, body: 'campaigns upstream down (network-layer kill)' });
@@ -2020,5 +2026,390 @@ test.describe('Boot without SubtleCrypto (plain-http LAN origin)', () => {
     await expect(err).toContainText('https://hq.yumyums.kitchen');
     await expect(err).toContainText('photo');
     await expect(page.locator('[data-action="start-camera"]')).toBeVisible();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Scan-time verify (card scan-time-verify, roadmap I2, run 20261003 — B-468)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// RED-FIRST. Before this card `marketing/scanner.js` `resolve()` consulted
+// three LOCAL sources and made no network call, so a code minted since the
+// phone last synced resolved `unknownCode` even on a fully-online phone — the
+// crew keyed the discount into Toast and only the submit asked the server.
+// Every test below reds on that tree; evidence under
+// .night-crew/runs/2026-10-03-autonomous/logs/scan-time-verify/ and the
+// ## Red-first section of merge-intents/scan-time-verify.md.
+//
+// WHAT IS STUBBED, AND WHAT IS NOT (the merge-intent carries the same table):
+//
+//   the STACK    The Playwright stack has no sync substrate, so — exactly as
+//                the "Sync provisioning" describe above — mockSyncTransports
+//                serves the mint envelope and the pull replicas at the network
+//                layer. Provisioning, startSync, the resolver, the lookup's
+//                fetch + abort, the render and the submit machine run for
+//                real. No test here writes SYNC_KEY or injects a seam.
+//   [SV-01/02]   🟡 THE ONE PERMITTED STUB: the server ROW, fulfilled by
+//                page.route on the door's own path
+//                (/sync/rest/codes?token_hash=eq.…). The REQUEST is asserted
+//                (exact query, bearer header), never assumed.
+//   [SV-03]      ⚪ UN-STUBBED. The door is killed at the network layer —
+//                route.abort('connectionrefused'). Nothing answers; no handler
+//                returns a status or a body.
+//   [SV-03b]     ⚪ UN-STUBBED. The door HANGS — the request is never
+//                answered. Proves the timeout + AbortController.
+//   [SV-04]      ⚪ UN-STUBBED COUNT. Zero requests are SENT. The counting
+//                route would serve a live row if it were ever reached, so a
+//                wrongly-sent call cannot hide; and the same counter must
+//                read 1 once the same phone is online.
+
+const SV_SELECT = 'id,campaign_id,expires_at,redeemed_at,redeemed_by';
+const svPayload = (token) => `https://hq.yumyums.kitchen/r/${token}`;
+const svHash = (token) => require('crypto').createHash('sha256').update(token).digest('hex');
+
+// A public.codes row as PostgREST serves it for the lookup's select — five
+// columns, timestamps with a `+00:00` offset (spike 01 build-fact), not `Z`.
+function svServerRow(overrides = {}) {
+  return Object.assign({
+    id: 'c0000000-0000-4000-8000-00000000a501',
+    campaign_id: 'a0000000-0000-4000-8000-000000000001', // the LOW campaign mockSyncTransports replicates
+    expires_at: '2028-01-01T00:00:00+00:00',
+    redeemed_at: null,
+    redeemed_by: null,
+  }, overrides);
+}
+
+const isLookupUrl = (url) =>
+  url.pathname.endsWith('/sync/rest/codes') && url.searchParams.has('token_hash');
+
+// 🟡 The permitted stub: answer the lookup on the door's path with the rows
+// the "server" holds, keyed by hash — an unknown hash answers `200 []`, the
+// way PostgREST does (spike 01). Every call is recorded with its headers.
+async function serveLookupRows(page, rowsByHash) {
+  const calls = [];
+  await page.route(isLookupUrl, async (route) => {
+    const req = route.request();
+    const u = new URL(req.url());
+    calls.push({ url: req.url(), search: u.search, authorization: await req.headerValue('authorization') });
+    const m = /^eq\.(.+)$/.exec(u.searchParams.get('token_hash') || '');
+    const row = m ? rowsByHash[m[1]] : null;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(row ? [row] : []) });
+  });
+  return calls;
+}
+
+// Provision through the SHIPPED path, wait for the replicas' initial pull and
+// for the reachability probe to read online.
+async function openProvisionedScanner(page) {
+  const state = await mockSyncTransports(page);
+  await openSubmitScanner(page);
+  await page.waitForFunction(() =>
+    document.getElementById('scan-status').textContent.includes('Replica synced'));
+  await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+  return state;
+}
+
+// The premise of every clause: this device has never seen the code.
+async function expectAbsentLocally(page, hash) {
+  const n = await page.evaluate(async (h) => {
+    const c = window.MarketingScan.collections;
+    const codes = await c.codes.find({ selector: { token_hash: h } }).exec();
+    const offers = await c.offers.find({ selector: { token_hash: h } }).exec();
+    return codes.length + offers.length;
+  }, hash);
+  expect(n, 'the code is in NEITHER local replica').toBe(0);
+}
+
+// Scan and time it inside the page (no test-runner round-trip in the figure).
+async function timedScan(page, payload) {
+  return page.evaluate(async (p) => {
+    const t0 = performance.now();
+    const result = await window.MarketingScan.scanText(p);
+    return { ms: performance.now() - t0, result };
+  }, payload);
+}
+
+const SV_TODAY_UNKNOWN_COPY = "Can't verify this code on this device — it may not have synced yet. Connect to verify at submit.";
+const SV_PROBE_TIMEOUT_MS = 3500; // marketing/submit-support.js PROBE_TIMEOUT_MS — the budget
+
+test.describe('Scan-time verify (card scan-time-verify, roadmap I2)', () => {
+
+  test('[SV-01] online + absent locally + the server has it → the offer card renders from the server row, before any submit control is used', async ({ page }) => {
+    const token = 'sv01-freshly-printed-code';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    const lookups = await serveLookupRows(page, { [hash]: svServerRow() });
+    const redeems = await mockRedeem(page, 'redeemed');
+    await expectAbsentLocally(page, hash);
+
+    const { result: r } = await timedScan(page, svPayload(token));
+
+    // The resolver's own answer: an offer, from the SERVER, shaped like a
+    // replica offer.
+    expect(r).toEqual({
+      kind: 'offerReady', token_hash: hash, source: 'server',
+      offers: [{ code_id: 'c0000000-0000-4000-8000-00000000a501', campaign_id: 'a0000000-0000-4000-8000-000000000001', expires_at: '2028-01-01T00:00:00+00:00' }],
+    });
+
+    // The card on screen (assert content, not containers — UI-R).
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(result.locator('.rc-head')).toHaveText('1 offer available');
+    const row = result.locator('.offer-row');
+    await expect(row).toHaveCount(1);
+    await expect(row).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-00000000a501');
+    await expect(row).toContainText('Free side of wings');   // the campaign the server row names
+    await expect(row).toContainText('Code ····a501');
+    await expect(result).not.toContainText('Code not recognized');
+
+    // The REQUEST that produced it — one GET, the spike's exact query, on the
+    // door, with the provisioned bearer.
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].search).toBe(`?token_hash=eq.${hash}&select=${SV_SELECT}`);
+    expect(new URL(lookups[0].url).pathname).toBe('/sync/rest/codes');
+    expect(lookups[0].authorization).toBe('Bearer e2e-bridge-token');
+
+    // "Before any submit control": the offer is on screen while the submit
+    // control is still unarmed and nothing has been posted — the server was
+    // asked at SCAN, not at submit.
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+    await expect(page.locator('[data-action="ms-submit"]')).toBeDisabled();
+    expect(redeems, 'no submit has happened yet').toHaveLength(0);
+    const offerPrecedesSlot = await page.evaluate(() => {
+      const list = document.getElementById('scan-offer-list');
+      const slot = document.getElementById('scan-submit-slot');
+      return !!(list && slot && (list.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING));
+    });
+    expect(offerPrecedesSlot, 'the offer card sits above the submit slot').toBe(true);
+
+    // …and the server-sourced offer SUBMITS through the unchanged path: the
+    // LOW campaign is replicated and requires_online=false, so the shipped
+    // policyFor reads the row's campaign_id and answers false; the online
+    // submit posts the same hash.
+    await page.fill('#ms-order', '4321');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'redeemed');
+    expect(redeems).toHaveLength(1);
+    expect(redeems[0].token_hash).toBe(hash);
+    expect(redeems[0].unverified_code).toBe(false);
+    expect(redeems[0].offline_override).toBe(false);
+  });
+
+  test('[SV-01b] a server row beats the QR-embedded descriptor; with no server row the embedded offer renders as today', async ({ page }) => {
+    // WALKUP_PAYLOAD carries a D-KR3 descriptor and is in no replica.
+    await openProvisionedScanner(page);
+    const rows = {};
+    const lookups = await serveLookupRows(page, rows);
+    await expectAbsentLocally(page, WALKUP_TOKEN_HASH);
+
+    // Server does not know it → today's embedded card, with NO unverified
+    // marker (the server WAS asked, and answered).
+    await scanText(page, WALKUP_PAYLOAD);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'embeddedOffer');
+    await expect(result).toHaveAttribute('data-source', 'embedded');
+    await expect(result).not.toHaveAttribute('data-verified', 'false');
+    await expect(page.locator('#scan-server-unchecked')).toHaveCount(0);
+    expect(lookups).toHaveLength(1);
+
+    // Server holds it → the server row wins over the unauthenticated descriptor.
+    rows[WALKUP_TOKEN_HASH] = svServerRow({ id: 'c0000000-0000-4000-8000-00000000b777' });
+    await page.click('[data-action="scan-again"]');
+    await scanText(page, WALKUP_PAYLOAD);
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(result.locator('.offer-row')).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-00000000b777');
+    await expect(result.locator('.badge-inline')).toHaveCount(0); // no "Unverified" badge
+    expect(lookups).toHaveLength(2);
+  });
+
+  test('[SV-02] online + the server says redeemed → "Already used" at scan, with no discount prompt', async ({ page }) => {
+    const token = 'sv02-redeemed-on-another-phone';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    const lookups = await serveLookupRows(page, {
+      [hash]: svServerRow({
+        id: 'c0000000-0000-4000-8000-00000000a502',
+        redeemed_at: '2026-10-01T15:04:05+00:00',
+        redeemed_by: 'window-phone-2',
+      }),
+    });
+    const redeems = await mockRedeem(page, 'redeemed');
+    await expectAbsentLocally(page, hash);
+
+    const { result: r } = await timedScan(page, svPayload(token));
+    expect(r).toEqual({
+      kind: 'spentLocally', token_hash: hash, source: 'server',
+      redeemed_at: '2026-10-01T15:04:05+00:00', redeemed_by: 'window-phone-2',
+    });
+
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'spentLocally');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(result.locator('.rc-head')).toHaveText('Already used');
+    await expect(result.locator('.offer-sub')).toContainText('by window-phone-2');
+    await expect(result.locator('.result-note')).toContainText('The server shows this code already redeemed');
+    // Not the OFFLINE copy — this phone is online and the server said it.
+    await expect(result).not.toContainText("you're offline");
+    expect(lookups).toHaveLength(1);
+
+    // NO discount prompt: no submit slot, no order-# field, no submit or
+    // override control of any kind, and nothing posted.
+    await expect(page.locator('#scan-submit-slot')).toHaveCount(0);
+    await expect(page.locator('#ms-order')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
+    await expect(result).not.toContainText('Apply the matching offer');
+    expect(redeems).toHaveLength(0);
+
+    // The session is closed (the server decided; nothing is left to submit),
+    // so the NEXT customer's code scans straight through — no "finish the
+    // current customer first" prompt. That code is unknown to the server
+    // (`200 []`), and resolves exactly as an unknown code does today: no
+    // unverified marker, because the server answered.
+    expect(await page.evaluate(() => window.MarketingSubmit.machine.ctx().sc)).toBe('idle');
+    await scanText(page, svPayload('sv02-next-customer-unknown-to-server'));
+    await expect(page.locator('#scan-prompt')).toHaveCount(0);
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    await expect(result).not.toHaveAttribute('data-verified', 'false');
+    await expect(page.locator('#scan-server-unchecked')).toHaveCount(0);
+    expect(lookups).toHaveLength(2);
+  });
+
+  test('[SV-03] the server killed at the NETWORK layer → today\'s unknown-code card plus "couldn\'t check the server", inside the budget', async ({ page }) => {
+    const token = 'sv03-server-unreachable';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    await expectAbsentLocally(page, hash);
+
+    // ⚪ UN-STUBBED: kill the door. Every request to it is refused at the
+    // network layer — nothing fulfils, no status, no body. (The reachability
+    // probe targets /api/v1/health, which stays up: this is the phone that
+    // believes it is online and whose substrate link is dead.)
+    const failed = [];
+    page.on('requestfailed', (req) => {
+      if (isLookupUrl(new URL(req.url()))) failed.push({ url: req.url(), error: req.failure() && req.failure().errorText });
+    });
+    await page.route('**/sync/rest/**', (r) => r.abort('connectionrefused'));
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+
+    const { ms, result: r } = await timedScan(page, svPayload(token));
+
+    // Today's result, plus the one new fact.
+    expect(r).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    await expect(result).toHaveAttribute('data-verified', 'false');
+    await expect(result.locator('.rc-head')).toHaveText('Code not recognized');
+    await expect(result.locator('.result-note').first()).toHaveText(SV_TODAY_UNKNOWN_COPY);
+    await expect(page.locator('#scan-server-unchecked')).toBeVisible();
+    await expect(page.locator('#scan-server-unchecked')).toContainText("Couldn't check the server");
+
+    // The lookup really was SENT and really died on the wire.
+    expect(failed).toHaveLength(1);
+    expect(new URL(failed[0].url).search).toBe(`?token_hash=eq.${hash}&select=${SV_SELECT}`);
+    expect(failed[0].error).toContain('ERR_CONNECTION_REFUSED');
+
+    // Inside the budget (a refused connection fails fast; the ceiling is the
+    // probe's timeout).
+    expect(ms).toBeLessThan(SV_PROBE_TIMEOUT_MS);
+
+    // Today's path is intact: the F2 submit affordance is still there.
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'unknownCode');
+    await expect(page.locator('[data-action="ms-submit"]')).toContainText('server will verify');
+  });
+
+  test('[SV-03b] a HUNG link cannot wedge the scan: the lookup is aborted at the probe timeout and the fallback renders', async ({ page }) => {
+    const token = 'sv03b-hung-lte-link';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    await expectAbsentLocally(page, hash);
+
+    // ⚪ UN-STUBBED: the door accepts the lookup and never answers it.
+    const held = [];
+    const failed = [];
+    page.on('requestfailed', (req) => {
+      if (isLookupUrl(new URL(req.url()))) failed.push(req.failure() && req.failure().errorText);
+    });
+    await page.route(isLookupUrl, (route) => { held.push(route); /* never answered */ });
+
+    try {
+      const { ms, result: r } = await timedScan(page, svPayload(token));
+      expect(held, 'the lookup was sent').toHaveLength(1);
+      expect(r).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+      // It waited for the link (so the server path really was attempted)…
+      expect(ms).toBeGreaterThanOrEqual(SV_PROBE_TIMEOUT_MS - 100);
+      // …and no longer than the budget plus scheduling slack.
+      expect(ms).toBeLessThan(SV_PROBE_TIMEOUT_MS + 1500);
+      await expect(page.locator('#scan-result')).toHaveAttribute('data-verified', 'false');
+      await expect(page.locator('#scan-server-unchecked')).toContainText("Couldn't check the server");
+      // The request was CANCELLED by the page (AbortController), not left open.
+      await expect.poll(() => failed.length, { timeout: 5000 }).toBe(1);
+      expect(failed[0]).toContain('ERR_ABORTED');
+    } finally {
+      for (const route of held) await route.abort().catch(() => {});
+    }
+  });
+
+  test('[SV-04] offline → zero network calls at scan and a result byte-identical to today; the same phone online makes exactly one', async ({ page }) => {
+    const token = 'sv04-never-seen-offline';
+    const hash = svHash(token);
+    await openProvisionedScanner(page);
+    await expectAbsentLocally(page, hash);
+
+    // ⚪ UN-STUBBED COUNT. If the lookup were ever sent it would be ANSWERED
+    // with a live row — so a wrongly-sent call shows up twice over: in this
+    // counter and as an offerReady card.
+    const lookups = await serveLookupRows(page, {
+      [hash]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a504' }),
+      [svHash('sv04-control-online')]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a505' }),
+    });
+
+    await killProbe(page); // conn → offline (asserted inside the helper)
+
+    // Every request the page issues during the scan, whatever its target.
+    const during = [];
+    const onReq = (req) => during.push(req.url());
+    page.on('request', onReq);
+    const { result: r } = await timedScan(page, svPayload(token));
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'unknownCode');
+    page.off('request', onReq);
+
+    // Zero calls. (The 10 s reachability probe is the app's own heartbeat,
+    // not the scan — it is the only URL excluded, and it is excluded by name.)
+    expect(lookups, 'route-interception count on the lookup path').toHaveLength(0);
+    expect(during.filter((u) => !u.includes('/api/v1/health')), 'requests issued during the offline scan').toEqual([]);
+
+    // Byte-identical to today. The resolver's object is EXACTLY the pre-card
+    // shape (no `verified`, no `source`)…
+    expect(r).toEqual({ kind: 'unknownCode', token_hash: hash });
+    expect(Object.keys(r).sort()).toEqual(['kind', 'token_hash']);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+    expect(await result.getAttribute('data-source')).toBeNull();
+    expect(await result.getAttribute('data-verified')).toBeNull();
+    // …and the rendered card is, byte for byte, the markup captured from the
+    // PRE-change tree (73521b1) for an offline never-seen code.
+    const today = fs.readFileSync(path.join(__dirname, 'fixtures', 'sv04-offline-unknown-code.html'), 'utf8');
+    expect(await result.innerHTML()).toBe(today);
+
+    // An offline code that carries a descriptor: same story — no call, the
+    // pre-card object.
+    await page.click('[data-action="scan-again"]');
+    const embedded = await timedScan(page, WALKUP_PAYLOAD);
+    expect(Object.keys(embedded.result).sort()).toEqual(['expired', 'kind', 'offer', 'source', 'token_hash']);
+    expect(embedded.result.kind).toBe('embeddedOffer');
+    expect(lookups).toHaveLength(0);
+
+    // CONTROL — the counter can see a call. Same phone, back online, another
+    // never-seen code: exactly one lookup, and the server's row renders.
+    await page.click('[data-action="scan-again"]');
+    await restoreProbe(page);
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+    await scanText(page, svPayload('sv04-control-online'));
+    expect(lookups, 'online, the same phone asks the server exactly once').toHaveLength(1);
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'server');
   });
 });
