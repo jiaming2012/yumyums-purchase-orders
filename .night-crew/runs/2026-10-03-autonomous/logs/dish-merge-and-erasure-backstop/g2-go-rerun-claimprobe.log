@@ -1,0 +1,16 @@
+# G2-Go re-run ALONE of the one red, card I3. SHA 4adf1adab77b38b8eec70b635b4352056cef7079. start 2026-10-03T21:59:40-04:00
+# cmd: flock /tmp/hq-full-suite.lock go test -p 1 -count=1 -v ./internal/sync -run 'TestRVClaimFixtureDatabase_RefusesExisting|TestRVFixture'
+# waiting for lock 2026-10-03T21:59:40-04:00
+# lock acquired 2026-10-03T23:38:15-04:00
+=== RUN   TestRVFixtureGuard_RefusalFiresBeforeSubstrate
+--- PASS: TestRVFixtureGuard_RefusalFiresBeforeSubstrate (0.00s)
+=== RUN   TestRVFixtureDBNameCheck_Boundary
+--- PASS: TestRVFixtureDBNameCheck_Boundary (0.00s)
+=== RUN   TestRVFixtureDefault_PerProcessAndInsideBoundary
+--- PASS: TestRVFixtureDefault_PerProcessAndInsideBoundary (0.00s)
+=== RUN   TestRVClaimFixtureDatabase_RefusesExisting
+--- PASS: TestRVClaimFixtureDatabase_RefusesExisting (0.54s)
+PASS
+ok  	github.com/yumyums/hq/internal/sync	0.558s
+EXIT_TEST=0
+# end 2026-10-03T23:38:17-04:00
