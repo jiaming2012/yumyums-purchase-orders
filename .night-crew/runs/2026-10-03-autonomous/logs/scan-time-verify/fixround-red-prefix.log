@@ -1,0 +1,70 @@
+# fix round RED-first: new tests [SV-05]/[SV-06]/[SV-07] on the CURRENT tree 424b2e5 (marketing/ unchanged vs 424b2e5: []). [SV-05] is expected GREEN here — its red is the mutation leg. 2026-10-04T01:26:31-04:00
+
+Running 3 tests using 1 worker
+
+  ✓  1 [chromium] › tests/marketing.spec.js:2417:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-05] online + the code IS held locally (one live, one redeemed locally) → zero requests on the lookup path, and no checking state (1.3s)
+  ✘  2 [chromium] › tests/marketing.spec.js:2471:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it (9.9s)
+  ✘  3 [chromium] › tests/marketing.spec.js:2507:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card (950ms)
+
+
+  1) [chromium] › tests/marketing.spec.js:2471:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('#scan-result')
+    Expected: [32m"checkingServer"[39m
+    Received: [31m"unknownCode"[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('#scan-result')[22m
+    [2m    9 × locator resolved to <div id="scan-result" data-verified="false" data-kind="unknownCode" data-token-hash="e8232d6bdadc2a49e4d0c30b2ce130db4392ffc9fb2f50f85aa90a187443f603">…</div>[22m
+    [2m      - unexpected value "unknownCode"[22m
+
+
+      2486 |     const result = page.locator('#scan-result');
+      2487 |     await expect(result).toBeVisible();
+    > 2488 |     await expect(result).toHaveAttribute('data-kind', 'checkingServer');
+           |                          ^
+      2489 |     await expect(result.locator('.rc-head')).toHaveText('Checking with the server…');
+      2490 |     await expect(page.locator('#scan-server-checking')).toBeVisible();
+      2491 |     expect((await result.innerHTML()).trim(), 'blank render is a defect (UI rules)').not.toBe('');
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2488:26
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-633a2-and-the-outcome-replaces-it-chromium/error-context.md
+
+  2) [chromium] › tests/marketing.spec.js:2507:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card 
+
+    Error: body [{}]
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 2[39m
+    [31m+ Received  + 3[39m
+
+    [2m  Object {[22m
+    [32m-   "kind": "unknownCode",[39m
+    [31m+   "expires_at": undefined,[39m
+    [31m+   "kind": "expiredLocally",[39m
+    [31m+   "source": "server",[39m
+    [2m    "token_hash": "31cb9348f8d4953d11d4ed77b83cf9ab190a91656010735ec1f8ee6b8828c94c",[22m
+    [32m-   "verified": false,[39m
+    [2m  }[22m
+
+      2519 |       const token = `sv07-malformed-${i}`;
+      2520 |       const { result: r } = await timedScan(page, svPayload(token));
+    > 2521 |       expect(r, `body ${body}`).toEqual({ kind: 'unknownCode', token_hash: svHash(token), verified: false });
+           |                                 ^
+      2522 |       await expect(result).toHaveAttribute('data-kind', 'unknownCode');
+      2523 |       await expect(result).toHaveAttribute('data-verified', 'false');
+      2524 |       await expect(page.locator('#scan-server-unchecked')).toContainText("Couldn't check the server");
+        at /home/jcole/projects/hq-worktrees/i2-scan-time-verify/tests/marketing.spec.js:2521:33
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/i2/test-results/marketing-Scan-time-verify-164b1-r-an-Expired-undefined-card-chromium/error-context.md
+
+  2 failed
+    [chromium] › tests/marketing.spec.js:2471:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-06] while the lookup is in flight the result area says so — never blank — and the outcome replaces it 
+    [chromium] › tests/marketing.spec.js:2507:3 › Scan-time verify (card scan-time-verify, roadmap I2) › [SV-07] a 200 whose first element is not a usable row is "could not check", never an offer or an "Expired undefined" card 
+  1 passed (15.5s)
+EXIT=1

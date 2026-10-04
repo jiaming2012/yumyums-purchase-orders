@@ -74,8 +74,11 @@ submit machine all run for real in every clause.
 
 ## What is safe to drop
 
-* `[SV-03b]` (the hung-link extra) if it ever proves slow on the box — `[SV-03]` is the
-  done_when clause. Dropping it loses the only test of the abort path.
+* ~~`[SV-03b]`~~ — **NOT safe to drop (corrected in the fix round).** It is the timeout
+  budget's ONLY guard: with the race and the abort removed from `createServerLookup`, every
+  other `[SV-*]` test stays green and only `[SV-03b]` reds
+  (`fixround-red-sv03b-mutation-no-timeout.log`: `1 failed`, `8 passed`). `[SV-03]` kills the
+  link, which fails fast on its own and never exercises the timeout. Must survive any merge.
 * The `mockSyncTransports` `token_hash` filter, if a later card replaces the helper.
 * `sw.js` from this branch — regenerate at the merged HEAD.
 
@@ -192,3 +195,28 @@ used, so it measures "same on both trees", not "green on a clean database".)
 
 The suite rewrote tracked PNGs under `.night-crew/runs/2026-10-02-autonomous/`; they were
 restored with `git checkout` and none is committed.
+
+## Fix round (G6 APPROVE-WITH-FINDINGS on `424b2e5`; no commit rebased or amended)
+
+Logs: `logs/scan-time-verify/fixround-*.log`. Gates this round are CONFINED by the
+orchestrator's instruction (whole `tests/marketing.spec.js`, then `sw.js`); the full Go and
+Playwright suites were NOT re-run on this tree.
+
+| Finding | Change | RED | GREEN |
+|---|---|---|---|
+| **P2-1** "only when in neither replica" had no test | `[SV-05]`: online phone, fixture 1 held live and fixture 4 held redeemed-locally → 0 requests on the lookup path, `deferToServer` unchanged, no checking card ever rendered (a `MutationObserver` records every `data-kind`); then a never-seen code → exactly 1 (control). Test only — the guard already held. | under the reviewer's mutation (an extra `serverLookup` ahead of step 1 when online): `fixround-red-sv05-mutation-lookup-when-held.log` — `1 failed`, `EXIT=1` | `fixround-green-postfix.log` — `3 passed`, `EXIT=0` (also green on `424b2e5`, as expected: `fixround-red-prefix.log`) |
+| **P2-2** result area blank during the lookup | `resolve()` takes an optional `onServerLookup(token_hash)` observer, called only when the step-3 lookup is about to be issued. `scan-page.js` renders `{kind: 'checkingServer'}` — "Checking with the server…" — in the existing `#scan-result` (`#scan-server-checking`; no slot, no control), replaced by the outcome. A render-only pseudo-kind: it never reaches `submitFlow.onResult`, so no machine state, event or pair. `[SV-06]` holds the lookup route, asserts the text during the wait and its absence after. | on `424b2e5`: `fixround-red-prefix.log` — `[SV-06]` ✘ (`2 failed`, `1 passed`, `EXIT=1`) | `fixround-green-postfix.log` |
+| **P3** unusable first element | `createServerLookup` rejects unless the first element is an object with a non-empty string `id` → `unknownCode` + `verified: false` + the note. `[SV-07]` drives `[{}]`, `[null]`, `["str"]`, `[{"id":""}]`. | on `424b2e5`: `fixround-red-prefix.log` — `[SV-07]` ✘ (`[{}]` rendered an Expired card) | `fixround-green-postfix.log` |
+| **P3** `[SV-03b]` "safe to drop" | Struck above; mutation evidence `fixround-red-sv03b-mutation-no-timeout.log`. | — | — |
+
+Confined gate: `fixround-green-marketing-spec.log` — `63 passed (1.2m)`, `EXIT=0`, unmutated.
+`[SV-04]` green: the offline card still equals `tests/fixtures/sv04-offline-unknown-code.html`
+byte-for-byte (fixture untouched; the checking state is not rendered offline). `sw.js`:
+`fixround-g4-sw.log` — 51 precached, regeneration at the committed HEAD reproduces the file.
+
+Added to "what must survive any merge": the `onServerLookup` call sits INSIDE the
+`online && serverLookup` branch of step 3 — moved above it, an offline or held-code scan would
+flash the checking card (`[SV-05]` and `[SV-04]` red).
+
+Left for the morning notes, by instruction: a direct retry on the could-not-check card; the
+`scanText` duplicate-lookup hook.
