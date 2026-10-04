@@ -15,3 +15,4 @@
 2026-10-04T01:11:30-04:00 i2 reported @424b2e5 (G2-Go 444/0/3 EXIT 0; PW 27/7/1035 EXIT 1); G6 i2 dispatched
 2026-10-04T01:25:48-04:00 G6 i2 @424b2e5 APPROVE-WITH-FINDINGS (0 P1, 2 P2: no test for neither-replica guard; blank during lookup wait; 4 P3); fix round sent
 2026-10-04T01:30:53-04:00 merge3 i2 -> 3986161, sw.js regenerated fb3a35d (51); final gates dispatched on fb3a35d
+2026-10-04T02:53:38-04:00 final gates on fb3a35d: G1 0/0; Go 449/0/3 EXIT 0; PW 34/7/1031 EXIT 1 (10 outside base; inventory:2931 open); sw 51; loop check REFUSED (exit 1); closeout written

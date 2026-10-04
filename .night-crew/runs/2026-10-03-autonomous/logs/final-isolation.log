@@ -1,0 +1,636 @@
+# final-isolation: each red outside base, 3x alone, tree fb3a35df67338ab6a17b8b94efb5d476f53977b9, database reset + server restarted before EVERY run (hand-provisioned :8230, NIGHTCREW_ENV_URL), --retries=0, no lock (confined). start 2026-10-04T02:32:54-04:00
+===== tests/inventory.spec.js:2931 run 1 2026-10-04T02:32:55-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (27.4s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#new-item-name') to be visible[22m
+    [2m    - locator resolved to visible <input type="text" id="new-item-name" class="field-input" placeholder="New item name..."/>[22m
+
+
+      2934 |     if (!gid) return;
+      2935 |     await goTab(page, 7);
+    > 2936 |     await page.waitForSelector('#new-item-name', { timeout: 5000 });
+           |                ^
+      2937 |     const itemName = 'New Setup Item ' + Date.now();
+      2938 |     await page.fill('#new-item-name', itemName);
+      2939 |     await page.locator('#new-item-group').selectOption(gid);
+        at /home/jcole/projects/hq-worktrees/final-20261003/tests/inventory.spec.js:2936:16
+
+    Error Context: test-results/inventory-Inventory-creati-efc78-ith-store-location-dropdown-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+EXIT_ISO[tests/inventory.spec.js:2931 run 1]=1
+===== tests/inventory.spec.js:2931 run 2 2026-10-04T02:34:54-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (31.3s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#new-item-name')[22m
+    [2m    7 × locator resolved to <input type="text" id="new-item-name" class="field-input" placeholder="New item name..."/>[22m
+    [2m      - fill("New Setup Item 1791095786325")[22m
+    [2m    - attempting fill action[22m
+    [2m      - waiting for element to be visible, enabled and editable[22m
+    [2m    - element was detached from the DOM, retrying[22m
+
+
+      2936 |     await page.waitForSelector('#new-item-name', { timeout: 5000 });
+      2937 |     const itemName = 'New Setup Item ' + Date.now();
+    > 2938 |     await page.fill('#new-item-name', itemName);
+           |                ^
+      2939 |     await page.locator('#new-item-group').selectOption(gid);
+      2940 |     await page.click('[data-action="create-item"]');
+      2941 |     // Should open the item's edit form after creation
+        at /home/jcole/projects/hq-worktrees/final-20261003/tests/inventory.spec.js:2938:16
+
+    Error Context: test-results/inventory-Inventory-creati-efc78-ith-store-location-dropdown-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+EXIT_ISO[tests/inventory.spec.js:2931 run 2]=1
+===== tests/inventory.spec.js:2931 run 3 2026-10-04T02:36:44-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (31.5s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.fill: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#new-item-name')[22m
+    [2m    10 × locator resolved to <input type="text" id="new-item-name" class="field-input" placeholder="New item name..."/>[22m
+    [2m       - fill("New Setup Item 1791095894767")[22m
+    [2m     - attempting fill action[22m
+    [2m       - waiting for element to be visible, enabled and editable[22m
+    [2m     - element was detached from the DOM, retrying[22m
+
+
+      2936 |     await page.waitForSelector('#new-item-name', { timeout: 5000 });
+      2937 |     const itemName = 'New Setup Item ' + Date.now();
+    > 2938 |     await page.fill('#new-item-name', itemName);
+           |                ^
+      2939 |     await page.locator('#new-item-group').selectOption(gid);
+      2940 |     await page.click('[data-action="create-item"]');
+      2941 |     // Should open the item's edit form after creation
+        at /home/jcole/projects/hq-worktrees/final-20261003/tests/inventory.spec.js:2938:16
+
+    Error Context: test-results/inventory-Inventory-creati-efc78-ith-store-location-dropdown-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+EXIT_ISO[tests/inventory.spec.js:2931 run 3]=1
+===== tests/onboarding.spec.js:2233 run 1 2026-10-04T02:38:32-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (16.4s)
+
+  1 passed (37.2s)
+EXIT_ISO[tests/onboarding.spec.js:2233 run 1]=0
+===== tests/onboarding.spec.js:2233 run 2 2026-10-04T02:39:37-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (11.4s)
+
+  1 passed (32.0s)
+EXIT_ISO[tests/onboarding.spec.js:2233 run 2]=0
+===== tests/onboarding.spec.js:2233 run 3 2026-10-04T02:40:53-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (11.2s)
+
+  1 passed (54.8s)
+EXIT_ISO[tests/onboarding.spec.js:2233 run 3]=0
+===== tests/onboarding.spec.js:2268 run 1 2026-10-04T02:42:30-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.5s)
+
+  1 passed (5.2s)
+EXIT_ISO[tests/onboarding.spec.js:2268 run 1]=0
+===== tests/onboarding.spec.js:2268 run 2 2026-10-04T02:43:02-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.6s)
+
+  1 passed (4.7s)
+EXIT_ISO[tests/onboarding.spec.js:2268 run 2]=0
+===== tests/onboarding.spec.js:2268 run 3 2026-10-04T02:43:13-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/onboarding.spec.js:2268:3 › Reject and unsubmit sections › manager can reject before sign-off (complete section) (2.6s)
+
+  1 passed (4.9s)
+EXIT_ISO[tests/onboarding.spec.js:2268 run 3]=0
+===== tests/sync.spec.js:836 run 1 2026-10-04T02:43:24-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:836:3 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03] (7.7s)
+
+  1 passed (9.8s)
+EXIT_ISO[tests/sync.spec.js:836 run 1]=0
+===== tests/sync.spec.js:836 run 2 2026-10-04T02:43:40-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:836:3 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03] (11.0s)
+
+  1 passed (15.5s)
+EXIT_ISO[tests/sync.spec.js:836 run 2]=0
+===== tests/sync.spec.js:836 run 3 2026-10-04T02:44:03-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:836:3 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03] (8.0s)
+
+  1 passed (9.9s)
+EXIT_ISO[tests/sync.spec.js:836 run 3]=0
+===== tests/sync.spec.js:1691 run 1 2026-10-04T02:44:20-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1691:3 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list (2.6s)
+
+  1 passed (4.6s)
+EXIT_ISO[tests/sync.spec.js:1691 run 1]=0
+===== tests/sync.spec.js:1691 run 2 2026-10-04T02:44:32-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1691:3 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list (2.4s)
+
+  1 passed (4.5s)
+EXIT_ISO[tests/sync.spec.js:1691 run 2]=0
+===== tests/sync.spec.js:1691 run 3 2026-10-04T02:44:42-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1691:3 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list (2.8s)
+
+  1 passed (4.9s)
+EXIT_ISO[tests/sync.spec.js:1691 run 3]=0
+===== tests/sync.spec.js:1756 run 1 2026-10-04T02:44:54-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1756:3 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1] (2.2s)
+
+  1 passed (4.3s)
+EXIT_ISO[tests/sync.spec.js:1756 run 1]=0
+===== tests/sync.spec.js:1756 run 2 2026-10-04T02:45:04-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1756:3 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1] (1.9s)
+
+  1 passed (4.1s)
+EXIT_ISO[tests/sync.spec.js:1756 run 2]=0
+===== tests/sync.spec.js:1756 run 3 2026-10-04T02:45:15-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:1756:3 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1] (1.9s)
+
+  1 passed (4.0s)
+EXIT_ISO[tests/sync.spec.js:1756 run 3]=0
+===== tests/sync.spec.js:2509 run 1 2026-10-04T02:45:26-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:2509:3 › Convergence matrix (systematic): op-type × editor × derived view › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up) (2.6s)
+
+  1 passed (4.9s)
+EXIT_ISO[tests/sync.spec.js:2509 run 1]=0
+===== tests/sync.spec.js:2509 run 2 2026-10-04T02:45:36-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:2509:3 › Convergence matrix (systematic): op-type × editor × derived view › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up) (2.8s)
+
+  1 passed (4.8s)
+EXIT_ISO[tests/sync.spec.js:2509 run 2]=0
+===== tests/sync.spec.js:2509 run 3 2026-10-04T02:45:48-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/sync.spec.js:2509:3 › Convergence matrix (systematic): op-type × editor × derived view › MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up) (2.9s)
+
+  1 passed (4.9s)
+EXIT_ISO[tests/sync.spec.js:2509 run 3]=0
+===== tests/workflows.spec.js:2824 run 1 2026-10-04T02:45:59-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:2824:3 › Loading states › unsubmit returns checklist to editable draft [RUN-10] (4.8s)
+
+  1 passed (6.8s)
+EXIT_ISO[tests/workflows.spec.js:2824 run 1]=0
+===== tests/workflows.spec.js:2824 run 2 2026-10-04T02:46:11-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:2824:3 › Loading states › unsubmit returns checklist to editable draft [RUN-10] (4.7s)
+
+  1 passed (6.8s)
+EXIT_ISO[tests/workflows.spec.js:2824 run 2]=0
+===== tests/workflows.spec.js:2824 run 3 2026-10-04T02:46:25-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:2824:3 › Loading states › unsubmit returns checklist to editable draft [RUN-10] (5.0s)
+
+  1 passed (7.0s)
+EXIT_ISO[tests/workflows.spec.js:2824 run 3]=0
+===== tests/workflows.spec.js:3528 run 1 2026-10-04T02:46:37-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:3528:3 › Checklist submit/unsubmit/history (prove sweep) › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11] (1.7s)
+
+  1 passed (3.8s)
+EXIT_ISO[tests/workflows.spec.js:3528 run 1]=0
+===== tests/workflows.spec.js:3528 run 2 2026-10-04T02:46:48-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:3528:3 › Checklist submit/unsubmit/history (prove sweep) › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11] (1.6s)
+
+  1 passed (3.7s)
+EXIT_ISO[tests/workflows.spec.js:3528 run 2]=0
+===== tests/workflows.spec.js:3528 run 3 2026-10-04T02:46:58-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:3528:3 › Checklist submit/unsubmit/history (prove sweep) › FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11] (1.7s)
+
+  1 passed (3.8s)
+EXIT_ISO[tests/workflows.spec.js:3528 run 3]=0
+===== tests/workflows.spec.js:4214 run 1 2026-10-04T02:47:08-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:4214:3 › B-132 — fireworks confetti canvas › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen (4.8s)
+
+  1 passed (6.8s)
+EXIT_ISO[tests/workflows.spec.js:4214 run 1]=0
+===== tests/workflows.spec.js:4214 run 2 2026-10-04T02:47:21-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:4214:3 › B-132 — fireworks confetti canvas › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen (4.8s)
+
+  1 passed (6.8s)
+EXIT_ISO[tests/workflows.spec.js:4214 run 2]=0
+===== tests/workflows.spec.js:4214 run 3 2026-10-04T02:47:33-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/workflows.spec.js:4214:3 › B-132 — fireworks confetti canvas › completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen (4.8s)
+
+  1 passed (6.8s)
+EXIT_ISO[tests/workflows.spec.js:4214 run 3]=0
+# end 2026-10-04T02:47:46-04:00
+
+EXIT_CHECKOUT[base]=0 HEAD=ec2830cf12fa2bf5533842a5406e510255f2ee5b
+## base ec2830c — inventory:2931 (5x alone, db reset + server rebuilt-from-tree and restarted before every run, :8230, hq_test_e2e_final_20261003 on :5434) (2026-10-04T02:48:47-04:00)
+# test line on this tree: tests/inventory.spec.js:2931 › creating item opens edit form with store location dropdown
+EXIT_BDDGEN[base]=0
+EXIT_SERVERBUILD[base]=0
+===== [base] tests/inventory.spec.js:2931 run 1 2026-10-04T02:48:52-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (1.7s)
+
+  1 passed (3.3s)
+EXIT_ISO2[base inventory:2931 run 1]=0
+===== [base] tests/inventory.spec.js:2931 run 2 2026-10-04T02:49:02-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (10.3s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('.item-edit-form')
+    Expected: visible
+    Timeout: 8000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 8000ms[22m
+    [2m  - waiting for locator('.item-edit-form')[22m
+
+
+      2940 |     await page.click('[data-action="create-item"]');
+      2941 |     // Should open the item's edit form after creation
+    > 2942 |     await expect(page.locator('.item-edit-form')).toBeVisible({ timeout: 8000 });
+           |                                                   ^
+      2943 |     // Store location dropdown should be visible
+      2944 |     await expect(page.locator('.item-edit-location')).toBeVisible();
+      2945 |     // The edit form should contain the created item's name
+        at /home/jcole/projects/hq-worktrees/final-20261003/tests/inventory.spec.js:2942:51
+
+    Error Context: test-results/inventory-Inventory-creati-efc78-ith-store-location-dropdown-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown 
+EXIT_ISO2[base inventory:2931 run 2]=1
+===== [base] tests/inventory.spec.js:2931 run 3 2026-10-04T02:49:22-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (1.8s)
+
+  1 passed (3.6s)
+EXIT_ISO2[base inventory:2931 run 3]=0
+===== [base] tests/inventory.spec.js:2931 run 4 2026-10-04T02:49:32-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.5s)
+
+  1 passed (5.0s)
+EXIT_ISO2[base inventory:2931 run 4]=0
+===== [base] tests/inventory.spec.js:2931 run 5 2026-10-04T02:49:45-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (18.5s)
+
+  1 passed (24.2s)
+EXIT_ISO2[base inventory:2931 run 5]=0
+git status --short after leg [base]: []
+EXIT_CHECKOUT[merged]=0 HEAD=fb3a35df67338ab6a17b8b94efb5d476f53977b9
+## merged fb3a35d — inventory:2931, 2 further runs (runs 4-5; runs 1-3 are above) (2026-10-04T02:50:20-04:00)
+# test line on this tree: tests/inventory.spec.js:2931 › creating item opens edit form with store location dropdown
+EXIT_BDDGEN[merged]=0
+EXIT_SERVERBUILD[merged]=0
+===== [merged] tests/inventory.spec.js:2931 run 4 2026-10-04T02:50:46-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (12.2s)
+
+  1 passed (17.0s)
+EXIT_ISO2[merged inventory:2931 run 4]=0
+===== [merged] tests/inventory.spec.js:2931 run 5 2026-10-04T02:51:21-04:00
+── reset hq_test_e2e_final_20261003 on localhost:5434 ──
+EXIT_RESET=0
+── wrote version.json frontend=1.10.2 ──
+EXIT_VERSIONJSON=0
+# server DB_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_e2e_final_20261003?sslmode=disable&TimeZone=America/New_York PORT=8230 (same env as playwright.config.js webServer.command; prebuilt binary of ./cmd/server run from backend/); server log: /tmp/claude-1000/-home-jcole-projects-hq/6ee0eccd-6baa-4d34-a741-b1f4fd0c40d4/scratchpad/final/iso-server.log
+# health: {"backend_version":"0.9.2","built_at":"unknown","frontend_version":"1.10.2","git_sha":"dev","status":"ok","storage":"unconfigured","sync_substrate":"unconfigured","toast_sync":{"status":"unknown"}}
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.9s)
+
+  1 passed (5.2s)
+EXIT_ISO2[merged inventory:2931 run 5]=0
+git status --short after leg [merged]: []
+# final HEAD=fb3a35df67338ab6a17b8b94efb5d476f53977b9 status=[] end2 2026-10-04T02:51:36-04:00
