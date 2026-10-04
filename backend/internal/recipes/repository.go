@@ -134,10 +134,18 @@ func DeleteRecipe(ctx context.Context, pool *pgxpool.Pool, recipeID string) erro
 	return nil
 }
 
-// MergeMenuItem re-points all recipe rows from sourceMenuItemID to targetMenuItemID and
-// deletes the source menu_items row. Returns rowsRePointed count. Mirrors the
-// inventory.MergeItemsHandler tx pattern at backend/internal/inventory/handler.go:174-234.
-// Returns error if source == target.
+// MergeMenuItem re-points every row that names sourceMenuItemID to
+// targetMenuItemID — recipes, and (card I3, decision 194) the campaigns and QR
+// codes whose item is the source dish — then deletes the source menu_items row,
+// all in one transaction. Mirrors the inventory.MergeItemsHandler tx pattern at
+// backend/internal/inventory/handler.go:174-234. Returns error if source == target.
+//
+// The returned count is the TOTAL rows re-pointed across the three tables
+// (recipes + campaigns_admin + qr_codes); the handler ships it as
+// `rows_re_pointed`.
+//
+// The re-point is the contract; migration 0086's ON DELETE SET NULL on the two
+// item_id columns is only the backstop for a table that forgets this path.
 func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, targetMenuItemID string) (int, error) {
 	if sourceMenuItemID == targetMenuItemID {
 		return 0, fmt.Errorf("recipes: cannot_merge_into_self")
@@ -157,6 +165,28 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
 		return 0, err
 	}
 	rows := int(ct.RowsAffected())
+
+	// Campaigns and codes follow the dish to its survivor. Without these two
+	// statements the DELETE below would blank their item (0086) — or, before
+	// 0086, be refused with 23503 campaigns_admin_item_id_fkey.
+	ct, err = tx.Exec(ctx,
+		`UPDATE campaigns_admin SET item_id = $1, updated_at = now()
+		 WHERE item_id = $2`,
+		targetMenuItemID, sourceMenuItemID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	rows += int(ct.RowsAffected())
+
+	ct, err = tx.Exec(ctx,
+		`UPDATE qr_codes SET item_id = $1 WHERE item_id = $2`,
+		targetMenuItemID, sourceMenuItemID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	rows += int(ct.RowsAffected())
 
 	// Delete the source menu_items row.
 	_, err = tx.Exec(ctx, `DELETE FROM menu_items WHERE id = $1`, sourceMenuItemID)

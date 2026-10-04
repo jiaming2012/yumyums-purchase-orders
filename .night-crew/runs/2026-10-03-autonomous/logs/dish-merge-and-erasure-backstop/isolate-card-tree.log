@@ -1,0 +1,16 @@
+# Isolation of the 3 reds not in tonight's base-reds list, CARD tree 4adf1adab77b38b8eec70b635b4352056cef7079, --repeat-each=3 --retries=0. start 2026-10-03T23:38:40-04:00
+
+Running 9 tests using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.0s)
+  ✓  2 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+  ✓  3 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.3s)
+  ✓  4 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (2.3s)
+  ✓  5 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (3.0s)
+  ✓  6 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.3s)
+  ✓  7 [chromium] › tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown (1.7s)
+  ✓  8 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+  ✓  9 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.4s)
+
+  9 passed (2.9m)
+EXIT_PW=0

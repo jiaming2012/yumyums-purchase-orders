@@ -1,0 +1,14 @@
+# pg_constraint at goose 85 on hq_test_go_i3 (:5434) — the names 0086 uses are READ from here. 2026-10-04T01:45:59Z
+        tbl        |               conname                | confdeltype |                           def                            
+-------------------+--------------------------------------+-------------+----------------------------------------------------------
+ campaigns_admin   | campaigns_admin_created_by_fkey      | a           | FOREIGN KEY (created_by) REFERENCES users(id)
+ campaigns_admin   | campaigns_admin_item_id_fkey         | a           | FOREIGN KEY (item_id) REFERENCES menu_items(id)
+ qr_codes          | qr_codes_campaign_id_fkey            | a           | FOREIGN KEY (campaign_id) REFERENCES campaigns_admin(id)
+ qr_codes          | qr_codes_created_by_fkey             | a           | FOREIGN KEY (created_by) REFERENCES users(id)
+ qr_codes          | qr_codes_item_id_fkey                | a           | FOREIGN KEY (item_id) REFERENCES menu_items(id)
+ qr_scans          | qr_scans_short_fkey                  | a           | FOREIGN KEY (short) REFERENCES qr_codes(short)
+ subscribers       | subscribers_source_short_fkey        | a           | FOREIGN KEY (source_short) REFERENCES qr_codes(short)
+ subscriber_events | subscriber_events_subscriber_id_fkey | a           | FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+(8 rows)
+
+EXIT=0
