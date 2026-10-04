@@ -1004,7 +1004,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### atomic-scan-dedupe
 
-- `atomic-scan-dedupe` · **PLANNED** · (I4, track B after I3 — decision 195) The public
+- `atomic-scan-dedupe` · **LANDED** (run `20261003`, branch `card/i4-atomic-scan-dedupe`) · (I4, track B after I3 — decision 195) The public
   landing's 10-minute scan dedupe (`landing.go` `INSERT … WHERE NOT EXISTS`) is a read-then-write
   under READ COMMITTED: 12 concurrent hits from one IP left 3/7/8/8/8 rows where one was wanted,
   on an unauthenticated route, so the orphan rate's denominator (P-KR3) is inflatable from
