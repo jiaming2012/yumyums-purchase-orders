@@ -17,10 +17,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// scanDedupeWindow is §5's "10-minute (short, ip_hash) dedupe". It is enforced
-// at WRITE time — see logScan — so every read of qr_scans is a plain count and
-// the three slices cannot disagree about what a scan is.
-const scanDedupeWindow = 10 * time.Minute
+// §5's "10-minute (short, ip_hash) dedupe" is enforced at WRITE time — see
+// insertScan — so every read of qr_scans is a plain count and the three slices
+// cannot disagree about what a scan is. The ten minutes themselves live in
+// migration 0087's `bucket` column, not in a Go constant: the database is what
+// refuses the second row.
 
 // endedPage is the §5 "This offer has ended" response: a 200, not a redirect
 // and not a 404. A dead sign that is still being scanned is real information —
@@ -289,8 +290,7 @@ func LandingHandler(d Deps) http.HandlerFunc {
 	}
 }
 
-// logScan inserts the qr_scans row, honouring the 10-minute
-// (short, ip_hash) dedupe. Failures are logged and swallowed: a funnel row is
+// logScan records the scan. Failures are logged and swallowed: a funnel row is
 // worth less than a customer reaching the offer.
 func logScan(r *http.Request, d Deps, t codeTarget) {
 	ctx := r.Context()
@@ -315,19 +315,28 @@ type scanExecer interface {
 
 // insertScan writes one qr_scans row under the 10-minute (short, ip_hash)
 // dedupe. It is the only statement in the tree that inserts a scan.
+//
+// ONE statement, and the database decides. qr_scans.bucket is a generated
+// 10-minute tumbling bucket of scanned_at and qr_scans_dedupe_idx is unique
+// over (short, ip_hash, bucket) (migration 0087), so a second hit from the
+// same phone in the same bucket conflicts and is dropped — including when the
+// two hits arrive at the same instant on two connections, which the previous
+// INSERT … WHERE NOT EXISTS let through (it read, then wrote; twelve aligned
+// hits left twelve rows).
+//
+//   - The WHERE in the conflict target is not decoration: the index is
+//     partial, and Postgres only infers a partial index when the target
+//     repeats its predicate (42P10 otherwise).
+//   - A NULL ip_hash is outside the index and inserts every time — we cannot
+//     tell two anonymous scans apart, and over-counting is the honest failure.
+//   - The bucket is tumbling, not sliding: two taps either side of a bucket
+//     edge count twice (decision 195's accepted trade-off).
 func insertScan(ctx context.Context, db scanExecer, short, family string, referrer, ipHash *string) error {
-	// The dedupe lives in the WHERE NOT EXISTS, so it is one statement and one
-	// definition. A NULL ip_hash never dedupes — we cannot tell two anonymous
-	// scans apart, and over-counting is the honest failure here.
 	_, err := db.Exec(ctx, `
 		INSERT INTO qr_scans (short, ua_family, referrer, ip_hash)
-		SELECT $1, $2, $3, $4
-		WHERE $4::text IS NULL OR NOT EXISTS (
-		  SELECT 1 FROM qr_scans s
-		  WHERE s.short = $1 AND s.ip_hash = $4
-		    AND s.scanned_at > now() - $5::interval
-		)`,
-		short, family, referrer, ipHash, scanDedupeWindow.String())
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (short, ip_hash, bucket) WHERE ip_hash IS NOT NULL DO NOTHING`,
+		short, family, referrer, ipHash)
 	return err
 }
 
