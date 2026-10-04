@@ -113,3 +113,13 @@
 - **Recorded:** 2026-10-02
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-5 · A feature nobody has used yet has no history to protect
+
+- **Preference:** When a fix would change or remove data recorded by a feature the owner has not started using, ship the fix as built rather than parking it; the report's period filter is what gives the numbers meaning going forward.
+- **Why (operator):** Operator, morning triage 2026-10-04, verbatim: "I have not yet used this feature, so I'm unsure why we are talking about numbers changing. In addition, the filter view of the report should be what gives significance to numbers going in the future."
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-04
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
