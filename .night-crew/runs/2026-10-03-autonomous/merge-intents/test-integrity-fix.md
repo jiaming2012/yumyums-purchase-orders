@@ -70,7 +70,7 @@ true` refusal, the B-432 fail-closed predicate and decisions 166/199 are untouch
 
 ## What is safe to drop
 
-* The comments. The in-page reopen test (`[TI-03]`) is beyond the slate's stated replacement
+* The comments. The in-page reopen test (`[TI-02]`) is beyond the slate's stated replacement
   and can be dropped without breaking the done_when — at the cost of the only test that runs the
   migration on the storage the phone actually uses.
 * Evidence logs under `logs/test-integrity-fix/` (they are evidence, not behaviour).
@@ -93,5 +93,46 @@ true` refusal, the B-432 fail-closed predicate and decisions 166/199 are untouch
 
 ## Red-first
 
-Filled in by the card's closing commit, from the logs in
-`.night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/`.
+All logs: `.night-crew/runs/2026-10-03-autonomous/logs/test-integrity-fix/`. Every mutation
+ran in a throwaway worktree of this card's own (`i1-prechange-mut` at `ec2830c`,
+`i1-postchange-mut` at `982bed3`) or was reverted by `git checkout --` before any commit; the
+card branch never carried one. The mutation is the spike's: one line, `failClosed` returns
+`namesNoCampaign(campaignId)` instead of its negation; and `spikeEgress()` (an `http.Post`)
+appended to `campaigns.go`.
+
+| done_when clause | Before this card | After this card |
+|---|---|---|
+| inverted `failClosed` → `campaigns-run.sh` exits 1 | `red-harness-prechange-inverted.log` — `VERDICT: GREEN`, **`EXIT=0`** (the false gate) | `red-harness-postchange-inverted.log` — 3 disagreements in leg 3, **`EXIT=1`**; unmutated `green-harness-postchange.log` **`EXIT=0`** with `import asserted` printed |
+| inverted `failClosed` → `[SP-03]` reds, no spec green by never consulting the predicate | `red-pw-prechange-inverted.log` / `.specs.txt` — whole `tests/marketing.spec.js`: **1 failed (`[SP-03]`), 52 passed, `EXIT=1`** — `[SP-03b]` among the 52 (the false gate) | `red-pw-postchange-inverted.log` / `.specs.txt` — **1 failed (`[SP-03]`), 53 passed, `EXIT=1`**; `[SP-03b]` no longer exists. Unmutated: `green-pw-postchange.log` **54 passed, `EXIT=0`** |
+| `spikeEgress()` in `campaigns.go` → `TestNothingInThisPackageSends` reds | `red-go-prechange-egress.log` — `--- PASS`, **`EXIT=0`** (the false gate) | `red-go-postchange-egress.log` — `--- FAIL` naming `campaigns.go`, **`EXIT=1`**; mutation removed, `green-go-postchange.log` `--- PASS`, **`EXIT=0`** |
+| schema-v1 store opens with v0 rows intact | `red-schema-harness-prechange.log` — the new gate against the pre-change `replicas.js`: `RED: expected version 1, got 0`, **`EXIT=1`**; `red-pw-ti-prechange-replicas.log` — `[TI-01]` and `[TI-02]` both red, **`EXIT=1`** | `green-schema-harness.log` **`EXIT=0`** (codes 2/2, offers 2/2 rows at v1, VD2 ×2, DB6 and COL12 controls); `[TI-01]` + `[TI-02]` green inside the 54 |
+
+**Read honestly — what "no spec stays green by never consulting the predicate" does and does
+not mean here.** Under the inversion exactly ONE spec in the file reds, before and after. The
+other 53 are green because they do not reach the no-source arm (their policy source is healthy,
+or they are about other things) — none of them CLAIMS to guard it. The one spec that claimed it
+and did not test it, `[SP-03b]`, is gone. The predicate's decision-166 half ("names no campaign →
+not fail-closed") is now asserted on the shipped function by the harness, and reds under the
+same inversion (line `✗ decision 166: …` in `red-harness-postchange-inverted.log`). In the
+Playwright file the no-source arm is still guarded by one spec, `[SP-03]`.
+
+**Every dependent of the schema version, executed** (`substrate-legs-summary.log`, one hold of
+the suite lock, 22:52–22:56): `push-run.sh`, `run.sh`, `clock-run.sh`, `f2-run.sh`,
+`refusal-run.sh`, `recovery-clear-run.sh` — all **`EXIT=0`**, `VERDICT: GREEN`, default (green)
+mode, building the v1 collections against the live substrate.
+
+**Which storage each schema test ran on.** `[TI-01]` / the harness: RxDB memory storage + ajv,
+in node. `[TI-02]`: Chromium's IndexedDB through Dexie, in the page, through the shipped bundle
+and the shipped `marketingCollectionSpec()` — two v0 collections with two rows each reopened at
+v1 with rows equal. That is one browser engine, headless, on a fresh database; it is not a
+phone, and B-441 (the `scan_attempts` Dexie path) is not touched or retired by it.
+
+**A limit, measured, that the BACKLOG row for B-465 did not anticipate**
+(`probe-browser-required.log`, a throwaway spec, deleted): on the post-change tree the PAGE
+accepts and stores a `codes` row with no `campaign_id` — `{"accepted":true,"stored":true,
+"version":1}`. `scan-page.js` wraps no validator around Dexie, so on the phone `required` is a
+declared shape. "The invariant is a schema fact" is true under a validating storage (every node
+harness) and is NOT enforced in the browser; there the enforcement is the server's NOT NULL on
+both tables. So the branch `policyFor(…, null)` via `offerReady` is unreachable from pulled data
+and still reachable from a locally written row. Wrapping the browser storage in a validator
+would change what the phone does on a bad row — not this card's call.
