@@ -19,6 +19,23 @@
 //   4. CONTROL — why every builder must take the entry from
 //      marketingCollectionSpec(): the bare v1 schema with no
 //      migrationStrategies is refused by addCollections.
+//   5. THE STRATEGY'S LIMIT, pinned on BOTH kinds of storage (G6 finding,
+//      fix round of card test-integrity-fix): a v0 store that holds a row
+//      WITHOUT `campaign_id` —
+//        (a) under a VALIDATING storage: the reopen at v1 is REFUSED with
+//            DM4. The identity strategy hands the row to the migration
+//            unchanged, the v1 schema rejects it, addCollections throws.
+//            That is the "Scanner failed to start" shape.
+//        (b) under a NON-validating storage (what the phone runs — Dexie,
+//            no validator): the reopen succeeds and the row is carried to v1
+//            unchanged, still without `campaign_id`.
+//      The strategy is therefore lossless for rows that carry `campaign_id`
+//      and NOT total under validation. Leg 5 exists so that neither half can
+//      move silently: change the strategy (drop / default the row) and (a) or
+//      (b) reds here; wrap the BROWSER storage in a validator and
+//      tests/marketing.spec.js [TI-02] reds on the same row shape.
+//      (b) runs in a child process of this script, because the dev-mode
+//      plugin this process registers refuses a non-validating storage (DVM1).
 //
 // 🛑 WHAT THIS DOES NOT PROVE. Storage here is RxDB's MEMORY storage wrapped in
 // the ajv validator — its collection state lives in a module-level map that
@@ -36,6 +53,13 @@
 //
 // 🛑 THE VERDICT IS THE EXIT STATUS, NEVER THE PROSE.
 //   exit 0  every leg held.   exit 1  a leg failed.   exit 2  could not run.
+
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+// Leg 5(b) re-runs this file with this flag: no dev-mode plugin, plain memory
+// storage, one leg, its own exit status.
+const PLAIN_LEG = process.argv.includes('--plain-storage-leg');
 
 let createRxDatabase, addRxPlugin, getRxStorageMemory, RxDBDevModePlugin, disableWarnings,
   RxDBMigrationSchemaPlugin, wrappedValidateAjvStorage;
@@ -55,14 +79,16 @@ const {
   CODES_COLLECTION, OFFERS_COLLECTION, CAMPAIGNS_COLLECTION,
 } = await import('../replicas.js');
 
-disableWarnings();
-addRxPlugin(RxDBDevModePlugin);
+if (!PLAIN_LEG) {
+  disableWarnings();
+  addRxPlugin(RxDBDevModePlugin);
+}
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const fail = (msg) => { console.error(`\nRED: ${msg}`); process.exit(1); };
 const ok = (msg) => console.log(`  ✓ ${msg}`);
 const firstLine = (e) => (String(e && e.message).split('\n').map((s) => s.trim()).find(Boolean) || '').slice(0, 120);
-const hardTimeout = setTimeout(() => fail('hard timeout (60s) — a leg never finished'), 60_000);
+const hardTimeout = setTimeout(() => fail('hard timeout (90s) — a leg never finished'), 90_000);
 
 // The schema as it shipped BEFORE this card (git ec2830c, marketing/sync/
 // replicas.js:57-72) — a frozen literal, because the shipped object is v1 now
@@ -83,6 +109,62 @@ const V0 = Object.freeze({
   required: ['id', 'token_hash', 'expires_at', 'updated_at'],
   indexes: [['token_hash']],
 });
+
+// A v0 row that names NO campaign — the shape both server tables forbid (NOT
+// NULL) and v0's schema allowed. Leg 5 seeds it beside one ordinary row.
+const CAMPAIGNLESS = Object.freeze({
+  id: 'c0000000-0000-4000-8000-000000000007',
+  token_hash: '7'.repeat(64),
+  expires_at: '2028-01-01T00:00:00.000Z',
+  redeemed_at: null,
+  redeemed_by: null,
+  updated_at: '2026-09-01T00:00:00.000Z',
+});
+const WITH_CAMPAIGN = Object.freeze({ ...CAMPAIGNLESS, id: 'c0000000-0000-4000-8000-000000000006', token_hash: '6'.repeat(64), campaign_id: 'a0000000-0000-4000-8000-000000000001' });
+
+// Seed a v0 store with [WITH_CAMPAIGN, CAMPAIGNLESS] in codes AND offers, close
+// it, reopen through the SHIPPED spec. Returns { code } on refusal or
+// { docs: {codes, offers}, versions } on success. Shared by 5(a) and 5(b) so
+// the two halves differ ONLY in the storage they are handed.
+async function reopenCampaignless(storage, name) {
+  const mk = async (collections) => {
+    const db = await createRxDatabase({ name, storage });
+    try { await db.addCollections(collections); } catch (e) { await db.close(); throw e; }
+    return db;
+  };
+  const db0 = await mk({ [CODES_COLLECTION]: { schema: V0 }, [OFFERS_COLLECTION]: { schema: V0 } });
+  for (const col of [CODES_COLLECTION, OFFERS_COLLECTION]) await db0[col].bulkInsert([WITH_CAMPAIGN, CAMPAIGNLESS]);
+  await db0.close();
+  let db1;
+  try {
+    db1 = await mk(marketingCollectionSpec());
+  } catch (e) {
+    return { code: (e && e.code) || `no-code: ${firstLine(e)}` };
+  }
+  const out = { code: null, docs: {}, versions: {} };
+  for (const col of [CODES_COLLECTION, OFFERS_COLLECTION]) {
+    out.versions[col] = db1[col].schema.version;
+    out.docs[col] = (await db1[col].find({ sort: [{ id: 'asc' }] }).exec()).map((d) => { const j = d.toJSON(); delete j._deleted; return j; });
+  }
+  await db1.close();
+  return out;
+}
+
+if (PLAIN_LEG) {
+  // ── leg 5(b), child process: NON-validating storage, no dev-mode ──────────
+  const r = await reopenCampaignless(getRxStorageMemory(), `replica_schema_plain_${Date.now()}`);
+  if (r.code !== null) fail(`5(b): the reopen on a NON-validating storage was refused with ${r.code} — on the phone that is "Scanner failed to start"`);
+  for (const col of [CODES_COLLECTION, OFFERS_COLLECTION]) {
+    if (r.versions[col] !== 1) fail(`5(b): ${col} reopened at schema version ${r.versions[col]}, not 1`);
+    if (JSON.stringify(r.docs[col]) !== JSON.stringify([WITH_CAMPAIGN, CAMPAIGNLESS])) {
+      fail(`5(b): ${col} after the reopen is ${JSON.stringify(r.docs[col])} — the campaign-less row was not carried UNCHANGED (dropped, or given a campaign_id it never had)`);
+    }
+    if ('campaign_id' in r.docs[col][1]) fail(`5(b): ${col}: the campaign-less row gained a campaign_id`);
+  }
+  console.log('  ✓ 5(b) non-validating storage: reopened at v1; codes 2/2 and offers 2/2 rows carried, the campaign-less row unchanged');
+  clearTimeout(hardTimeout);
+  process.exit(0);
+}
 
 // ── leg 0: the shipped schema is the three-part shape, and the frozen v0
 //    literal differs from it ONLY by version + required ─────────────────────
@@ -206,6 +288,25 @@ console.log('\n── leg 4 (control): the bare v1 schema, no migrationStrategie
   } catch (e) { code = (e && e.code) || `no-code: ${firstLine(e)}`; }
   if (code === null) fail('RxDB accepted a v1 collection with no migration strategy — part (2) of the three-part shape would be optional');
   ok(`refused with ${code} — every builder must take the entry from marketingCollectionSpec()`);
+}
+
+// ── leg 5: the strategy's limit — a v0 row WITHOUT campaign_id ──────────────
+console.log('\n── leg 5: a v0 store holding a row WITHOUT campaign_id — validating vs non-validating storage ──');
+{
+  // (a) validating storage (this process: ajv + dev-mode).
+  const r = await reopenCampaignless(storage, `${NAME}_campaignless`);
+  if (r.code === null) {
+    fail(`5(a): the reopen SUCCEEDED under a validating storage (codes ${JSON.stringify(r.docs[CODES_COLLECTION])}) — the strategy no longer hands the campaign-less row through unchanged, or v1 no longer requires campaign_id. That changes what happens to a row on the device: re-read replicas.js MARKETING_MIGRATION_STRATEGIES before touching this assertion`);
+  }
+  if (r.code !== 'DM4') fail(`5(a): refused, but with ${r.code}, not DM4`);
+  ok('5(a) validating storage: the reopen is REFUSED with DM4 — the identity strategy is NOT total under validation');
+
+  // (b) non-validating storage, in a child process (dev-mode refuses it here).
+  const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--plain-storage-leg'], { encoding: 'utf8', timeout: 45_000 });
+  const childOut = `${child.stdout || ''}${child.stderr || ''}`.trim();
+  if (child.status !== 0) fail(`5(b): the non-validating leg exited ${child.status}\n${childOut}`);
+  if (!childOut.includes('✓ 5(b) non-validating storage')) fail(`5(b): the child exited 0 without reporting its leg\n${childOut}`);
+  ok(childOut.split('\n').find((l) => l.includes('5(b)')).replace(/^\s*✓\s*/, ''));
 }
 
 clearTimeout(hardTimeout);

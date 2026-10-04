@@ -101,15 +101,33 @@ export const MARKETING_REPLICA_SCHEMA = {
 };
 
 /**
- * Part (2) of the codes/offers migration. Total and lossless: v1 adds no
- * property and renames none, it only declares `campaign_id` required, and
- * every row the pull ever delivered carries one (NOT NULL on both databases).
- * A v0 row therefore migrates unchanged.
+ * Part (2) of the codes/offers migration: the identity strategy. v1 adds no
+ * property and renames none — it only declares `campaign_id` required — so a
+ * v0 row is handed to v1 unchanged.
+ *
+ * 🛑 It is LOSSLESS, and it is NOT TOTAL. What it does depends on the row and
+ * on the storage (measured; marketing/sync/harness/replica-schema-harness.mjs
+ * leg 5 and tests/marketing.spec.js [TI-02] pin all of it):
+ *
+ *   * a v0 row that carries `campaign_id` — every row the pull ever delivered,
+ *     both server tables being NOT NULL — migrates unchanged on any storage;
+ *   * a v0 row WITHOUT `campaign_id`, on a NON-validating storage — which is
+ *     what the phone runs (scan-page.js hands RxDB a bare Dexie storage) — is
+ *     carried to v1 unchanged, still without one, and the page boots;
+ *   * the same row under a VALIDATING storage (every node harness wraps ajv)
+ *     fails v1's `required` during the migration and `addCollections` throws
+ *     DM4 — the store does not open. In the browser that would be "Scanner
+ *     failed to start".
+ *
+ * So the day the browser storage is wrapped in a validator, this strategy has
+ * to be revisited FIRST: a single campaign-less row on a device would brick
+ * its Scan page at the next load. No such row can arrive by pull; one can only
+ * be written locally.
  *
  * Returning `null` — RxDB's "drop this document" — for a row with no
- * `campaign_id` was considered and rejected: dropping a codes row changes what
- * the scanner SAYS about that code (known → unknown), which is a change to
- * what the phone does, and this card changes none of that.
+ * `campaign_id` was considered and rejected for this card: dropping a codes
+ * row changes what the scanner SAYS about that code (known → unknown), which
+ * is a change to what the phone does, and this card changes none of that.
  */
 export const MARKETING_MIGRATION_STRATEGIES = {
   1: (oldDoc) => oldDoc,

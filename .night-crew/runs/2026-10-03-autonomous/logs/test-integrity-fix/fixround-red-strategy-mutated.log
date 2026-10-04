@@ -1,0 +1,8 @@
+# FIX ROUND mutation: the strategy changed to DROP a campaign-less row (d => d.campaign_id ? d : null) — leg 5 must red
+-  1: (oldDoc) => oldDoc,
++  1: (oldDoc) => (oldDoc.campaign_id ? oldDoc : null),
+
+── leg 5: a v0 store holding a row WITHOUT campaign_id — validating vs non-validating storage ──
+
+RED: 5(a): the reopen SUCCEEDED under a validating storage (codes [{"id":"c0000000-0000-4000-8000-000000000006","token_hash":"6666666666666666666666666666666666666666666666666666666666666666","expires_at":"2028-01-01T00:00:00.000Z","redeemed_at":null,"redeemed_by":null,"updated_at":"2026-09-01T00:00:00.000Z","campaign_id":"a0000
+EXIT=1

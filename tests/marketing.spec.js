@@ -1514,6 +1514,7 @@ test.describe('Scanner polish (card scanner-polish, roadmap H6)', () => {
 //   [TI-02] reopens a v0 store at v1 in the PAGE — the shipped bundle, the
 //           shipped spec, Chromium's IndexedDB through Dexie. It claims the
 //           migration ran and kept the rows on the storage the phone uses.
+//           One of its v0 rows names NO campaign and must be carried too.
 //           It does NOT claim VD2: scan-page.js wraps no validator, so on the
 //           phone `required` is a declared shape and the enforcement is the
 //           server's NOT NULL. And it does not retire B-441, which is about
@@ -1572,6 +1573,11 @@ test.describe('Test integrity (card test-integrity-fix, roadmap I1)', () => {
     expect(out, 'the invariant as a schema fact, codes').toContain('codes: refused with VD2, nothing written');
     expect(out, 'the invariant as a schema fact, offers').toContain('offers: refused with VD2, nothing written');
     expect(out, 'the bare-edit control').toContain('refused with DB6');
+    // The strategy's limit (fix round, G6 finding): a v0 row WITHOUT
+    // campaign_id makes a VALIDATING store refuse to open (DM4) and is carried
+    // unchanged on a NON-validating one. Pinned so neither half moves quietly.
+    expect(out, 'campaign-less v0 row, validating storage').toContain('5(a) validating storage: the reopen is REFUSED with DM4');
+    expect(out, 'campaign-less v0 row, non-validating storage').toContain('5(b) non-validating storage: reopened at v1; codes 2/2 and offers 2/2 rows carried, the campaign-less row unchanged');
     expect(out).toContain('all legs held');
   });
 
@@ -1603,7 +1609,18 @@ test.describe('Test integrity (card test-integrity-fix, roadmap I1)', () => {
         redeemed_by: n === 2 ? 'device-a' : null,
         updated_at: '2026-09-01T00:00:00.000Z',
       });
-      const rows = [row(1, 'a0000000-0000-4000-8000-000000000001'), row(2, 'a0000000-0000-4000-8000-000000000002')];
+      // The THIRD row names NO campaign (fix round, G6 finding). No pull can
+      // deliver it — both server tables are NOT NULL — but v0 allowed it, and
+      // what the migration does with it depends on the storage: under a
+      // validating storage the reopen throws DM4 (replica-schema-harness.mjs
+      // leg 5a). The phone's Dexie storage wraps no validator, so HERE it must
+      // be carried unchanged and the store must open. If this test reds with
+      // DM4, someone wrapped the browser storage in a validator without
+      // revisiting MARKETING_MIGRATION_STRATEGIES — that is a bricked Scan
+      // page on any device holding such a row.
+      const campaignless = row(3, 'x');
+      delete campaignless.campaign_id;
+      const rows = [row(1, 'a0000000-0000-4000-8000-000000000001'), row(2, 'a0000000-0000-4000-8000-000000000002'), campaignless];
 
       // (1) the store a synced phone holds today: v0 collections with rows.
       const db0 = await openDb();
@@ -1635,6 +1652,8 @@ test.describe('Test integrity (card test-integrity-fix, roadmap I1)', () => {
 
     expect(result.v0, 'the store really was created at v0').toEqual({ codes: 0, offers: 0 });
     expect(result.reopenError, 'a rejection here is "Scanner failed to start" on every synced phone').toBeNull();
+    expect(result.rows.length, 'two ordinary rows and one that names no campaign').toBe(3);
+    expect('campaign_id' in result.rows[2], 'the third seeded row has no campaign_id').toBe(false);
     for (const col of ['codes', 'offers']) {
       expect(result.after[col].version, `${col} reopened at v1`).toBe(1);
       expect(result.after[col].docs, `${col}: every v0 row is still there, unchanged`).toEqual(result.rows);

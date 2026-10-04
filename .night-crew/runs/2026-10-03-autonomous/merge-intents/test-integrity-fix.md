@@ -164,3 +164,31 @@ would change what the phone does on a bad row — not this card's call.
   run at the `sw.js` commit left the tree clean (idempotent).
 * The full suite rewrote 16 tracked PNGs under `.night-crew/runs/2026-10-02-autonomous/logs/`
   (B-467); restored with `git checkout --`, none committed.
+
+## Fix round (G6: APPROVE-WITH-FINDINGS, one P2)
+
+**P2 — `MARKETING_MIGRATION_STRATEGIES` was documented "Total and lossless"; it is not total.**
+Reproduced: a v0 store holding a row WITHOUT `campaign_id`, reopened through the shipped
+`marketingCollectionSpec()` — under an ajv-wrapped storage `addCollections` throws **DM4**; under
+a non-validating storage (and in Chromium/Dexie) the row is carried to v1 unchanged and the store
+opens. No committed fixture had that row shape.
+
+Fixed as a comment + test change. **The strategy body, the schema and everything the phone does
+are unchanged** (`git diff` on `replicas.js` for this round is comment lines only). The phone
+runs a non-validating storage and no pulled row can lack `campaign_id`, so the strategy is safe
+as shipped; it stops being safe the day the browser storage is wrapped in a validator, and the
+comment now says that first.
+
+| | Evidence | Exit |
+|---|---|---|
+| RED — a leg asserting the comment's "total" claim, tree `73521b1` | `fixround-red-total-claim.log` — `the reopen was REFUSED with DM4` | `EXIT=1` |
+| GREEN — leg 5 pins the observed behaviour on both storages | `fixround-green-schema-harness.log` — 5(a) validating → DM4; 5(b) non-validating → codes 2/2, offers 2/2 carried, campaign-less row unchanged | `EXIT=0` |
+| MUTATION — strategy changed to drop the row (`d => d.campaign_id ? d : null`), then reverted | `fixround-red-strategy-mutated.log` — `5(a): the reopen SUCCEEDED under a validating storage` | `EXIT=1` |
+| Confined gate — whole `tests/marketing.spec.js`, unmutated | `fixround-green-pw-marketing.log` — **54 passed (1.1m)** | `EXIT=0` |
+
+What turns red on which future change: changing the strategy (drop or default the row) → harness
+leg 5(a) or 5(b), and so `[TI-01]`; wrapping the BROWSER storage in a validator → `[TI-02]`, whose
+v0 fixture now carries a campaign-less row in both `codes` and `offers` and requires it back
+unchanged. 5(b) runs in a child process of the harness because the dev-mode plugin refuses a
+non-validating storage (DVM1). Not re-run this round, by instruction: the full Go and Playwright
+suites, and the substrate harnesses (none of their files changed).
