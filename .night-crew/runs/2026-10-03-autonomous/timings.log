@@ -7,3 +7,4 @@
 2026-10-03T23:13:12-04:00 i4 code committed @c1fc1c4, gates queued; G6 i4 dispatched early
 2026-10-03T23:20:32-04:00 G6 i4 @c1fc1c4 APPROVE-WITH-FINDINGS (0 P1, 1 P2 Up deletes historical scan rows, 3 P3)
 2026-10-03T23:21:12-04:00 decisions log: i4 0087 row-delete -> verdict park; i4 PARKED (D-1)
+2026-10-03T23:47:21-04:00 merge1 i3 -> ed4f568 CLEAN; G1 0/0, confined Go 126/0/1, sw 51 idempotent

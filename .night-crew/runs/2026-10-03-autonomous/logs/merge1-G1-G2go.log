@@ -1,0 +1,5 @@
+# merge1 (I3) @ ed4f568 — G1 + confined G2-Go
+EXIT_BUILD=0
+EXIT_VET=0
+EXIT_TEST=0
+top-level tests: {'pass': 126, 'skip': 1}
