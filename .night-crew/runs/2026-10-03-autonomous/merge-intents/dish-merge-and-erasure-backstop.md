@@ -18,6 +18,11 @@ Inside the footprint: `backend/internal/db/migrations/0086_merge_repoint_and_era
 `backend/internal/marketing/erasure_test.go` (new — it also carries this card's migration
 Down round-trip leg, so no existing `zz_`/`zzz_` file is edited).
 
+One engineer-level addition inside `0086`, stated: before adding `qr_scans_subscriber_id_fkey`
+the Up blanks any `qr_scans.subscriber_id` that names no existing subscriber (0 rows on a
+clean database). The column never had an FK, and a single dangling id would otherwise fail the
+whole migration at deploy. It deletes nothing.
+
 **Not touched:** `sw.js` and every precached file (count stays 51), `night-crew.toml` (no key,
 no token), `backend/internal/marketing/landing.go` and `landing_test.go` (Card 4's),
 `backend/internal/marketing/subscribers_test.go` (Card 1's egress-guard edit), any HTML/JS,
@@ -33,8 +38,10 @@ no token), `backend/internal/marketing/landing.go` and `landing_test.go` (Card 4
    merge that "fixes" that test by adding a cascade is scope drift.
 4. **The two re-point statements in `recipes.MergeMenuItem`** (`campaigns_admin.item_id`,
    `qr_codes.item_id`), inside the existing transaction, before the `DELETE FROM menu_items`.
-   The function's returned figure stays the RECIPE re-point count — the handler's
-   `rows_re_pointed` wire value is unchanged (existing tests pin it).
+   The function's returned figure is now the TOTAL rows re-pointed (recipes + campaigns +
+   codes) — the slate's first-named option ("in the existing `rows` figure"), so
+   `handler.go` and the `rows_re_pointed` wire key are untouched; the value only differs
+   from before when a campaign or code named the source dish, which previously was a 500.
 5. **The Down round-trip leg restores with `db.Migrate(pool)`, never a literal**, and derives
    its version from the migration filename.
 

@@ -1,0 +1,137 @@
+# GREEN — 0086 + the re-point in MergeMenuItem. Whole internal/recipes package. 2026-10-04T01:46:49Z
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.01s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example) (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+--- PASS: TestCost_Fixture_HandComputedToTheCent (2.10s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+--- PASS: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (1.78s)
+=== RUN   TestCost_Movers_BothOrderings
+--- PASS: TestCost_Movers_BothOrderings (1.94s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+2026/10/03 21:47:05 INFO menu-cogs served from=2026-05-04 to=2026-05-31 menu_item_count=4 breakdown=false
+--- PASS: TestCost_ReconcilesWithMenuCogs_OnMessyData (1.59s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+--- PASS: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (1.53s)
+=== RUN   TestCostHandler_ServerComputedWindow
+--- PASS: TestCostHandler_ServerComputedWindow (0.74s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+--- PASS: TestCost_EmptyDataset_ReturnsEmptyArrays (0.81s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+--- PASS: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.68s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+--- PASS: TestCost_TiedRows_DeterministicAcrossCalls (0.80s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+--- PASS: TestCreateRecipe_HappyPath (0.76s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+--- PASS: TestCreateRecipe_SumExceeds100_NamesLargestSibling (0.70s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+--- PASS: TestCreateRecipe_DuplicateReturns409 (0.66s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+--- PASS: TestCreateRecipe_InvalidSnapReturns422 (0.84s)
+=== RUN   TestUpdateRecipe_HappyPath
+--- PASS: TestUpdateRecipe_HappyPath (0.89s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+--- PASS: TestUpdateRecipe_NotFoundReturns404 (0.73s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+--- PASS: TestUpdateRecipe_SumExceeds100_NamesSibling (0.63s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+--- PASS: TestUpdateRecipe_InvalidSnapReturns422 (0.59s)
+=== RUN   TestDeleteRecipe_RemovesRow
+--- PASS: TestDeleteRecipe_RemovesRow (0.71s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+--- PASS: TestDeleteRecipe_NotFoundReturns404 (0.64s)
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (0.84s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.65s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (0.66s)
+=== RUN   TestListRecipes_HappyPath
+--- PASS: TestListRecipes_HappyPath (0.84s)
+=== RUN   TestListRecipes_InvalidDates_400
+--- PASS: TestListRecipes_InvalidDates_400 (0.63s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+--- PASS: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.66s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+2026/10/03 21:47:22 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_HappyPath_SummaryMode (0.62s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+2026/10/03 21:47:23 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=true
+--- PASS: TestMenuCogs_HappyPath_BreakdownMode (0.77s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+2026/10/03 21:47:23 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (0.82s)
+=== RUN   TestMenuCogs_FromMissing_400
+--- PASS: TestMenuCogs_FromMissing_400 (0.55s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+--- PASS: TestMenuCogs_FromAfterTo_400 (0.57s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+2026/10/03 21:47:25 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=0 breakdown=false
+--- PASS: TestMenuCogs_CacheControlHeader_OnSuccess (0.73s)
+=== RUN   TestMenuCogs_BearerMissing_401
+--- PASS: TestMenuCogs_BearerMissing_401 (0.64s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+--- PASS: TestMenuCogs_ServiceTokenUnset_503 (0.66s)
+=== RUN   TestMenuCogs_BearerWrong_401
+--- PASS: TestMenuCogs_BearerWrong_401 (0.70s)
+=== RUN   TestMenuCogs_EmitsVisibilityLog
+--- PASS: TestMenuCogs_EmitsVisibilityLog (0.55s)
+=== RUN   TestMenuCogs_VisibilityLogBreakdownMode
+--- PASS: TestMenuCogs_VisibilityLogBreakdownMode (0.70s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+--- PASS: TestRepository_CreateRecipe_HappyPath (0.56s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+--- PASS: TestRepository_CreateRecipe_SumExceeds100_Rollsback (0.57s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+--- PASS: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (0.56s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+--- PASS: TestRepository_UpdateRecipeUsagePct_NotFound (0.59s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+--- PASS: TestRepository_DeleteRecipe_RemovesRow (0.58s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.80s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+--- PASS: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.60s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.59s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+--- PASS: TestRepository_LargestSiblingAllocation_PicksDescByPct (0.72s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+--- PASS: TestComputeDrift_Unallocated_FlagsAbove10Pct (0.72s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+--- PASS: TestComputeDrift_ZeroSales_FlagsMissingItems (0.58s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+--- PASS: TestComputeDrift_Divergence_FlagsAbove20Pct (0.59s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+--- PASS: TestComputeDrift_HappyClean_NoSections (0.55s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+--- PASS: TestRunDriftWeek_IdempotentOnSecondCall (0.62s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+--- PASS: TestRunDriftWeek_SkipsWhenIngestStale (0.59s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+--- PASS: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (0.67s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+--- PASS: TestRunDriftWeek_NoEnqueueWhenClean (0.63s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+--- PASS: TestDriftBannerHandler_ReturnsLatest (0.58s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+--- PASS: TestDriftBannerHandler_EmptyObjectWhenNoRows (0.53s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	42.421s
+EXIT=0
