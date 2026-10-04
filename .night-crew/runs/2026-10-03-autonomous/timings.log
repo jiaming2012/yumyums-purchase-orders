@@ -8,3 +8,5 @@
 2026-10-03T23:20:32-04:00 G6 i4 @c1fc1c4 APPROVE-WITH-FINDINGS (0 P1, 1 P2 Up deletes historical scan rows, 3 P3)
 2026-10-03T23:21:12-04:00 decisions log: i4 0087 row-delete -> verdict park; i4 PARKED (D-1)
 2026-10-03T23:47:21-04:00 merge1 i3 -> ed4f568 CLEAN; G1 0/0, confined Go 126/0/1, sw 51 idempotent
+2026-10-04T00:16:17-04:00 i1 reported @73521b1 (G2-Go 444/0/3 EXIT 0; PW 28/7/1028 EXIT 1); i2 dispatched off unmerged i1 tip
+2026-10-04T00:18:31-04:00 i4 final report @8251ac9: G2-Go 454/0/3 EXIT 0; PW NOT RUN (parked)

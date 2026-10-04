@@ -34,7 +34,13 @@ park`** (medium severity, citation floor unmet; record in `.night-crew/knowledge
 3. **Measure first** — count the affected production rows (one read-only query at triage), then
    pick 1 or 2.
 
-**State:** branch `card/i4-atomic-scan-dedupe` @ `c1fc1c4` (cut from Card 3's tip), worktree
+**State:** branch `card/i4-atomic-scan-dedupe` @ `8251ac9` (code unchanged since the reviewed `c1fc1c4`; `8251ac9` adds gate logs only; cut from Card 3's tip), worktree
 preserved at `/home/jcole/projects/hq-worktrees/i4-atomic-scan-dedupe`, NOT merged to the run
 branch. Review verdict APPROVE-WITH-FINDINGS (0 P1, 1 P2 = this, 3 P3). Its roadmap line reads
 `LANDED` only on its own branch; on the run branch card I4 stays `PLANNED`.
+
+**Gates on the parked branch:** G1 exit 0; full Go suite `EXIT_TEST=0`, 454 pass / 0 fail / 3 skip,
+15 packages; `sw.js` 51, unchanged. **The full Playwright suite was NOT RUN** on this branch (the
+orchestrator pulled it off the suite lock once the card parked) — it is owed at the re-gate,
+whichever option is chosen. Without SOME cleanup step the index cannot be built on a table holding
+duplicates (`red-migration-without-cleanup.log`), so "no cleanup" is not an option.
