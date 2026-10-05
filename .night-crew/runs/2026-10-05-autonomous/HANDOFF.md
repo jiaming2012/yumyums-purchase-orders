@@ -1,5 +1,14 @@
 # HANDOFF — overnight run `20261005` (night of 2026-10-04 → morning 2026-10-05)
 
+> **TRIAGED 2026-10-05 — merged to `dev` at `57a2083`; ledger T-66 (decision 206); receipt
+> `reference/triage-20261005.md`.** Standing flags after triage:
+> - **Run not driven through night-crew's run loop — RESOLVED** (decision 206): the next launch drives the loop. Re-arms if that night's closeout reports `loop check` refused.
+> - **`atomic-scan-dedupe` full browser-suite run — cleared**: ran on the merged tree (merge 1's owed gate) and the triage reviewer's `marketing|recipes` subset.
+> - **The two un-gated behaviours under "Review findings" — filed**, B-482 (refusal screen under a throwing policy source) and B-483 (silent photo drop); the lock placement as B-484, the two error shapes as B-485, the schema-only `ON DELETE SET NULL` assertion as B-487.
+> - **Count dangling `qr_scans.subscriber_id` on production before the deploy carrying `0086` — ARMED** (B-474). **`0087` removes past repeat-tap scan rows on first deploy — ARMED as a deploy note** (decision 203, shipped as built).
+> - **`inventory.spec.js:2186` — unchanged**, B-459 (diagnosed race, no card yet); with B-478 it is the obvious Inventory Setup pairing for a coming slate.
+> - **Private scratch path per agent** (process note, card-actuals lesson 3) — moot once the loop dispatches; re-arms only if a night runs off the loop again.
+
 **Branch:** `overnight-20261005`, cut from `dev` at `588f188`. Nothing pushed, `main` untouched, no
 deploy. **Slate:** `reference/slate-20261005.md`, signed 2026-10-04. **3 cards** — Activity I's
 `atomic-scan-dedupe` and Activity J's two. Launched 22:02, closeout written ~01:10

@@ -15,9 +15,16 @@
 > this round proceeds on the close record, the backlog, and the OKR grades, and records the
 > absence.
 
-## Current state (2026-10-04, milestone "Close the loop" — 33 cards, **24 green, 7 white**, 2 retired)
+## Current state (2026-10-05, milestone "Close the loop" — 33 cards, **27 green, 4 white**, 2 retired)
 
-> **Activity J authored at the slate sitting of 2026-10-04** (two cards from triage T-64's
+> **Activities I and J are complete and triaged.** Run `overnight-20261005` landed three of three
+> cards (merge `57a2083`): Activity I's last, `atomic-scan-dedupe`, and Activity J's
+> `photo-scan-guard-and-lookup-arms` + `merge-target-and-blanking-guards`. Triage is recorded at
+> ledger **T-66** (decision 206 — the next launch drives night-crew's run loop; no night here has
+> yet). The review's leftovers are B-482 … B-487; the Inventory Setup races B-459 + B-478 remain
+> the obvious next small card.
+>
+> **Activity J was authored at the slate sitting of 2026-10-04** (two cards from triage T-64's
 > findings — the scanner photo-pick stuck state B-475 with the scan-time check's untested arms
 > B-476, and the merge-target / migration-blanking guards B-479 + B-480), slated with Activity I's
 > remaining `atomic-scan-dedupe` as `reference/slate-20261005.md`.
@@ -26,11 +33,8 @@
 > (merge `5753ddf`); its morning triage settled six forks and is recorded at ledger **T-62**
 > (decisions 194–200). Campaign admin, subscribers and the designed stats tabs are in.
 >
-> **Activity I has had its night and is triaged.** Run `overnight-20261003` landed three of four
-> cards (merge `cf0a482`): `test-integrity-fix`, `scan-time-verify`, `dish-merge-and-erasure-backstop`.
-> Triage is recorded at ledger **T-64** (decisions 203–205). `atomic-scan-dedupe` stays **PLANNED**:
-> its parked question is settled (decision 203 — ship as built), and it owes only its full
-> browser-suite run and a merge on the next slate (branch `card/i4-atomic-scan-dedupe` @ `8251ac9`).
+> **Activity I:** run `overnight-20261003` landed three of four cards (merge `cf0a482`, ledger
+> **T-64**, decisions 203–205); `atomic-scan-dedupe` landed with run `20261005` above.
 >
 > **The remaining white cards are the cycle's two open fronts.** Activity 0
 > (`redemption-unknowns-spike`, `external-accounts-provision`) still gates the spine, and
