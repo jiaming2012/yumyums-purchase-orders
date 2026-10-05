@@ -1,0 +1,132 @@
+# GREEN leg — migration 0087 (bucket + clean-up + partial unique index) and insertScan = INSERT … ON CONFLICT (short, ip_hash, bucket) WHERE ip_hash IS NOT NULL DO NOTHING
+# DB: hq_test_go_i4 on :5434; 2026-10-04T03:10:28Z; three consecutive invocations
+## invocation 1
+2026/10/03 23:10:30 OK   0087_qr_scans_dedupe_bucket.sql (69.56ms)
+2026/10/03 23:10:30 goose: successfully migrated database to version: 87
+2026/10/03 23:10:30 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:10:30 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=18e088d0-a2fd-43ab-844b-b353957b3e1a
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.33s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:10:31 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=05194dc5-99c3-40ec-bebe-b4d5c6a09ab9
+    landing_test.go:422: rows per round after 12 simultaneous hits: 1 / 1 / 1 / 1 / 1
+--- PASS: TestLandingDedupeIsAtomicUnderConcurrency (0.74s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:31 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=d2c303a3-b3e0-4878-9288-8caf114a0dfe
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.23s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:32 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=432814ee-04d0-425d-ab9a-f985d5e1ed17
+--- PASS: TestLandingCountsAgainAfterWindow (0.26s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:32 goose: no migrations to run. current version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+2026/10/03 23:10:32 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=ba81b788-b24a-4ec8-9685-ef3cc18486c0
+2026/10/03 23:10:32 OK   0087_qr_scans_dedupe_bucket.sql (18.47ms)
+2026/10/03 23:10:32 goose: no migrations to run. current version: 86
+2026/10/03 23:10:32 OK   0087_qr_scans_dedupe_bucket.sql (82.08ms)
+2026/10/03 23:10:32 goose: successfully migrated database to version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+    landing_test.go:617: migration 87 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/03 23:10:32 goose: no migrations to run. current version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+--- PASS: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.37s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:32 goose: no migrations to run. current version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+2026/10/03 23:10:32 OK   0087_qr_scans_dedupe_bucket.sql (21.31ms)
+2026/10/03 23:10:32 goose: no migrations to run. current version: 86
+2026/10/03 23:10:32 OK   0087_qr_scans_dedupe_bucket.sql (67.45ms)
+2026/10/03 23:10:32 goose: successfully migrated database to version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+2026/10/03 23:10:32 goose: no migrations to run. current version: 87
+2026/10/03 23:10:32 INFO database migrations applied successfully
+--- PASS: TestMigration0087CollapsesPreExistingDuplicates (0.46s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	2.506s
+EXIT=0
+## invocation 2
+2026/10/03 23:10:34 goose: no migrations to run. current version: 87
+2026/10/03 23:10:34 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:10:35 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=419932e5-6880-4325-92c1-acfa896a38b7
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.37s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:10:35 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=26471bea-6482-44ef-ba44-6616e9d8ac62
+    landing_test.go:422: rows per round after 12 simultaneous hits: 1 / 1 / 1 / 1 / 1
+--- PASS: TestLandingDedupeIsAtomicUnderConcurrency (0.79s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:36 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=b2535001-23d7-482a-b6f1-dcaa83b01745
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.19s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:36 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=9fb11141-4801-49e1-b01b-0f2d3464c63b
+--- PASS: TestLandingCountsAgainAfterWindow (0.34s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:36 goose: no migrations to run. current version: 87
+2026/10/03 23:10:36 INFO database migrations applied successfully
+2026/10/03 23:10:36 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=fa048720-2eee-4924-b4f1-0555a1ff86eb
+2026/10/03 23:10:36 OK   0087_qr_scans_dedupe_bucket.sql (15.87ms)
+2026/10/03 23:10:36 goose: no migrations to run. current version: 86
+2026/10/03 23:10:37 OK   0087_qr_scans_dedupe_bucket.sql (66.39ms)
+2026/10/03 23:10:37 goose: successfully migrated database to version: 87
+2026/10/03 23:10:37 INFO database migrations applied successfully
+    landing_test.go:617: migration 87 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/03 23:10:37 goose: no migrations to run. current version: 87
+2026/10/03 23:10:37 INFO database migrations applied successfully
+--- PASS: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.34s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:37 goose: no migrations to run. current version: 87
+2026/10/03 23:10:37 INFO database migrations applied successfully
+2026/10/03 23:10:37 OK   0087_qr_scans_dedupe_bucket.sql (16.82ms)
+2026/10/03 23:10:37 goose: no migrations to run. current version: 86
+2026/10/03 23:10:37 OK   0087_qr_scans_dedupe_bucket.sql (76.21ms)
+2026/10/03 23:10:37 goose: successfully migrated database to version: 87
+2026/10/03 23:10:37 INFO database migrations applied successfully
+2026/10/03 23:10:37 goose: no migrations to run. current version: 87
+2026/10/03 23:10:37 INFO database migrations applied successfully
+--- PASS: TestMigration0087CollapsesPreExistingDuplicates (0.50s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	2.579s
+EXIT=0
+## invocation 3
+2026/10/03 23:10:39 goose: no migrations to run. current version: 87
+2026/10/03 23:10:39 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:10:40 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e3eae456-689f-4979-bd61-ca60ba13ad1e
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.28s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:10:40 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a925d708-2c9e-43b6-b650-5ade690d3bf1
+    landing_test.go:422: rows per round after 12 simultaneous hits: 1 / 1 / 1 / 1 / 1
+--- PASS: TestLandingDedupeIsAtomicUnderConcurrency (0.70s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:41 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c5c33a65-d701-4b98-bacc-5f815132485d
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.30s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:41 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=fba198ce-5259-43c6-9d22-c691599fd58f
+--- PASS: TestLandingCountsAgainAfterWindow (0.24s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:41 goose: no migrations to run. current version: 87
+2026/10/03 23:10:41 INFO database migrations applied successfully
+2026/10/03 23:10:41 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=f838ae47-7200-4783-822f-6c7c4046422d
+2026/10/03 23:10:41 OK   0087_qr_scans_dedupe_bucket.sql (23.02ms)
+2026/10/03 23:10:41 goose: no migrations to run. current version: 86
+2026/10/03 23:10:41 OK   0087_qr_scans_dedupe_bucket.sql (70.43ms)
+2026/10/03 23:10:41 goose: successfully migrated database to version: 87
+2026/10/03 23:10:41 INFO database migrations applied successfully
+    landing_test.go:617: migration 87 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/03 23:10:41 goose: no migrations to run. current version: 87
+2026/10/03 23:10:41 INFO database migrations applied successfully
+--- PASS: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.44s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:42 goose: no migrations to run. current version: 87
+2026/10/03 23:10:42 INFO database migrations applied successfully
+2026/10/03 23:10:42 OK   0087_qr_scans_dedupe_bucket.sql (12.97ms)
+2026/10/03 23:10:42 goose: no migrations to run. current version: 86
+2026/10/03 23:10:42 OK   0087_qr_scans_dedupe_bucket.sql (57.28ms)
+2026/10/03 23:10:42 goose: successfully migrated database to version: 87
+2026/10/03 23:10:42 INFO database migrations applied successfully
+2026/10/03 23:10:42 goose: no migrations to run. current version: 87
+2026/10/03 23:10:42 INFO database migrations applied successfully
+--- PASS: TestMigration0087CollapsesPreExistingDuplicates (0.44s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	2.451s
+EXIT=0

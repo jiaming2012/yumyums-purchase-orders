@@ -1,0 +1,227 @@
+# RED leg — tree: card-3 tip 4adf1ad + the insertScan seam around the SHIPPED statement (INSERT … SELECT … WHERE NOT EXISTS), NO migration 0087.
+# The seam is behaviour-neutral: the statement text and its five parameters are the shipped ones.
+# DB: hq_test_go_i4 on :5434 (fresh, schema at 86); 2026-10-04T03:09:52Z; three consecutive invocations
+## invocation 1
+2026/10/03 23:09:55 OK   0001_users.sql (45.16ms)
+2026/10/03 23:09:55 OK   0002_sessions.sql (53.69ms)
+2026/10/03 23:09:55 OK   0003_invite_tokens.sql (43.79ms)
+2026/10/03 23:09:55 OK   0004_hq_apps.sql (43.65ms)
+2026/10/03 23:09:55 OK   0005_app_permissions.sql (58.77ms)
+2026/10/03 23:09:55 OK   0006_checklist_templates.sql (37.48ms)
+2026/10/03 23:09:55 OK   0007_checklist_schedules.sql (41.03ms)
+2026/10/03 23:09:55 OK   0008_template_assignments.sql (61.88ms)
+2026/10/03 23:09:55 OK   0009_checklist_sections.sql (33.82ms)
+2026/10/03 23:09:55 OK   0010_checklist_fields.sql (37.32ms)
+2026/10/03 23:09:55 OK   0011_checklist_submissions.sql (46.27ms)
+2026/10/03 23:09:55 OK   0012_submission_responses.sql (55.75ms)
+2026/10/03 23:09:56 OK   0013_submission_fail_notes.sql (30.55ms)
+2026/10/03 23:09:56 OK   0014_submission_rejections.sql (30.58ms)
+2026/10/03 23:09:56 OK   0015_ops.sql (60.71ms)
+2026/10/03 23:09:56 OK   0016_lamport_ts.sql (15.08ms)
+2026/10/03 23:09:56 OK   0017_users_naming.sql (17.31ms)
+2026/10/03 23:09:56 OK   0018_ob_templates.sql (64.31ms)
+2026/10/03 23:09:56 OK   0019_ob_items.sql (68.72ms)
+2026/10/03 23:09:56 OK   0020_ob_progress.sql (51.91ms)
+2026/10/03 23:09:56 OK   0021_ob_signoffs.sql (45.1ms)
+2026/10/03 23:09:56 OK   0022_ob_template_assignments.sql (64.78ms)
+2026/10/03 23:09:56 OK   0023_multi_role.sql (85.08ms)
+2026/10/03 23:09:56 OK   0024_inventory.sql (246.79ms)
+2026/10/03 23:09:56 OK   0025_pending_purchases.sql (48.3ms)
+2026/10/03 23:09:56 OK   0026_ob_progress_faq.sql (11.46ms)
+2026/10/03 23:09:56 OK   0027_ob_section_signoff_roles.sql (7.73ms)
+2026/10/03 23:09:56 OK   0028_ob_video_upgrade.sql (17.82ms)
+2026/10/03 23:09:56 OK   0029_ob_templates_archived_at.sql (8.46ms)
+2026/10/03 23:09:56 OK   0030_item_groups_unique_name.sql (30.6ms)
+2026/10/03 23:09:56 OK   0031_remove_placeholder_items.sql (11.05ms)
+2026/10/03 23:09:56 OK   0032_item_group_thresholds.sql (15.13ms)
+2026/10/03 23:09:56 OK   0033_stock_count_overrides.sql (37.19ms)
+2026/10/03 23:09:57 OK   0034_purchase_orders.sql (89.63ms)
+2026/10/03 23:09:57 OK   0035_purchase_items_photo_store.sql (13.87ms)
+2026/10/03 23:09:57 OK   0036_purchase_items_full_name.sql (14.66ms)
+2026/10/03 23:09:57 OK   0037_cutoff_config.sql (38.76ms)
+2026/10/03 23:09:57 OK   0038_po_status_extend.sql (22.9ms)
+2026/10/03 23:09:57 OK   0039_purchase_items_vendor.sql (23.43ms)
+2026/10/03 23:09:57 OK   0040_shopping_lists.sql (140.98ms)
+2026/10/03 23:09:57 OK   0041_notification_channel.sql (14.68ms)
+2026/10/03 23:09:57 OK   0042_repurchase_tracking.sql (70.45ms)
+2026/10/03 23:09:57 OK   0043_alert_log.sql (54.2ms)
+2026/10/03 23:09:57 OK   0044_low_stock_alert_log.sql (58.89ms)
+2026/10/03 23:09:57 OK   0045_notification_channel_array.sql (52.13ms)
+2026/10/03 23:09:57 OK   0046_user_timezone.sql (11.91ms)
+2026/10/03 23:09:57 OK   0047_employee_fields.sql (67.82ms)
+2026/10/03 23:09:57 OK   0048_notification_default_both.sql (11.04ms)
+2026/10/03 23:09:57 OK   0049_ob_sub_items.sql (45.17ms)
+2026/10/03 23:09:57 OK   0050_ob_progress_sub_item.sql (12.54ms)
+2026/10/03 23:09:57 OK   0051_rejection_field_fk.sql (12.3ms)
+2026/10/03 23:09:57 OK   0052_template_name_unique.sql (21.88ms)
+2026/10/03 23:09:57 OK   0053_response_field_fk.sql (10.9ms)
+2026/10/03 23:09:57 OK   0054_failnote_field_fk.sql (14.34ms)
+2026/10/03 23:09:57 OK   0055_item_location_in_store.sql (7.27ms)
+2026/10/03 23:09:57 OK   0056_ob_progress_photo.sql (19.78ms)
+2026/10/03 23:09:57 OK   0057_ob_items_photo_type.sql (20.66ms)
+2026/10/03 23:09:57 OK   0058_ob_sub_items_photos.sql (23.2ms)
+2026/10/03 23:09:57 OK   0059_cleanup_photo_items.sql (15.76ms)
+2026/10/03 23:09:57 OK   0060_menu_items.sql (83.73ms)
+2026/10/03 23:09:57 OK   0061_daily_menu_sales.sql (54.19ms)
+2026/10/03 23:09:58 OK   0062_recipes.sql (55.59ms)
+2026/10/03 23:09:58 OK   0063_drift_check_results.sql (37.4ms)
+2026/10/03 23:09:58 OK   0064_no_itemized_receipt_seed.sql (21.94ms)
+2026/10/03 23:09:58 OK   0065_mercury_category_on_purchase_events.sql (18.45ms)
+2026/10/03 23:09:58 OK   0066_mercury_category_on_pending_purchases.sql (23.21ms)
+2026/10/03 23:09:58 OK   0067_receipt_sync_runs.sql (181.32ms)
+2026/10/03 23:09:58 OK   0068_pending_purchases_bank_tx_uniq.sql (32.29ms)
+2026/10/03 23:09:58 OK   0069_pending_purchases_parse_error.sql (16.44ms)
+2026/10/03 23:09:58 OK   0070_receipt_urls.sql (21.31ms)
+2026/10/03 23:09:58 OK   0071_submission_fail_notes_unique.sql (34.06ms)
+2026/10/03 23:09:58 OK   0072_app_timezone_new_york.sql (27.01ms)
+2026/10/03 23:09:58 OK   0073_sync_fdw_views.sql (38.97ms)
+2026/10/03 23:09:58 OK   0074_sync_fdw_approver_view.sql (12.26ms)
+2026/10/03 23:09:58 OK   0075_item_aliases.sql (67.03ms)
+2026/10/03 23:09:58 OK   0076_checklist_template_app.sql (27.02ms)
+2026/10/03 23:09:58 OK   0077_race_lost_notifications.sql (50.39ms)
+2026/10/03 23:09:58 OK   0078_card_holder_on_purchases.sql (15.45ms)
+2026/10/03 23:09:58 OK   0079_pending_purchases_retry_requested.sql (22.33ms)
+2026/10/03 23:09:58 OK   0080_receipt_sync_runs_cancelled.sql (13.43ms)
+2026/10/03 23:09:58 OK   0081_item_alias_display.sql (26.52ms)
+2026/10/03 23:09:58 OK   0082_bi_grants.sql (21.84ms)
+2026/10/03 23:09:58 OK   0083_campaigns_admin.sql (103.1ms)
+2026/10/03 23:09:59 OK   0084_toast_orders_reconciliation.sql (278.01ms)
+2026/10/03 23:09:59 OK   0085_subscribers.sql (134.15ms)
+2026/10/03 23:09:59 OK   0086_merge_repoint_and_erasure_backstop.sql (37.36ms)
+2026/10/03 23:09:59 goose: successfully migrated database to version: 86
+2026/10/03 23:09:59 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:09:59 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a19a1193-6a64-4af9-ae82-5230805671dd
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.32s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:09:59 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a0fd2941-eeea-4a42-a7a7-39fcf2e75e44
+    landing_test.go:418: round 0: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 1: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 2: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 3: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 4: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:422: rows per round after 12 simultaneous hits: 12 / 12 / 12 / 12 / 12
+--- FAIL: TestLandingDedupeIsAtomicUnderConcurrency (0.80s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:00 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=3bff1cc4-b7b8-46b3-b0ac-b3e8e5936943
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.26s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:00 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=0918587b-5562-407d-aa64-7ff5da0a1eb7
+    landing_test.go:498: (b) rows = 1 for two scans either side of a bucket edge, want 2 (tumbling bucket, not a sliding window)
+    landing_test.go:506: (c) rows = 1 after a repeat inside the same bucket, want still 2
+--- FAIL: TestLandingCountsAgainAfterWindow (0.27s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:01 goose: no migrations to run. current version: 86
+2026/10/03 23:10:01 INFO database migrations applied successfully
+2026/10/03 23:10:01 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=b55da454-bada-4857-82ec-ff9d64d03a5a
+    landing_test.go:597: at HEAD: qr_scans.bucket is not a generated column
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "UNIQUE"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "(short, ip_hash, bucket)"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "WHERE (ip_hash IS NOT NULL)"
+    landing_test.go:599: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:01 goose: no migrations to run. current version: 86
+2026/10/03 23:10:01 INFO database migrations applied successfully
+--- FAIL: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.25s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:01 goose: no migrations to run. current version: 86
+2026/10/03 23:10:01 INFO database migrations applied successfully
+    landing_test.go:665: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:01 goose: no migrations to run. current version: 86
+2026/10/03 23:10:01 INFO database migrations applied successfully
+--- FAIL: TestMigration0087CollapsesPreExistingDuplicates (0.31s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	6.177s
+FAIL
+EXIT=1
+## invocation 2
+2026/10/03 23:10:03 goose: no migrations to run. current version: 86
+2026/10/03 23:10:03 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:10:03 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=0fd7b02e-7e58-4ad6-a5c4-477d18443adc
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.30s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:10:04 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e1e443af-c906-4a79-85dd-0120b3367889
+    landing_test.go:418: round 0: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 1: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 2: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 3: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 4: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:422: rows per round after 12 simultaneous hits: 12 / 12 / 12 / 12 / 12
+--- FAIL: TestLandingDedupeIsAtomicUnderConcurrency (0.65s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:04 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=da80a9ca-66b6-4d56-ae58-19b5ab725af4
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.22s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:04 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=4397730a-3b05-44fa-93c5-e5fb8c0a8bec
+    landing_test.go:498: (b) rows = 1 for two scans either side of a bucket edge, want 2 (tumbling bucket, not a sliding window)
+    landing_test.go:506: (c) rows = 1 after a repeat inside the same bucket, want still 2
+--- FAIL: TestLandingCountsAgainAfterWindow (0.25s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:05 goose: no migrations to run. current version: 86
+2026/10/03 23:10:05 INFO database migrations applied successfully
+2026/10/03 23:10:05 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=2859efdc-ad56-40db-8305-2e4f0338cb77
+    landing_test.go:597: at HEAD: qr_scans.bucket is not a generated column
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "UNIQUE"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "(short, ip_hash, bucket)"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "WHERE (ip_hash IS NOT NULL)"
+    landing_test.go:599: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:05 goose: no migrations to run. current version: 86
+2026/10/03 23:10:05 INFO database migrations applied successfully
+--- FAIL: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.28s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:05 goose: no migrations to run. current version: 86
+2026/10/03 23:10:05 INFO database migrations applied successfully
+    landing_test.go:665: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:05 goose: no migrations to run. current version: 86
+2026/10/03 23:10:05 INFO database migrations applied successfully
+--- FAIL: TestMigration0087CollapsesPreExistingDuplicates (0.40s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	2.149s
+FAIL
+EXIT=1
+## invocation 3
+2026/10/03 23:10:07 goose: no migrations to run. current version: 86
+2026/10/03 23:10:07 INFO database migrations applied successfully
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/03 23:10:07 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=58856e42-56b2-4c40-8289-5b5a6f4c78f9
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.34s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/03 23:10:07 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=63a2f882-8c40-4434-a9e1-d6cdc5ca618d
+    landing_test.go:418: round 0: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 1: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 2: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 3: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:418: round 4: 12 qr_scans rows after 12 simultaneous hits from one (short, ip_hash), want exactly 1
+    landing_test.go:422: rows per round after 12 simultaneous hits: 12 / 12 / 12 / 12 / 12
+--- FAIL: TestLandingDedupeIsAtomicUnderConcurrency (0.87s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/03 23:10:08 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=8eb3af33-5677-49db-b00e-a5196858fd3d
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.25s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/03 23:10:08 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=d9af30e0-5987-4072-8a0b-86ed401a94ab
+    landing_test.go:498: (b) rows = 1 for two scans either side of a bucket edge, want 2 (tumbling bucket, not a sliding window)
+    landing_test.go:506: (c) rows = 1 after a repeat inside the same bucket, want still 2
+--- FAIL: TestLandingCountsAgainAfterWindow (0.22s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/03 23:10:09 goose: no migrations to run. current version: 86
+2026/10/03 23:10:09 INFO database migrations applied successfully
+2026/10/03 23:10:09 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c50782c6-b5a7-4dec-a5d0-e9c1319a0659
+    landing_test.go:597: at HEAD: qr_scans.bucket is not a generated column
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "UNIQUE"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "(short, ip_hash, bucket)"
+    landing_test.go:597: at HEAD: qr_scans_dedupe_idx = "", want it to contain "WHERE (ip_hash IS NOT NULL)"
+    landing_test.go:599: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:09 goose: no migrations to run. current version: 86
+2026/10/03 23:10:09 INFO database migrations applied successfully
+--- FAIL: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.32s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:10:09 goose: no migrations to run. current version: 86
+2026/10/03 23:10:09 INFO database migrations applied successfully
+    landing_test.go:665: no *_qr_scans_dedupe_bucket.sql migration found in ../db/migrations
+2026/10/03 23:10:09 goose: no migrations to run. current version: 86
+2026/10/03 23:10:09 INFO database migrations applied successfully
+--- FAIL: TestMigration0087CollapsesPreExistingDuplicates (0.27s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	2.317s
+FAIL
+EXIT=1
