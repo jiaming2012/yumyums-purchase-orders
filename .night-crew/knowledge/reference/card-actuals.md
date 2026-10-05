@@ -1478,3 +1478,37 @@ code committed, "report" is dispatch → the card's own gates reported.
 **No size-class range moves on this evidence** for implementation legs (all four built inside their
 class range). The moves are per-night overheads: full suite 37 m → 55 m, and the lock as a serial
 resource.
+
+## Run `20261005` (night of 2026-10-04 → 05) — 3 cards, concurrent 2 tracks, 3 of 3 landed
+
+Launched 22:02, closeout ~01:10 (≈3 h 10 m; slate projected 4 h 40 m – 5 h 45 m concurrent).
+
+| Card | Class | Slate (use) | Code | Report | Review | Fix round | Merge | Outcome |
+|---|---|---|---|---|---|---|---|---|
+| `atomic-scan-dedupe` (I4) | small-additive (merge + owed gate) | 100 m | — (merge ~2 m) | owed gate reported 00:55: Go 4 m, full Playwright 49 m, ≈57 m + ≈53 m queued on the suite lock | none new | — | 22:04 | landed `f980e12` |
+| `merge-target-and-blanking-guards` (J2) | followup-batch | 90 m | ~29 m (code + confined gates + seam isolation) | 29 m | 7 m | wording, ~2 m | 22:42 | landed `42fbd67` |
+| `photo-scan-guard-and-lookup-arms` (J1) | followup-batch, risk | 150 m | ~31 m (incl. four mutation runs) | 31 m | 11 m | wording, ~2 m | 22:46 | landed `b0bc48c` |
+
+**What the night teaches the next slate:**
+
+1. **Review-specified defects with a spike recipe build in about half an hour each.** Both
+   followup-batch cards came in at ~30 m code-to-report against 90 / 150 m slated; every clause had a
+   reproduction and a named mutation before the night began. The estimates were priced for a full
+   suite per card, which confined gates removed.
+2. **The lock was three full browser suites, 49–52 m each (base, Card 1's owed, final), strictly
+   serial — ≈2 h 35 m of the night's 3 h 10 m.** 55 m per suite remains the right price. All three
+   cards were merged by 22:46; everything after that was waiting on the lock.
+3. **Give every agent a private scratch path.** Two agents shared one scratch directory; one
+   overwrote the other's wrapper script. Cost: the base suite's exit code, and ~8 idle minutes of
+   lock held by an orphaned server.
+4. **Run the base with the same retries setting as the suites it is compared against, and say
+   which.** Tonight all three used the config's one retry (so "failed" and "flaky" are separate
+   columns); run 20261003's base used none. Lists across the two nights are not like-for-like.
+5. **A slate that names a fallback gate should have someone read that gate first.** The slate named
+   `campaigns-run.sh` as the fallback gate for the throwing-policy arm; it never passes a throwing
+   source.
+6. **Hand-provisioning the stack from the start worked every time** — no `webServer` timeout
+   tonight (three last run).
+
+**No size-class range moves on this evidence** — both builds were inside their class range (well
+inside). The per-night overheads stand: full suite 55 m, the lock a serial resource.

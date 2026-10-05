@@ -1,0 +1,153 @@
+# isolation batch start 2026-10-05T00:47:18-04:00. runs=3 per test per tree, DB reset + server restart before every run, --retries=0 --workers=1. final tree :8271 db hq_test_e2e_final_20261005; base tree (588f188) :8272 db hq_test_e2e_finalbase_20261005, server built from base tree. HQ_SYNC_SUBSTRATE_OPTIONAL=[UNSET] HQ_SYNC_GATE_CHILD=[UNSET]
+# waiting for lock 2026-10-05T00:47:18-04:00
+# lock acquired 2026-10-05T00:48:59-04:00
+RESULT tree=final target=tests/inventory.spec.js:2186 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (9.2s);] 2026-10-05T00:49:15-04:00
+RESULT tree=final target=tests/inventory.spec.js:2186 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (9.5s);] 2026-10-05T00:49:30-04:00
+RESULT tree=final target=tests/inventory.spec.js:2186 run=3 reset=0 EXIT_PW=1 RED [ 1 failed;] 2026-10-05T00:49:53-04:00
+--- failure excerpt (final tests/inventory.spec.js:2186 run 3)
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames (11.0s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.item-edit-form[data-item-id="76250dd3-6f16-40f2-8dc8-e3b22f7b07db"]').locator('.alias-chip')
+    Expected: [32m2[39m
+    Received: [31m1[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.item-edit-form[data-item-id="76250dd3-6f16-40f2-8dc8-e3b22f7b07db"]').locator('.alias-chip')[22m
+    [2m    9 × locator resolved to 1 element[22m
+    [2m      - unexpected value "1"[22m
+
+
+      2212 |     await form.locator('.item-alias-input').fill(typedAlias);
+      2213 |     await form.locator('button[data-action="add-item-alias"]').click();
+    > 2214 |     await expect(form.locator('.alias-chip')).toHaveCount(2);
+           |                                               ^
+      2215 |     await expect(form.locator('.alias-chips')).toContainText(typedAlias);
+      2216 |     // Remove the seeded one
+      2217 |     await form.locator('.alias-chip-x[data-alias="' + seededAlias + '"]').click();
+
+    Error Context: test-results/inventory-Inventory-Setup--fe902--adds-and-removes-nicknames-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames 
+---
+RESULT tree=base target=tests/inventory.spec.js:2186 run=1 reset=0 EXIT_PW=1 RED [ 1 failed;] 2026-10-05T00:50:12-04:00
+--- failure excerpt (base tests/inventory.spec.js:2186 run 1)
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames (12.1s)
+
+
+  1) [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.item-edit-form[data-item-id="faf61120-4941-4705-97b6-b4e7c3e417fe"]').locator('.alias-chip')
+    Expected: [32m2[39m
+    Received: [31m1[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.item-edit-form[data-item-id="faf61120-4941-4705-97b6-b4e7c3e417fe"]').locator('.alias-chip')[22m
+    [2m    9 × locator resolved to 1 element[22m
+    [2m      - unexpected value "1"[22m
+
+
+      2212 |     await form.locator('.item-alias-input').fill(typedAlias);
+      2213 |     await form.locator('button[data-action="add-item-alias"]').click();
+    > 2214 |     await expect(form.locator('.alias-chip')).toHaveCount(2);
+           |                                               ^
+      2215 |     await expect(form.locator('.alias-chips')).toContainText(typedAlias);
+      2216 |     // Remove the seeded one
+      2217 |     await form.locator('.alias-chip-x[data-alias="' + seededAlias + '"]').click();
+
+    Error Context: test-results/inventory-Inventory-Setup--fe902--adds-and-removes-nicknames-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames 
+---
+RESULT tree=base target=tests/inventory.spec.js:2186 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.2s);] 2026-10-05T00:50:24-04:00
+RESULT tree=base target=tests/inventory.spec.js:2186 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.5s);] 2026-10-05T00:50:40-04:00
+RESULT tree=final target=tests/onboarding.spec.js:2233 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.1s);] 2026-10-05T00:50:51-04:00
+RESULT tree=final target=tests/onboarding.spec.js:2233 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.5s);] 2026-10-05T00:51:05-04:00
+RESULT tree=final target=tests/onboarding.spec.js:2233 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.3s);] 2026-10-05T00:51:18-04:00
+RESULT tree=base target=tests/onboarding.spec.js:2233 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.0s);] 2026-10-05T00:51:29-04:00
+RESULT tree=base target=tests/onboarding.spec.js:2233 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.2s);] 2026-10-05T00:51:42-04:00
+RESULT tree=base target=tests/onboarding.spec.js:2233 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (5.1s);] 2026-10-05T00:51:53-04:00
+RESULT tree=final target=tests/inventory.spec.js:1469 run=1 reset=0 EXIT_PW=1 RED [ 1 failed;] 2026-10-05T00:52:10-04:00
+--- failure excerpt (final tests/inventory.spec.js:1469 run 1)
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab (7.1s)
+
+
+  1) [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab ───────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveValue[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('.item-edit-form .item-edit-name')
+    Expected: [32m"Test Item 1791175924674"[39m
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toHaveValue" with timeout 5000ms[22m
+    [2m  - waiting for locator('.item-edit-form .item-edit-name')[22m
+
+
+      1480 |     // the edit form, which proves the item was created AND the auto-open fired.
+      1481 |     const editName = page.locator('.item-edit-form .item-edit-name');
+    > 1482 |     await expect(editName).toHaveValue(itemName, { timeout: 5000 });
+           |                            ^
+      1483 |   });
+      1484 |
+      1485 |   // ── Item dropdown in receipt review ────────────────────────────────────
+
+    Error Context: test-results/inventory-Inventory-create-new-item-via-Items-tab-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab ────────
+---
+RESULT tree=final target=tests/inventory.spec.js:1469 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.5s);] 2026-10-05T00:52:20-04:00
+RESULT tree=final target=tests/inventory.spec.js:1469 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.3s);] 2026-10-05T00:52:31-04:00
+RESULT tree=base target=tests/inventory.spec.js:1469 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.4s);] 2026-10-05T00:52:42-04:00
+RESULT tree=base target=tests/inventory.spec.js:1469 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.7s);] 2026-10-05T00:52:52-04:00
+RESULT tree=base target=tests/inventory.spec.js:1469 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.7s);] 2026-10-05T00:53:04-04:00
+RESULT tree=final target=tests/inventory.spec.js:2145 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.9s);] 2026-10-05T00:53:14-04:00
+RESULT tree=final target=tests/inventory.spec.js:2145 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (4.1s);] 2026-10-05T00:53:26-04:00
+RESULT tree=final target=tests/inventory.spec.js:2145 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.9s);] 2026-10-05T00:53:38-04:00
+RESULT tree=base target=tests/inventory.spec.js:2145 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.8s);] 2026-10-05T00:53:48-04:00
+RESULT tree=base target=tests/inventory.spec.js:2145 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.8s);] 2026-10-05T00:53:59-04:00
+RESULT tree=base target=tests/inventory.spec.js:2145 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (3.7s);] 2026-10-05T00:54:09-04:00
+RESULT tree=final target=tests/sw-api-cache-partition.spec.js:92 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.1s);] 2026-10-05T00:54:25-04:00
+RESULT tree=final target=tests/sw-api-cache-partition.spec.js:92 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.4s);] 2026-10-05T00:54:40-04:00
+RESULT tree=final target=tests/sw-api-cache-partition.spec.js:92 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.0s);] 2026-10-05T00:54:55-04:00
+RESULT tree=base target=tests/sw-api-cache-partition.spec.js:92 run=1 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.4s);] 2026-10-05T00:55:10-04:00
+RESULT tree=base target=tests/sw-api-cache-partition.spec.js:92 run=2 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.1s);] 2026-10-05T00:55:26-04:00
+RESULT tree=base target=tests/sw-api-cache-partition.spec.js:92 run=3 reset=0 EXIT_PW=0 GREEN [ 1 passed (8.4s);] 2026-10-05T00:55:40-04:00
+# ports after batch: [0] listeners
+# lock released 2026-10-05T00:55:40-04:00
+
+## TALLY (alone, red/green of 3; no test was red 2-of-3 or worse on the final tree, so no 5-run extension was owed)
+tests/inventory.spec.js:2186 tree=final red=1 green=2
+tests/inventory.spec.js:2186 tree=base red=1 green=2
+tests/onboarding.spec.js:2233 tree=final red=0 green=3
+tests/onboarding.spec.js:2233 tree=base red=0 green=3
+tests/inventory.spec.js:1469 tree=final red=1 green=2
+tests/inventory.spec.js:1469 tree=base red=0 green=3
+tests/inventory.spec.js:2145 tree=final red=0 green=3
+tests/inventory.spec.js:2145 tree=base red=0 green=3
+tests/sw-api-cache-partition.spec.js:92 tree=final red=0 green=3
+tests/sw-api-cache-partition.spec.js:92 tree=base red=0 green=3

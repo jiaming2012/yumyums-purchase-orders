@@ -1,0 +1,37 @@
+# Team scorecard — 7 runs (latest 20261005)
+
+Window: every run — milestone "hq-20260903" was marked before any run existed.
+
+## Red flags
+
+None.
+
+## Milestone progress
+
+**Milestone "Close the loop" — card count unavailable; 1 regression escaped since it opened.**
+
+- Window: every run — milestone "hq-20260903" was marked before any run existed. Name from the OKR page's milestone descriptor.
+- Cards: not counted — no roadmap in this repo carries an activity named "Close the loop". No card figure is shown rather than a denominator this report cannot stand behind.
+- Key results: none of the 15 key results could be graded — the OKR page, graded against run 20261005. That is a gap in what is measurable, not a score of zero.
+- Delivery: 7 runs closed; 25 of 27 work orders merged and standing; 54 points completed; 1 regression (run scorecard records).
+- Finish date: not computed, and deliberately so. Nothing the scorecard reads records a target date or when each card was finished, so this section reports progress to date — not a projection, not a rate, and no claim that the remaining work fits the time left. Recording those two facts is what a schedule verdict would need.
+
+## Teams
+
+| Team | Runs | Rating | Trend | Value per token | Trend | Points done | Regressions |
+|---|---|---|---|---|---|---|---|
+| product | 7 | 78 | ↓ | 0.01 | → | 12 | 0 |
+| delivery | 7 | 80 | ↓ | 0.01 | → | 14 | 0 |
+| engineering | 7 | 88 | → | 0.01 | → | 16 | 0 |
+| qa | 7 | 84 | ↓ | 0.01 | → | 12 | 0 |
+
+Latest run 20261005: 3 of 3 work orders merged and standing; velocity 1.00; first-pass rate 1.00; escape rate 0.00; spend 0.
+
+## Decisions
+
+35 gray areas routed through the resolver: 3 auto-resolved, 32 escalated — an auto-resolution rate of 9%.
+Citation-floor compliance: 100% of auto-resolutions met the floor for their severity.
+Constitutional-tier decisions: 0, of which 0 auto-resolved.
+15 decisions logged for a run that has not been executed yet, counted here but shown against no run.
+
+EXIT_SCORECARD=0

@@ -1,0 +1,32 @@
+# merge1 isolation, run 20261005, SHA f980e12012baa1a88bb1d64cd712417bbb27e288. Each run: DB reset + server restart, --retries=0, alone. start 2026-10-04T23:55:39-04:00
+# waiting for lock 2026-10-04T23:55:39-04:00
+# lock acquired 2026-10-05T00:48:21-04:00
+── reset hq_test_e2e_c1_20261005 on localhost:5434 ──
+EXIT_RESET=0
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab (1.9s)
+
+  1 passed (3.7s)
+EXIT_ISO[tests/inventory.spec.js:1469 run 1]=0
+── reset hq_test_e2e_c1_20261005 on localhost:5434 ──
+EXIT_RESET=0
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab (2.2s)
+
+  1 passed (3.8s)
+EXIT_ISO[tests/inventory.spec.js:1469 run 2]=0
+── reset hq_test_e2e_c1_20261005 on localhost:5434 ──
+EXIT_RESET=0
+
+Running 1 test using 1 worker
+
+  ✓  1 [chromium] › tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab (1.9s)
+
+  1 passed (3.9s)
+EXIT_ISO[tests/inventory.spec.js:1469 run 3]=0
+# port 8231 after stop: []
+# end 2026-10-05T00:48:59-04:00

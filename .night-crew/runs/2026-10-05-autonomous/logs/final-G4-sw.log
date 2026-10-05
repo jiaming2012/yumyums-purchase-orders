@@ -1,0 +1,9 @@
+# final G4 sw.js regen at HEAD aa7545d 2026-10-04T22:47:56-04:00
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3122.9 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+diff-stat-after-run-1: []
+EXIT_SW2=0
+diff-stat-after-run-2: []
+revision entries: 51

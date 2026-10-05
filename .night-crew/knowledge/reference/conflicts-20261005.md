@@ -89,3 +89,34 @@ One entry per merge onto `overnight-20261005`, clean or conflicted (§15ad.66). 
   3. A photo picked during the wait is dropped with no feedback of its own; one picked while an
      earlier photo is still decoding is dropped with no "Checking…" text at all. Within the
      slate's "no new copy".
+
+## Merge 1 — gate result (the OWED full gate on `f980e12`)
+
+- **G1:** `EXIT_BUILD=0`, `EXIT_VET=0`.
+- **Full Go (`-p 1`, under the lock):** `EXIT_TEST=0` — 454 pass / 0 fail / 3 skip, 15 packages;
+  base tonight 449 / 0 / 3, so +5 as the slate predicted. The five named tests passed by name;
+  `0087`'s Down round-trip passed as `TestMigration0087DedupeBucketDownAndUpRoundTrip`;
+  `TestRowVisibilityRLS` 59 subtests (`logs/merge1-G1-G2go.log`).
+- **Full Playwright (under the lock, one summary block, config retries = 1):** `EXIT_PW=1` —
+  22 failed / 2 flaky / 7 skipped / 1041 passed, 49.1 m. Tonight's base on `dev@588f188`, same
+  retries setting: 24 failed / 2 flaky / 7 skipped / 1039 passed. **No failed test outside the base
+  set**; `logs/merge1-reds.txt`, `logs/base-reds.txt`.
+- **Isolation:** the one first-attempt red outside tonight's base, `inventory.spec.js:1469`
+  (green on retry in the suite; it IS in run 20261003's base list), ran alone 3× on the merged
+  tree: 0 red / 3 green (`logs/merge1-isolation.log`). It was not isolated on the base tree — a
+  test that never reds alone on the merged tree leaves nothing to compare.
+- **Verdict against the card's done_when:** met — no red reproduces only on the merged tree.
+
+## Final tree `aa7545d` — the combined gate for merges 2 and 3
+
+G1 0 / 0; full Go `EXIT_TEST=0`, 456 / 0 / 3; full Playwright `EXIT_PW=1`, 23 failed / 5 flaky /
+7 skipped / 1044 passed against tonight's base 24 / 2 / 7 / 1039; marketing 70 / 70. Two failed
+tests outside base — `inventory.spec.js:2186` (1 red of 3 alone on BOTH trees, same message) and
+`onboarding.spec.js:2233` (0 of 3 on both) — neither exclusive to the merged tree. `sw.js` 51,
+reproduces. Detail and the isolation table: `HANDOFF.md` "Reds", `logs/final-isolation.log`.
+
+**Summary:** three merges, one conflict (merge 1, `roadmap.md`, the card's own status line,
+resolved as the slate prescribed), two clean. No merge needed a judgment between two cards'
+behaviour; no card parked on a conflict. Two fix rounds after review, both wording only — nothing
+to diff-check beyond the two docs/comment diffs and no mutation to re-run. The closeout commit
+touches no evidence artefact a review signed (B-467): the card log directories are as merged.
