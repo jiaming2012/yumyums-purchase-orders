@@ -1,0 +1,25 @@
+# merge2 confined gates at 42fbd67 2026-10-04T22:42:01-04:00
+EXIT_BUILD=0
+EXIT_VET=0
+CREATE DATABASE
+EXIT_TEST=1
+pass=77 fail=56 skip=1
+--- FAIL: TestMergeMenuItem_MissingTargetIsRefused (0.07s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	2.301s
+--- PASS: TestMigration0086BlanksDanglingScanReferences (0.81s)
+ok  	github.com/yumyums/hq/internal/marketing	31.892s
+FAIL
+  skipped (not in HEAD): backlog-round.html
+SW built: 51 files precached (3121.1 KB)
+Frontend version: 1.10.2
+EXIT_SW=0
+sw diff lines: 0; precache: 51
+# run 1 above was INVALID for recipes: the database was created empty and recipes ran before any package had migrated it (setupTestDB truncate: relation drift_check_results does not exist) — an unprepared database, not a card defect. Re-run, marketing first so the schema exists: 2026-10-04T22:44:20-04:00
+EXIT_TEST=0
+pass=133 fail=0 skip=1
+--- PASS: TestMigration0086BlanksDanglingScanReferences (0.68s)
+ok  	github.com/yumyums/hq/internal/marketing	25.003s
+--- PASS: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.84s)
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (2.27s)
+ok  	github.com/yumyums/hq/internal/recipes	47.139s

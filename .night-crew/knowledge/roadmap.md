@@ -1077,7 +1077,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### merge-target-and-blanking-guards
 
-- `merge-target-and-blanking-guards` · **LANDED** (run `20261005`, branch `card/j2-merge-target-and-blanking-guards`) · (J2, track B — **B-479**, **B-480**) Today
+- `merge-target-and-blanking-guards` · **LANDED** (run `20261005`, branch `card/j2-merge-target-and-blanking-guards`, merge `42fbd67`) · (J2, track B — **B-479**, **B-480**) Today
   `recipes.MergeMenuItem` re-points recipes, campaigns and codes to the target and deletes the
   source without ever checking the target exists, so `POST /api/v1/inventory/recipes/merge` with a
   bogus target id and an unattached source returns 200 `{"rows_re_pointed":0}` and the source dish

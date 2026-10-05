@@ -2,3 +2,8 @@
 2026-10-04T22:02:16-04:00 env-up reconcile EXIT=0 GREEN
 2026-10-04T22:03:22-04:00 dispatch base-reds + card2 (j1) implementer; card1 merge begins
 2026-10-04T22:04:12-04:00 merge1 card1 (i4) -> f980e12, roadmap conflict resolved per slate; sw 51 idempotent; owed gate + card3 dispatch next
+2026-10-04T22:05:07-04:00 dispatched: card1 owed gate (G1 + full Go + full PW on f980e12, queued on lock) + card3 (j2) implementer off 3bd6a9b
+2026-10-04T22:11:44-04:00 card1 gate interim: full Go on f980e12 EXIT_TEST=0 454/0/3 15pkg (agent-reported; PW leg queued on lock)
+2026-10-04T22:34:40-04:00 card3 (j2) reported @51fcfb2: reds->greens both, G1 0/0, recipes 61/0/0, marketing 72/0/1, seam 244/19/1 (16 in prior base set, :2931 + :2406 flake both trees, :2112 unexplained 1x); G6 j2 dispatched
+2026-10-04T22:35:16-04:00 card2 (j1) reported @dcc5ad4: PS-01 red->green, 4 mutation reds, marketing 70/0/0 retries=0, sw 51, G1 0/0; guard widened to scanText (stated), SV-11 predicate-level only, campaigns-run.sh said NOT to gate that arm; G6 j1 dispatched
+2026-10-04T22:44:33-04:00 G6 j2 @51fcfb2 APPROVE-WITH-FINDINGS (0 blocking, 3 record, 3 note); records corrected dc36a51; merge2 j2 -> 42fbd67 CLEAN; G1 0/0, confined Go 133/0/1 (first run invalid: unmigrated db, orchestrator error), sw 51
