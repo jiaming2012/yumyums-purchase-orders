@@ -1,0 +1,6 @@
+# G1 — card photo-scan-guard-and-lookup-arms, HEAD=951b8ea, 2026-10-05T02:33:09Z
+# (no backend/ file is touched by this card: git diff --stat overnight-20261005..HEAD -- backend = '')
+$ go build ./...
+exit=0
+$ go vet ./...
+exit=0

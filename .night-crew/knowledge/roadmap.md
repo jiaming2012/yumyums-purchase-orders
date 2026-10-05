@@ -1048,7 +1048,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### photo-scan-guard-and-lookup-arms
 
-- `photo-scan-guard-and-lookup-arms` · **PLANNED** · (J1, track A — **B-475**, **B-476**; decision
+- `photo-scan-guard-and-lookup-arms` · **LANDED** (run `20261005`, branch `card/j1-photo-scan-guard-and-lookup-arms`) · (J1, track A — **B-475**, **B-476**; decision
   205) Today `onFilePicked` in `marketing/scan-page.js` is not guarded the way the camera path is
   (`decodeBusy`): while the resolver waits up to 3.5 s on the server for code A, a photo of code B
   decodes, the submit machine's F6 gate refuses B ("Finish the current customer first"), and when

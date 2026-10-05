@@ -554,18 +554,56 @@ async function boot() {
     }
   }
 
+  // Card photo-scan-guard-and-lookup-arms (B-475): the photo path takes the
+  // SAME busy flag as the camera path. Since card scan-time-verify a scan can
+  // wait up to PROBE_TIMEOUT_MS on the server; a photo of another code picked
+  // during that wait used to reach the submit machine's F6 gate, which
+  // refused it ("Finish the current customer first") and left the machine in
+  // `resolving` — so when the server answered, the first customer's offer
+  // rendered with no order-number field and no submit control. Now a pick
+  // during the wait is not read at all: the result area already says
+  // "Checking with the server…" (checkingServer), and the second scan never
+  // reaches the machine — no new state, event or pair.
+  //
+  // The guard is a WAIT, not a disable: the flag is released in `finally`
+  // whatever the decode or the scan did, and the input is reset on EVERY
+  // pick, refused ones included, so the same photo can be picked again the
+  // moment the wait ends.
   async function onFilePicked(input) {
     const file = input.files && input.files[0];
     if (!file) return;
     try {
-      fileQr = fileQr || new Html5Qrcode('scan-file-surface');
-      const text = await fileQr.scanFile(file, false);
-      await doScan(text);
-    } catch (e) {
-      SCAN_STATE.result = { kind: 'decodeError' };
-      render();
+      if (decodeBusy) return;
+      decodeBusy = true;
+      try {
+        fileQr = fileQr || new Html5Qrcode('scan-file-surface');
+        const text = await fileQr.scanFile(file, false);
+        await doScan(text);
+      } catch (e) {
+        SCAN_STATE.result = { kind: 'decodeError' };
+        render();
+      } finally {
+        decodeBusy = false;
+      }
     } finally {
       input.value = ''; // same photo can be re-scanned
+    }
+  }
+
+  // window.MarketingScan.scanText — the programmatic entry (no product code
+  // calls it; the specs and an operator's console do). It shares the flag for
+  // the same reason: a scan started here waits on the server exactly as a
+  // camera or photo scan does, and without the flag a photo picked during
+  // THAT wait would strand it just the same. Refused while another scan is
+  // resolving — `null`, the value doScan already returns for a scan the F6
+  // gate refuses.
+  async function scanTextGuarded(payload) {
+    if (decodeBusy) return null;
+    decodeBusy = true;
+    try {
+      return await doScan(payload);
+    } finally {
+      decodeBusy = false;
     }
   }
 
@@ -646,7 +684,7 @@ async function boot() {
     collections: cols,
     clock,
     resolver,
-    scanText: doScan,
+    scanText: scanTextGuarded,
     hasherStats: () => hashToken.stats(),
     enqueue,
     // The §8 policy source (card refusal-holds-before-sync) — created at boot,

@@ -1,0 +1,17 @@
+# sw.js regen for card photo-scan-guard-and-lookup-arms — 2026-10-05T02:23:16Z
+# built at HEAD=99fa42b (the fix commit; build-sw.js reads git HEAD)
+$ node build-sw.js   (run 1 already applied; this is its diff)
+ sw.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+marketing/scan-page.js",revision:"455a2ec391eb444603097deb8129c14e"
+marketing/scan-page.js",revision:"dcec778dc54e276d799985ac8cf96d06"
+$ grep -o 'revision:' sw.js | wc -l
+51
+$ node build-sw.js   (run 2 — idempotence)
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3122.9 KB)
+Frontend version: 1.10.2
+$ cmp run1 run2
+identical (no diff between run 1 and run 2)
+$ grep -o 'revision:' sw.js | wc -l
+51

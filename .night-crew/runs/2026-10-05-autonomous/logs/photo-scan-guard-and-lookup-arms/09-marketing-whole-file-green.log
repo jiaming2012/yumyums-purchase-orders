@@ -1,0 +1,8 @@
+# CONFINED GATE — the WHOLE of tests/marketing.spec.js, --retries=0, on the shipped (committed) tree.
+# Stack: Playwright's own webServer (scripts/reset-e2e-db.js resets hq_test_e2e_j1_20261005 on :5434 first).
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 npx playwright test tests/marketing.spec.js --project=chromium --retries=0 --reporter=line
+# started 2026-10-05T02:27:08Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 70 tests using 1 worker
+  70 passed (6.2m)
+# playwright exit=0  finished 2026-10-05T02:33:01Z
