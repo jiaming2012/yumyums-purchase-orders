@@ -123,3 +123,14 @@
 - **Recorded:** 2026-10-04
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-6 · Nights run through night-crew's run loop
+
+- **Preference:** Every overnight run drives its cards through night-crew's product run loop (dispatch + run per card), so the night leaves its own summary, metrics and scorecard. A night run off the loop is a stated deviation; a card the loop cannot carry is parked, never completed off-loop.
+- **Why (operator):** The operator stated no reason of their own. They chose the loop at triage 2026-10-05 after the sitting showed it had never driven a night on this repo, every closeout had refused the loop check, and the 2026-10-03 reason for running off it was recorded nowhere.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-05
+- **Offered at:** an attended session
+- **Answers decision:** ledger T-66, decision 206
+- **Consent:** recorded on the operator's explicit yes to this item.
