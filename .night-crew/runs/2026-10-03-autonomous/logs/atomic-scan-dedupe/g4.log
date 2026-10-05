@@ -1,0 +1,14 @@
+# G4, card atomic-scan-dedupe, SHA c1fc1c4cda533a15b8f1590a08d97c6b59e69c73, 2026-10-03T23:12:37-04:00
+precache entries in committed sw.js (before): 51 / 0 (unquoted/quoted key forms)
+c09462a883c02ad52f261e84e8b6dfeab6054e0aa1d3d5a51e56c4e8b252a390  sw.js
+import reachability: 38 precached files parsed, 66 local references resolved, 0 outside the precache
+SW built: 51 files precached (3103.5 KB)
+Frontend version: 1.10.2
+EXIT_BUILD_SW_1=0
+c09462a883c02ad52f261e84e8b6dfeab6054e0aa1d3d5a51e56c4e8b252a390  sw.js
+EXIT_BUILD_SW_2=0
+c09462a883c02ad52f261e84e8b6dfeab6054e0aa1d3d5a51e56c4e8b252a390  sw.js
+git status sw.js: []
+git diff 4adf1ad..HEAD --stat -- sw.js: []
+precache entries after: 51 / 0
+precached files changed by this card (4adf1ad..HEAD, non-backend non-.night-crew): []

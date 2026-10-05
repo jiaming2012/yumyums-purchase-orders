@@ -1,0 +1,74 @@
+# RED 2 — TestMigration0086BlanksDanglingScanReferences against 0086 with the three-line blanking UPDATE REMOVED (worktree mutation, never committed; reverted after this run)
+# tree: 62e77e8 + working tree · db :5434 hq_test_go_j2 · 2026-10-05T02:07:22Z
+# mutation numstat (added/deleted): 0	3	backend/internal/db/migrations/0086_merge_repoint_and_erasure_backstop.sql
+# 'SET subscriber_id = NULL' lines left in 0086: 0
+# cmd: go test -p 1 -count=1 -v -run 'TestMigration0086BlanksDanglingScanReferences|TestMigration0086ErasureBackstopDownAndUpRoundTrip|TestSubscriberDeleteCascadesTimelineAndBlanksScans|TestCodeDeleteBlanksFirstTouch|TestScannedCodeDeleteIsRefused|TestMigration0083DownAndUpRoundTrip|TestMigration0085SubscribersDownAndUpRoundTrip' ./internal/marketing/
+2026/10/04 22:07:25 goose: no migrations to run. current version: 87
+2026/10/04 22:07:25 INFO database migrations applied successfully
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+--- PASS: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.37s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+--- PASS: TestCodeDeleteBlanksFirstTouch (0.34s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.35s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/04 22:07:26 goose: no migrations to run. current version: 87
+2026/10/04 22:07:26 INFO database migrations applied successfully
+2026/10/04 22:07:26 OK   0087_qr_scans_dedupe_bucket.sql (24.42ms)
+2026/10/04 22:07:26 OK   0086_merge_repoint_and_erasure_backstop.sql (36.95ms)
+2026/10/04 22:07:26 goose: no migrations to run. current version: 85
+2026/10/04 22:07:26 OK   0086_merge_repoint_and_erasure_backstop.sql (35.28ms)
+2026/10/04 22:07:26 OK   0087_qr_scans_dedupe_bucket.sql (84.32ms)
+2026/10/04 22:07:26 goose: successfully migrated database to version: 87
+2026/10/04 22:07:26 INFO database migrations applied successfully
+    erasure_test.go:325: migration 86 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/04 22:07:26 goose: no migrations to run. current version: 87
+2026/10/04 22:07:26 INFO database migrations applied successfully
+--- PASS: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.22s)
+=== RUN   TestMigration0086BlanksDanglingScanReferences
+2026/10/04 22:07:25 goose: no migrations to run. current version: 87
+2026/10/04 22:07:25 INFO database migrations applied successfully
+2026/10/04 22:07:25 OK   0087_qr_scans_dedupe_bucket.sql (20.97ms)
+2026/10/04 22:07:25 OK   0086_merge_repoint_and_erasure_backstop.sql (26.73ms)
+2026/10/04 22:07:25 goose: no migrations to run. current version: 85
+    erasure_test.go:391: migrate 85 -> HEAD over one dangling qr_scans.subscriber_id: run migrations: ERROR 0086_merge_repoint_and_erasure_backstop.sql: failed to run SQL migration: failed to execute SQL query "ALTER TABLE qr_scans ADD CONSTRAINT qr_scans_subscriber_id_fkey FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE SET NULL;": ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_subscriber_id_fkey" (SQLSTATE 23503)
+2026/10/04 22:07:25 OK   0086_merge_repoint_and_erasure_backstop.sql (57.4ms)
+2026/10/04 22:07:26 OK   0087_qr_scans_dedupe_bucket.sql (91.75ms)
+2026/10/04 22:07:26 goose: successfully migrated database to version: 87
+2026/10/04 22:07:26 INFO database migrations applied successfully
+--- FAIL: TestMigration0086BlanksDanglingScanReferences (0.97s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/04 22:07:26 OK   0087_qr_scans_dedupe_bucket.sql (18.85ms)
+2026/10/04 22:07:26 OK   0086_merge_repoint_and_erasure_backstop.sql (30.19ms)
+2026/10/04 22:07:26 OK   0085_subscribers.sql (26.96ms)
+2026/10/04 22:07:26 OK   0084_toast_orders_reconciliation.sql (28.06ms)
+2026/10/04 22:07:26 OK   0083_campaigns_admin.sql (24.29ms)
+2026/10/04 22:07:26 goose: no migrations to run. current version: 82
+2026/10/04 22:07:26 OK   0083_campaigns_admin.sql (160.2ms)
+2026/10/04 22:07:26 OK   0084_toast_orders_reconciliation.sql (167.69ms)
+2026/10/04 22:07:26 OK   0085_subscribers.sql (157.93ms)
+2026/10/04 22:07:26 OK   0086_merge_repoint_and_erasure_backstop.sql (30.96ms)
+2026/10/04 22:07:27 OK   0087_qr_scans_dedupe_bucket.sql (76.31ms)
+2026/10/04 22:07:27 goose: successfully migrated database to version: 87
+2026/10/04 22:07:27 INFO database migrations applied successfully
+    zz_migration_down_test.go:61: 0083 Down/Up round-trip clean; schema left fully migrated
+--- PASS: TestMigration0083DownAndUpRoundTrip (0.98s)
+=== RUN   TestMigration0085SubscribersDownAndUpRoundTrip
+2026/10/04 22:07:27 goose: no migrations to run. current version: 87
+2026/10/04 22:07:27 INFO database migrations applied successfully
+2026/10/04 22:07:27 OK   0087_qr_scans_dedupe_bucket.sql (23.06ms)
+2026/10/04 22:07:27 OK   0086_merge_repoint_and_erasure_backstop.sql (27.06ms)
+2026/10/04 22:07:27 OK   0085_subscribers.sql (20.8ms)
+2026/10/04 22:07:27 goose: no migrations to run. current version: 84
+2026/10/04 22:07:27 OK   0085_subscribers.sql (183.28ms)
+2026/10/04 22:07:27 OK   0086_merge_repoint_and_erasure_backstop.sql (36.21ms)
+2026/10/04 22:07:27 OK   0087_qr_scans_dedupe_bucket.sql (82.28ms)
+2026/10/04 22:07:27 goose: successfully migrated database to version: 87
+2026/10/04 22:07:27 INFO database migrations applied successfully
+    zzz_subscribers_migration_down_test.go:158: migration 85 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+--- PASS: TestMigration0085SubscribersDownAndUpRoundTrip (0.41s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	3.686s
+FAIL
+EXIT=1
+after revert: 0 migration files modified

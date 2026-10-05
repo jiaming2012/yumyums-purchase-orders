@@ -1,0 +1,147 @@
+# MUTATION RED — [PS-01]: MarketingScan.scanText bypasses the busy flag (the guard on the photo path alone does not protect a scanText-started wait)
+# The mutation (applied to marketing/scan-page.js in the worktree, never committed):
+#   -    scanText: scanTextGuarded,
+#   +    scanText: doScan, // MUTATION: the programmatic entry bypasses the busy flag again
+# Run: the whole new describe, so the log shows which specs red and that the others hold.
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 1 1 marketing/scan-page.js;
+# stack: hand-provisioned server on :8221 (DB hq_test_e2e_j1_20261005 on :5434, reset before the first run of this series; playwright.config.js's env), NIGHTCREW_ENV_URL=http://localhost:8221
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 NIGHTCREW_ENV_URL=http://localhost:8221 npx playwright test tests/marketing.spec.js --project=chromium -g roadmap J1 --retries=0 --reporter=line
+# started 2026-10-05T02:25:23Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 7 tests using 1 worker
+  1) [chromium] › tests/marketing.spec.js:2652:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [PS-01] a photo of held code B picked while never-seen code A waits on the server → A's offer renders WITH its order-number field and NO finish-first prompt 
+    Error: during the wait: still checking A, no finish-first prompt
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+      Object {
+        "hash": "b11e19bd9084482e8d25b3d24eca7edb8f58e253be8187f51da2d15eb65fa274",
+        "kind": "checkingServer",
+    -   "prompt": 0,
+    +   "prompt": 1,
+      }
+      2676 |     // (Soft, so a red run also reports the done_when assertions below.)
+      2677 |     expect.soft(await psMidWait(page), 'during the wait: still checking A, no finish-first prompt')
+    > 2678 |       .toEqual({ kind: 'checkingServer', hash: hashA, prompt: 0 });
+           |        ^
+      2679 |     expect.soft(held, 'B is held locally — it never causes a lookup').toHaveLength(1);
+      2680 |
+      2681 |     // The server answers A: live.
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2678:8
+    Error: the order-number field is there
+    expect(locator).toBeVisible() failed
+    Locator: locator('#ms-order')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+    Call log:
+      - the order-number field is there with timeout 5000ms
+      - waiting for locator('#ms-order')
+      2688 |
+      2689 |     // done_when: A's offer card WITH #ms-order and NO #scan-prompt.
+    > 2690 |     await expect.soft(page.locator('#ms-order'), 'the order-number field is there').toBeVisible({ timeout: 5000 });
+           |                                                                                     ^
+      2691 |     await expect.soft(page.locator('[data-action="ms-submit"]'), 'the submit control is there').toHaveCount(1);
+      2692 |     await expect.soft(page.locator('#scan-prompt'), 'no finish-first prompt over A\'s offer').toHaveCount(0);
+      2693 |     // …and it stays that way: nothing late (a slow decode of B) arrives to
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2690:85
+    Error: the submit control is there
+    expect(locator).toHaveCount(expected) failed
+    Locator:  locator('[data-action="ms-submit"]')
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+    Call log:
+      - the submit control is there with timeout 5000ms
+      - waiting for locator('[data-action="ms-submit"]')
+        9 × locator resolved to 0 elements
+          - unexpected value "0"
+      2689 |     // done_when: A's offer card WITH #ms-order and NO #scan-prompt.
+      2690 |     await expect.soft(page.locator('#ms-order'), 'the order-number field is there').toBeVisible({ timeout: 5000 });
+    > 2691 |     await expect.soft(page.locator('[data-action="ms-submit"]'), 'the submit control is there').toHaveCount(1);
+           |                                                                                                 ^
+      2692 |     await expect.soft(page.locator('#scan-prompt'), 'no finish-first prompt over A\'s offer').toHaveCount(0);
+      2693 |     // …and it stays that way: nothing late (a slow decode of B) arrives to
+      2694 |     // take the field away or raise the sheet.
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2691:97
+    Error: no finish-first prompt over A's offer
+    expect(locator).toHaveCount(expected) failed
+    Locator:  locator('#scan-prompt')
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+    Call log:
+      - no finish-first prompt over A's offer with timeout 5000ms
+      - waiting for locator('#scan-prompt')
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+      2690 |     await expect.soft(page.locator('#ms-order'), 'the order-number field is there').toBeVisible({ timeout: 5000 });
+      2691 |     await expect.soft(page.locator('[data-action="ms-submit"]'), 'the submit control is there').toHaveCount(1);
+    > 2692 |     await expect.soft(page.locator('#scan-prompt'), 'no finish-first prompt over A\'s offer').toHaveCount(0);
+           |                                                                                               ^
+      2693 |     // …and it stays that way: nothing late (a slow decode of B) arrives to
+      2694 |     // take the field away or raise the sheet.
+      2695 |     await page.waitForTimeout(1500);
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2692:95
+    Error: 1.5 s later: field still there, no prompt, machine at offerReady
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 3
+    + Received  + 3
+      Object {
+    -   "msOrder": 1,
+    -   "mstate": "offerReady",
+    -   "prompt": 0,
+    +   "msOrder": 0,
+    +   "mstate": "resolving",
+    +   "prompt": 1,
+      }
+      2695 |     await page.waitForTimeout(1500);
+      2696 |     expect.soft(await psAfterRelease(page), '1.5 s later: field still there, no prompt, machine at offerReady')
+    > 2697 |       .toEqual({ msOrder: 1, prompt: 0, mstate: 'offerReady' });
+           |        ^
+      2698 |     // A soft failure above has already failed the test; there is no field to fill.
+      2699 |     if (test.info().errors.length) return;
+      2700 |
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2697:8
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-3e99d--and-NO-finish-first-prompt-chromium/error-context.md
+  2) [chromium] › tests/marketing.spec.js:2738:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [PS-02] a photo picked with no scan in flight still decodes — before a wait, after a wait that refused a pick, and after a photo with no code in it 
+    Error: the mid-wait pick was not read
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+      Object {
+        "hash": "8c03b5524ccb57798d6c6562979008434aeeca277f3a40792874c6ae4c41fcf6",
+        "kind": "checkingServer",
+    -   "prompt": 0,
+    +   "prompt": 1,
+      }
+      2764 |     await psPickSettled(page);
+      2765 |     expect.soft(await psMidWait(page), 'the mid-wait pick was not read')
+    > 2766 |       .toEqual({ kind: 'checkingServer', hash: svHash(tokenA), prompt: 0 });
+           |        ^
+      2767 |     await psRelease(held[0], svServerRow({ id: 'c0000000-0000-4000-8000-00000000a703' }));
+      2768 |     await page.evaluate(() => window.__psScan);
+      2769 |     await expect(result).toHaveAttribute('data-token-hash', svHash(tokenA));
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2766:8
+    Error: expect(locator).toBeVisible() failed
+    Locator: locator('#ms-order')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for locator('#ms-order')
+      2768 |     await page.evaluate(() => window.__psScan);
+      2769 |     await expect(result).toHaveAttribute('data-token-hash', svHash(tokenA));
+    > 2770 |     await expect(page.locator('#ms-order')).toBeVisible();
+           |                                             ^
+      2771 |     await page.click('[data-action="scan-again"]');
+      2772 |     await expect(result).toBeHidden();
+      2773 |     await psPickPhoto(page, PS_PHOTO_B);
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2770:45
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-a73b1--a-photo-with-no-code-in-it-chromium/error-context.md
+  2 failed
+    [chromium] › tests/marketing.spec.js:2652:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [PS-01] a photo of held code B picked while never-seen code A waits on the server → A's offer renders WITH its order-number field and NO finish-first prompt 
+    [chromium] › tests/marketing.spec.js:2738:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [PS-02] a photo picked with no scan in flight still decodes — before a wait, after a wait that refused a pick, and after a photo with no code in it 
+  5 passed (43.3s)
+# playwright exit=1  finished 2026-10-05T02:26:08Z
+# reverted: git status --porcelain -- marketing tests = '' (empty = clean)

@@ -1,0 +1,20 @@
+# merge3 confined gates at b0bc48c 2026-10-04T22:46:45-04:00
+EXIT_BUILD=0
+EXIT_VET=0
+  skipped (not in HEAD): backlog-round.html
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3122.9 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+sw diff lines after run 1: 0
+  skipped (not in HEAD): backlog-round.html
+EXIT_SW2=0
+sw diff lines after run 2: 0; precache: 51
+backlog: valid — 276 entries
+EXIT_BACKLOG=0
+ backend/internal/marketing/erasure_test.go  |  93 +++++++++++++++++++++++
+ backend/internal/recipes/handler.go         |   4 +
+ backend/internal/recipes/repository.go      |  23 ++++++
+ backend/internal/recipes/repository_test.go | 112 ++++++++++++++++++++++++++++
+ marketing/scan-page.js                      |  52 +++++++++++--
+ 5 files changed, 277 insertions(+), 7 deletions(-)

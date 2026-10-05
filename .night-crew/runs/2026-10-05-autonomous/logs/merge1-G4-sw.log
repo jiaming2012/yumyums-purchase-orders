@@ -1,0 +1,9 @@
+# merge1 G4 sw.js regen at merged HEAD f980e12 2026-10-04T22:04:05-04:00
+  skipped (not in HEAD): backlog-round.html
+import reachability: 38 precached files parsed, 67 local references resolved, 0 outside the precache
+SW built: 51 files precached (3121.1 KB)
+Frontend version: 1.10.2
+EXIT_SW1=0
+EXIT_SW2=0
+diff-after-two-runs: 0 line(s)
+precache count: 51

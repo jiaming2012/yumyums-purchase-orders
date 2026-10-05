@@ -1,0 +1,38 @@
+# MUTATION RED — [SV-11]: policyFor's catch arm returns false instead of failing closed (B-476, fourth arm)
+# The mutation (applied to marketing/submit-flow.js in the worktree, never committed):
+#   -    return failClosed(campaignId);
+#   +    return false; // MUTATION [SV-11]: the catch arm no longer fails closed
+# Run: the whole new describe, so the log shows which specs red and that the others hold.
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 1 1 marketing/submit-flow.js;
+# stack: hand-provisioned server on :8221 (DB hq_test_e2e_j1_20261005 on :5434, reset before the first run of this series; playwright.config.js's env), NIGHTCREW_ENV_URL=http://localhost:8221
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 NIGHTCREW_ENV_URL=http://localhost:8221 npx playwright test tests/marketing.spec.js --project=chromium -g roadmap J1 --retries=0 --reporter=line
+# started 2026-10-05T02:25:03Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 7 tests using 1 worker
+  1) [chromium] › tests/marketing.spec.js:2947:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-11] the shipped policyFor, handed a THROWING policy source, fails closed for a code that names a campaign — and the shipped machine refuses the offline override 
+    Error: expect(received).toEqual(expected) // deep equality
+    - Expected  - 3
+    + Received  + 3
+      Object {
+    -   "after": "blockedOffline",
+    +   "after": "overrideConfirm",
+        "alive": true,
+    -   "overrideAvailable": false,
+    -   "requiresOnline": true,
+    +   "overrideAvailable": true,
+    +   "requiresOnline": false,
+        "trips": 0,
+      }
+      2992 |     ]);
+      2993 |     // Fail closed: "could not tell" is not permission.
+    > 2994 |     expect(out.high).toEqual({ requiresOnline: true, overrideAvailable: false, after: 'blockedOffline', alive: true, trips: 0 });
+           |                      ^
+      2995 |     expect(out.low).toEqual({ requiresOnline: true, overrideAvailable: false, after: 'blockedOffline', alive: true, trips: 0 });
+      2996 |     expect(out.none).toEqual([false, false, false]);
+      2997 |     expect(out.healthyFalse).toEqual({ requiresOnline: false, overrideAvailable: true, after: 'overrideConfirm', alive: true, trips: 0 });
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2994:22
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-23edd-efuses-the-offline-override-chromium/error-context.md
+  1 failed
+    [chromium] › tests/marketing.spec.js:2947:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-11] the shipped policyFor, handed a THROWING policy source, fails closed for a code that names a campaign — and the shipped machine refuses the offline override 
+  6 passed (18.7s)
+# playwright exit=1  finished 2026-10-05T02:25:23Z
+# reverted: git status --porcelain -- marketing tests = '' (empty = clean)

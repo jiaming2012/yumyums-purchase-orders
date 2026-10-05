@@ -1,0 +1,13 @@
+# GREEN 1 — TestMergeMenuItem_MissingTargetIsRefused with the FOR SHARE guard + 404 arm · db :5434 hq_test_go_j2 · 2026-10-05T02:08:03Z
+# cmd: go test -p 1 -count=1 -v -run 'TestMergeMenuItem_MissingTargetIsRefused' ./internal/recipes/
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (3.16s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/repository (1.18s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/handler (1.06s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (0.93s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	3.173s
+EXIT=0

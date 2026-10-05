@@ -18,6 +18,10 @@ var ErrSumExceeds100 = errors.New("recipes: sum_exceeds_100")
 // recipe id does not exist.
 var ErrRecipeNotFound = errors.New("recipes: not_found")
 
+// ErrMergeTargetNotFound is returned by MergeMenuItem when the target id names
+// no menu_items row. Nothing has been written when it is returned.
+var ErrMergeTargetNotFound = errors.New("recipes: target_not_found")
+
 // ListRecipes returns all recipes; if purchaseItemID is non-nil, filters to that ingredient.
 // Joined to menu_items for the menu_group / menu_subgroup display fields (D-09).
 func ListRecipes(ctx context.Context, pool *pgxpool.Pool, purchaseItemID *string) ([]RecipeWithMenu, error) {
@@ -146,6 +150,9 @@ func DeleteRecipe(ctx context.Context, pool *pgxpool.Pool, recipeID string) erro
 //
 // The re-point is the contract; migration 0086's ON DELETE SET NULL on the two
 // item_id columns is only the backstop for a table that forgets this path.
+//
+// A target that names no dish is refused with ErrMergeTargetNotFound before
+// anything is written (the handler answers 404 target_not_found).
 func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, targetMenuItemID string) (int, error) {
 	if sourceMenuItemID == targetMenuItemID {
 		return 0, fmt.Errorf("recipes: cannot_merge_into_self")
@@ -155,6 +162,22 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
 		return 0, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// The target must be a dish that exists (card J2, B-479). Without this read
+	// an UNATTACHED source re-pointed 0 rows, was deleted — its daily_menu_sales
+	// with it — and the call answered 200; an attached one hit the campaign FK
+	// and answered 500. FOR SHARE holds the target row until commit, so it
+	// cannot be deleted between this read and the re-points below. It runs
+	// BEFORE any UPDATE so both shapes get the same refusal.
+	var targetExists int
+	if err := tx.QueryRow(ctx,
+		`SELECT 1 FROM menu_items WHERE id = $1 FOR SHARE`, targetMenuItemID,
+	).Scan(&targetExists); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrMergeTargetNotFound
+		}
+		return 0, err
+	}
 
 	ct, err := tx.Exec(ctx,
 		`UPDATE recipes SET menu_item_id = $1, updated_at = now()

@@ -525,6 +525,10 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
 				return
 			}
+			if strings.Contains(err.Error(), "target_not_found") {
+				writeError(w, http.StatusNotFound, "target_not_found")
+				return
+			}
 			slog.Error("MergeMenuItem", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

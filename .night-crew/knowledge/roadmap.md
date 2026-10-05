@@ -1008,7 +1008,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### atomic-scan-dedupe
 
-- `atomic-scan-dedupe` · **PLANNED** · (I4, track B after I3 — decision 195; built and reviewed in run `20261003`, parked on its cleanup of past scan rows, settled at triage as decision 203 — ship as built; owes its full browser-suite run and a merge) The public
+- `atomic-scan-dedupe` · **LANDED** (run `20261005`, branch `card/i4-atomic-scan-dedupe`, merge `f980e12`) · (I4, track B after I3 — decision 195; built and reviewed in run `20261003`, parked on its cleanup of past scan rows, settled at triage as decision 203 — ship as built) The public
   landing's 10-minute scan dedupe (`landing.go` `INSERT … WHERE NOT EXISTS`) is a read-then-write
   under READ COMMITTED: 12 concurrent hits from one IP left 3/7/8/8/8 rows where one was wanted,
   on an unauthenticated route, so the orphan rate's denominator (P-KR3) is inflatable from
@@ -1048,7 +1048,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### photo-scan-guard-and-lookup-arms
 
-- `photo-scan-guard-and-lookup-arms` · **PLANNED** · (J1, track A — **B-475**, **B-476**; decision
+- `photo-scan-guard-and-lookup-arms` · **LANDED** (run `20261005`, branch `card/j1-photo-scan-guard-and-lookup-arms`, merge `b0bc48c`) · (J1, track A — **B-475**, **B-476**; decision
   205) Today `onFilePicked` in `marketing/scan-page.js` is not guarded the way the camera path is
   (`decodeBusy`): while the resolver waits up to 3.5 s on the server for code A, a photo of code B
   decodes, the submit machine's F6 gate refuses B ("Finish the current customer first"), and when
@@ -1077,7 +1077,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### merge-target-and-blanking-guards
 
-- `merge-target-and-blanking-guards` · **PLANNED** · (J2, track B — **B-479**, **B-480**) Today
+- `merge-target-and-blanking-guards` · **LANDED** (run `20261005`, branch `card/j2-merge-target-and-blanking-guards`, merge `42fbd67`) · (J2, track B — **B-479**, **B-480**) Today
   `recipes.MergeMenuItem` re-points recipes, campaigns and codes to the target and deletes the
   source without ever checking the target exists, so `POST /api/v1/inventory/recipes/merge` with a
   bogus target id and an unattached source returns 200 `{"rows_re_pointed":0}` and the source dish

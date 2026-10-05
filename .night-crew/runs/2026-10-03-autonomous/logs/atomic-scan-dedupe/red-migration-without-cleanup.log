@@ -1,0 +1,17 @@
+# RED leg (mutation) — migration 0087 WITHOUT the de-duplication step (bare ADD COLUMN + CREATE UNIQUE INDEX, the spike's two lines only)
+# shows what the Up does to a table that already holds duplicates; 2026-10-04T03:08:31Z
+2026/10/03 23:08:34 OK   0087_qr_scans_dedupe_bucket.sql (55.49ms)
+2026/10/03 23:08:34 goose: successfully migrated database to version: 87
+2026/10/03 23:08:34 INFO database migrations applied successfully
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/03 23:08:35 goose: no migrations to run. current version: 87
+2026/10/03 23:08:35 INFO database migrations applied successfully
+2026/10/03 23:08:35 OK   0087_qr_scans_dedupe_bucket.sql (16.54ms)
+2026/10/03 23:08:35 goose: no migrations to run. current version: 86
+    landing_test.go:698: migration 87 Up over a table that already holds duplicates: run migrations: ERROR 0087_qr_scans_dedupe_bucket.sql: failed to run SQL migration: failed to execute SQL query "CREATE UNIQUE INDEX qr_scans_dedupe_idx ON qr_scans (short, ip_hash, bucket) WHERE ip_hash IS NOT NULL;": ERROR: could not create unique index "qr_scans_dedupe_idx" (SQLSTATE 23505)
+    landing_test.go:644: restore to HEAD: run migrations: ERROR 0087_qr_scans_dedupe_bucket.sql: failed to run SQL migration: failed to execute SQL query "CREATE UNIQUE INDEX qr_scans_dedupe_idx ON qr_scans (short, ip_hash, bucket) WHERE ip_hash IS NOT NULL;": ERROR: could not create unique index "qr_scans_dedupe_idx" (SQLSTATE 23505)
+--- FAIL: TestMigration0087CollapsesPreExistingDuplicates (0.43s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	0.523s
+FAIL
+EXIT=1
