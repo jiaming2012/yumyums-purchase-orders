@@ -1,0 +1,41 @@
+# MUTATION RED — [SV-09]: an expired server row is offered — clock.isExpired(row.expires_at) forced false (B-476 arm 2)
+# The mutation (applied to marketing/scanner.js in the worktree, never committed):
+#   -        if (clock.isExpired(row.expires_at)) {
+#   +        if (false) { // MUTATION [SV-09]: clock.isExpired(row.expires_at) forced false
+# Run: the whole new describe, so the log shows which specs red and that the others hold.
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 1 1 marketing/scanner.js;
+# stack: hand-provisioned server on :8221 (DB hq_test_e2e_j1_20261005 on :5434, reset before the first run of this series; playwright.config.js's env), NIGHTCREW_ENV_URL=http://localhost:8221
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 NIGHTCREW_ENV_URL=http://localhost:8221 npx playwright test tests/marketing.spec.js --project=chromium -g roadmap J1 --retries=0 --reporter=line
+# started 2026-10-05T02:24:10Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 7 tests using 1 worker
+  1) [chromium] › tests/marketing.spec.js:2843:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-09] online + the server's row is EXPIRED → the expired card from the server, never an offer and no discount prompt 
+    Error: expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 7
+      Object {
+    +   "kind": "offerReady",
+    +   "offers": Array [
+    +     Object {
+    +       "campaign_id": "a0000000-0000-4000-8000-000000000001",
+    +       "code_id": "c0000000-0000-4000-8000-00000000a509",
+            "expires_at": "2020-06-15T12:00:00+00:00",
+    -   "kind": "expiredLocally",
+    +     },
+    +   ],
+        "source": "server",
+        "token_hash": "d95a1b7faa9a3e25a164c943094ae61bb7bad6dbadb12487f3e947b17095e4b4",
+      }
+      2854 |     const { result: r } = await timedScan(page, svPayload(token));
+      2855 |
+    > 2856 |     expect(r).toEqual({ kind: 'expiredLocally', token_hash: hash, source: 'server', expires_at: expiredAt });
+           |               ^
+      2857 |     const result = page.locator('#scan-result');
+      2858 |     await expect(result).toHaveAttribute('data-kind', 'expiredLocally');
+      2859 |     await expect(result).toHaveAttribute('data-source', 'server');
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2856:15
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-26af2-ffer-and-no-discount-prompt-chromium/error-context.md
+  1 failed
+    [chromium] › tests/marketing.spec.js:2843:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-09] online + the server's row is EXPIRED → the expired card from the server, never an offer and no discount prompt 
+  6 passed (20.7s)
+# playwright exit=1  finished 2026-10-05T02:24:32Z
+# reverted: git status --porcelain -- marketing tests = '' (empty = clean)

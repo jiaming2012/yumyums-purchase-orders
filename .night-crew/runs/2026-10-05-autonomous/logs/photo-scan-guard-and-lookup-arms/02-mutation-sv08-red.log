@@ -1,0 +1,42 @@
+# MUTATION RED — [SV-08]: a code held locally but expired by the local clock is sent to the server (B-476 arm 1)
+# The mutation (applied to marketing/scanner.js in the worktree, never committed):
+#   -      return { kind: 'expiredLocally', token_hash, expires_at: latest.expires_at };
+#   +      void latest; // MUTATION [SV-08]: a held, locally-expired code no longer stops here — it is sent to the server
+# Run: the whole new describe, so the log shows which specs red and that the others hold.
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 1 1 marketing/scanner.js;
+# stack: hand-provisioned server on :8221 (DB hq_test_e2e_j1_20261005 on :5434, reset before the first run of this series; playwright.config.js's env), NIGHTCREW_ENV_URL=http://localhost:8221
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 NIGHTCREW_ENV_URL=http://localhost:8221 npx playwright test tests/marketing.spec.js --project=chromium -g roadmap J1 --retries=0 --reporter=line
+# started 2026-10-05T02:23:45Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 7 tests using 1 worker
+  1) [chromium] › tests/marketing.spec.js:2794:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-08] online + held locally AND expired by the local clock → the replica's expired result, zero lookups — the server is not asked and nothing is offered 
+    Error: expect(received).toEqual(expected) // deep equality
+    - Expected  - 2
+    + Received  + 9
+      Object {
+    -   "expires_at": "2020-01-01T00:00:00.000Z",
+    -   "kind": "expiredLocally",
+    +   "kind": "offerReady",
+    +   "offers": Array [
+    +     Object {
+    +       "campaign_id": "a0000000-0000-4000-8000-000000000001",
+    +       "code_id": "c0000000-0000-4000-8000-00000000a581",
+    +       "expires_at": "2028-01-01T00:00:00+00:00",
+    +     },
+    +   ],
+    +   "source": "server",
+        "token_hash": "c5a1641409efd198e5a55417f209eda33500fd199f1fa7fa0d8a2567ee1f9680",
+      }
+      2817 |
+      2818 |     // The replica's verdict, exactly: no `source` (the server said nothing).
+    > 2819 |     expect(r).toEqual({ kind: 'expiredLocally', token_hash: FIXTURE_1_TOKEN_HASH, expires_at: expiredAt });
+           |               ^
+      2820 |     expect(Object.keys(r).sort()).toEqual(['expires_at', 'kind', 'token_hash']);
+      2821 |     const result = page.locator('#scan-result');
+      2822 |     await expect(result).toHaveAttribute('data-kind', 'expiredLocally');
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2819:15
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-4a0d3-sked-and-nothing-is-offered-chromium/error-context.md
+  1 failed
+    [chromium] › tests/marketing.spec.js:2794:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-08] online + held locally AND expired by the local clock → the replica's expired result, zero lookups — the server is not asked and nothing is offered 
+  6 passed (23.1s)
+# playwright exit=1  finished 2026-10-05T02:24:10Z
+# reverted: git status --porcelain -- marketing tests = '' (empty = clean)

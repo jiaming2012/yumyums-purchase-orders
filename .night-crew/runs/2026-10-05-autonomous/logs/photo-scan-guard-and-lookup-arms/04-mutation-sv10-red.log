@@ -1,0 +1,35 @@
+# MUTATION RED — [SV-10]: a non-200 answer returns null instead of rejecting — spike 02's mutation (B-476 arm 3)
+# The mutation (applied to marketing/scanner.js in the worktree, never committed):
+#   -        throw new Error(`[marketing-scan] server lookup answered HTTP ${res.status}`);
+#   +        return null; // MUTATION [SV-10]: a non-200 reads as 'the server does not know it'
+# Run: the whole new describe, so the log shows which specs red and that the others hold.
+# tree: HEAD=951b8ea  product diff vs HEAD (marketing/): 1 1 marketing/scanner.js;
+# stack: hand-provisioned server on :8221 (DB hq_test_e2e_j1_20261005 on :5434, reset before the first run of this series; playwright.config.js's env), NIGHTCREW_ENV_URL=http://localhost:8221
+# cmd: TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_j1_20261005 NIGHTCREW_ENV_URL=http://localhost:8221 npx playwright test tests/marketing.spec.js --project=chromium -g roadmap J1 --retries=0 --reporter=line
+# started 2026-10-05T02:24:40Z  (log filtered: [WebServer] lines and ANSI codes removed)
+Running 7 tests using 1 worker
+  1) [chromium] › tests/marketing.spec.js:2877:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-10] a non-200 answer is "couldn't check the server" (unknownCode, verified:false) — never a plain "the server does not know it" 
+    Error: real door, HTTP 503
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 0
+      Object {
+        "kind": "unknownCode",
+        "token_hash": "7a94a143b004e60bc2c22d3f94b4c7085c820d64cab59972f7ad96d6eb16e0a7",
+    -   "verified": false,
+      }
+      2879 |     const result = page.locator('#scan-result');
+      2880 |     const expectCouldNotCheck = async (r, hash, label) => {
+    > 2881 |       expect(r, label).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+           |                        ^
+      2882 |       await expect(result, label).toHaveAttribute('data-kind', 'unknownCode');
+      2883 |       await expect(result, label).toHaveAttribute('data-verified', 'false');
+      2884 |       await expect(result.locator('.rc-head'), label).toHaveText('Code not recognized');
+        at expectCouldNotCheck (/home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2881:24)
+        at /home/jcole/projects/hq-worktrees/j1-photo-scan-guard-and-lookup-arms/tests/marketing.spec.js:2906:11
+    Error Context: ../../../../..pw-out/marketing-Photo-scan-guard-0e040-he-server-does-not-know-it--chromium/error-context.md
+  1 failed
+    [chromium] › tests/marketing.spec.js:2877:3 › Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1) › [SV-10] a non-200 answer is "couldn't check the server" (unknownCode, verified:false) — never a plain "the server does not know it" 
+  6 passed (22.7s)
+# playwright exit=1  finished 2026-10-05T02:25:03Z
+# reverted: git status --porcelain -- marketing tests = '' (empty = clean)
