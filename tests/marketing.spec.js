@@ -2548,3 +2548,453 @@ test.describe('Scan-time verify (card scan-time-verify, roadmap I2)', () => {
     expect(calls).toHaveLength(shapes.length);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Photo scan guard + the lookup's four unchecked arms — card
+// photo-scan-guard-and-lookup-arms (run 20261005, roadmap J1; BACKLOG B-475 +
+// B-476; ledger T-64 decision 205; goal ledger .night-crew/knowledge/spikes/
+// activity-j-scanner-and-backend-guards-triage-20261003-follow-ups/
+// photo-scan-guard-and-lookup-arms.md)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A sibling of the "Scan-time verify" describe above; nothing in that describe
+// is edited.
+//
+// [PS-*] — B-475. While the scanner waited on the server for never-seen code
+// A, a photo of another code B went straight to the submit machine's F6 gate,
+// which refused it ("Finish the current customer first") and left the machine
+// in `resolving` — so when the server answered, A's offer rendered with no
+// order-number field and no submit control. The photo path now takes the
+// camera path's busy flag: a pick during the wait is not read at all.
+//
+// [SV-08]–[SV-11] — B-476. Four arms of the scan-time check that were correct
+// as shipped and guarded by nothing: each one broken left this whole file
+// green. Each test below was run RED under its named mutation first.
+//
+// RED-FIRST. Evidence lives under
+// .night-crew/runs/2026-10-05-autonomous/logs/photo-scan-guard-and-lookup-arms/
+//   [PS-01]/[PS-01b]  red on the pre-change tree (no guard on the photo path)
+//   [SV-08]  mutation: scanner.js step 2 no longer returns expiredLocally for
+//            a held, locally-expired code — it falls through to the server
+//   [SV-09]  mutation: `clock.isExpired(row.expires_at)` forced false
+//   [SV-10]  mutation: createServerLookup's non-200 branch `return null`
+//   [SV-11]  mutation: submit-flow.js policyFor's `catch` arm `return false`
+//
+// WHAT IS STUBBED, AND WHAT IS NOT (the merge-intent carries the same table):
+//   the STACK   as above — mockSyncTransports serves the mint envelope and the
+//               pull replicas; everything in the page runs for real.
+//   [PS-01/1b]  ⚪ the HOLD is un-stubbed: the lookup is sent and nothing
+//               answers while the photo is picked. 🟡 the row it is finally
+//               released with is the permitted stub. The photo goes through
+//               the real #scan-file input and the real html5-qrcode decode.
+//   [SV-08]     ⚪ UN-STUBBED COUNT — zero requests are sent; the counting
+//               route would serve a LIVE row if it were ever reached.
+//   [SV-09]     🟡 the permitted stub: one expired row on the door's path.
+//   [SV-10]     ⚪ first leg UN-STUBBED: the lookup is passed through to the
+//               REAL door (route.continue), which has no substrate behind it
+//               in this stack and answers non-200 by itself. 🟡 the 401 / 500
+//               / 404 legs are statuses fulfilled by page.route, said so here.
+//   [SV-11]     ⚪ no seam is stubbed: setCampaignPolicy is never called and
+//               MarketingScan.campaignPolicy is never replaced. The SHIPPED
+//               `policyFor` export is handed a throwing source directly and
+//               its answer is fed to a SHIPPED submit machine. What this does
+//               NOT drive: the page's own render of the refusal under a
+//               throwing source — the real source cannot be made to throw, so
+//               that would need the injection seam (see the merge-intent).
+
+const PS_PHOTO_B = 'qr-fixture-1.png';   // card1-test-code-fixture-1 → FIXTURE_1_TOKEN_HASH
+const PS_PHOTO_A = 'qr-fixture-4.png';   // card1-test-code-fixture-4 → FIXTURE_4_TOKEN_HASH
+
+// Hold every scan-time lookup until the test releases it; each held route is
+// recorded so the test can see that the request really was sent.
+async function psHoldLookups(page) {
+  const held = [];
+  await page.route(isLookupUrl, (route) => { held.push(route); });
+  return held;
+}
+const psRelease = (route, row) =>
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(row ? [row] : []) });
+
+// Pick a photo through the real input WITHOUT waiting for a result card, then
+// wait until the page has finished with that pick. The handler resets the
+// input when it is done with a pick — on a refusal at once, otherwise after
+// the decode and the scan — so an empty value means "this pick is settled".
+async function psPickPhoto(page, fixtureFile) {
+  await page.setInputFiles('#scan-file', path.join(__dirname, 'fixtures', fixtureFile));
+}
+async function psPickSettled(page) {
+  await expect.poll(
+    () => page.$eval('#scan-file', (el) => el.value),
+    { timeout: 10000, message: 'the photo pick was handled and the input reset' },
+  ).toBe('');
+}
+// What the result area shows RIGHT NOW (no waiting): its kind, whose code it
+// is about, and whether the F6 "finish the current customer first" sheet is up.
+const psMidWait = (page) => page.evaluate(() => {
+  const box = document.getElementById('scan-result');
+  return {
+    kind: box.getAttribute('data-kind'),
+    hash: box.getAttribute('data-token-hash'),
+    prompt: document.querySelectorAll('#scan-prompt').length,
+  };
+});
+const psAfterRelease = (page) => page.evaluate(() => {
+  const flow = document.getElementById('ms-flow');
+  return {
+    msOrder: document.querySelectorAll('#ms-order').length,
+    prompt: document.querySelectorAll('#scan-prompt').length,
+    mstate: flow ? flow.getAttribute('data-mstate') : null,
+  };
+});
+
+test.describe('Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-arms, roadmap J1)', () => {
+
+  test('[PS-01] a photo of held code B picked while never-seen code A waits on the server → A\'s offer renders WITH its order-number field and NO finish-first prompt', async ({ page }) => {
+    const tokenA = 'ps01-never-seen-code-a';
+    const hashA = svHash(tokenA);
+    await openProvisionedScanner(page);
+    // Code B (the photo) is HELD locally: unguarded, it resolves at once.
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()] });
+    const redeems = await mockRedeem(page, 'redeemed');
+    await expectAbsentLocally(page, hashA);
+    const held = await psHoldLookups(page);
+
+    // Code A: online, never seen → the resolver asks the server; the door holds.
+    await page.evaluate((p) => { window.__psScan = window.MarketingScan.scanText(p); }, svPayload(tokenA));
+    await expect.poll(() => held.length, { timeout: 5000 }).toBe(1);
+    expect(new URL(held[0].request().url()).searchParams.get('token_hash')).toBe(`eq.${hashA}`);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'checkingServer');
+
+    // Mid-wait: the crew picks a photo of code B.
+    await psPickPhoto(page, PS_PHOTO_B);
+    await psPickSettled(page);
+
+    // The pick was not read: the screen still says it is checking A, and no
+    // sheet has come up over it. ONE snapshot, not a polling expect — the
+    // lookup has a 3.5 s budget and the test must release it inside that.
+    // (Soft, so a red run also reports the done_when assertions below.)
+    expect.soft(await psMidWait(page), 'during the wait: still checking A, no finish-first prompt')
+      .toEqual({ kind: 'checkingServer', hash: hashA, prompt: 0 });
+    expect.soft(held, 'B is held locally — it never causes a lookup').toHaveLength(1);
+
+    // The server answers A: live.
+    await psRelease(held[0], svServerRow({ id: 'c0000000-0000-4000-8000-00000000a701' }));
+    await page.evaluate(() => window.__psScan);
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(result).toHaveAttribute('data-token-hash', hashA);
+    await expect(result.locator('.offer-row')).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-00000000a701');
+
+    // done_when: A's offer card WITH #ms-order and NO #scan-prompt.
+    await expect.soft(page.locator('#ms-order'), 'the order-number field is there').toBeVisible({ timeout: 5000 });
+    await expect.soft(page.locator('[data-action="ms-submit"]'), 'the submit control is there').toHaveCount(1);
+    await expect.soft(page.locator('#scan-prompt'), 'no finish-first prompt over A\'s offer').toHaveCount(0);
+    // …and it stays that way: nothing late (a slow decode of B) arrives to
+    // take the field away or raise the sheet.
+    await page.waitForTimeout(1500);
+    expect.soft(await psAfterRelease(page), '1.5 s later: field still there, no prompt, machine at offerReady')
+      .toEqual({ msOrder: 1, prompt: 0, mstate: 'offerReady' });
+    // A soft failure above has already failed the test; there is no field to fill.
+    if (test.info().errors.length) return;
+
+    // The customer is not stranded: A submits, as A.
+    await page.fill('#ms-order', '4321');
+    await page.click('[data-action="ms-submit"]');
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'redeemed');
+    expect(redeems).toHaveLength(1);
+    expect(redeems[0].token_hash).toBe(hashA);
+  });
+
+  test('[PS-01b] the same through user paths only: a PHOTO of never-seen code A waits on the server, a photo of B is picked mid-wait → A\'s offer renders WITH #ms-order, no prompt', async ({ page }) => {
+    await openProvisionedScanner(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()] });
+    await expectAbsentLocally(page, FIXTURE_4_TOKEN_HASH);
+    const held = await psHoldLookups(page);
+
+    // Code A arrives as a photo (decoded for real), is in no replica, and waits.
+    await psPickPhoto(page, PS_PHOTO_A);
+    await expect.poll(() => held.length, { timeout: 10000 }).toBe(1);
+    expect(new URL(held[0].request().url()).searchParams.get('token_hash')).toBe(`eq.${FIXTURE_4_TOKEN_HASH}`);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'checkingServer');
+
+    // Mid-wait: a photo of code B.
+    await psPickPhoto(page, PS_PHOTO_B);
+    await psPickSettled(page);
+    expect.soft(await psMidWait(page), 'during the wait: still checking A, no finish-first prompt')
+      .toEqual({ kind: 'checkingServer', hash: FIXTURE_4_TOKEN_HASH, prompt: 0 });
+
+    await psRelease(held[0], svServerRow({ id: 'c0000000-0000-4000-8000-00000000a702' }));
+    await expect(result).toHaveAttribute('data-kind', 'offerReady');
+    await expect(result).toHaveAttribute('data-token-hash', FIXTURE_4_TOKEN_HASH);
+    await expect.soft(page.locator('#ms-order'), 'the order-number field is there').toBeVisible({ timeout: 5000 });
+    await expect.soft(page.locator('[data-action="ms-submit"]')).toHaveCount(1);
+    await page.waitForTimeout(1500);
+    expect.soft(await psAfterRelease(page), '1.5 s later: field there, no prompt, machine at offerReady')
+      .toEqual({ msOrder: 1, prompt: 0, mstate: 'offerReady' });
+  });
+
+  test('[PS-02] a photo picked with no scan in flight still decodes — before a wait, after a wait that refused a pick, and after a photo with no code in it', async ({ page }) => {
+    await openProvisionedScanner(page);
+    await seedLocal(page, { offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()] });
+    const result = page.locator('#scan-result');
+    const expectPhotoBDecoded = async (when) => {
+      await expect(result, when).toHaveAttribute('data-kind', 'offerReady');
+      await expect(result, when).toHaveAttribute('data-token-hash', FIXTURE_1_TOKEN_HASH);
+      await expect(result.locator('.offer-row'), when).toHaveAttribute('data-code-id', 'c0000000-0000-4000-8000-000000000001');
+      await expect(page.locator('#ms-order'), when).toBeVisible();
+      await expect(page.locator('#scan-prompt'), when).toHaveCount(0);
+    };
+
+    // 1 — nothing in flight: the photo decodes.
+    await psPickPhoto(page, PS_PHOTO_B);
+    await expectPhotoBDecoded('nothing in flight');
+    await psPickSettled(page);
+    await page.click('[data-action="scan-again"]');
+    await expect(result).toBeHidden();
+
+    // 2 — a wait that refused a pick ends, and the SAME photo decodes: the
+    // guard is a wait, not a disable.
+    const tokenA = 'ps02-never-seen-code-a';
+    const held = await psHoldLookups(page);
+    await page.evaluate((p) => { window.__psScan = window.MarketingScan.scanText(p); }, svPayload(tokenA));
+    await expect.poll(() => held.length, { timeout: 5000 }).toBe(1);
+    await psPickPhoto(page, PS_PHOTO_B);
+    await psPickSettled(page);
+    expect.soft(await psMidWait(page), 'the mid-wait pick was not read')
+      .toEqual({ kind: 'checkingServer', hash: svHash(tokenA), prompt: 0 });
+    await psRelease(held[0], svServerRow({ id: 'c0000000-0000-4000-8000-00000000a703' }));
+    await page.evaluate(() => window.__psScan);
+    await expect(result).toHaveAttribute('data-token-hash', svHash(tokenA));
+    await expect(page.locator('#ms-order')).toBeVisible();
+    await page.click('[data-action="scan-again"]');
+    await expect(result).toBeHidden();
+    await psPickPhoto(page, PS_PHOTO_B);
+    await expectPhotoBDecoded('after the wait ended');
+    await psPickSettled(page);
+    await page.click('[data-action="scan-again"]');
+    await expect(result).toBeHidden();
+
+    // 3 — a photo with no code in it reads "No QR code found" and does not
+    // leave the scanner refusing the next pick.
+    await page.setInputFiles('#scan-file', {
+      name: 'blank.png', mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'),
+    });
+    await expect(result).toHaveAttribute('data-kind', 'decodeError');
+    await expect(result.locator('.rc-head')).toHaveText('No QR code found');
+    await psPickSettled(page);
+    await psPickPhoto(page, PS_PHOTO_B);
+    await expectPhotoBDecoded('after a photo with no code in it');
+  });
+
+  // ── B-476: the four arms ───────────────────────────────────────────────────
+
+  test('[SV-08] online + held locally AND expired by the local clock → the replica\'s expired result, zero lookups — the server is not asked and nothing is offered', async ({ page }) => {
+    const expiredAt = '2020-01-01T00:00:00.000Z';
+    await openProvisionedScanner(page);
+    await seedLocal(page, {
+      offers: [fixture1Row({ expires_at: expiredAt })],
+      codes: [fixture1Row({ expires_at: expiredAt })],
+      campaigns: [campaignLowRow()],
+    });
+    // ⚪ UN-STUBBED COUNT, [SV-04]'s construction: a wrongly-sent lookup would
+    // be ANSWERED with a live row — visible in the counter and as an offer.
+    const lookups = await serveLookupRows(page, {
+      [FIXTURE_1_TOKEN_HASH]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a581' }),
+      [svHash('sv08-control-never-seen')]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a585' }),
+    });
+    await page.evaluate(() => {
+      window.__svKinds = [];
+      const box = document.getElementById('scan-result');
+      new MutationObserver(() => window.__svKinds.push(box.getAttribute('data-kind')))
+        .observe(box, { attributes: true, attributeFilter: ['data-kind'], childList: true });
+    });
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
+
+    const { result: r } = await timedScan(page, FIXTURE_1_PAYLOAD);
+
+    // The replica's verdict, exactly: no `source` (the server said nothing).
+    expect(r).toEqual({ kind: 'expiredLocally', token_hash: FIXTURE_1_TOKEN_HASH, expires_at: expiredAt });
+    expect(Object.keys(r).sort()).toEqual(['expires_at', 'kind', 'token_hash']);
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'expiredLocally');
+    expect(await result.getAttribute('data-source')).toBeNull();
+    await expect(result.locator('.rc-head')).toHaveText('Expired');
+    await expect(result.locator('.offer-row')).toHaveCount(0);
+    await expect(result).not.toContainText('offer available');
+    await expect(page.locator('#scan-submit-slot')).toHaveCount(0);
+    await expect(page.locator('#ms-order')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]')).toHaveCount(0);
+
+    expect(lookups, 'held and locally expired: no lookup').toHaveLength(0);
+    const kinds = await page.evaluate(() => window.__svKinds.slice());
+    expect(kinds).not.toContain('checkingServer');
+    expect(kinds).not.toContain('offerReady');
+
+    // CONTROL — the counter sees a call for a code that is NOT held.
+    await page.click('[data-action="scan-again"]');
+    await scanText(page, svPayload('sv08-control-never-seen'));
+    expect(lookups, 'control: a never-seen code is looked up exactly once').toHaveLength(1);
+    await expect(result).toHaveAttribute('data-source', 'server');
+  });
+
+  test('[SV-09] online + the server\'s row is EXPIRED → the expired card from the server, never an offer and no discount prompt', async ({ page }) => {
+    const token = 'sv09-expired-on-the-server';
+    const hash = svHash(token);
+    const expiredAt = '2020-06-15T12:00:00+00:00'; // PostgREST's offset form; mid-year, so every timezone renders 2020
+    await openProvisionedScanner(page);
+    const lookups = await serveLookupRows(page, {
+      [hash]: svServerRow({ id: 'c0000000-0000-4000-8000-00000000a509', expires_at: expiredAt }),
+    });
+    const redeems = await mockRedeem(page, 'redeemed');
+    await expectAbsentLocally(page, hash);
+
+    const { result: r } = await timedScan(page, svPayload(token));
+
+    expect(r).toEqual({ kind: 'expiredLocally', token_hash: hash, source: 'server', expires_at: expiredAt });
+    const result = page.locator('#scan-result');
+    await expect(result).toHaveAttribute('data-kind', 'expiredLocally');
+    await expect(result).toHaveAttribute('data-source', 'server');
+    await expect(result.locator('.rc-head')).toHaveText('Expired');
+    await expect(result.locator('.offer-sub')).toContainText('Expired');
+    await expect(result.locator('.offer-sub')).toContainText('2020');
+    expect(lookups, 'the server WAS asked, once').toHaveLength(1);
+
+    // Never an offer: no offer row, no submit slot, no order-# field, no
+    // submit or override control, nothing posted.
+    await expect(result.locator('.offer-row')).toHaveCount(0);
+    await expect(result).not.toContainText('offer available');
+    await expect(result).not.toContainText('Apply the matching offer');
+    await expect(page.locator('#scan-submit-slot')).toHaveCount(0);
+    await expect(page.locator('#ms-order')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
+    expect(redeems).toHaveLength(0);
+  });
+
+  test('[SV-10] a non-200 answer is "couldn\'t check the server" (unknownCode, verified:false) — never a plain "the server does not know it"', async ({ page }) => {
+    await openProvisionedScanner(page);
+    const result = page.locator('#scan-result');
+    const expectCouldNotCheck = async (r, hash, label) => {
+      expect(r, label).toEqual({ kind: 'unknownCode', token_hash: hash, verified: false });
+      await expect(result, label).toHaveAttribute('data-kind', 'unknownCode');
+      await expect(result, label).toHaveAttribute('data-verified', 'false');
+      await expect(result.locator('.rc-head'), label).toHaveText('Code not recognized');
+      await expect(page.locator('#scan-server-unchecked'), label).toBeVisible();
+      await expect(page.locator('#scan-server-unchecked'), label).toContainText("Couldn't check the server");
+    };
+
+    // ── leg 1, ⚪ UN-STUBBED: the REAL door. This stack has no substrate
+    // behind /sync/rest, so the Go server itself answers the lookup with a
+    // non-200. The request is passed through; nothing here picks the status.
+    const real = [];
+    page.on('response', (res) => {
+      const u = new URL(res.url());
+      if (isLookupUrl(u)) real.push({ search: u.search, status: res.status() });
+    });
+    await page.route(isLookupUrl, (route) => route.continue());
+    const tokenReal = 'sv10-real-door-no-substrate';
+    await expectAbsentLocally(page, svHash(tokenReal));
+    const first = await timedScan(page, svPayload(tokenReal));
+    expect(real, 'the lookup reached the real door, once').toHaveLength(1);
+    expect(real[0].search).toBe(`?token_hash=eq.${svHash(tokenReal)}&select=${SV_SELECT}`);
+    expect(real[0].status, 'the real door answered, and not with 200').not.toBe(200);
+    expect(real[0].status).toBeGreaterThanOrEqual(400);
+    test.info().annotations.push({ type: 'sv10-real-door-status', description: String(real[0].status) });
+    await expectCouldNotCheck(first.result, svHash(tokenReal), `real door, HTTP ${real[0].status}`);
+    // Today's path is intact: the F2 submit affordance is still there.
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'unknownCode');
+    await page.click('[data-action="scan-again"]');
+    await page.unroute(isLookupUrl);
+
+    // ── leg 2, 🟡 statuses fulfilled by page.route (a stub, said so). The
+    // bodies are the ones that would mislead a reader that ignored the
+    // status: an empty list reads as "the server does not know it", a row
+    // reads as an offer.
+    const answers = [
+      { status: 401, body: '{"code":"PGRST301","message":"JWT expired"}' },
+      { status: 500, body: '[]' },
+      { status: 404, body: '[]' },
+      { status: 503, body: JSON.stringify([svServerRow({ id: 'c0000000-0000-4000-8000-00000000a510' })]) },
+    ];
+    let current = answers[0];
+    const calls = [];
+    await page.route(isLookupUrl, async (route) => {
+      calls.push(route.request().url());
+      await route.fulfill({ status: current.status, contentType: 'application/json', body: current.body });
+    });
+    for (let i = 0; i < answers.length; i += 1) {
+      current = answers[i];
+      const token = `sv10-http-${current.status}`;
+      const { result: r } = await timedScan(page, svPayload(token));
+      await expectCouldNotCheck(r, svHash(token), `HTTP ${current.status} body ${current.body}`);
+      await expect(result.locator('.offer-row')).toHaveCount(0);
+      await page.click('[data-action="scan-again"]');
+    }
+    expect(calls).toHaveLength(answers.length);
+
+    // CONTROL — a 200 with an empty list IS "the server does not know it":
+    // the plain unknown-code result, with no unverified marker.
+    current = { status: 200, body: '[]' };
+    const known = await timedScan(page, svPayload('sv10-control-200-empty'));
+    expect(known.result).toEqual({ kind: 'unknownCode', token_hash: svHash('sv10-control-200-empty') });
+    await expect(result).not.toHaveAttribute('data-verified', 'false');
+    await expect(page.locator('#scan-server-unchecked')).toHaveCount(0);
+  });
+
+  test('[SV-11] the shipped policyFor, handed a THROWING policy source, fails closed for a code that names a campaign — and the shipped machine refuses the offline override', async ({ page }) => {
+    // ⚪ No seam is stubbed: setCampaignPolicy is not called and
+    // MarketingScan.campaignPolicy is not replaced. The page's own modules
+    // (already loaded and booted — a dynamic import of the same URL is the
+    // same instance) are asked directly, the way
+    // marketing/sync/harness/campaigns-harness.mjs leg 3 asks them in node,
+    // with the one source that harness never tries: one that throws.
+    await openSubmitScanner(page);
+    const out = await page.evaluate(async () => {
+      const flow = await import('/marketing/submit-flow.js');
+      const { createSubmitMachine } = await import('/marketing/submit-machine.js');
+      const HIGH = 'a0000000-0000-4000-8000-000000000002';
+      const LOW = 'a0000000-0000-4000-8000-000000000001';
+      const asked = [];
+      const thrower = (id) => { asked.push(id === undefined ? 'undefined' : id); throw new Error('policy source is down'); };
+      const drive = (requiresOnline) => {
+        const trips = [];
+        const m = createSubmitMachine(window.XState, { canOverride: true }, [], { mode: 'throw', onTrip: (t) => trips.push(t) });
+        m.send('SCAN');
+        m.send('QR_DECODED', { code: 'sv11-code' });
+        m.send('RESOLVED', { kind: 'offerReady', requiresOnline });
+        m.send('ORDER_OK');
+        m.send('CONN_DOWN');
+        m.send('SUBMIT');
+        const overrideAvailable = m.flags().overrideAvailable;
+        m.send('OVERRIDE_REQUEST');
+        return { requiresOnline, overrideAvailable, after: m.scan(), alive: m.alive(), trips: trips.length };
+      };
+      return {
+        bootedOnce: document.querySelectorAll('#scan-conn').length,
+        high: drive(flow.policyFor(thrower, HIGH, [])),
+        low: drive(flow.policyFor(thrower, LOW, [])),
+        // decision 166: a code naming NO campaign is not fail-closed, even here.
+        none: [flow.policyFor(thrower, null, []), flow.policyFor(thrower, '', []), flow.policyFor(thrower, undefined, [])],
+        asked,
+        // CONTROL — a source that answers is believed: the refusal above is
+        // the catch arm's, not a constant.
+        healthyFalse: drive(flow.policyFor(() => ({ requiresOnline: false, unresolved: false }), LOW, [])),
+        healthyTrue: flow.policyFor(() => ({ requiresOnline: true, unresolved: false }), HIGH, []),
+      };
+    });
+    expect(out.bootedOnce, 'the import did not boot the page a second time').toBe(1);
+    // The source really was called, and really threw, for every question.
+    expect(out.asked).toEqual([
+      'a0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001', null, '', 'undefined',
+    ]);
+    // Fail closed: "could not tell" is not permission.
+    expect(out.high).toEqual({ requiresOnline: true, overrideAvailable: false, after: 'blockedOffline', alive: true, trips: 0 });
+    expect(out.low).toEqual({ requiresOnline: true, overrideAvailable: false, after: 'blockedOffline', alive: true, trips: 0 });
+    expect(out.none).toEqual([false, false, false]);
+    expect(out.healthyFalse).toEqual({ requiresOnline: false, overrideAvailable: true, after: 'overrideConfirm', alive: true, trips: 0 });
+    expect(out.healthyTrue).toBe(true);
+  });
+});
