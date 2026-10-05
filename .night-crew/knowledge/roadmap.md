@@ -15,8 +15,17 @@
 > this round proceeds on the close record, the backlog, and the OKR grades, and records the
 > absence.
 
-## Current state (2026-10-05, milestone "Close the loop" — 33 cards, **27 green, 4 white**, 2 retired)
+## Current state (2026-10-05, milestone "Close the loop" — 33 cards, **27 green, 3 white**, 3 retired)
 
+> **Slate `20261006` signed at the evening sitting of 2026-10-05 (ledger T-68): Activity E's two
+> cards ride tonight — the LAST overnight the milestone needs.** The operator chose it over a
+> leftovers night ("I want this last loop to clear the milestone"); both goals were spiked and
+> closed inline (one signed correction: the QR encodes at Low with a 16-char token). The same
+> sitting retired `redemption-unknowns-spike` (ABSORBED → Activity H — its questions are answered
+> by the landed reconciliation; #6 is moot) and swapped the delivery provider to SignalWire
+> (decision 208, T-67). After tonight the only white card is `external-accounts-provision`, and
+> the rest is the operator's attended acts (D-KR1's live send; close-bar legs 1 and 2).
+>
 > **Activities I and J are complete and triaged.** Run `overnight-20261005` landed three of three
 > cards (merge `57a2083`): Activity I's last, `atomic-scan-dedupe`, and Activity J's
 > `photo-scan-guard-and-lookup-arms` + `merge-target-and-blanking-guards`. Triage is recorded at
@@ -135,7 +144,8 @@ still pending.
   explicitly. **Greenfield note:** most cards here create new files, so "red on the pre-change
   tree" means the new test fails because the behavior does not yet exist — name it and show it.
 - **New-stack reality (retro-in-advance).** This cycle adds Supabase (hosted Postgres + Realtime)
-  and Twilio to an app that is otherwise static-HTML + Go + self-hosted Postgres. That is a real
+  and SignalWire (decision 208 — replaces Twilio, 2026-10-05) to an app that is otherwise
+  static-HTML + Go + self-hosted Postgres. That is a real
   surface-area increase; it is the tradeoff the handoff §3 accepts. Cards that touch the new stack
   carry their external-dependency note explicitly so an overnight leg never discovers a missing
   account mid-run.
@@ -243,7 +253,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 | **rxdb replica** | new `marketing/` client JS (RxDB collections + pull/push handlers + clock-offset); vendored RxDB reuse per R1 |
 | **scanner UI** | `marketing.html`, `index.html` (tile + `TILE_SLUGS`), camera decode + submit flow |
 | **redemption backend** | `backend/internal/redemption/**` (gstate machine + HQ redeem endpoint), `backend/internal/db/db.go` (`SeedHQApps`) |
-| **delivery** | Twilio integration (QR gen + MMS send on form submit), consent capture |
+| **delivery** | SignalWire integration (QR gen + MMS send on form submit), consent capture |
 | **toast join** | SMTP ingest mailbox → CSV parser → staging table, reconciliation view + orphan-rate |
 | **planning docs** | `.night-crew/knowledge/BACKLOG.md`, slate/closeout templates under `reference/` (Activity G) |
 
@@ -256,7 +266,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### Activity 0 — Resolve what the build rides on (unknowns + longest external leads)
 
-- `redemption-unknowns-spike` · **PLANNED** · Attended / field observation. Answer handoff
+- `redemption-unknowns-spike` · **ABSORBED → Activity H `toast-orders-and-reconciliation`** (retired at the slate sitting of 2026-10-05, ledger T-68 — #1–#3 are answered by the landed reconciliation that joins `OrderDetails.csv` on `(business_date, order_number)`; #6 is moot with Activities B–D built; was:) · Attended / field observation. Answer handoff
   §14 #1 (business-date cutoff hour), #2 (order-number format — digit count, prefix, reset
   behavior), #3 (which Toast scheduled report carries order# + business date + discounts), and
   **#6 — the load-bearing one: do the truck's three devices genuinely lose connectivity
@@ -268,12 +278,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 - `external-accounts-provision` · **PLANNED** · Attended (operator holds accounts/billing).
   Stand up the two external dependencies the whole cycle needs: (a) a **Supabase project**
   (account, project, anon/service keys wired into HQ's existing secret pattern — dev/test project
-  distinct from any prod project, per decision 155's spirit); (b) a **Twilio account + toll-free
-  number** for delivery, and **start A2P/10DLC brand+campaign registration in parallel** (1–3 wk
-  external lead — §11; toll-free covers the cycle, 10DLC covers later scale). STOP-handling and
-  consent language drafted here so Activity E ships compliant (§11, R5). `n/a — no code change`.
-  **Gates Activity A** (Supabase) and **Activity E** (Twilio). Footprint: external accounts +
-  secret pattern.
+  distinct from any prod project, per decision 155's spirit); (b) a **SignalWire account +
+  toll-free number** for delivery (decision 208, 2026-10-05 — SignalWire replaces Twilio; the
+  carrier-side A2P/10DLC and toll-free verification steps are unchanged), and **start A2P/10DLC
+  brand+campaign registration in parallel** (1–3 wk external lead — §11; toll-free covers the
+  cycle, 10DLC covers later scale). STOP-handling and consent language drafted here so Activity E
+  ships compliant (§11, R5). `n/a — no code change`. **Gates Activity A** (Supabase) and
+  **Activity E** (SignalWire). Footprint: external accounts + secret pattern.
 
 ## Activity A — The attribution spine (the Supabase arbiter)
 
@@ -610,7 +621,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > **Compliance is non-optional (R5).** Needs Activity 0's number live. **Locks §14 #10 (URL-wrapped
 > QR).**
 
-### Activity E — Customer delivery (one identity code → QR → image)
+> **Goal rung added at the slate sitting of 2026-10-05** (run `20261006`): one goal per card, 1:1
+> with the spike ledgers under
+> `.night-crew/knowledge/spikes/activity-e-customer-delivery-one-identity-code-qr-image/`. The
+> signup door is the Fluent Forms import (H5), not an HQ-hosted form; the sending provider is
+> SignalWire (decision 208).
+
+### identity-code-and-qr
 
 - `identity-code-and-qr` · **PLANNED** · **One permanent identity code per customer** — the
   QR is primarily *who they are*, not *what they get*; the customer's full, current entitlement
@@ -628,6 +645,37 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   on three tablets (§10). done_when: an **offline** scan of a freshly-issued code (customer not
   yet in the local replica) still shows its embedded offer, and an **online** scan of the same
   code shows the full server-side list. Footprint: delivery + supabase arbiter (entitlements).
+  **Slated 2026-10-05 (run `20261006`) — spike-fixed mechanism** (goal ledger
+  `spikes/activity-e-…/identity-code-and-qr.md`, one signed correction): the scanner half is
+  SHIPPED (`parseEmbeddedOffer`, `embeddedOffer` / `offerReady`) and the card is server-side.
+  Migration `0088`: `subscribers.identity_token_hash text unique null`,
+  `subscribers.identity_minted_at`, and `identity_media (id uuid pk, subscriber_id fk, png bytea,
+  created_at)`. Minting (`MintIdentityCode`, once per subscriber, idempotent on the hash): a
+  **16-character** base32 token, hashed SHA-256 (the raw token is never stored as text — the
+  PNG is the only copy, served publicly at `GET /m/{media_id}.png` for the carrier fetch); the
+  hybrid payload `https://hq.yumyums.kitchen/r/<token>#o=<base64url JSON{label, campaign_id,
+  expires_at (date-only), face_value}>` — the SAME keys the shipped reader parses — encoded with
+  `go-qrcode` at **Low** correction (measured: version 9, 53 modules, decodes through the shipped
+  reader; Medium/version 11 does NOT on the 320 px file surface). The embedded offer is the
+  subscriber's first-touch campaign (`source_short` → `qr_codes.campaign_id`); with no first-touch
+  code the QR is identity-only (no descriptor) — never a guessed campaign. The entitlement row is
+  projected to the arbiter's `codes` table through `projection.go`'s existing PostgREST client
+  (`ProjectIdentityCode` beside `ProjectCampaign`, merge-duplicates, `expires_at` = the campaign's
+  `ends_at`; failure → `warnings:["not_projected"]`, never a rollback — decision 187's shape).
+  **One reader line:** `#scan-file-surface` 320 → 640 px (`marketing.html`, `sw.js` regenerated,
+  count stays 51) — headroom, not a contract change. done_when (red-first): `[IC-01]` the
+  server-minted PNG for a fixture subscriber decodes OFFLINE through the shipped page to
+  `embeddedOffer` with the first-touch campaign's label and the hash of the minted token;
+  `[IC-02]` the same PNG ONLINE with the lookup answering the projected row → `offerReady` from
+  `server`; `[IC-03]` a Medium/version-11 image is the NEGATIVE control (decodeError or no offer —
+  never a wrong offer); `TestMintIdentityCodeIsIdempotent`, `TestMintIdentityCodeNoFirstTouchIsIdentityOnly`,
+  `TestProjectIdentityCodeUpserts` (mocked PostgREST, asserting the body and `Prefer` header);
+  `GET /subscribers/{id}` carries `identity_code.status = minted|sent` and `media_url`.
+  Footprint: `backend/internal/marketing/identity.go` (new), `projection.go`, `subscribers.go`,
+  `routes.go` (`/m/{id}.png` under `MountPublic`), migration `0088`, `marketing.html` (one
+  line), `tests/marketing-identity.spec.js` (new, joins the `marketing` seam by name), `sw.js`.
+
+### mms-send-on-signup
 
 - `mms-send-on-signup` · **PLANNED** · Form submit → generate the identity code in Supabase →
   **send the QR as an MMS image, not a link** (§11 — an image lives in the thread and opens with
@@ -635,6 +683,45 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   collection**, working **STOP handling**, sends over the registered number (§11 compliance,
   R5). done_when: the operator's test signup produces a scannable image in their Messages thread.
   Footprint: delivery. **External dependency: a live sending number (Activity 0).**
+  **Slated 2026-10-05 (run `20261006`) — spike-fixed mechanism** (goal ledger
+  `spikes/activity-e-…/mms-send-on-signup.md`, no corrections; provider SignalWire, decision
+  208): the signup door is the Fluent Forms import (H5), so "form submit" = a NEW subscriber
+  landing through `ImportSubscribers`. New package **`internal/delivery`** (the path carries no
+  vendor name — the egress guard matches import paths by substring): `Sender` interface
+  (`SendMMS(ctx, to, mediaURL, body) (sid, error)`) + `SignalWire` over the Twilio-compatible LaML
+  Messages resource (`POST {space}/api/laml/2010-04-01/Accounts/{project}/Messages.json`, basic
+  auth, form `From/To/Body/MediaUrl`), configured from `HQ_SW_SPACE_URL`, `HQ_SW_PROJECT_ID`,
+  `HQ_SW_API_TOKEN`, `HQ_SW_FROM`; unset → a **recording stub** (`delivery.Stub`, rows in
+  `delivery_log`) so every gate and the e2e stack send nothing real — D-KR2's mocked transport.
+  `internal/marketing` imports ONLY the interface through `Deps.Sender` (spike-proven legal).
+  On a new subscriber with `sms_consent = true` and a phone: mint (E1) → `SendMMS(phone,
+  media_url, "Your Yumyums code — show this at the window")` → append `code_sent` (ref: sid,
+  provider) — the event the Stats funnel counts; `sms_consent = false` or no phone → E1 still
+  mints (identity is who they are — one code ever) and **only the send is withheld**,
+  `code_withheld: no_consent | no_phone` noted on the `signed_up` event's ref (no new `kind` —
+  the CHECK constraint is the lifecycle; adding a kind is a park). `POST /subscribers/{id}/resend` becomes
+  a real send of the SAME media (one code ever, §10) and still refuses without consent (202
+  `sent:false, reason:"no_consent"`). **STOP:** `POST /api/v1/marketing/sms/inbound` under
+  `MountPublic`, form-encoded as the carrier posts it, validated with the SignalWire signing key
+  when `HQ_SW_SIGNING_KEY` is set (403 otherwise, 503 when unset in prod mode; the stub mode
+  accepts unsigned), `Body` ∈ {STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT} (case-insensitive)
+  → `opted_out_at = now()`, `sms_consent = false`, `opted_out` event; the next send for that
+  phone is refused. Consent evidence on the subscriber is untouched. done_when (red-first, the
+  spike's five baseline lines): `TestNewConsentingSubscriberIsMintedAndSent` (stub sender called
+  once, `code_sent` 1, `identity_code.status = sent`); `TestNoConsentIsNeverSent` (fixture
+  `+17735550117`: sender never called, 0 `code_sent`, timeline ref says why);
+  `TestInboundStopOptsOutAndBlocksNextSend`; `TestInboundRejectsBadSignature`;
+  `TestResendSendsSameMediaOnce`; `TestNothingInThisPackageSends` STILL GREEN (the sender is
+  outside); Playwright `[MS-01]`–`[MS-03]` in `tests/marketing-delivery.spec.js` (D-KR2 is
+  measured by `tests/`): import the fixture through the UI → the subscriber sheet shows **Sent**
+  for `+17735559930` and **Not sent — no SMS consent** for `+17735550117`, and after a stubbed
+  STOP the sheet shows **Opted out** and Resend answers "no consent". `marketing/subscribers.js`
+  copy only; `sw.js` regenerated, count 51. **Attended, never the night:** the live send
+  (D-KR1), the SignalWire account, the number, the signing key.
+  Footprint: `backend/internal/delivery/` (new), `backend/internal/marketing/subscribers.go`,
+  `routes.go`, `helpers_test.go` (stub sender in `testDeps`), migration `0088` (shares E1's —
+  `delivery_log`), `marketing/subscribers.js`, `tests/marketing-delivery.spec.js` (new), `sw.js`,
+  `backend/cmd/server/main.go` (wire `Deps.Sender` from env).
 
 ## Activity F — The join lands (SMTP ingest + reconciliation)
 

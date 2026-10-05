@@ -4971,3 +4971,92 @@ text is left verbatim because it describes the denylist as it stood and remains 
 **Not applied:** the handoff doc's upstream source (`~/projects/yumyums/marketing/qr-redemption/`)
 is not present on this box; whoever syncs it next carries the same swap there. No code outside the
 test denylist named Twilio.
+
+### T-68 — Slate sitting: Activity E spiked and slated, the unknowns spike retired, slate-20261006 signed (2026-10-05)
+
+Attended, `/nc-slate-plan` with no activity named, the same session as T-67. Binary `v3.6.1+4`. PRD
+gate exit 0 (7 PRDs, all from the previous cycle — mismatch stated in the slate). `night-crew next`
+COMPUTED the order ("Next step: /nc-slate-plan"). Clone fresh (`dev` == `origin/dev` @ `a6c89aa`
+before the sitting's commits). Workflow preflight `openspec: absent` → universal mechanics. Run id
+`20261006`, no branch collision, no unmerged run branch.
+
+**Target: inferred, offered, then overruled by the operator's instruction.** Activity 0 (next in
+roadmap order) is attended and spike-gate BLOCKED; Activity E was spike-gate BLOCKED (no spikes).
+The sitting offered a small leftovers night (B-459/B-478, B-484/B-485/B-487, B-486 — three cards —
+with a four-card and a one-card variant). The operator answered **"I want this last loop to clear
+the milestone."** Told plainly that no night can close it alone — two Activity 0 cards and the three
+close-bar legs are attended by design, and the toll-free number's carrier verification is an
+external lead of days to two weeks — they chose **Activity E tonight**, accepting a spike sitting
+now and a larger first loop night than decision 206 advised, so that afterwards only their own
+attended acts remain. Recorded as the operator's call, not the sitting's recommendation of the
+status quo.
+
+**Spikes, tool-recorded (`night-crew spikes run`).** Goal rungs added under Activity E (the
+duplicate house-style `### Activity E` heading removed — the gate read it as a third, spike-less
+goal). Four spikes, four passed, none skipped, **five failed lines named in the ledgers**: E2 ×2 —
+every leg green, the scripts' final tree check red because the main tree's `backend/` carried the
+sitting's own uncommitted SignalWire denylist edit (committed `7d252ce`; re-run clean); E1-01 run 1
+— a FINDING: the 234-char hybrid payload at Medium (version 11, 61 modules) is undecodable through
+the shipped reader, which draws a picked file onto the 320 px `#scan-file-surface` (density, not
+pixel size, is the bound; a 1024 px copy decoded to a CORRUPTED `invalidPayload`); E1-01 run 2 — a
+spike-spec bug (the online leg accepted that corrupted decode as decodable; fixed to require the
+token's hash). Run 3 measured seven encodings: the card's — a 16-char token, the same four
+descriptor keys, date-only `expires_at`, **Low** correction (214 chars, version 9, 53 modules) —
+decodes offline to `embeddedOffer` and resolves `offerReady` online; the boundary is ~57 modules
+and NOT monotonic (version 8 failed while 9 and 10 passed). E1-02: an identity-code row upserted
+over PostgREST as `service_role` is visible to an `authenticated` device through the tablet's own
+offers-pull filter; re-upsert idempotent; deleted on exit. E2-01: the egress guard refuses an
+`http.Post` in `internal/marketing`; a vendor-free `internal/delivery` package (Sender + SignalWire
+over LaML REST) passes its `httptest` tests; marketing importing it passes the guard. E2-02: the
+fixture carries a refusal subject (`+17735550117`, no SMS consent) and a send subject
+(`+17735559930`); 0 `code_sent`; `POST /sms/inbound` 404; the fixture's five rows land as four
+(1184/1180 merge on E.164). **One agent-reached correction** (E1's encoding + a 640 px surface
+widening), reviewed with the variant table at sign-off. Extraction records written, both pass
+`record-check`; gate: both goals `slatable`.
+
+**Decision 209 (PjM-level, stated not asked) — `redemption-unknowns-spike` is retired, ABSORBED →
+Activity H `toast-orders-and-reconciliation`.** Its #1–#3 (business-date cutoff, order-number
+format, which Toast report) are answered by the landed reconciliation that joins
+`OrderDetails.csv` on `(business_date, order_number)`; #6 (do the truck's devices lose signal
+independently) was the gate on whether Activity B was over-built, and B–D are built and attested.
+Roadmap tally: 33 cards, 27 green, 3 white, 3 retired.
+
+**Engineer-level calls made here, stated not asked:** the identity QR encodes at Low with a
+16-char base32 token (the hash is the key; 80 bits is enough identity); the embedded offer is the
+signup's first-touch campaign, and with no first touch the QR is identity-only — never a guessed
+campaign; the rendered PNG is held in HQ Postgres (`identity_media`, unguessable id, cascade with
+the subscriber) and served publicly for the carrier fetch — the raw token is never stored as
+text; the entitlement row is projected through `projection.go`'s existing PostgREST client (no new
+egress allowlist entry) with `expires_at` = the campaign's `ends_at`; the sender lives in
+`internal/delivery` behind `Deps.Sender` and unset env selects a recording stub; the mint happens
+regardless of consent and only the SEND is withheld; consent refusal and STOP ride existing event
+kinds' `ref` (a new `kind` is a park); STOP validates the SignalWire signature when the key is set
+and answers 503 unsigned in real-sender mode; Card 1 lands migration `0088`, Card 2 `0089`.
+
+**Agreement check** exit 0, both card leads parsed, 0 cards named by both (the goal page names
+surfaces), no contradiction of the three kinds it reads.
+
+**Signed** (§4, "Yes, sign it") after the four headings, the parallel plan, the attention budget,
+the milestone remainder (1 white after tonight: `external-accounts-provision`; the slate leaves the
+milestone one card short plus the attended acts — the LAST overnight it needs) and the spike
+results were on screen. **Dispatch: SERIAL** (§5, recommended; Card 2 consumes Card 1's mint and
+criterion 1 fails by construction on the loop's first night). Projection ~4 h 20 m – 6 h 25 m,
+sized against the calendar only — quota not measured. **The launch prompt is loop-shaped
+(decision 206):** cards become work orders, one `night-crew dispatch` + ONE `night-crew run
+--run-id 20261006` with both `--wo`, watched in the background, the /nc-run recovery ladder, no
+hand-running. Launch prompt `reference/launch-20261006.md`; `routing check` slate ↔ launch run
+before commit.
+
+**Housekeeping and comebacks:** `slate price` still finds no actuals (priced by hand, third
+slate); `decisions check` flagged every question as "not a user story / no evidence" despite role,
+want, benefit and an Evidence clause (asked as drafted); `spikes gate` reads a repeated
+activity-title `###` as a goal (removed for E — the other activities' house-style headings should
+be checked before their next slate); `workers check` takes no `--repo`; a spike's
+`main_tree_untouched` reads all of `backend/` — commit the sitting's edits first. Filed for the
+roadmap round, not tonight: a `[CS-*]` density spec for the file-scan reader (its bound and its
+non-monotonic failure).
+
+**Unknown after this sitting:** whether the run loop carries a card on this repo at all (never
+tried here); the carrier's toll-free verification lead for the operator's number; whether the
+camera path (not the file path) reads a version-9 code off a phone screen in the field — the
+attended D-KR1 leg answers it.
