@@ -4825,3 +4825,65 @@ untested arms) want to ride the same card. Nothing deploys from this decision.
 upgrade on a real phone (B-441); production row counts for `0086` (B-474) and for the parked
 cleanup; whether `campaigns-run.sh` catches an inverted fail-closed rule; `persistence.spec.js:1463`
 (B-481).
+
+### T-65 — Slate sitting: Activity J authored, two goals spiked, slate-20261005 signed (2026-10-04)
+
+Attended, `/nc-slate-plan` with no activity named. Binary `v3.6.1+4`. PRD gate exit 0 (7 PRDs,
+all from the previous cycle — mismatch stated in the slate). `night-crew next` COMPUTED the order
+for the first time in this repo ("Next step: /nc-slate-plan" — the triage receipt written at T-64 is
+what made it readable). Clone fresh (`dev` == `origin/dev` @ `bdecdf5`). Workflow preflight
+`openspec: absent` → universal mechanics. Run id `20261005`, no branch collision, no unmerged run
+branch.
+
+**Target, inferred then put to the operator.** Activity 0 is attended and spike-gate BLOCKED;
+Activity E is spike-gate BLOCKED (no spikes); Activity I has one overnight-able card left,
+`atomic-scan-dedupe` (built and reviewed in run 20261003, settled as decision 203, owing its full
+browser-suite run and a merge). T-64 left a crew-visible scanner defect on `dev` (B-475) with the fix
+named (decision 205). Four scopes were offered — land only (~2 h); land + scanner (~3–4 h); land +
+scanner + backend guards (~4–5 h, recommended); the same plus the Inventory Setup defect B-478
+(~5–6 h). **The operator chose land + scanner + backend: three cards.** B-478 stays in the backlog by
+that choice.
+
+**Activity J authored** (`## Activity J — Scanner and backend guards (triage 20261003 follow-ups)`,
+the "triage authors the card" precedent — decisions 167 / 170 / 180, Activity I): J1
+`photo-scan-guard-and-lookup-arms` (B-475 + B-476) and J2 `merge-target-and-blanking-guards` (B-479
++ B-480). BACKLOG B-475 / B-476 / B-479 / B-480 → `promoted →` their card. Roadmap tally 33 cards:
+24 green, 7 white, 2 retired.
+
+**Spikes, tool-recorded (`night-crew spikes run`).** Four spikes, four passed, none skipped, no
+agent-reached corrections. J1-01 drove the SHIPPED page: a photo picked while the lookup waits
+raised the F6 prompt and A's offer rendered with the submit slot mounted EMPTY
+(`{"msOrder":0,"slot":1,"prompt":true,"kind":"offerReady"}`), the control rendered `#ms-order` — B-475
+reproduced. J1-02: the non-200 lookup arm mutated to `return null` left `tests/marketing.spec.js`
+63 / 0 — the arm has no gate. J2-01: the merge sequence into a missing target deleted dish A and its
+sales row (OK, not 404); a campaign-attached dish refused `23503`; `ADD CONSTRAINT` on one dangling
+scan reference failed `23503` and passed after 0086's UPDATE with the row blanked. J2-02: with the
+UPDATE removed, six tests still PASS on a fresh database — its FIRST run failed on a script bug
+(`grep -c` + `pipefail`), fixed and re-run; the failed line stays in the ledger, named. Extraction
+records written, both pass `record-check`; gate: all three tonight's goals `slatable`.
+
+**Agreement check** exit 0, 3 card leads parsed, 0 cards named by both documents (the goal page names
+surfaces, not cards — as on every slate this cycle), no contradiction of the three kinds it reads.
+
+**Signed** (§4, "Yes, sign it") after the four headings, the parallel plan, the attention budget, the
+milestone remainder (4 white after tonight: Activity 0 ×2, Activity E ×2; nothing worth adding) and
+the spike results were on screen. **Dispatch: CONCURRENT, 2 tracks** (§5, recommended; A: J1 alone;
+B: I4 merge → J2). Projection ~4 h 40 m – 5 h 45 m, sized against the calendar only — quota not
+measured. Lock plan stated in the slate: base-reds → Card 1's OWED full suite → final full suite as
+Cards 2/3's full gate → isolation budget. Launch prompt `reference/launch-20261005.md`; `routing
+check` slate ↔ launch run before commit.
+
+**Engineer-level calls made here, stated not asked:** J1's fix is the camera path's `decodeBusy`
+guard applied to `onFilePicked` (no new machine pair; the `checkingServer` card already tells the
+crew); J2 reads the target `FOR SHARE` inside the transaction and maps not-found to `404
+target_not_found` on the handler's existing error shape; J2's migration test seeds at version 85.
+Card 1 is a MERGE the orchestrator performs (3-way, never squash; roadmap.md conflict expected),
+with no new G6 unless the resolution is non-trivial.
+
+**Housekeeping and comebacks (clone-side unless noted):** two servers from the 2026-10-03 spike
+sitting were still listening on `:8312` / `:8313` (1 d 10 h, both on since-dropped `:5434` spike
+databases) — stopped. `slate price` still looks for `reference/card-actuals.md` at the repo root
+(the file lives under `.night-crew/knowledge/reference/`) — priced by hand. `spikes run` /
+`record-check` have no `--help`. `decisions check` flags a question as "not a user story" and
+"no evidence" even when the sentence carries role, want, benefit and an "Evidence:" clause — the
+heuristic read, the questions were asked as drafted.

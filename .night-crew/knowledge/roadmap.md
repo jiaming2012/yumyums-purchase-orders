@@ -15,8 +15,13 @@
 > this round proceeds on the close record, the backlog, and the OKR grades, and records the
 > absence.
 
-## Current state (2026-10-02, milestone "Close the loop" — 31 cards, **21 green, 8 white**)
+## Current state (2026-10-04, milestone "Close the loop" — 33 cards, **24 green, 7 white**, 2 retired)
 
+> **Activity J authored at the slate sitting of 2026-10-04** (two cards from triage T-64's
+> findings — the scanner photo-pick stuck state B-475 with the scan-time check's untested arms
+> B-476, and the merge-target / migration-blanking guards B-479 + B-480), slated with Activity I's
+> remaining `atomic-scan-dedupe` as `reference/slate-20261005.md`.
+>
 > **Activity H is complete and triaged.** Run `overnight-20261002` landed seven of seven cards
 > (merge `5753ddf`); its morning triage settled six forks and is recorded at ledger **T-62**
 > (decisions 194–200). Campaign admin, subscribers and the designed stats tabs are in.
@@ -1022,6 +1027,81 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   green; `TestLandingLogsScanAndRedirectsWithUTM` untouched and green; Go counts checked.
   Footprint: `backend/internal/db/migrations/0087_*.sql`, `backend/internal/marketing/landing.go`,
   `backend/internal/marketing/landing_test.go`.
+
+## Activity J — Scanner and backend guards (triage 20261003 follow-ups)
+
+> **Why here:** Activity I's morning triage (ledger **T-64**, decisions 203–205; receipt
+> `reference/triage-20261003.md`) merged run `20261003` with one crew-visible defect the run
+> itself introduced still on `dev` — a photo picked while the scanner is waiting on the server
+> leaves the current customer's offer with no way to submit it (B-475) — and the operator took
+> `dev` with it rather than hold back the verify-before-the-till behaviour (decision 205: "B-475 is
+> the fix; it and B-476 want to ride the same card"). The same adversarial review found a dish
+> merge that deletes the source dish when the target does not exist (B-479) and a deploy step in
+> migration `0086` no test pins (B-480). Authored at the slate sitting of 2026-10-04 (the "triage
+> authors the card that discharges the finding it raised" precedent, decisions 167 / 170 / 180 and
+> Activity I itself), with the operator's scope choice recorded in `reference/slate-20261005.md`.
+> **Trace:** Product objective (P-KR2 — the window workflow must not strand a customer mid-scan)
+> and QA objective (the scan-time check's untested arms are gates that pass against broken
+> code, the class Q-KR1's refusal depends on). Two cards, two tracks: **A (client)** J1;
+> **B (backend)** J2. Spike ledgers under
+> `.night-crew/knowledge/spikes/activity-j-scanner-and-backend-guards-triage-20261003-follow-ups/`.
+
+### photo-scan-guard-and-lookup-arms
+
+- `photo-scan-guard-and-lookup-arms` · **PLANNED** · (J1, track A — **B-475**, **B-476**; decision
+  205) Today `onFilePicked` in `marketing/scan-page.js` is not guarded the way the camera path is
+  (`decodeBusy`): while the resolver waits up to 3.5 s on the server for code A, a photo of code B
+  decodes, the submit machine's F6 gate refuses B ("Finish the current customer first"), and when
+  the server then answers A as live the offer card renders with the machine still in `resolving` —
+  no order-number field, no submit control; only dismiss-and-rescan recovers. No wrong discount
+  results. Behaviour after this card: **a photo picked while the phone is still checking a code is
+  not decoded as a second scan — the screen already says "Checking with the server…" and the first
+  customer's offer arrives with its submit control, every time.** Mechanism (the backlog lead,
+  spike-proven): `onFilePicked` takes the same busy flag the camera path uses; no new machine
+  state, event or (state, event) pair (strictness: 460 declared pairs — adding one is a park).
+  B-476 in the same card: four spec cases beside `[SV-05]`, each shown red under its mutation
+  first — held locally **and** expired by the local clock → the replica's expired result, zero
+  lookups; an expired server row → the expired card, never an offer (`clock.isExpired` on the
+  server row); a non-200 answer → "couldn't check the server" (`unknownCode`, `verified:false`),
+  never an offer; a throwing policy source → the fail-closed refusal (if that arm cannot be
+  forced without stubbing the seam, the card says so and names `campaigns-run.sh` as its only
+  gate — stated, never silently dropped). done_when: `[PS-01]` online, lookup held for code A,
+  photo of held code B picked mid-wait, server answers A live → A's offer card renders **with**
+  `#ms-order` and no `#scan-prompt` (red on the pre-change tree — the spike's spec is the red);
+  `[PS-02]` the same photo picked with no scan in flight still decodes (the guard is a wait, not a
+  disable); `[SV-08]`–`[SV-11]` the four arms, each red under its named mutation then green;
+  `[SV-01]`–`[SV-07]` untouched and green. Footprint: `marketing/scan-page.js`,
+  `marketing/scanner.js` (only if an arm needs a seam — expected untouched),
+  `tests/marketing.spec.js`, `sw.js` (regenerated, count 51 stays). **No `backend/` file.**
+  BACKLOG B-475 / B-476 `promoted → photo-scan-guard-and-lookup-arms`.
+
+### merge-target-and-blanking-guards
+
+- `merge-target-and-blanking-guards` · **PLANNED** · (J2, track B — **B-479**, **B-480**) Today
+  `recipes.MergeMenuItem` re-points recipes, campaigns and codes to the target and deletes the
+  source without ever checking the target exists, so `POST /api/v1/inventory/recipes/merge` with a
+  bogus target id and an unattached source returns 200 `{"rows_re_pointed":0}` and the source dish
+  **and its `daily_menu_sales` rows are gone** (cascade); with a campaign attached the same call
+  500s and rolls back (the FK refuses). API-only — no screen calls the merge. And migration
+  `0086`'s `UPDATE qr_scans … SET subscriber_id = NULL` for dangling ids is load-bearing at deploy
+  (without it `ADD CONSTRAINT` fails on a database holding one such row) yet no test pins it:
+  removing the statement leaves the four erasure tests and all three migration round-trips green.
+  Behaviour after this card: **a dish merge aimed at a dish that does not exist is refused with
+  404 and changes nothing; and the deploy step that blanks orphaned scan references has a test
+  that fails if it is ever removed.** Mechanism: `MergeMenuItem` reads the target row `FOR SHARE`
+  inside the existing transaction before any UPDATE and returns a typed not-found error the
+  handler maps to `404 target_not_found` (the handler's existing `cannot_merge_into_self` → 400
+  shape); a migration test that migrates to 85, inserts a `qr_scans` row with a `subscriber_id`
+  naming nobody, migrates up, and asserts the row survives with the id blanked. done_when:
+  `TestMergeMenuItem_MissingTargetIsRefused` (bogus target, unattached source with one
+  `daily_menu_sales` row → error, dish and sales row survive; handler → 404) red → green;
+  `TestMigration0086BlanksDanglingScanReferences` red (with the UPDATE removed from a worktree copy
+  of 0086 → `23503`) → green on the shipped migration; `TestRepository_MergeMenuItem_RePointsCampaignsAndCodes`
+  and the four erasure tests untouched and green; Go counts checked (`-p 1`). No new migration.
+  Footprint: `backend/internal/recipes/repository.go` + `repository_test.go`,
+  `backend/internal/recipes/handler.go` (the 404 arm), `backend/internal/marketing/erasure_test.go`
+  (or a sibling migration test file). No frontend file; no `sw.js` move. BACKLOG B-479 / B-480
+  `promoted → merge-target-and-blanking-guards`.
 
 
 ---
