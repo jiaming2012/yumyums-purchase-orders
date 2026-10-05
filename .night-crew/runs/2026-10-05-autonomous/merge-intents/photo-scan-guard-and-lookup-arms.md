@@ -59,9 +59,67 @@ layer. That is the stack, not the feature under test.
 | `[PS-02]` | no lookup involved for the photo (code held locally — fixture rows seeded) | fixture only |
 | `[SV-08]` held + locally expired, zero lookups | counting route that WOULD serve a live row if reached | un-stubbed count (zero requests sent); local rows are seeded fixtures |
 | `[SV-09]` expired server row | `page.route` fulfils one expired row | the permitted stub (the row) |
-| `[SV-10]` non-200 | to be stated at close (real door vs fulfilled status) | see closing section |
-| `[SV-11]` throwing policy source | to be stated at close | see closing section |
+| `[SV-10]` non-200 | **leg 1:** the lookup is passed through (`route.continue()`) to the REAL door, which has no substrate behind it in this stack and answered **HTTP 503** by itself (status read from the response, asserted non-200). **leg 2:** 401 / 500 / 404 / 503 fulfilled by `page.route`, with bodies chosen to mislead a reader that ignored the status (`[]`, a live row). Control: `200 []` is the plain unknown-code result. | leg 1 **un-stubbed**; leg 2 is a **stub of the status**, said so in the spec. The mutation reds on leg 1. |
+| `[SV-11]` throwing policy source | the SHIPPED `policyFor` export (same module instance the page booted) is handed a function that throws; its answer drives a SHIPPED `createSubmitMachine` (mode `throw`) to the offline-override question | **No seam stubbed** — `setCampaignPolicy` is never called and `MarketingScan.campaignPolicy` is never replaced. See the limit below. |
 
 ## Closing section (facts as built)
 
-_To be completed at the end of the card._
+**Files changed** (vs `overnight-20261005` @ `3bd6a9b`): `marketing/scan-page.js`,
+`tests/marketing.spec.js`, `sw.js`, `BACKLOG.md`, `roadmap.md`, this note, the evidence logs.
+**Not touched:** `marketing/scanner.js` (four mutations applied and reverted in the worktree —
+each log ends with the clean `git status`), `marketing/submit-flow.js`,
+`marketing/submit-machine.js`, `night-crew.toml`, every `backend/` file. No scope drift.
+
+**`[SV-11]` — what is real and what could not be forced.** The real policy source
+(`createCampaignPolicySource().policyFor`) is a `Map` lookup and cannot be made to throw, and
+`submit-flow.js` captures it once at boot — so the only way to put a throwing source behind the
+PAGE's own scan → refusal render is the injection seam (`setCampaignPolicy`), which is the stub
+the slate forbids. That page-level render is therefore **not driven by any test**. What `[SV-11]`
+does instead, un-stubbed: it calls the shipped `policyFor` with a throwing source (the source is
+that function's argument, so this is its input, not a seam) and feeds the answer to a shipped
+submit machine — `requiresOnline: true`, `overrideAvailable: false`, `blockedOffline` for a code
+that names a campaign; `false` for a code that names none (decision 166); a healthy source is
+believed (control). Under the named mutation (`catch` → `return false`) it reds: the machine
+reaches `overrideConfirm`.
+
+**`campaigns-run.sh` does NOT gate this arm.** The slate's fallback was to name it as the arm's
+only gate. Read, not run: `campaigns-harness.mjs` leg 3 calls `policyFor` with the healthy
+replica source and with `null` only — never a throwing one — so the `catch` mutation would leave
+it green. It was not run tonight: it does `reset_bare` on the local spike-supabase substrate,
+which the box rules say stays untouched. **`[SV-11]` is the catch arm's only gate.**
+
+**Guard placement, and why `scanText` is in it.** With the flag on the photo path alone, the
+spike's own recipe (A started through `MarketingScan.scanText`) stays stuck — `scanText` was bare
+`doScan` and never set `decodeBusy`. Log `06-mutation-ps-scantext-red.log` shows exactly that:
+`[PS-01]` and `[PS-02]` red, `[PS-01b]` (photo then photo) green. No product code calls
+`scanText`; the behaviour change is that a second `scanText` issued while a scan is still
+resolving returns `null` instead of reaching the F6 gate. All 63 pre-existing specs in the file
+pass with it.
+
+**Test-authoring note.** The first draft of `[PS-01]` used polling expects during the wait; on
+the pre-change tree they outlasted the lookup's 3.5 s budget, so the red it produced was a
+timed-out lookup, not the stuck state. The mid-wait checks are single DOM snapshots now, and
+`01-ps-prechange-red.log` is the run of the committed spec.
+
+**Evidence** (`.night-crew/runs/2026-10-05-autonomous/logs/photo-scan-guard-and-lookup-arms/`):
+
+| Log | What it shows |
+|---|---|
+| `01-ps-prechange-red.log` | pre-change page: 3 failed — `#ms-order` 0, `#scan-prompt` 1, machine `resolving` |
+| `02-mutation-sv08-red.log` | 1 failed (`[SV-08]`: `offerReady` / `source: server` instead of `expiredLocally`) / 6 passed |
+| `03-mutation-sv09-red.log` | 1 failed (`[SV-09]`: `offerReady` instead of `expiredLocally`) / 6 passed |
+| `04-mutation-sv10-red.log` | 1 failed (`[SV-10]`, real door HTTP 503: `verified: false` missing) / 6 passed |
+| `05-mutation-sv11-red.log` | 1 failed (`[SV-11]`: `overrideConfirm`, `requiresOnline: false`) / 6 passed |
+| `06-mutation-ps-scantext-red.log` | `scanText` un-guarded: 2 failed (`[PS-01]`, `[PS-02]`) / 5 passed |
+| `07-mutation-ps-photo-red.log` | photo path un-guarded on the fixed tree: 3 failed (`[PS-*]`) / 4 passed |
+| `08-sw-regen.log` | 51 `revision` entries; only `marketing/scan-page.js`'s revision moved; second run identical |
+| `09-marketing-whole-file-green.log` | whole `tests/marketing.spec.js`, `--retries=0`, fresh database: 70 passed, 0 failed, 0 skipped |
+| `10-g1.log` | `go build ./...` exit 0, `go vet ./...` exit 0 |
+
+Mutation runs 02–07 used a hand-provisioned server on `:8221` (same env as
+`playwright.config.js`, database `hq_test_e2e_j1_20261005` on `:5434`) and ran the new describe
+only; the whole-file run used Playwright's own `webServer` with a fresh reset.
+
+**Not verified here:** the full Playwright suite and the full Go suite (the orchestrator's, under
+the lock); a real camera decode (headless has none — the camera path's own guard is unchanged);
+`campaigns-run.sh` (not run, see above).
