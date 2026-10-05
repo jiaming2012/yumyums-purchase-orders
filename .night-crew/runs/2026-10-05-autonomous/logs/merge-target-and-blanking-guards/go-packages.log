@@ -1,0 +1,398 @@
+# Go packages (confined) — tree 07a876a · db :5434 hq_test_go_j2 · 2026-10-05T02:08:24Z
+# cmd: go test -p 1 -count=1 -v ./internal/recipes/ ./internal/marketing/
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example) (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+--- PASS: TestCost_Fixture_HandComputedToTheCent (1.06s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+--- PASS: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (1.17s)
+=== RUN   TestCost_Movers_BothOrderings
+--- PASS: TestCost_Movers_BothOrderings (1.17s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+2026/10/04 22:08:30 INFO menu-cogs served from=2026-05-04 to=2026-05-31 menu_item_count=4 breakdown=false
+--- PASS: TestCost_ReconcilesWithMenuCogs_OnMessyData (1.36s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+--- PASS: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (1.20s)
+=== RUN   TestCostHandler_ServerComputedWindow
+--- PASS: TestCostHandler_ServerComputedWindow (0.99s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+--- PASS: TestCost_EmptyDataset_ReturnsEmptyArrays (0.91s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+--- PASS: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.92s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+--- PASS: TestCost_TiedRows_DeterministicAcrossCalls (0.96s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+--- PASS: TestCreateRecipe_HappyPath (0.99s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+--- PASS: TestCreateRecipe_SumExceeds100_NamesLargestSibling (0.98s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+--- PASS: TestCreateRecipe_DuplicateReturns409 (0.96s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+--- PASS: TestCreateRecipe_InvalidSnapReturns422 (1.06s)
+=== RUN   TestUpdateRecipe_HappyPath
+--- PASS: TestUpdateRecipe_HappyPath (0.97s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+--- PASS: TestUpdateRecipe_NotFoundReturns404 (1.01s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+--- PASS: TestUpdateRecipe_SumExceeds100_NamesSibling (0.92s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+--- PASS: TestUpdateRecipe_InvalidSnapReturns422 (0.91s)
+=== RUN   TestDeleteRecipe_RemovesRow
+--- PASS: TestDeleteRecipe_RemovesRow (0.75s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+--- PASS: TestDeleteRecipe_NotFoundReturns404 (0.73s)
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (0.63s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.78s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (0.63s)
+=== RUN   TestListRecipes_HappyPath
+--- PASS: TestListRecipes_HappyPath (0.73s)
+=== RUN   TestListRecipes_InvalidDates_400
+--- PASS: TestListRecipes_InvalidDates_400 (0.58s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+--- PASS: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.59s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+2026/10/04 22:08:49 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_HappyPath_SummaryMode (0.72s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+2026/10/04 22:08:49 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=true
+--- PASS: TestMenuCogs_HappyPath_BreakdownMode (0.73s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+2026/10/04 22:08:50 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (1.02s)
+=== RUN   TestMenuCogs_FromMissing_400
+--- PASS: TestMenuCogs_FromMissing_400 (1.04s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+--- PASS: TestMenuCogs_FromAfterTo_400 (0.97s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+2026/10/04 22:08:52 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=0 breakdown=false
+--- PASS: TestMenuCogs_CacheControlHeader_OnSuccess (1.12s)
+=== RUN   TestMenuCogs_BearerMissing_401
+--- PASS: TestMenuCogs_BearerMissing_401 (0.98s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+--- PASS: TestMenuCogs_ServiceTokenUnset_503 (0.95s)
+=== RUN   TestMenuCogs_BearerWrong_401
+--- PASS: TestMenuCogs_BearerWrong_401 (0.96s)
+=== RUN   TestMenuCogs_EmitsVisibilityLog
+--- PASS: TestMenuCogs_EmitsVisibilityLog (1.18s)
+=== RUN   TestMenuCogs_VisibilityLogBreakdownMode
+--- PASS: TestMenuCogs_VisibilityLogBreakdownMode (1.03s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+--- PASS: TestRepository_CreateRecipe_HappyPath (1.35s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+--- PASS: TestRepository_CreateRecipe_SumExceeds100_Rollsback (1.07s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+--- PASS: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (0.99s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+--- PASS: TestRepository_UpdateRecipeUsagePct_NotFound (0.78s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+--- PASS: TestRepository_DeleteRecipe_RemovesRow (0.76s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.70s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+--- PASS: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.67s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.76s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+--- PASS: TestRepository_LargestSiblingAllocation_PicksDescByPct (0.98s)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (3.18s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/repository (1.12s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/handler (0.93s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (1.14s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+--- PASS: TestComputeDrift_Unallocated_FlagsAbove10Pct (1.02s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+--- PASS: TestComputeDrift_ZeroSales_FlagsMissingItems (1.01s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+--- PASS: TestComputeDrift_Divergence_FlagsAbove20Pct (0.84s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+--- PASS: TestComputeDrift_HappyClean_NoSections (1.07s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+--- PASS: TestRunDriftWeek_IdempotentOnSecondCall (1.19s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+--- PASS: TestRunDriftWeek_SkipsWhenIngestStale (1.08s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+--- PASS: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (1.08s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+--- PASS: TestRunDriftWeek_NoEnqueueWhenClean (1.17s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+--- PASS: TestDriftBannerHandler_ReturnsLatest (0.84s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+--- PASS: TestDriftBannerHandler_EmptyObjectWhenNoRows (1.01s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	55.220s
+2026/10/04 22:09:18 goose: no migrations to run. current version: 87
+2026/10/04 22:09:18 INFO database migrations applied successfully
+=== RUN   TestCreateCampaignMintsOneCodePerChannel
+2026/10/04 22:09:19 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c6fbcf84-1c75-4c3d-9cde-b50dcd6c0dbd
+--- PASS: TestCreateCampaignMintsOneCodePerChannel (0.35s)
+=== RUN   TestCreateCampaignRejectsOtherWithoutLabel
+--- PASS: TestCreateCampaignRejectsOtherWithoutLabel (0.29s)
+=== RUN   TestCreateCampaignSlugsAreUnique
+2026/10/04 22:09:19 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=17e601b6-fdfc-49c6-bc97-f53f77b8b08c
+2026/10/04 22:09:19 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=6b45a796-05f4-4f28-8797-86565a931d5f
+--- PASS: TestCreateCampaignSlugsAreUnique (0.44s)
+=== RUN   TestRequiresOnlineDerivedFromThreshold
+2026/10/04 22:09:20 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=58b5cc10-02cb-4162-adbb-5b22a6fb8ff1
+2026/10/04 22:09:20 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=1d4aea4c-afd2-4e26-9b91-0bc35d295d05
+--- PASS: TestRequiresOnlineDerivedFromThreshold (0.42s)
+=== RUN   TestTeamMemberGets403ManagersOnly
+2026/10/04 22:09:20 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=03cfa564-f0c8-49a5-afb7-5536237a807c
+--- PASS: TestTeamMemberGets403ManagersOnly (0.36s)
+=== RUN   TestListCampaignsFunnelAndZeroMoney
+2026/10/04 22:09:20 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=80b38959-57d0-4b62-99a3-74649d9fb2c4
+--- PASS: TestListCampaignsFunnelAndZeroMoney (0.43s)
+=== RUN   TestPatchCodeRepointsWithoutChangingShort
+2026/10/04 22:09:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=139f45b0-29a0-47bc-bc70-6034de5612da
+--- PASS: TestPatchCodeRepointsWithoutChangingShort (0.32s)
+=== RUN   TestPatchCampaignStatus
+2026/10/04 22:09:21 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=1d6aa846-4383-418e-8afb-208b8ac53581
+--- PASS: TestPatchCampaignStatus (0.40s)
+=== RUN   TestAddCodeToExistingCampaign
+2026/10/04 22:09:22 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=1d2a063b-d377-4f3f-8185-b4145c7b7f61
+--- PASS: TestAddCodeToExistingCampaign (0.36s)
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+--- PASS: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.43s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+--- PASS: TestCodeDeleteBlanksFirstTouch (0.36s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.35s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/04 22:09:23 goose: no migrations to run. current version: 87
+2026/10/04 22:09:23 INFO database migrations applied successfully
+2026/10/04 22:09:23 OK   0087_qr_scans_dedupe_bucket.sql (25.48ms)
+2026/10/04 22:09:23 OK   0086_merge_repoint_and_erasure_backstop.sql (28.94ms)
+2026/10/04 22:09:23 goose: no migrations to run. current version: 85
+2026/10/04 22:09:23 OK   0086_merge_repoint_and_erasure_backstop.sql (35.27ms)
+2026/10/04 22:09:23 OK   0087_qr_scans_dedupe_bucket.sql (77.21ms)
+2026/10/04 22:09:23 goose: successfully migrated database to version: 87
+2026/10/04 22:09:23 INFO database migrations applied successfully
+    erasure_test.go:325: migration 86 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/04 22:09:23 goose: no migrations to run. current version: 87
+2026/10/04 22:09:23 INFO database migrations applied successfully
+--- PASS: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.19s)
+=== RUN   TestMigration0086BlanksDanglingScanReferences
+2026/10/04 22:09:23 goose: no migrations to run. current version: 87
+2026/10/04 22:09:23 INFO database migrations applied successfully
+2026/10/04 22:09:23 OK   0087_qr_scans_dedupe_bucket.sql (18.18ms)
+2026/10/04 22:09:23 OK   0086_merge_repoint_and_erasure_backstop.sql (26.19ms)
+2026/10/04 22:09:23 goose: no migrations to run. current version: 85
+2026/10/04 22:09:23 OK   0086_merge_repoint_and_erasure_backstop.sql (25.62ms)
+2026/10/04 22:09:23 OK   0087_qr_scans_dedupe_bucket.sql (75.34ms)
+2026/10/04 22:09:23 goose: successfully migrated database to version: 87
+2026/10/04 22:09:23 INFO database migrations applied successfully
+2026/10/04 22:09:24 goose: no migrations to run. current version: 87
+2026/10/04 22:09:24 INFO database migrations applied successfully
+--- PASS: TestMigration0086BlanksDanglingScanReferences (0.89s)
+=== RUN   TestCampaignListDisclosesUnattributedMoney
+--- PASS: TestCampaignListDisclosesUnattributedMoney (0.54s)
+=== RUN   TestCampaignListReportsZeroUnattributedAsAFact
+--- PASS: TestCampaignListReportsZeroUnattributedAsAFact (0.53s)
+=== RUN   TestSliceRowsCarryNullForThePeriodScopedKeys
+--- PASS: TestSliceRowsCarryNullForThePeriodScopedKeys (1.09s)
+=== RUN   TestOrphanRateDisclosesItsNumerator
+--- PASS: TestOrphanRateDisclosesItsNumerator (0.64s)
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/04 22:09:27 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=2865f4b6-4d8b-4e72-89d3-895c4ef710ba
+--- PASS: TestLandingLogsScanAndRedirectsWithUTM (0.39s)
+=== RUN   TestLandingWithoutItemOmitsUTMContent
+2026/10/04 22:09:27 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=5291c7f9-2844-4522-ab03-5eca624962d2
+--- PASS: TestLandingWithoutItemOmitsUTMContent (0.35s)
+=== RUN   TestLandingInactiveCodeRendersEndedPage
+2026/10/04 22:09:28 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=8b2db2d6-247e-4aac-adc0-0147b943c6cb
+--- PASS: TestLandingInactiveCodeRendersEndedPage (0.27s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/04 22:09:28 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c9b8ea1b-d380-4fa3-84e4-671f2565a5b7
+    landing_test.go:422: rows per round after 12 simultaneous hits: 1 / 1 / 1 / 1 / 1
+--- PASS: TestLandingDedupeIsAtomicUnderConcurrency (0.68s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/04 22:09:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=f1e2d870-c376-4fa6-afd8-9a4ba7ba76f2
+--- PASS: TestLandingAnonymousScansNeverDedupe (0.37s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/04 22:09:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=09145b9a-f542-4ffe-975e-0f3824aa13d5
+--- PASS: TestLandingCountsAgainAfterWindow (0.36s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/04 22:09:29 goose: no migrations to run. current version: 87
+2026/10/04 22:09:29 INFO database migrations applied successfully
+2026/10/04 22:09:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a6d27574-0316-4864-bd54-abbe28fa64b9
+2026/10/04 22:09:29 OK   0087_qr_scans_dedupe_bucket.sql (16.47ms)
+2026/10/04 22:09:29 goose: no migrations to run. current version: 86
+2026/10/04 22:09:29 OK   0087_qr_scans_dedupe_bucket.sql (56.88ms)
+2026/10/04 22:09:29 goose: successfully migrated database to version: 87
+2026/10/04 22:09:29 INFO database migrations applied successfully
+    landing_test.go:617: migration 87 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/04 22:09:30 goose: no migrations to run. current version: 87
+2026/10/04 22:09:30 INFO database migrations applied successfully
+--- PASS: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.48s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/04 22:09:30 goose: no migrations to run. current version: 87
+2026/10/04 22:09:30 INFO database migrations applied successfully
+2026/10/04 22:09:30 OK   0087_qr_scans_dedupe_bucket.sql (16.59ms)
+2026/10/04 22:09:30 goose: no migrations to run. current version: 86
+2026/10/04 22:09:30 OK   0087_qr_scans_dedupe_bucket.sql (85.23ms)
+2026/10/04 22:09:30 goose: successfully migrated database to version: 87
+2026/10/04 22:09:30 INFO database migrations applied successfully
+2026/10/04 22:09:30 goose: no migrations to run. current version: 87
+2026/10/04 22:09:30 INFO database migrations applied successfully
+--- PASS: TestMigration0087CollapsesPreExistingDuplicates (0.59s)
+=== RUN   TestScanAttemptsMirrorKeysetResumes
+    mirror_test.go:277: poll 0 (drain): fetched=0 pages=1 cursor=(none)
+    mirror_test.go:296: poll 1: fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111
+    mirror_test.go:356: LIVE substrate http://127.0.0.1:53277 — poll1 fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111; poll2 fetched=2 from=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111 to=2099-01-01T12:01:00Z/33333333-3333-4333-8333-333333333333; A's mirrored_at unchanged
+--- PASS: TestScanAttemptsMirrorKeysetResumes (0.33s)
+=== RUN   TestMirrorUnconfiguredIsIdleNotFatal
+2026/10/04 22:09:30 INFO scan-attempts mirror idle: substrate not configured; scan_attempts_mirror will stay empty missing="HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY" interval=5m0s
+--- PASS: TestMirrorUnconfiguredIsIdleNotFatal (0.00s)
+=== RUN   TestProjectionUnconfiguredLeavesProjectedAtNull
+2026/10/04 22:09:31 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=ec642e13-9ced-4c4a-8bb1-96386931da7c
+--- PASS: TestProjectionUnconfiguredLeavesProjectedAtNull (0.34s)
+=== RUN   TestProjectionFailureLeavesProjectedAtNull
+2026/10/04 22:09:31 WARN marketing: marketing_settings read refused; using the default requires_online threshold status=503 default_cents=2000
+2026/10/04 22:09:31 ERROR marketing: campaign projection failed; projected_at left NULL error="projection upsert: postgrest status 503" campaign_id=4d86c7d7-55a8-432a-9d9c-a1cfb790ec6f
+--- PASS: TestProjectionFailureLeavesProjectedAtNull (0.21s)
+=== RUN   TestProjectionConfiguredUpsertsToSubstrate
+    projection_test.go:151: MKT_PROJECTION_LIVE != 1 — the local spike-supabase substrate leg is opt-in
+--- SKIP: TestProjectionConfiguredUpsertsToSubstrate (0.00s)
+=== RUN   TestPayloadStaysAtQRVersion3
+--- PASS: TestPayloadStaysAtQRVersion3 (0.00s)
+=== RUN   TestCodePNGHandler
+2026/10/04 22:09:31 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c1cfa00e-adf0-4a09-ab97-62e1677435d8
+--- PASS: TestCodePNGHandler (0.56s)
+=== RUN   TestNewShortCodeShape
+--- PASS: TestNewShortCodeShape (0.00s)
+=== RUN   TestSlugify
+--- PASS: TestSlugify (0.00s)
+=== RUN   TestUAFamily
+--- PASS: TestUAFamily (0.00s)
+=== RUN   TestIsLinkPreview
+--- PASS: TestIsLinkPreview (0.00s)
+=== RUN   TestLooksAutomatedIsWiderThanIsLinkPreview
+--- PASS: TestLooksAutomatedIsWiderThanIsLinkPreview (0.00s)
+=== RUN   TestQueueOrdersOverridesThenOrphansThenUnmatched
+--- PASS: TestQueueOrdersOverridesThenOrphansThenUnmatched (0.47s)
+=== RUN   TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes
+--- PASS: TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes (0.71s)
+=== RUN   TestSuggestionSurvivesAOneHourOpenedAtOffset
+--- PASS: TestSuggestionSurvivesAOneHourOpenedAtOffset (0.54s)
+=== RUN   TestDeclineOtherRequiresNote
+--- PASS: TestDeclineOtherRequiresNote (0.45s)
+=== RUN   TestMatchUnknownOrderIs409AndKnownOrderResolves
+--- PASS: TestMatchUnknownOrderIs409AndKnownOrderResolves (0.62s)
+=== RUN   TestReopenReturnsAttemptToTheQueue
+--- PASS: TestReopenReturnsAttemptToTheQueue (0.57s)
+=== RUN   TestVerifyAndRejectResolveAnOverride
+--- PASS: TestVerifyAndRejectResolveAnOverride (0.58s)
+=== RUN   TestReconciliationQueueIsManagerOnly
+--- PASS: TestReconciliationQueueIsManagerOnly (0.56s)
+=== RUN   TestMountReportsRegistersTheBICampaignReports
+--- PASS: TestMountReportsRegistersTheBICampaignReports (0.00s)
+=== RUN   TestMountReportsKeepsCardH1sSignature
+--- PASS: TestMountReportsKeepsCardH1sSignature (0.00s)
+=== RUN   TestMountRegistersTheGatedRouteTable
+--- PASS: TestMountRegistersTheGatedRouteTable (0.00s)
+=== RUN   TestMountPublicRegistersOnlyTheLanding
+--- PASS: TestMountPublicRegistersOnlyTheLanding (0.00s)
+=== RUN   TestSlicesReconcileToOverview
+    stats_test.go:134: overview: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 basis=mixed
+    stats_test.go:191: Σ campaign: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=3)
+    stats_test.go:191: Σ channel: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=5)
+    stats_test.go:191: Σ item: scans=12 signups=5 redeemed=7 revenue=4350 discount=5450 implied=5500 actual=1050 net=-1100 (rows=4)
+--- PASS: TestSlicesReconcileToOverview (0.73s)
+=== RUN   TestOrphanRateCountsDeclinesExceptDuplicateScan
+--- PASS: TestOrphanRateCountsDeclinesExceptDuplicateScan (0.87s)
+=== RUN   TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies
+--- PASS: TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies (0.89s)
+=== RUN   TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion
+--- PASS: TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion (0.40s)
+=== RUN   TestCampaignListCarriesRealMoneyPerCampaign
+--- PASS: TestCampaignListCarriesRealMoneyPerCampaign (0.73s)
+=== RUN   TestStatsByDrillInsScopeToTheirParent
+--- PASS: TestStatsByDrillInsScopeToTheirParent (0.78s)
+=== RUN   TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown
+--- PASS: TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown (0.58s)
+=== RUN   TestSignupsStatesItsBasisWhenSubscribersIsAbsent
+--- PASS: TestSignupsStatesItsBasisWhenSubscribersIsAbsent (0.69s)
+=== RUN   TestFluentFormsImportIsIdempotent
+--- PASS: TestFluentFormsImportIsIdempotent (0.41s)
+=== RUN   TestSubscriberSourceShortSetsCampaignAttribution
+2026/10/04 22:09:42 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=69a33191-133f-4c91-b529-35a137679b54
+--- PASS: TestSubscriberSourceShortSetsCampaignAttribution (0.62s)
+=== RUN   TestNothingInThisPackageSends
+    subscribers_test.go:395: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
+    subscribers_test.go:395: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
+--- PASS: TestNothingInThisPackageSends (0.02s)
+=== RUN   TestResendRecords202AndAppendsNoCodeSent
+--- PASS: TestResendRecords202AndAppendsNoCodeSent (0.42s)
+=== RUN   TestWebFormImportRefusesWhenUnconfigured
+--- PASS: TestWebFormImportRefusesWhenUnconfigured (0.32s)
+=== RUN   TestWebFormImportReadsTheCommittedFixture
+--- PASS: TestWebFormImportReadsTheCommittedFixture (0.35s)
+=== RUN   TestNoResponseCarriesAFullPhoneOrEmail
+--- PASS: TestNoResponseCarriesAFullPhoneOrEmail (0.41s)
+=== RUN   TestE164NormalizeAndMaskHoldOnTheSpikesSet
+--- PASS: TestE164NormalizeAndMaskHoldOnTheSpikesSet (0.00s)
+=== RUN   TestTeamMemberGets403ManagersOnlyOnSubscribers
+--- PASS: TestTeamMemberGets403ManagersOnlyOnSubscribers (0.24s)
+=== RUN   TestToastGuestCSVImportsAndFiltersByConsent
+--- PASS: TestToastGuestCSVImportsAndFiltersByConsent (0.36s)
+=== RUN   TestToastGuestIDAliasDoesNotMergeTwoPeople
+--- PASS: TestToastGuestIDAliasDoesNotMergeTwoPeople (0.43s)
+=== RUN   TestReImportConvergesCorrectedFieldsAndCountsHonestly
+--- PASS: TestReImportConvergesCorrectedFieldsAndCountsHonestly (0.22s)
+=== RUN   TestNormalizeE164RejectsImpossibleAreaCodes
+--- PASS: TestNormalizeE164RejectsImpossibleAreaCodes (0.00s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/04 22:09:46 OK   0087_qr_scans_dedupe_bucket.sql (15.5ms)
+2026/10/04 22:09:46 OK   0086_merge_repoint_and_erasure_backstop.sql (21.82ms)
+2026/10/04 22:09:46 OK   0085_subscribers.sql (18.83ms)
+2026/10/04 22:09:46 OK   0084_toast_orders_reconciliation.sql (21.78ms)
+2026/10/04 22:09:46 OK   0083_campaigns_admin.sql (24.07ms)
+2026/10/04 22:09:46 goose: no migrations to run. current version: 82
+2026/10/04 22:09:46 OK   0083_campaigns_admin.sql (121.19ms)
+2026/10/04 22:09:46 OK   0084_toast_orders_reconciliation.sql (149.81ms)
+2026/10/04 22:09:46 OK   0085_subscribers.sql (138.49ms)
+2026/10/04 22:09:46 OK   0086_merge_repoint_and_erasure_backstop.sql (43.57ms)
+2026/10/04 22:09:46 OK   0087_qr_scans_dedupe_bucket.sql (82.29ms)
+2026/10/04 22:09:46 goose: successfully migrated database to version: 87
+2026/10/04 22:09:46 INFO database migrations applied successfully
+    zz_migration_down_test.go:61: 0083 Down/Up round-trip clean; schema left fully migrated
+--- PASS: TestMigration0083DownAndUpRoundTrip (0.92s)
+=== RUN   TestMigration0085SubscribersDownAndUpRoundTrip
+2026/10/04 22:09:46 goose: no migrations to run. current version: 87
+2026/10/04 22:09:46 INFO database migrations applied successfully
+2026/10/04 22:09:46 OK   0087_qr_scans_dedupe_bucket.sql (23.79ms)
+2026/10/04 22:09:47 OK   0086_merge_repoint_and_erasure_backstop.sql (91.14ms)
+2026/10/04 22:09:47 OK   0085_subscribers.sql (83.99ms)
+2026/10/04 22:09:47 goose: no migrations to run. current version: 84
+2026/10/04 22:09:47 OK   0085_subscribers.sql (108.51ms)
+2026/10/04 22:09:47 OK   0086_merge_repoint_and_erasure_backstop.sql (27.08ms)
+2026/10/04 22:09:47 OK   0087_qr_scans_dedupe_bucket.sql (55.64ms)
+2026/10/04 22:09:47 goose: successfully migrated database to version: 87
+2026/10/04 22:09:47 INFO database migrations applied successfully
+    zzz_subscribers_migration_down_test.go:158: migration 85 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+--- PASS: TestMigration0085SubscribersDownAndUpRoundTrip (0.43s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	28.680s
+EXIT_TEST=0
