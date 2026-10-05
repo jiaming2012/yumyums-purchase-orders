@@ -2593,7 +2593,7 @@ test.describe('Scan-time verify (card scan-time-verify, roadmap I2)', () => {
 //   [SV-10]     ⚪ first leg UN-STUBBED: the lookup is passed through to the
 //               REAL door (route.continue), which has no substrate behind it
 //               in this stack and answers non-200 by itself. 🟡 the 401 / 500
-//               / 404 legs are statuses fulfilled by page.route, said so here.
+//               / 404 / 503 legs are statuses fulfilled by page.route, said so here.
 //   [SV-11]     ⚪ no seam is stubbed: setCampaignPolicy is never called and
 //               MarketingScan.campaignPolicy is never replaced. The SHIPPED
 //               `policyFor` export is handed a throwing source directly and

@@ -55,7 +55,7 @@ layer. That is the stack, not the feature under test.
 
 | Clause | What answers | Stub? |
 |---|---|---|
-| `[PS-01]` / `[PS-01b]` held lookup | `page.route` on the door's lookup path HOLDS the request; the test later fulfils it with one live row | The HOLD is un-stubbed (nothing answers while the photo is picked). The released ROW is the one permitted stub. The photo is `tests/fixtures/qr-fixture-1.png` through the real `#scan-file` input and the real html5-qrcode decode. Code B is seeded into the local replicas (fixture). |
+| `[PS-01]` / `[PS-01b]` held lookup | `page.route` on the door's lookup path HOLDS the request; the test later fulfils it with one live row | The HOLD is un-stubbed (nothing answers while the photo is picked). The released ROW is the permitted stub; the closing submit leg (after the done_when assertions) is answered by `mockRedeem` — also a stub. The photo is `tests/fixtures/qr-fixture-1.png` through the real `#scan-file` input and the real html5-qrcode decode. Code B is seeded into the local replicas (fixture). |
 | `[PS-02]` | no lookup involved for the photo (code held locally — fixture rows seeded) | fixture only |
 | `[SV-08]` held + locally expired, zero lookups | counting route that WOULD serve a live row if reached | un-stubbed count (zero requests sent); local rows are seeded fixtures |
 | `[SV-09]` expired server row | `page.route` fulfils one expired row | the permitted stub (the row) |
