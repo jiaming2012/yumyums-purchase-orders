@@ -7,3 +7,4 @@
 2026-10-04T22:34:40-04:00 card3 (j2) reported @51fcfb2: reds->greens both, G1 0/0, recipes 61/0/0, marketing 72/0/1, seam 244/19/1 (16 in prior base set, :2931 + :2406 flake both trees, :2112 unexplained 1x); G6 j2 dispatched
 2026-10-04T22:35:16-04:00 card2 (j1) reported @dcc5ad4: PS-01 red->green, 4 mutation reds, marketing 70/0/0 retries=0, sw 51, G1 0/0; guard widened to scanText (stated), SV-11 predicate-level only, campaigns-run.sh said NOT to gate that arm; G6 j1 dispatched
 2026-10-04T22:44:33-04:00 G6 j2 @51fcfb2 APPROVE-WITH-FINDINGS (0 blocking, 3 record, 3 note); records corrected dc36a51; merge2 j2 -> 42fbd67 CLEAN; G1 0/0, confined Go 133/0/1 (first run invalid: unmigrated db, orchestrator error), sw 51
+2026-10-04T22:47:15-04:00 G6 j1 @dcc5ad4 APPROVE-WITH-FINDINGS (0 blocking, 2 record, 3 note); records corrected d6e7111; merge3 j1 -> b0bc48c CLEAN; G1 0/0, sw 51 idempotent, backlog 0

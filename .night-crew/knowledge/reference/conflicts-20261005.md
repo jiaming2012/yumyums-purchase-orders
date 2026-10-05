@@ -57,3 +57,35 @@ One entry per merge onto `overnight-20261005`, clean or conflicted (§15ad.66). 
   in-transaction placement held only in the reviewer's manual race probes; the test also passes
   with the guard after the first UPDATE. A missing SOURCE into a real target still answers
   `200 {"rows_re_pointed":0}`; a non-uuid target still answers 500 — both pre-existing.
+
+## Merge 3 — `card/j1-photo-scan-guard-and-lookup-arms` @ `d6e7111` → `b0bc48c` · CLEAN
+
+- **Cards involved:** Card 2 `photo-scan-guard-and-lookup-arms` (J1), cut from `3bd6a9b`; merged
+  after Card 3. `BACKLOG.md` and `roadmap.md` were edited by both cards on different lines and
+  auto-merged; no hunk needed a hand.
+- **Intents read:** `merge-intents/photo-scan-guard-and-lookup-arms.md` and Card 3's. Nothing in
+  either names a file the other must keep a particular way.
+- **Review (fresh context, at `dcc5ad4`):** APPROVE-WITH-FINDINGS — 0 blocking, 2 record, 3 note.
+  The reviewer re-ran two mutations itself (`[SV-10]` non-200 → `null`; `[SV-11]` `catch` →
+  `return false` — each redded exactly its own spec), reverted the page fix and watched all three
+  `[PS-*]` specs red on the missing submit control, and ran the whole marketing spec on a fresh
+  database: 70 passed / 0 failed / 0 skipped. `[SV-08]` and `[SV-09]` mutations were NOT re-run by
+  the reviewer (the card's own logs are their only evidence).
+- **Fix round after review:** wording only, `d6e7111` — one comment line in
+  `tests/marketing.spec.js` (`[SV-10]` names 503 too) and one merge-intent sentence (`[PS-01]`'s
+  closing submit rides `mockRedeem`). No test or product line changed, so no mutation was re-run;
+  said so the absence is not read as a skipped step.
+- **Gate after (confined, `logs/merge3-confined.log`):** `EXIT_BUILD=0`, `EXIT_VET=0`; `sw.js`
+  regenerated at the merged HEAD twice — no diff against the card's committed file, 51 precached;
+  backlog check exit 0 (276 entries). The final full suite on the complete tree is the full gate.
+- **Carried for the morning reader (reviewer's verdicts on what the card flagged):**
+  1. The busy guard is wider than the slate's wording — it also covers the scan-by-text entry
+     point. No crew path needed that (the page has only camera and photo); it is needed for the
+     spike's own recipe and `[PS-01]`. `[PS-01b]` (photo then photo), an extra spec, is the only
+     one driving the defect through crew-reachable entries. No product code calls scan-by-text.
+  2. `[SV-11]` gates the fail-closed arm at the predicate level only. The page's refusal render
+     under a throwing policy source is gated by NOTHING, and the slate's stated fallback was
+     wrong: `campaigns-run.sh` never passes a throwing source (read, not run).
+  3. A photo picked during the wait is dropped with no feedback of its own; one picked while an
+     earlier photo is still decoding is dropped with no "Checking…" text at all. Within the
+     slate's "no new copy".
