@@ -223,11 +223,17 @@ Keep the on-device row minimal: hashed customer id and entitlement list. No name
 
 Send the QR **as an image, not a link.** An MMS image lives in the thread and opens with no network. A link needs signal at the exact moment the customer is standing at the window — the one thing that can't be counted on.
 
-### Provider: Twilio, not Toast
+### Provider: SignalWire, not Toast
 
-Toast has no self-serve transactional messaging API; its SMS is bundled inside Marketing Essentials (commonly cited around $185/month, quote-based, all figures from competitor blogs — verify with the account rep). Twilio is the only option that supports "form submit → generate code in Supabase → send that image to that person."
+> **Provider decision 2026-10-05 (ledger decision 208): SignalWire replaces Twilio.** Everything
+> below that is carrier-level (A2P 10DLC, toll-free verification, STOP handling, MMS-as-image) is
+> unchanged — those are US carrier rules, not a vendor feature. The cost figures below were quoted
+> for Twilio and are retained only as an order-of-magnitude reference; re-quote against SignalWire
+> at provisioning time.
 
-**Costs:**
+Toast has no self-serve transactional messaging API; its SMS is bundled inside Marketing Essentials (commonly cited around $185/month, quote-based, all figures from competitor blogs — verify with the account rep). A programmable-messaging provider is the only option that supports "form submit → generate code in Supabase → send that image to that person." SignalWire is the chosen provider.
+
+**Costs (Twilio-era reference figures, see note above):**
 - MMS outbound $0.022 + carrier fees (~$0.0035 AT&T, ~$0.01 T-Mobile registered) ≈ **$0.03 per delivery**
 - Local number $1.15/month
 - A2P 10DLC campaign $1.50–10/month; brand registration $4.50 one-time; vetting $15 one-time
@@ -460,7 +466,7 @@ identity code per customer (§10) is keyed to the customer regardless of source.
 4. Push handler + `conflictHandler`
 5. Clock-offset capture on sync
 6. Scanner UI with `requires_online` branching **and required order-number entry**
-7. Twilio 10DLC registration **(start this in parallel with step 1 — it is the longest lead time)**
+7. SignalWire 10DLC registration **(start this in parallel with step 1 — it is the longest lead time)**
 8. QR generation + MMS send on form submit
 9. SMTP ingest: dedicated mailbox → CSV parser → staging table (idempotent upsert)
 10. Reconciliation view (matched / unmatched / orphan) + orphan-rate metric
@@ -648,7 +654,7 @@ scanner and the **server (gstate, §18)** arbitration. Structural calls: the cli
 - **Redemption Attempt arbitration** (§18): `validating → burning → route_outcome → {redeemed | already_used | expired | failed}`. Synced offline overrides enter seeded `offline_override=true`; an `already_used` terminal → flag lost race (F4).
 - **Reward Code (Entitlement):** `created → sent → active → {redeemed | expired | void}` (+ `deliveryFailed` branch).
 - **Campaign:** `draft → scheduled → active → ended → archived`.
-- **Issuance / Delivery (Twilio, v2):** `pending → generatingCode → sending → {sent | failed → retrying}`.
+- **Issuance / Delivery (SignalWire, v2):** `pending → generatingCode → sending → {sent | failed → retrying}`.
 
 ### 19.3 Event taxonomy
 
@@ -656,7 +662,7 @@ scanner and the **server (gstate, §18)** arbitration. Structural calls: the cli
 |---|---|---|
 | **Actor (staff)** | Human at counter | `SCAN`, `ORDER_INPUT`, `SUBMIT`, `OVERRIDE_CONFIRM`, `NEXT_CUSTOMER` |
 | **System / device** | Client env | `CONN_UP/DOWN`, `PROBE_TIMEOUT`, `CAMERA_*`, `SYNC_*`, timers (`After`) |
-| **Boundary (client↔server)** | Over the wire | req `SubmitRedemption` → resp `SRV_REDEEMED / ALREADY_USED / EXPIRED / NOT_FOUND / ERROR`; Twilio delivery webhook |
+| **Boundary (client↔server)** | Over the wire | req `SubmitRedemption` → resp `SRV_REDEEMED / ALREADY_USED / EXPIRED / NOT_FOUND / ERROR`; SignalWire delivery webhook |
 | **Domain facts** | Server-emitted (audit/BI, §9) | `CodeIssued`, `CodeRedeemed`, `RedemptionRejected{reason}`, `OfflineOverrideAccepted`, `RaceLostReconciled`, `CampaignEnded` |
 
 ### 19.4 Redemption stories & acceptance criteria (decided)

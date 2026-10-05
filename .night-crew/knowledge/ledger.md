@@ -4949,3 +4949,25 @@ sitting. The night's three engineer-level calls (the guard also covers `scanText
 (B-482); a real camera decode; the scan-time read through the real door; production row counts for
 `0086` (B-474) and `0087` (decision 203); `persistence.spec.js:1463` after 0 red / 10 green on
 base (B-481, lean towards resolved under process P-3 if the next full suite is green).
+
+### T-67 — Ad-hoc sitting: SignalWire replaces Twilio as the delivery provider (2026-10-05)
+
+**Decision 208 (operator) — SignalWire is the messaging provider for Activity E; Twilio is
+deprecated throughout hq.** Stated by the operator in an attended session, no night involved.
+What changes: `external-accounts-provision` (Activity 0) now stands up a SignalWire account and
+toll-free number instead of a Twilio one; `mms-send-on-signup` (Activity E) integrates SignalWire's
+messaging API; D-KR2's compliance test runs against SignalWire test credentials or a mocked
+transport. What does not change: the carrier-side A2P 10DLC / toll-free verification lead time, the
+STOP-handling and consent obligations (§11, R5), and MMS-as-image (not a link) — those are US
+carrier rules and design decisions, not vendor features. The handoff §11 cost figures were quoted
+for Twilio and are kept as order-of-magnitude reference only, flagged in the doc; re-quote at
+provisioning. Applied in the same sitting to `docs/qr-offline-redemption-handoff.md` (§11 provider
+heading, implementation-order step 7, §19.2 delivery lifecycle, §19.3 boundary row), `roadmap.md`
+(new-stack note, delivery footprint, Activity 0 card), `okrs.md` (D-KR2) and
+`backend/internal/marketing/subscribers_test.go` — where `"signalwire"` was **added** to the
+`senderImports` denylist and `"twilio"` deliberately **kept**: the list guards against any sender
+reaching the subscriber surface, and a deprecated provider is still a sender. B-466's dated finding
+text is left verbatim because it describes the denylist as it stood and remains true.
+**Not applied:** the handoff doc's upstream source (`~/projects/yumyums/marketing/qr-redemption/`)
+is not present on this box; whoever syncs it next carries the same swap there. No code outside the
+test denylist named Twilio.

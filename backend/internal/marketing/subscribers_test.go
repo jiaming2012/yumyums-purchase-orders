@@ -293,8 +293,13 @@ func TestSubscriberSourceShortSetsCampaignAttribution(t *testing.T) {
 // internal/marketing or internal/marketing/sources means something in the
 // subscriber surface acquired the ability to send, which is Activity E's and is
 // a PARK on this card.
+//
+// "signalwire" is the chosen delivery provider (ledger decision 208, 2026-10-05
+// — it replaces Twilio). "twilio" stays on the list deliberately: this is a
+// denylist of senders, and a deprecated provider is still a sender. Removing a
+// name here weakens the guard; it never expresses a vendor preference.
 var senderImports = []string{
-	"net/smtp", "twilio", "sendgrid", "mailgun", "postmark", "resend",
+	"net/smtp", "signalwire", "twilio", "sendgrid", "mailgun", "postmark", "resend",
 	"service/sns", "service/ses", "mailersend", "plivo", "messagebird",
 }
 
