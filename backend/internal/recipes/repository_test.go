@@ -3,8 +3,11 @@ package recipes
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRepository_CreateRecipe_HappyPath(t *testing.T) {
@@ -273,4 +276,113 @@ func TestRepository_LargestSiblingAllocation_PicksDescByPct(t *testing.T) {
 	if name != "Bowl 30" {
 		t.Fatalf("expected name='Bowl 30', got %q", name)
 	}
+}
+
+// Card J2 (BACKLOG B-479): a dish merge aimed at a dish that does not exist.
+// The source here is UNATTACHED — no recipe, no campaign, no code — which is
+// the shape that used to slip through: nothing refused the three re-points
+// (0 rows each), the DELETE removed the dish, `daily_menu_sales` went with it
+// (ON DELETE CASCADE, migration 0061) and the call answered 200
+// {"rows_re_pointed":0}. (An ATTACHED source was refused by the campaign FK
+// and answered 500 — same request, different answer.)
+//
+// Both legs must refuse and change nothing: the repository call returns an
+// error naming target_not_found, and the handler answers 404 with it.
+const mergeMissingTargetID = "00000000-0000-4000-8000-000000000479" // names no dish
+
+func assertDishAndSalesSurvive(t *testing.T, pool *pgxpool.Pool, leg, menuItemID string) {
+	t.Helper()
+	ctx := context.Background()
+	var dishes, sales int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM menu_items WHERE id = $1`, menuItemID).Scan(&dishes); err != nil {
+		t.Fatalf("%s: count menu_items: %v", leg, err)
+	}
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM daily_menu_sales WHERE menu_item_id = $1`, menuItemID).Scan(&sales); err != nil {
+		t.Fatalf("%s: count daily_menu_sales: %v", leg, err)
+	}
+	if dishes != 1 {
+		t.Errorf("%s: the source dish has %d rows after a merge into a dish that does not exist, want 1 (it was deleted)", leg, dishes)
+	}
+	if sales != 1 {
+		t.Errorf("%s: the source dish has %d daily_menu_sales rows, want 1 (its sales history went with it)", leg, sales)
+	}
+}
+
+func TestMergeMenuItem_MissingTargetIsRefused(t *testing.T) {
+	t.Run("repository", func(t *testing.T) {
+		pool := setupTestDB(t)
+		ctx := context.Background()
+		source := seedMenuItem(t, pool, "Orphan Bowl")
+		seedDailyMenuSales(t, pool, source, "2026-09-28", 7, 84.00)
+
+		rows, err := MergeMenuItem(ctx, pool, source, mergeMissingTargetID)
+		if err == nil {
+			t.Errorf("MergeMenuItem into a missing target returned (%d, nil), want an error naming target_not_found", rows)
+		} else if !strings.Contains(err.Error(), "target_not_found") {
+			t.Errorf("MergeMenuItem into a missing target: error = %q, want it to name target_not_found", err.Error())
+		}
+		assertDishAndSalesSurvive(t, pool, "repository", source)
+	})
+
+	t.Run("handler", func(t *testing.T) {
+		pool := setupTestDB(t)
+		source := seedMenuItem(t, pool, "Orphan Bowl")
+		seedDailyMenuSales(t, pool, source, "2026-09-28", 7, 84.00)
+
+		mux := mountRouter(http.MethodPost, "/inventory/recipes/merge", MergeMenuItemHandler(pool))
+		rec := doJSON(t, mux, http.MethodPost, "/inventory/recipes/merge", map[string]any{
+			"source_menu_item_id": source,
+			"target_menu_item_id": mergeMissingTargetID,
+		})
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("status = %d body=%s, want 404", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "target_not_found") {
+			t.Errorf("body = %s, want it to name target_not_found", rec.Body.String())
+		}
+		assertDishAndSalesSurvive(t, pool, "handler", source)
+	})
+
+	// The same refusal for a source a campaign names — before the guard this
+	// shape answered 500 (23503 campaigns_admin_item_id_fkey), not 404.
+	t.Run("attached source answers the same 404", func(t *testing.T) {
+		pool := setupTestDB(t)
+		ctx := context.Background()
+		source := seedMenuItem(t, pool, "Campaign Bowl")
+		seedDailyMenuSales(t, pool, source, "2026-09-28", 3, 36.00)
+		var userID string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO users (email, first_name, last_name, roles, status)
+			 VALUES ('merge-' || gen_random_uuid()::text || '@test.invalid', 'Merge', 'Test', ARRAY['manager'], 'active')
+			 RETURNING id::text`).Scan(&userID); err != nil {
+			t.Fatalf("seed user: %v", err)
+		}
+		var campaignID string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO campaigns_admin (id, slug, name, offer_text, face_value_cents, requires_online, item_id, ends_at, created_by)
+			 VALUES (gen_random_uuid(), 'merge-' || gen_random_uuid()::text, 'Bowl Friday', '$1 off', 100, false, $1, now() + interval '7 days', $2)
+			 RETURNING id::text`, source, userID).Scan(&campaignID); err != nil {
+			t.Fatalf("seed campaign: %v", err)
+		}
+
+		mux := mountRouter(http.MethodPost, "/inventory/recipes/merge", MergeMenuItemHandler(pool))
+		rec := doJSON(t, mux, http.MethodPost, "/inventory/recipes/merge", map[string]any{
+			"source_menu_item_id": source,
+			"target_menu_item_id": mergeMissingTargetID,
+		})
+		if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "target_not_found") {
+			t.Errorf("status = %d body=%s, want 404 target_not_found", rec.Code, rec.Body.String())
+		}
+		assertDishAndSalesSurvive(t, pool, "attached", source)
+		var item *string
+		if err := pool.QueryRow(ctx,
+			`SELECT item_id::text FROM campaigns_admin WHERE id = $1`, campaignID).Scan(&item); err != nil {
+			t.Fatalf("read campaign: %v", err)
+		}
+		if item == nil || *item != source {
+			t.Errorf("the campaign's item changed on a refused merge: %v, want %s", item, source)
+		}
+	})
 }
