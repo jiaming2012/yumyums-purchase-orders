@@ -25,9 +25,10 @@ Inside the footprint: `backend/internal/recipes/repository.go`, `handler.go`,
 ## What must survive any merge
 
 1. **The target read comes BEFORE the three re-point statements, inside the same transaction**:
-   `SELECT 1 FROM menu_items WHERE id = $1 FOR SHARE`. Moved after the UPDATEs, an attached
-   source reaches the FK refusal (500) while an unattached one is deleted (200) — the asymmetry
-   B-479 reports.
+   `SELECT 1 FROM menu_items WHERE id = $1 FOR SHARE`. Moved after the campaign UPDATE, an
+   attached source reaches the FK refusal (500) while an unattached one still gets 404 — the
+   asymmetry returns. (Corrected after review: a guard after the UPDATEs does not delete the
+   unattached source.)
 2. **The three re-point statements and the `DELETE FROM menu_items` are unchanged** (card I3's
    contract; `TestRepository_MergeMenuItem_RePointsCampaignsAndCodes` pins them).
 3. **`404 target_not_found`** on the handler's existing error shape; `400 cannot_merge_into_self`
@@ -73,7 +74,7 @@ Nothing above changed. Additions:
 |---|---|---|
 | RED 1, pre-change tree | `red-1-recipes-prechange.log` | `returned (0, nil)`; dish rows 0, sales rows 0; handler `200 {"rows_re_pointed":0}`; attached leg `500` (`23503`). `EXIT=1` |
 | GREEN 1 | `green-1-recipes.log` | 3/3 sub-legs PASS, `EXIT=0` |
-| RED 2, `0086` minus the three-line UPDATE (numstat 0/3) | `red-2-marketing-0086-update-removed.log` | `23503 qr_scans_subscriber_id_fkey` on `ADD CONSTRAINT`; the four erasure tests' three + three round-trips PASS. `EXIT=1`. Mutation reverted, never committed |
+| RED 2, `0086` minus the three-line UPDATE (numstat 0/3) | `red-2-marketing-0086-update-removed.log` | `23503 qr_scans_subscriber_id_fkey` on `ADD CONSTRAINT`; the three erasure tests and the three round-trips (six in all) PASS. `EXIT=1`. Mutation reverted, never committed |
 | GREEN 2, shipped `0086` | `green-2-marketing-0086-shipped.log` | 7/7 PASS, `EXIT=0` |
 | G1 | `g1.log` | `EXIT_BUILD=0`, `EXIT_VET=0` |
 | Go packages, `-p 1` | `go-packages.log` | recipes 61 PASS / 0 FAIL / 0 SKIP; marketing 72 PASS / 0 FAIL / 1 SKIP (`TestProjectionConfiguredUpsertsToSubstrate`, skipped on the base too). `EXIT_TEST=0` |
