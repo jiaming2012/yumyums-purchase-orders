@@ -15,10 +15,17 @@
 > this round proceeds on the close record, the backlog, and the OKR grades, and records the
 > absence.
 
-## Current state (2026-10-05, milestone "Close the loop" — 33 cards, **27 green, 3 white**, 3 retired)
+## Current state (2026-10-05, milestone "Close the loop" — 37 cards, **27 green, 7 white**, 3 retired)
 
-> **Slate `20261006` signed at the evening sitting of 2026-10-05 (ledger T-68): Activity E's two
-> cards ride tonight — the LAST overnight the milestone needs.** The operator chose it over a
+> **Two slates signed at the evening sitting of 2026-10-05.** Slate `20261006` (ledger T-68):
+> Activity E's two cards ride tonight — the LAST overnight the milestone's close bar needs. Slate
+> `20261007` (ledger T-69): **Activity K — the review leftovers (B-482 … B-487) and the Inventory
+> Setup races (B-459, B-478), four cards — launches after `20261006`'s morning triage merges**;
+> the operator asked for the bug fixes as a second slate after the milestone night. Activity K is
+> QA debt and crew-visible polish, not close-bar work: the milestone's bar is unaffected by it.
+>
+> **Slate `20261006` (ledger T-68): Activity E's two cards ride tonight — the LAST overnight the
+> milestone's close bar needs.** The operator chose it over a
 > leftovers night ("I want this last loop to clear the milestone"); both goals were spiked and
 > closed inline (one signed correction: the QR encodes at Low with a 16-char token). The same
 > sitting retired `redemption-unknowns-spike` (ABSORBED → Activity H — its questions are answered
@@ -1193,6 +1200,138 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `backend/internal/recipes/handler.go` (the 404 arm), `backend/internal/marketing/erasure_test.go`
   (or a sibling migration test file). No frontend file; no `sw.js` move. BACKLOG B-479 / B-480
   `promoted → merge-target-and-blanking-guards`.
+
+
+## Activity K — Review leftovers and Inventory Setup races (triage 20261005 follow-ups)
+
+> **Why here:** morning triage T-66 (receipt `reference/triage-20261005.md`, decision 207) filed
+> the adversarial review's six unfixed findings on run `20261005` — B-482 … B-487 — and named the
+> two diagnosed Inventory Setup races (B-459, B-478) as the obvious next small card. At the slate
+> sitting of 2026-10-05 the operator chose Activity E for the milestone's last night and then asked
+> for the bug fixes as **a second slate after it** (run `20261007`); this activity is that slate's
+> content, authored the "triage authors the card that discharges the finding it raised" way
+> (decisions 167 / 170 / 180; Activities I, J). **Trace:** QA objective (gates that pass against
+> broken code; a states spec that dirties every gate run) and Product (P-KR2's window workflow —
+> a crew member who picks a photo mid-check sees something happen; a manager who types in Setup
+> keeps what they typed). Four cards, two tracks: **A (client)** K1 → K4; **B (backend + tests)**
+> K2 → K3. Spike ledgers under
+> `.night-crew/knowledge/spikes/activity-k-review-leftovers-and-inventory-setup-races-triage-20261005-follow-ups/`.
+
+### inventory-setup-races
+
+- `inventory-setup-races` · **PLANNED** · (K1, track A — **B-459**, **B-478**) Today
+  `ALL_ITEMS` in `inventory.html` has three unsequenced writers (`loadItems()`, the
+  `DOMContentLoaded` preload, the alias handler's own refetch) and whichever response lands
+  LAST wins, so a nickname added while the item list is still loading can vanish from the chips
+  although the server kept it (B-459, the dangerous shape: the view lies and the manager re-adds
+  an alias that exists); and opening Setup starts `loadItems()`, whose late re-render of the add
+  bar empties a name the manager has already typed, after which the create click returns
+  silently with no POST (B-478 — the mechanism behind `inventory.spec.js:2931` / `:2919`).
+  Behaviour after this card: **what a manager typed or added in Setup stays on screen — a late
+  response never overwrites a newer one, and an empty-name create says so instead of doing
+  nothing.** **Spike-corrected scope (2026-10-05):** B-478 reproduces exactly as filed (a late
+  groups response wipes the typed name; the create click sends no POST). **B-459's diagnosed
+  mechanism does NOT reproduce** under the filed timing — two spike runs with the Setup tab's
+  first `GET /items` held until after the alias add and then released gave opposite outcomes
+  (run 2: view and server both held the nickname; run 3: NEITHER did — the add never reached the
+  server), and in neither did the view disagree with the server. So the B-459 half of this card
+  is **the add path's robustness** (why can a click on "add nickname" be dropped while the
+  item list's first fetch is in flight? — the night diagnoses it, with the spike's harness as the
+  reproduction, and fixes it) **plus request-sequencing hardening, proven by measurement**, not
+  the filed overwrite fix; `inventory.spec.js:2186`'s red is retired only if the measurement
+  says so. Mechanism: a monotonic request sequence on the items/groups
+  fetches (each writer captures `seq` before its fetch and discards a response older than the
+  latest applied — last REQUEST wins, never last response); the add bar is rendered once and only
+  its group `<select>` options are refreshed when groups land, so `#new-item-name`'s value and the
+  chosen group survive; the create click with an empty name shows the same loud alert the
+  no-group path uses (UI-R: failures are loud). done_when (red-first, the spike's recipe):
+  `[IS-01]` with `GET /inventory/groups` delayed 600 ms, a name typed right after opening Setup is
+  still in `#new-item-name` when the response lands and the create click POSTs (RED today — the
+  spike's leg 1); `[IS-02]` a stale `GET /items` released after a newer one leaves `ALL_ITEMS` at
+  the newer snapshot (a unit-style assertion through `window` on the sequence, RED today because
+  no sequence exists); `[IS-03]` empty-name create → the alert names the name field (RED today:
+  silent); `[IS-04]` with the Setup tab's first `GET /items` held, a nickname added through the
+  UI reaches the server (its POST is observed) and renders — RED today in 1 of 2 spike runs
+  (nondeterministic; the night names the mechanism it finds); **measurement, not assertion:**
+  `inventory.spec.js:2186` and `:2919/:2931` run 10× alone and 5× inside the `inventory|recipes`
+  seam on the merged tree, tallies in HANDOFF; a red that persists is reported with its
+  mechanism, never papered over. Footprint: `inventory.html`,
+  `tests/inventory.spec.js`, `sw.js` (regenerated, count 51 stays), `bugs.md` (the three named
+  reds retire by diagnosis — decision 100's rule). BACKLOG B-459 / B-478 `promoted → inventory-setup-races`.
+
+### dish-merge-shapes-and-backstop-tests
+
+- `dish-merge-shapes-and-backstop-tests` · **PLANNED** · (K2, track B — **B-484**, **B-485**,
+  **B-487**) Today a dish merge whose SOURCE names no dish answers `200 {"rows_re_pointed":0}`
+  and a non-uuid target answers `500 internal_error` (`22P02`); the handler matches
+  `ErrMergeTargetNotFound` by `strings.Contains` on the message; the `FOR SHARE` lock and the
+  guard's in-transaction placement are pinned by no test (the missing-target test passes with the
+  lock removed); and migration 0086's `ON DELETE SET NULL` on `campaigns_admin.item_id` /
+  `qr_codes.item_id` is asserted at schema level only — nothing deletes a dish and reads the NULL
+  back. API-only; no screen calls the merge. Behaviour after this card: **a merge with a missing
+  source is 404, a malformed id is 400, both sentinels are matched with `errors.Is`, the lock is
+  pinned by a test that races a delete against the merge, and the deploy backstop is pinned by a
+  test that deletes a dish and reads both surviving rows.** Mechanism: `ErrMergeSourceNotFound`
+  beside the target sentinel (checked after the target's `FOR SHARE`, inside the transaction);
+  `isBadUUID`-style 400 before the query; the handler's two `strings.Contains` arms become
+  `errors.Is`; `TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete` opens a second
+  connection that `DELETE`s the target while the merge holds `FOR SHARE` and asserts the merge
+  commits with the target present OR the delete is refused — never a merge into a vanished
+  target; `TestMigration0086DishDeleteBlanksCampaignAndCode` seeds a campaign and a code naming a
+  dish, deletes the dish, asserts both rows survive with `item_id IS NULL`. done_when (red-first,
+  the spike's shapes): missing-source 200 → 404 `source_not_found`; non-uuid 500 → 400 `bad_id`;
+  the lock test RED with ` FOR SHARE` removed (the spike's mutation) → green; the backstop test
+  green on the shipped migration and RED against a worktree copy of 0086 with `ON DELETE SET
+  NULL` changed to `NO ACTION`; `TestRepository_MergeMenuItem_RePointsCampaignsAndCodes` and
+  `TestMergeMenuItem_MissingTargetIsRefused` untouched and green. No migration. Footprint:
+  `backend/internal/recipes/repository.go`, `handler.go`, `repository_test.go`, `handler_test.go`,
+  `backend/internal/marketing/erasure_test.go` (or a sibling). BACKLOG B-484 / B-485 / B-487
+  `promoted → dish-merge-shapes-and-backstop-tests`.
+
+### states-screenshots-out-of-tree
+
+- `states-screenshots-out-of-tree` · **PLANNED** · (K3, track B, after K2 — **B-486**) Today
+  `tests/states-marketing-stats.spec.js` writes its PNGs into
+  `.night-crew/runs/2026-10-02-autonomous/logs/h4/states/`, which is committed, so every gate leg
+  that includes the `marketing` seam leaves the tree dirty (five modified files after one subset
+  run) and every night since has needed a checkout rule to keep its commits clean. Behaviour
+  after this card: **running the states spec never dirties the tree — screenshots go to the
+  ignored `test-screenshots/` by default, and a run that wants durable evidence points
+  `STATES_SHOT_DIR` at its own logs (the `.gitignore` convention already written for exactly
+  this).** Mechanism: `SHOT_DIR = process.env.STATES_SHOT_DIR || path.join(__dirname, '..',
+  'test-screenshots', 'marketing-stats')`; the committed H4 set stays where it is as the reviewed
+  evidence (not moved, not rewritten); the spec's header comment says so. done_when (red-first):
+  `[SS-01]` a Node check beside the spec (or a `[TI-*]` assertion) that `SHOT_DIR` resolves
+  outside any git-tracked path — RED today, green after; running the spec in a fresh worktree
+  leaves `git status --porcelain` empty (the spike's recipe); the H4 PNGs untouched (B-467).
+  Footprint: `tests/states-marketing-stats.spec.js`, `night-crew.toml` roll-call comment only (no
+  key, no token). BACKLOG B-486 `promoted → states-screenshots-out-of-tree`.
+
+### scanner-refusal-seam-and-pick-feedback
+
+- `scanner-refusal-seam-and-pick-feedback` · **PLANNED** · (K4, track A, after K1 — **B-482**,
+  **B-483**) Today a photo picked while the scanner is checking a code is dropped by the J1 guard
+  with no feedback of its own — the result area keeps saying "Checking with the server…" and a
+  photo picked while an earlier photo decodes shows nothing at all (B-483); and the refusal
+  screen a crew member sees when the campaign-policy source throws is gated by nothing at page
+  level — `submit-flow.js` captures `policyFor` ONCE at boot, so no test can reach that arm
+  without a seam, and `campaigns-run.sh` never passes a throwing source (B-482). Behaviour after
+  this card: **a refused photo pick shows one line — "Finish checking this code first, then pick
+  again" — and the fail-closed refusal under a throwing policy source is rendered through the
+  page by a test, via a documented boot-time override reachable only from tests.** Mechanism:
+  (B-483) `onFilePicked`'s refused branch sets a transient `#scan-note` line under the result
+  (no new machine state, event or pair — strictness: 460 declared pairs; a new pair is a park),
+  cleared on the next scan; (B-482) scan-page reads `window.__MARKETING_POLICY_SOURCE__` (set
+  by `page.addInitScript` before boot, documented in the file header as test-only) in place of
+  `createCampaignPolicySource` when present, so `[SV-11]`'s predicate proof gains a page-level
+  twin. done_when (red-first, the spike's two recipes): `[PS-03]` photo picked mid-wait → the
+  note renders with that copy and clears on the next scan (RED today: no note); `[SV-12]` with the
+  override throwing, an offline scan of a held low-value code renders the fail-closed refusal copy
+  (RED today: the override is not read, the offer renders); `[PS-01]`/`[PS-02]`/`[SV-01]`–`[SV-11]`
+  untouched and green — the whole of `tests/marketing.spec.js` `--retries=0`. Footprint:
+  `marketing/scan-page.js`, `tests/marketing.spec.js`, `sw.js` (regenerated, 51);
+  `marketing/submit-flow.js` only if the override must be read there (expected untouched —
+  stated). **No `backend/` file.** BACKLOG B-482 / B-483 `promoted → scanner-refusal-seam-and-pick-feedback`.
 
 
 ---
