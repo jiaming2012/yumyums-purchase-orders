@@ -324,3 +324,96 @@ func TestMigration0086ErasureBackstopDownAndUpRoundTrip(t *testing.T) {
 	assertFKActions(t, "after re-apply", fkDeleteActions(t, pool), up)
 	t.Logf("migration %d Down/Up round-trip clean; schema restored to HEAD (not to a literal)", version)
 }
+
+// TestMigration0086BlanksDanglingScanReferences pins the one statement in 0086
+// that touches rows (card J2, BACKLOG B-480). `qr_scans.subscriber_id` had no
+// FK from 0083 to 0085, so a database can hold a scan whose subscriber_id
+// names nobody. 0086 blanks such ids before it adds the FK; without that
+// UPDATE the ADD CONSTRAINT is refused with 23503 and the whole migration —
+// and with it the deploy — fails. Until this test, removing the UPDATE left
+// every erasure test and every round-trip green, because none of them holds a
+// dangling id at the moment 0086 runs.
+//
+// The dangling row can only be seeded BELOW 0086 (at 86+ the constraint this
+// test is about refuses the seed), so: migrate down to the version before
+// 0086, seed one dangling scan and one control scan naming a real subscriber,
+// migrate up, and read both back.
+//
+// Same rules as the round-trip above: the version comes from the filename, the
+// restore is db.Migrate (never a literal). The cleanup empties the seeded
+// tables BEFORE it restores, so even a 0086 that cannot swallow the dangling
+// row leaves the next test a fully migrated schema — one red, not a cascade.
+func TestMigration0086BlanksDanglingScanReferences(t *testing.T) {
+	pool := setupSubsTestDB(t)
+	ctx := context.Background()
+	if err := db.Migrate(pool); err != nil {
+		t.Fatalf("migrate up to HEAD before the down leg: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(),
+			`TRUNCATE subscriber_events, subscribers, qr_scans, qr_codes, campaigns_admin RESTART IDENTITY CASCADE`); err != nil {
+			t.Errorf("empty the seeded tables before the restore: %v", err)
+		}
+		if err := db.Migrate(pool); err != nil {
+			t.Errorf("restore to HEAD: %v", err)
+		}
+	})
+
+	version := erasureMigrationVersion(t)
+	if err := db.MigrateTo(pool, version-1); err != nil {
+		t.Fatalf("migrate down to %d: %v", version-1, err)
+	}
+	if action, ok := fkDeleteActions(t, pool)["qr_scans_subscriber_id_fkey"]; ok {
+		t.Fatalf("at %d qr_scans_subscriber_id_fkey exists (confdeltype %q) — the dangling row cannot be seeded", version-1, action)
+	}
+
+	f := seedErasureCampaignAndCode(t, pool, "DANGL2")
+	realSub := seedErasureSubscriber(t, pool, nil)
+	const nobody = "00000000-0000-4000-8000-000000000480" // names no subscriber
+	if n := countWhere(t, pool, "subscribers", "id = $1", nobody); n != 0 {
+		t.Fatalf("the 'nobody' id names %d subscribers, want 0", n)
+	}
+	var danglingScan, controlScan int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO qr_scans (short, subscriber_id) VALUES ($1, $2) RETURNING id`,
+		f.short, nobody).Scan(&danglingScan); err != nil {
+		t.Fatalf("seed the dangling scan at %d: %v", version-1, err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO qr_scans (short, subscriber_id) VALUES ($1, $2) RETURNING id`,
+		f.short, realSub).Scan(&controlScan); err != nil {
+		t.Fatalf("seed the control scan at %d: %v", version-1, err)
+	}
+
+	// The deploy. With the blanking UPDATE gone this is where it stops:
+	// 23503 on ADD CONSTRAINT qr_scans_subscriber_id_fkey.
+	if err := db.Migrate(pool); err != nil {
+		t.Fatalf("migrate %d -> HEAD over one dangling qr_scans.subscriber_id: %v", version-1, err)
+	}
+
+	// Blanked, not deleted: the scan is attribution evidence.
+	var got *string
+	if err := pool.QueryRow(ctx,
+		`SELECT subscriber_id::text FROM qr_scans WHERE id = $1`, danglingScan).Scan(&got); err != nil {
+		t.Fatalf("the dangling scan row is gone — the migration must blank it, not delete it: %v", err)
+	}
+	if got != nil {
+		t.Errorf("dangling scan: subscriber_id = %q after the migration, want NULL", *got)
+	}
+	// The control keeps its subscriber: the UPDATE blanks only ids naming nobody.
+	if err := pool.QueryRow(ctx,
+		`SELECT subscriber_id::text FROM qr_scans WHERE id = $1`, controlScan).Scan(&got); err != nil {
+		t.Fatalf("the control scan row is gone: %v", err)
+	}
+	if got == nil || *got != realSub {
+		t.Errorf("control scan: subscriber_id = %v after the migration, want %s", got, realSub)
+	}
+	if n := countScans(t, pool, f.short); n != 2 {
+		t.Errorf("scan rows for the code = %d after the migration, want 2", n)
+	}
+	if n := countWhere(t, pool, "subscribers", "id = $1", realSub); n != 1 {
+		t.Errorf("the real subscriber did not survive the migration (count %d)", n)
+	}
+	assertFKActions(t, "after the migration", fkDeleteActions(t, pool),
+		map[string]string{"qr_scans_subscriber_id_fkey": "n", "qr_scans_short_fkey": "a"})
+}

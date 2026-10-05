@@ -1,0 +1,28 @@
+# RED 1 — TestMergeMenuItem_MissingTargetIsRefused on the PRE-CHANGE tree (test added, repository.go/handler.go untouched)
+# tree: 62e77e8 + working tree ( M backend/internal/marketing/erasure_test.go  M backend/internal/recipes/repository_test.go )
+# db: :5434 hq_test_go_j2 · 2026-10-05T02:07:07Z
+# cmd: go test -p 1 -count=1 -v -run 'TestMergeMenuItem_MissingTargetIsRefused' ./internal/recipes/
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+    repository_test.go:322: MergeMenuItem into a missing target returned (0, nil), want an error naming target_not_found
+    repository_test.go:326: repository: the source dish has 0 rows after a merge into a dish that does not exist, want 1 (it was deleted)
+    repository_test.go:326: repository: the source dish has 0 daily_menu_sales rows, want 1 (its sales history went with it)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+    repository_test.go:340: status = 200 body={"rows_re_pointed":0}
+        , want 404
+    repository_test.go:343: body = {"rows_re_pointed":0}
+        , want it to name target_not_found
+    repository_test.go:345: handler: the source dish has 0 rows after a merge into a dish that does not exist, want 1 (it was deleted)
+    repository_test.go:345: handler: the source dish has 0 daily_menu_sales rows, want 1 (its sales history went with it)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+2026/10/04 22:07:11 ERROR MergeMenuItem error="ERROR: insert or update on table \"campaigns_admin\" violates foreign key constraint \"campaigns_admin_item_id_fkey\" (SQLSTATE 23503)"
+    repository_test.go:376: status = 500 body={"error":"internal_error"}
+        , want 404 target_not_found
+--- FAIL: TestMergeMenuItem_MissingTargetIsRefused (1.93s)
+    --- FAIL: TestMergeMenuItem_MissingTargetIsRefused/repository (0.66s)
+    --- FAIL: TestMergeMenuItem_MissingTargetIsRefused/handler (0.64s)
+    --- FAIL: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (0.63s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	1.936s
+FAIL
+EXIT=1
