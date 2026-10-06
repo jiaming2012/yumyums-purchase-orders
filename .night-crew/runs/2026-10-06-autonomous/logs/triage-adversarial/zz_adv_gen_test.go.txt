@@ -1,0 +1,106 @@
+package marketing
+
+// ADVERSARIAL REVIEW SCRATCH (not part of the tree): draws codes with the card's
+// own newIdentityToken + identityPayload + buildIdentityQR, real crypto/rand.
+import (
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	qrcode "github.com/skip2/go-qrcode"
+)
+
+func advUUID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func TestZZAdvGen(t *testing.T) {
+	out := os.Getenv("ADV_OUT")
+	if out == "" {
+		t.Skip("ADV_OUT unset")
+	}
+	n, _ := strconv.Atoi(os.Getenv("ADV_N"))
+	os.MkdirAll(out, 0o755)
+	offers := []struct {
+		l string
+		v float64
+	}{{"Free side of wings", 2}, {"$2 off any 6pc wings", 2}, {"Free drink with any combo", 3}, {"BOGO 6pc wings", 9.5}, {"Free fries", 4},
+		{"Free 10pc wings with the purchase of any family combo this weekend only", 12}, {"10% off", 1.5}}
+	type row struct {
+		I       int    `json:"i"`
+		Token   string `json:"token"`
+		Payload string `json:"payload"`
+		Label   string `json:"label"`
+		Card    string `json:"card"`  // as built: buildIdentityQR
+		CardV   int    `json:"card_v"`
+		Med     string `json:"med"`   // same payload at Medium 512
+		MedV    int    `json:"med_v"`
+		Bare    string `json:"bare"`  // identity-only via buildIdentityQR(nil)
+		BarePay string `json:"bare_payload"`
+	}
+	rows := []row{}
+	base := DefaultQRBaseURL
+	for i := 0; i < n; i++ {
+		tok, err := newIdentityToken(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		o := offers[i%len(offers)]
+		d := &identityDescriptor{Label: o.l, CampaignID: advUUID(), ExpiresAt: fmt.Sprintf("2026-%02d-%02d", 10+i%3, 1+i%28), FaceValue: o.v}
+		png, err := buildIdentityQR(base, tok, d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// recover the payload buildIdentityQR actually drew (label may be shortened): replay its loop
+		pay, _ := identityPayload(base, tok, d)
+		q, err := qrcode.New(pay, qrcode.Low)
+		full := []rune(d.Label)
+		for k := len(full) - 1; k >= 1 && (err != nil || q.VersionNumber > identityMaxQRVersion); k-- {
+			s := *d
+			s.Label = trimRightSpace(string(full[:k])) + "…"
+			pay, _ = identityPayload(base, tok, &s)
+			q, err = qrcode.New(pay, qrcode.Low)
+		}
+		chk, _ := q.PNG(identityPNGSize)
+		if string(chk) != string(png) {
+			t.Fatalf("replayed payload does not redraw the server PNG for i=%d", i)
+		}
+		r := row{I: i, Token: tok, Payload: pay, Label: o.l, CardV: q.VersionNumber}
+		r.Card = fmt.Sprintf("card-%05d.png", i)
+		os.WriteFile(filepath.Join(out, r.Card), png, 0o644)
+		if os.Getenv("ADV_VARIANTS") == "1" {
+			qm, err := qrcode.New(pay, qrcode.Medium)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pm, _ := qm.PNG(identityPNGSize)
+			r.Med, r.MedV = fmt.Sprintf("med-%05d.png", i), qm.VersionNumber
+			os.WriteFile(filepath.Join(out, r.Med), pm, 0o644)
+			pb, err := buildIdentityQR(base, tok, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Bare = fmt.Sprintf("bare-%05d.png", i)
+			r.BarePay, _ = identityPayload(base, tok, nil)
+			os.WriteFile(filepath.Join(out, r.Bare), pb, 0o644)
+		}
+		rows = append(rows, r)
+	}
+	j, _ := json.Marshal(rows)
+	os.WriteFile(filepath.Join(out, "manifest.json"), j, 0o644)
+}
+
+func trimRightSpace(s string) string {
+	for len(s) > 0 && s[len(s)-1] == ' ' {
+		s = s[:len(s)-1]
+	}
+	return s
+}

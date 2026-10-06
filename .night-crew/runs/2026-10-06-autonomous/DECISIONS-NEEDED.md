@@ -1,3 +1,10 @@
+> **ANSWERED 2026-10-06 — recorded as ledger T-70, decision 210.** The operator chose **"check the
+> truck's tablet first, then decide"**: Decision 1 is NOT closed — it is waiting on one attended check
+> (`tablet-check/README.md` beside this file). The triage reviewer also corrected three statements
+> below: turning and retrying is NOT "600 of 600" (about 1 in 1200 still never reads); the lighter
+> error-correction level DOES help (86% vs 80%); and "a new picture of the same code fails the same
+> way" is false — the outcome follows the exact image file. Kept as the analysis record.
+
 # DECISIONS-NEEDED — overnight run `20261006`
 
 **Two cards parked on ONE open decision.** Card 1 `identity-code-and-qr` (mint each new customer

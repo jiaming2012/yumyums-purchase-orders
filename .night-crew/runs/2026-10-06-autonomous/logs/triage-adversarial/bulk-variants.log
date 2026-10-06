@@ -1,0 +1,7 @@
+ADV bulk med n=1000 plan={"qr":true} secs=134
+[1A[2K  1 passed (2.3m)
+ADV bulk bare n=1000 plan={"rot":true,"rotqr":true} secs=370
+  1 passed (6.4m)
+ADV bulk card n=500 plan={"rot":true,"perturb":["half","jpeg","screenshot","tilt"],"pqr":true} secs=575
+  1 passed (9.9m)
+exit=done

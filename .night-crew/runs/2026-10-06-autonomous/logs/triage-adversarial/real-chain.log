@@ -1,0 +1,12 @@
+[1A[2K  1 passed (2.6m)
+TI01 exit=0
+ADV real card patch=no n=300 read=252 wrongHash=0 kinds={"embeddedOffer":252,"decodeError":46,"invalidPayload":2} reps=2 unstable-across-reps=0 secs=267
+[1A[2K  1 passed (7.4m)
+REAL exit=0
+ADV real card patch=YES n=433 read=429 wrongHash=0 kinds={"embeddedOffer":429,"invalidPayload":2,"decodeError":2} reps=1 unstable-across-reps=0 secs=178
+[1A[2K  1 passed (5.5m)
+PATCHA exit=0
+ADV real card patch=YES n=433 read=431 wrongHash=0 kinds={"embeddedOffer":431,"decodeError":2} reps=1 unstable-across-reps=0 secs=102
+[1A[2K  1 passed (4.1m)
+PATCHB exit=0
+chain-done

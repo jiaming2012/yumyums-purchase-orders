@@ -1,0 +1,820 @@
+[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_adv_20261006 on localhost:5434 ──
+
+[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.612090685-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.612474143-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.638063242-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.719038617-04:00","level":"INFO","msg":"OK   0001_users.sql (49.69ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.776850583-04:00","level":"INFO","msg":"OK   0002_sessions.sql (57.68ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.81645678-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (39.5ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.85663421-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (39.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.905462179-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (48.61ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.936956116-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (31.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:15.970013451-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (32.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.014822968-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (44.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.051818675-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (36.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.087899012-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (32.72ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.130524207-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (42.49ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.180939392-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (50.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.214112843-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (33.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.247330851-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (33.09ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.298129288-04:00","level":"INFO","msg":"OK   0015_ops.sql (50.69ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.312549042-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.34ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.330701732-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (18.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.393165188-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (62.32ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.471518677-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (78.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.522566696-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (50.87ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.570520361-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (47.85ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.614375186-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (43.73ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.679165055-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (64.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.913749358-04:00","level":"INFO","msg":"OK   0024_inventory.sql (234.4ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.968573023-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (54.69ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.984212244-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (15.5ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:16.993350034-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (8.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.011676231-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (18.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.021560096-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (9.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.056025393-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (34.28ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.066249596-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.11ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.079346087-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (12.99ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.109660288-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (30.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.191167576-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (81.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.206884514-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (15.61ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.219892404-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.91ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.250532776-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (30.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.270066016-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (19.38ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.298543112-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (28.35ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.411217242-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (112.48ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.424756429-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.486484488-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (61.62ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.534807648-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (48.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.585476931-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (50.55ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.636455035-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (50.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.643881896-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.32ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.697231688-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (53.22ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.704635244-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.33ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.749604817-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (44.83ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.757761429-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.765479143-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.6ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.7821364-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.56ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.789811097-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.54ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.797769358-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.85ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.805639018-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.76ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.822053983-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.83626481-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (14.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.849798966-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.44ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.856886722-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.91575009-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (58.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.950932921-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (35.09ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:17.992941914-04:00","level":"INFO","msg":"OK   0062_recipes.sql (41.9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.023982477-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (30.93ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.038870798-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (14.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.051018142-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.05ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.06389544-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.117570991-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (53.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.142050476-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.33ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.154239194-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.08ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.167304371-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (12.96ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.189048628-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.61ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.204597913-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.229332523-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (24.4ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.239813802-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.3ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.290514194-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (50.57ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.315466764-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (24.81ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.360716718-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (45.09ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.374074289-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (13.26ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.397081748-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (22.91ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.410472172-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (13.26ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.434714806-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (24.11ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.452596561-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (17.71ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.566261213-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (113.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.700984621-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (134.47ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.811529972-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (110.43ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.8346556-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (22.97ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.891476633-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (56.58ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.940636828-04:00","level":"INFO","msg":"OK   0088_identity_codes.sql (49.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.940694732-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 88","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:18.940714444-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.021984984-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.061798976-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"49f2af7f-e188-4047-a9ea-0870ecf395aa"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.061885216-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.103632821-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"91fac78c-0698-432e-a094-3893a76e4ac0"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.129320583-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.212054216-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.351039907-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.85555561-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.855627784-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.85567614-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.855772646-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.855849953-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856569848-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856777849-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856810292-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856827848-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856847457-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.856870557-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.857275882-04:00","level":"INFO","msg":"alerts queue started"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.881151999-04:00","level":"INFO","msg":"server listening","port":"8297"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.89171038-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8297"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.891769207-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8297"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.891782554-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8297"}
+[2m[WebServer] [22m{"time":"2026-10-06T01:09:19.891801958-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 24 tests using 1 worker
+
+[1A[2K[1/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:21.437902517-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"89031272-eddb-482f-b2b1-29e208a73005"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:22.114639166-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:23.300016846-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"ce44e28d-ebeb-4fcd-bb3f-be1f6fb71ecd"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:23.983711527-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[3/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:25.425622803-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"dcde0ecf-1e1c-477f-9fee-3c83e8d0d2b0"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:25.997273637-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"3ffb94800f517dea618906cf50a8d92e7c8c25ccae762a1541fd29a4923dda86","source":"embedded"}
+
+[1A[2K[4/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:29.242981246-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"561d9617-dd51-4e32-abdb-b29e91dafe5b"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:29.960014484-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"c9f7db883f9893559cbd252b838ca276d2810d1597a16e8bc57a5d953643e44a","source":"embedded"}
+
+[1A[2K  1) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1/error-context.md
+
+
+[1A[2K[5/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:33.290494413-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"e826444e-87b4-4072-9150-5cc524446634"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:33.948174935-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[6/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:35.41200397-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"11d0eeca-7941-486b-b1c7-913c3568c739"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:36.101276801-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[7/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:37.346694061-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"95c5970a-e78d-45b5-b70a-10094d267dd9"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:37.93718643-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"7f5afaf00d4e3febf02035f0bac3ea30516d79934206215895ac63d88bf2253e","source":"embedded"}
+
+[1A[2K[8/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:41.090440342-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"98408a27-1679-4936-947e-22d1712a4593"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:41.770898002-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  2) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat1/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: page.evaluate: D: No MultiFormat Readers were able to detect the code.
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at new Promise (<anonymous>)
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at decodePng (/tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:210:15)
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:365:24
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat1/error-context.md
+
+
+[1A[2K[9/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:44.666026286-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f27a835c-5ddf-4566-a73e-bf9fb892853f"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:45.728759075-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[10/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:47.102039505-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"0d2b457f-2772-4432-9391-e1a450ff75b2"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:47.803333538-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[11/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:48.96832557-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"b00d871f-705f-4550-ba61-d8d44c09908f"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:49.621360051-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"fa317438a1ec09ee2a61a63062f12af61962a8c5648e3fd32d02de2b96da30bb","source":"embedded"}
+
+[1A[2K[12/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:52.524076216-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"4c9062bf-2fc0-43d2-b2e0-d336ec28f14d"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:53.192430149-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"2f6867990cb84b7d3c8198f6ddc675620fe62be4d524fc3824c5165dd76f8879","source":"embedded"}
+
+[1A[2K  3) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat2/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat2/error-context.md
+
+
+[1A[2K[13/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:56.874479392-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"42980168-0919-4f3e-a851-19cf8ee8c3c8"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:57.522058665-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[14/24] (retries) [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:09:59.80784707-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"c2cfd394-cc96-4ae7-93ed-0ceae9318ceb"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:00.660742188-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  4) [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
+
+    Error: decoded payload is not <base>/r/<token>[#o=<descriptor>]: 07591648
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBeNull[2m()[22m
+
+    Received: [31mnull[39m
+
+      227 | function parsePayload(text) {
+      228 |   const m = /^https:\/\/hq\.yumyums\.kitchen\/r\/([^/?#]+)(?:#o=([A-Za-z0-9_-]+))?$/.exec(text);
+    > 229 |   expect(m, `decoded payload is not <base>/r/<token>[#o=<descriptor>]: ${text}`).not.toBeNull();
+          |                                                                                      ^
+      230 |   return {
+      231 |     token: m[1],
+      232 |     descriptor: m[2] ? JSON.parse(Buffer.from(m[2], 'base64url').toString('utf8')) : null,
+        at parsePayload (/tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:229:86)
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:293:35
+
+    Error Context: test-results/marketing-identity-Identit-38567-d-the-hash-of-its-own-token-chromium-repeat3/error-context.md
+
+
+[1A[2K[15/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:01.812610953-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"3c562cd2-6fb4-4fe4-965a-374417695a2a"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:02.419979477-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[16/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:03.600931256-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"643c7fff-58bc-4654-b89c-61cead97c0ab"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:04.359930804-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"9c809e9e293a1017a60791ee8ada54b5c771567e078f028eded2194a9b7b2d33","source":"embedded"}
+
+[1A[2K[17/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:07.921185885-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"1e461800-53cd-4426-a2e5-e9c2be4eea0e"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:08.566435309-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"49fedee279436946abfa1c38fd39eccab7a16c52d094434aa7329d9e7e4daca2","source":"embedded"}
+
+[1A[2K  5) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat3/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat3/error-context.md
+
+
+[1A[2K[18/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:12.027320084-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f4fee204-6545-499a-bf6a-51752f5ba71e"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:12.680054514-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[19/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:13.790860371-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"93b49cac-c11b-409e-bf50-d70ed6b55174"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:14.50646932-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[20/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:15.908410582-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"ecc76f84-43f1-4793-8f7a-a5b69d2e0e7d"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:16.608065265-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"6973745f2d667eada83290974041a0abc8cbcb38fe70d6b80fef57a69c17f197","source":"embedded"}
+
+[1A[2K[21/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:19.118231667-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"9b296505-e32e-48a0-8e0c-0ffad0cbc43b"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:19.775418162-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"986e8744df3d05e1d5d9b14cdc0eeba2c6122704549af9cd52775ff39595c937","source":"embedded"}
+
+[1A[2K  6) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat4/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat4/error-context.md
+
+
+[1A[2K[22/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:23.01779352-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f2ef42af-1fee-4ab7-a108-887a1f1b1ac4"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:23.663297409-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[23/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:25.067708439-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"4d3ff6eb-a5bb-4c6e-92d1-bb86e90d61ed"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:25.748096652-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[24/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:26.894279996-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"e039b0d4-7de7-4ee8-a20f-4f3dff769503"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:27.473780634-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"a9c996dfbd3f0135431815cef639e86235979b1ef570751607945786e8d452dd","source":"embedded"}
+
+[1A[2K[25/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:30.668888792-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"da29d6d0-1858-4e4c-923f-1a182c6980fa"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:31.3166058-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"decodeError","hash":null,"source":null}
+
+[1A[2K  7) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat5/error-context.md
+
+
+[1A[2K[26/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:34.770578503-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"8271c67a-8ebb-47dd-b45a-649d415ec107"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:35.406321818-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[27/24] (retries) [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:37.885988479-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"ded1114f-b8ea-49ff-89bd-fc4f89cac9a5"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:38.568704911-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  8) [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
+
+    Error: page.evaluate: D: No MultiFormat Readers were able to detect the code.
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at new Promise (<anonymous>)
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at decodePng (/tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:210:15)
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:292:24
+
+    Error Context: test-results/marketing-identity-Identit-38567-d-the-hash-of-its-own-token-chromium-repeat6/error-context.md
+
+
+[1A[2K[28/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:39.681582867-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"293ddf6a-c70d-4667-b4ec-34b271adfd19"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:40.296687612-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[29/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:41.571214856-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"6f363913-a468-433e-bde0-f4a9649584a9"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:42.128636383-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"cfde9d1f806f1cadc24b9d74f0b06e392ed927a0f36bb096f079d3b239b46b07","source":"embedded"}
+
+[1A[2K[30/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:45.537222568-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"bf266e7c-2d4e-4820-9065-285be3272aef"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:46.274463512-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K  9) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat6/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: page.evaluate: D: No MultiFormat Readers were able to detect the code.
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at new Promise (<anonymous>)
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at lr.decodeInternal (http://localhost:8297/lib/html5-qrcode.min.js:1:253484)
+        at lr.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:252382)
+        at e.decode (http://localhost:8297/lib/html5-qrcode.min.js:1:299459)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:299248
+        at e.decodeAsync (http://localhost:8297/lib/html5-qrcode.min.js:1:299213)
+        at t.<anonymous> (http://localhost:8297/lib/html5-qrcode.min.js:1:305832)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:304845
+        at Object.next (http://localhost:8297/lib/html5-qrcode.min.js:1:304950)
+        at http://localhost:8297/lib/html5-qrcode.min.js:1:303865
+        at decodePng (/tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:210:15)
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:365:24
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat6/error-context.md
+
+
+[1A[2K[31/24] [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:48.629409769-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"c7c3ff5c-eb9e-43b6-8e4a-90558c5dac90"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:48.564391295-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[32/24] [chromium] › tests/marketing-identity.spec.js:319:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:49.675711754-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"73bdedbd-1c15-435e-9844-3206d7377de6"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:50.47876992-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[33/24] [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:51.613024827-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"253efc7f-18f5-4c5a-a2e5-f9b795a1205c"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:52.193935995-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
+IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"70fbdaec46c584d682e84d1890dc86aae274a80b8d151b5112efaedba3229b32","source":"embedded"}
+
+[1A[2K[34/24] (retries) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer (retry #1)
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:55.535714566-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"57c4c78a-0533-4eb6-b588-c103d872c124"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-06T01:10:56.231021758-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2KIC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"1510832c7105f1b6ecc323214fc88cb92240734ca3151d46d94a0edb91a929a7","source":"embedded"}
+
+[1A[2K  10) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-repeat7/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Medium/version-11 photo → embeddedOffer
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"embeddedOffer"[39m
+    Received array: [31m["decodeError", "invalidPayload"][39m
+
+      382 |     const got = await readResult(page);
+      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
+    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
+          |                                                                                        ^
+      385 |     // Whatever the reader made of it, it never showed an offer under a hash
+      386 |     // that is not this token's.
+      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
+        at /tmp/claude-1000/-home-jcole-projects-hq/78232a73-0f9f-4274-9de5-2f397dca2c72/scratchpad/adv/card/tests/marketing-identity.spec.js:384:88
+
+    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium-retry1-repeat7/error-context.md
+
+
+[1A[2K  7 failed
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+  3 flaky
+    [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
+    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
+    [chromium] › tests/marketing-identity.spec.js:287:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
+  14 passed (4.0m)
+exit=1

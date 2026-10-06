@@ -113,3 +113,20 @@ are unchanged — nothing reached the run branch but documents.
 3. The milestone tally is unchanged: Activity E's two cards remain white, plus
    `external-accounts-provision`. The attended acts (SignalWire provisioning, the test send to your
    phone, the real redemption) still wait behind Activity E.
+
+## Standing flags after morning triage 2026-10-06 (ledger T-70)
+
+- **Decision 1 (unreadable customer codes) — OPEN, waiting on the tablet check** (decision 210).
+  Kit and instructions: `tablet-check/README.md`. Clears when the operator reports what the
+  truck's tablet showed and picks a fix. Activity E's two cards stay PLANNED until then.
+- **Card 1's built work is on no branch** — `fe45768` and `changes.patch`. Armed until it is
+  re-dispatched or dropped; do not delete `hq-worktrees/verify-e1-20261006` or the preserve ref
+  before then.
+- **Corrections to this document from the triage reviewer** (evidence: `logs/triage-adversarial/`):
+  "600 of 600" is not every code (B-489); Low vs Medium does differ; a new picture of the same
+  code does NOT fail the same way; 2 of 48 failures showed "Not a Yumyums code" (B-490).
+- **Slate `20261007` may launch as written** (decision 211) — its four cards do not touch Activity
+  E. Launch notes are in `reference/triage-20261006.md`.
+- **Temporal namespace `night-crew-hq` still exists** (B-494). Not removed by triage.
+- **Carried unchanged:** `card/a3-rls-fixture-own`, `card/s2-demo-sync-target` (left in place by
+  ruling, B-442); B-474 production count before the `0086` deploy; decision 203 deploy note.

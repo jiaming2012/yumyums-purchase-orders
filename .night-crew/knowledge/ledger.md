@@ -5130,3 +5130,80 @@ compile the backend three times — expect ~3 m per Playwright spike when run to
 **Unknown after this sitting:** the mechanism of the dropped add (K1 diagnoses it with the spike's
 harness — a re-render detaching the handler, a guard on an in-flight load, a lost click target);
 whether `20261006`'s loop night held (this slate's launch reads its HANDOFF first).
+
+### T-70 — Morning triage: run 20261006 merged as a record only, nothing landed, the unreadable-code question waits on a tablet check (2026-10-06)
+
+Attended, `/nc-morning-triage`. Binary `v3.6.1+118`, skills preflight satisfied (13 of 13 verbs).
+`night-crew next` COMPUTED and named this step ("untriaged nights: 1 (20261006)"). `worktrees
+check` with the run expected: this run's four own worktrees plus `card/a3-rls-fixture-own`;
+`run-evidence check`: `ran (this run closed)`, its card-branch sweep again naming
+`card/a3-rls-fixture-own` and `card/s2-demo-sync-target` (left in place by ruling, B-442). Conflict
+log: one file recording that no merge happened and one clean cherry-pick of the scorecard record —
+correct; no merge-intent note is owed because nothing landed. Ratification queue empty; ratchet
+empty.
+
+**What the night was.** The first night on night-crew's run loop (decision 206). The loop carried
+both Activity E cards and `loop check` passed; **0 of 2 landed**. `identity-code-and-qr` was built
+to its spec and parked by its own session when it measured that the tablet's "Scan from photo"
+misses about one customer code in seven; `mms-send-on-signup` parked with it, unbuilt. The built
+work is at `fe45768`, on no branch.
+
+**Gate evidence is the adversarial reviewer's, not the closeout's.** Fresh subagent, own detached
+worktrees at `fe45768` and `bf89a26`, own `:5434` databases, all removed afterwards; scripts and
+logs kept at `runs/2026-10-06-autonomous/logs/triage-adversarial/`. Reproduced: build + vet exit 0
+on both trees; Go 456 pass / 0 fail / 3 skip on the base and 463 / 0 / 3 on the card tree, 15
+packages; the miss rate (1717 of 2000 read in bulk, 252 of 300 through the real control, the same
+outcome on a second scan for 300 of 300, zero wrong customers); the cause (a second decoder read
+6000 of 6000; every failure had the reader pick a non-corner point); the 320 → 640 scan area making
+no difference (identical on 2000). **Falsified, three statements:** (1) turning the picture and
+retrying does not read every code — 4 of 2000 never read with all formats on, about 1 in 1200 with
+the reader limited to QR, 429 and 431 of 433 through the real control on a patched page, still zero
+wrong customers; the night's "600 of 600" was a private reader driven from a test, not the real
+control. (2) The error-correction level does matter — Low read 863 of 1000, Medium 803 — so the
+signed choice of Low stands, while `[IC-03]`'s premise that Medium does not read is false. (3) "A
+new picture of the same code fails the same way" is false — the outcome follows the exact image
+file; a 7° tilt or a half-size copy flipped 79 and 70 of 500. Not in the closeout: about one failure
+in fourteen shows "Not a Yumyums code" rather than "No QR code found". **Unverified:** the base
+browser suite (26 failed / 1045 passed) was not re-run.
+
+**Merge.** `--no-ff` to `dev` at `1c43d81` on the operator's yes, after the operator asked why a
+branch on which nothing landed is merged at all: it carries the closeout, the open decision, the
+scorecard record and the measurement logs and no app code; the next slate's launch stops on it
+unmerged and reads the closeout from `dev`. Build + vet exit 0 and the full Go suite on the merged
+tree: exit 0, 456 / 0 / 3, 15 packages. `worktrees check` with no `--expect` afterwards names
+`card/a3-rls-fixture-own` and the parked card at `fe45768` only.
+
+**Decision 210 (operator) — check the truck's tablet before choosing a fix.** What changes for the
+owner: no customer is sent a code yet, and no night is spent on the scanner until the owner has
+photo-scanned sixteen sample codes on the real tablet (twelve the lab could not read, four it
+could) and said what the screen showed. Chosen over fixing the photo scan first and then landing
+both cards (the sitting's recommendation), over landing the code card as built, and over having the
+server refuse to issue a code the tablet cannot read. The lab figure is for the server's exact
+image on a browser with no built-in detector; whether the tablet has one was never measured. The
+kit and how to read the result are at `runs/2026-10-06-autonomous/tablet-check/README.md`. Routed
+through `decisions log` → escalated (correct; `dec-cad25787d6eb`, citing `process/P-6` and
+`ux/P-1`). The record carries a clerical flaw: the PM vote was cast as "high", which the resolver
+does not recognise and read as top — the disposition is unaffected. The run's Decision 1 stays
+OPEN behind this check; Activity E stays PLANNED.
+
+**Decision 211 (PjM-level, stated not asked) — slate `20261007` launches as written.** Its four
+cards (Activity K) touch nothing in Activity E's footprint and nothing reached `dev` but documents,
+so no re-cut is owed. Two launch notes ride in the triage receipt, which that launch prompt reads
+first: restore `h5/states/` as well as `h4/states/` after each Playwright leg (B-493), and carry the
+loop findings (B-492) — fenced gate lines, an explicit deadline.
+
+**Decision 212 (PjM-level, stated not asked) — the review's and the night's findings are filed.**
+B-488 (the miss itself, blocking Activity E), B-489 (turn-and-retry leaves a remainder; gate on a
+rate), B-490 (the misleading "Not a Yumyums code"), B-491 (the code card's three browser gates),
+B-492 (loop slates need runnable gates), B-493 (the second screenshot directory), B-494 (two nights
+on one scheduler lane; the `night-crew-hq` namespace still exists), B-495 (the phrasing check's
+false "not a user story").
+
+**Also this sitting:** the operator's five preference adoptions of 2026-10-05 (`process/P-6`,
+`process/P-7`, `ux/P-1`, `ux/P-2`, `ux/P-3`), uncommitted since, were committed on the operator's
+yes, as left.
+
+**Unknown after this triage:** what the truck's tablet does with the sample codes, and the live
+camera on any device; whether a resampled attempt reads the seven never-read images; whether a
+server-side reader can match the tablet's (a JavaScript one matched 2000 of 2000; a Go one is
+untested); the base browser suite's 26 reds; how the loop behaves on a night where a card lands.

@@ -17,6 +17,13 @@
 
 ## Current state (2026-10-05, milestone "Close the loop" — 37 cards, **27 green, 7 white**, 3 retired)
 
+> **Morning triage 2026-10-06 (ledger T-70): run `20261006` landed nothing — Activity E's two
+> cards stay PLANNED.** The code card was built and parked on a measurement: the tablet's "Scan from
+> photo" misses about one customer code in seven (B-488). The owner checks the truck's tablet
+> before a fix is chosen (decision 210; kit at `runs/2026-10-06-autonomous/tablet-check/`). The
+> milestone tally is unchanged, and the close bar now needs at least one more Activity E night.
+> Slate `20261007` (Activity K) launches as written (decision 211).
+>
 > **Two slates signed at the evening sitting of 2026-10-05.** Slate `20261006` (ledger T-68):
 > Activity E's two cards ride tonight — the LAST overnight the milestone's close bar needs. Slate
 > `20261007` (ledger T-69): **Activity K — the review leftovers (B-482 … B-487) and the Inventory
