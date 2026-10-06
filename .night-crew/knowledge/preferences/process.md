@@ -61,6 +61,28 @@
 - **Consent:** recorded on the operator's explicit yes to this item.
 - **Adopted:** 2026-08-06 — confirmed at the terminal by the operator.
 
+## P-6 · Dev complete means the operator ran it in their environment
+
+- **Preference:** A capability milestone is dev complete only when the capability runs persistently in the operator's environment and the operator has personally seen it work at the app surface. Demo scripts, card counts, KR grades and closeouts do not substitute; at least one KR must measure the operator-run proof directly, and the milestone may not close without that recorded line.
+- **Why (operator):** T-44 redefinition (2026-08-09) — "the demo proves the capability works; it does not make it usable" — after two consecutive milestones closed with the named capability undelivered. Confirmed as a standing rule at the 2026-08-28 retro.
+- **Weight:** strong
+- **Operator:** jamal@Jamals-MacBook-Pro.local
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
+- **Adopted:** 2026-10-05 — confirmed at the terminal by the operator.
+
+## P-7 · Explain a decision by the behaviour it changes, not the mechanism
+
+- **Preference:** Explain a decision, a rewrite or a finding by the behaviour it changes: say who sees what differ, and when, before naming any column, constraint, function or migration. Where the question is 'what does this decision do', answer with the sequence at the point of use — what a crew member at the window sees, what a manager's screen shows — and reach for identifiers only once the behaviour is established. A decision whose effect cannot be stated as a behaviour has not been understood well enough to record.
+- **Why (operator):** Operator, morning triage 2026-10-02, verbatim: "instead of explaining as jargon, explain the behavioral effect of the decision rewrite (e.g. when will a qr not scan in offline mode)".
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
+- **Adopted:** 2026-10-05 — confirmed at the terminal by the operator.
+
 ## Pending — proposed, not adopted
 
 > Candidates offered back from your own answers, recorded with your consent.
@@ -92,26 +114,6 @@
 - **Evidence:** FAQ label-contract fix, commit 2e078d3 (2026-08-28) — the strengthened text assertion went red instantly on the unfixed code; docs/ui-design-rules.md UI-R5.
 - **Recorded:** 2026-08-28
 - **Offered at:** an attended session, 2026-08-28
-- **Consent:** recorded on the operator's explicit yes to this item.
-
-## C-3 · Dev complete means the operator ran it in their environment
-
-- **Preference:** A capability milestone is dev complete only when the capability runs persistently in the operator's environment and the operator has personally seen it work at the app surface. Demo scripts, card counts, KR grades and closeouts do not substitute; at least one KR must measure the operator-run proof directly, and the milestone may not close without that recorded line.
-- **Why (operator):** T-44 redefinition (2026-08-09) — "the demo proves the capability works; it does not make it usable" — after two consecutive milestones closed with the named capability undelivered. Confirmed as a standing rule at the 2026-08-28 retro.
-- **Weight:** strong
-- **Operator:** jamal@Jamals-MacBook-Pro.local
-- **Recorded:** 2026-08-28
-- **Offered at:** an attended session
-- **Consent:** recorded on the operator's explicit yes to this item.
-
-## C-4 · Explain a decision by the behaviour it changes, not the mechanism
-
-- **Preference:** Explain a decision, a rewrite or a finding by the behaviour it changes: say who sees what differ, and when, before naming any column, constraint, function or migration. Where the question is 'what does this decision do', answer with the sequence at the point of use — what a crew member at the window sees, what a manager's screen shows — and reach for identifiers only once the behaviour is established. A decision whose effect cannot be stated as a behaviour has not been understood well enough to record.
-- **Why (operator):** Operator, morning triage 2026-10-02, verbatim: "instead of explaining as jargon, explain the behavioral effect of the decision rewrite (e.g. when will a qr not scan in offline mode)".
-- **Weight:** moderate
-- **Operator:** jac475@cornell.edu
-- **Recorded:** 2026-10-02
-- **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
 
 ## C-5 · A feature nobody has used yet has no history to protect
