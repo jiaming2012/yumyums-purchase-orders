@@ -1,0 +1,19 @@
+ANALYZE cardL: 300 PNGs, version 9, payload 214/216/223/211/203 chars
+  PNG 512x512; symbol 53 modules + 8 quiet = 61; 512/61 → 8 px per module exactly, 12 px extra white each side; distinct grey levels in the file: 255,0
+  A shipped recipe (native, +100px pad, all formats, hybrid)  263/300 (87.7%)
+  B QR format only                                            263/300 (87.7%)
+  C QR only + TRY_HARDER                                      263/300 (87.7%)
+  D QR only + PURE_BARCODE, no pad                            263/300 (87.7%)
+  E QR only, GlobalHistogram binarizer                        263/300 (87.7%)
+  F QR only, no pad (raw PNG)                                 263/300 (87.7%)
+  G QR only, pad 103 (grid off the 8px block lattice)         264/300 (88.0%)
+  H QR only, pad 300 (huge quiet zone)                        265/300 (88.3%)
+  I QR only, rotated 90deg                                    292/300 (97.3%)
+  J QR only, x0.5 nearest (4px modules)                       281/300 (93.7%)
+  K QR only, x2 nearest (16px modules)                        263/300 (87.7%)
+  L QR only, x0.75 nearest (6px modules)                      258/300 (86.0%)
+  INDEPENDENT decoder (jsQR), same padded pixels              300/300 (100.0%)  wrong-text 0
+  jsQR reads, among the PNGs recipe B could NOT read         37/37
+  retry reader: B, else rot90, else x0.5, else x2             299/300 (99.7%)
+  where zxing's QR reader gives up on recipe-B failures: {"NotFoundException":14,"NotFoundException:Dimensions could be not found.":9,"ChecksumException":10,"FormatException":4}
+  decoded-but-not-the-payload (any recipe): 0 []

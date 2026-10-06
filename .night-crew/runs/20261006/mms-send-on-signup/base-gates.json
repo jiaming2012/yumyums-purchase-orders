@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-10-06T01:04:53.874372704Z",
+  "gates": [
+    {
+      "command": "go build -C backend ./...",
+      "passed": true
+    },
+    {
+      "command": "go vet -C backend ./...",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+stale-worker check
+
+  directory: /home/jcole/projects/hq
+  queues:    night-crew, night-crew-env
+
+  FOREIGN      night-crew       pid 45477 on TheRealJCole — started from /home/jcole/projects/night-crew
+  FOREIGN      night-crew-env   pid 45477 on TheRealJCole — started from /home/jcole/projects/night-crew
+
+  the queues are not clear — do not start the night
+    a worker from /home/jcole/projects/night-crew is polling night-crew; stop it on TheRealJCole with: kill 45477
+    a worker from /home/jcole/projects/night-crew is polling night-crew-env; stop it on TheRealJCole with: kill 45477
+
+  nothing was terminated: this check reports and refuses, it never kills
+night-crew: 2 worker(s) from another checkout and 0 unidentified poller(s) are holding the night's task queues — stop them before starting the run
+shared lane exit=1
+stale-worker check
+
+  directory: /home/jcole/projects/hq
+  queues:    night-crew, night-crew-env
+
+  no pollers on any queue
+
+  the queues are clear — no worker from another checkout is polling
+hq lane exit=0

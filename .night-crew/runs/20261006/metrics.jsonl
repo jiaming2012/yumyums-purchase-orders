@@ -1,0 +1,4 @@
+{"schema":1,"kind":"run-scorecard","run_id":"20261006","ts":"2026-10-06T01:06:17.766898667Z","work_orders":2,"points_committed":2,"gated_work_orders":2,"first_pass_gates":2,"first_pass_rate":1,"spend":87.15678558798334,"spend_unit":"minutes","os":"linux","arch":"amd64"}
+{"schema":1,"kind":"wo","run_id":"20261006","ts":"2026-10-06T01:06:18.244012186Z","wo":"identity-code-and-qr","team":"engineering","points":1,"rating":100,"gated":true}
+{"schema":1,"kind":"wo","run_id":"20261006","ts":"2026-10-06T01:06:18.244147434Z","wo":"mms-send-on-signup","team":"engineering","points":1,"rating":100,"gated":true}
+{"schema":1,"kind":"team","run_id":"20261006","ts":"2026-10-06T01:06:18.570738257Z","work_orders":2,"points_committed":2,"gated_work_orders":2,"first_pass_gates":2,"first_pass_rate":1,"spend":87.15678558798334,"team":"engineering","rating":100}

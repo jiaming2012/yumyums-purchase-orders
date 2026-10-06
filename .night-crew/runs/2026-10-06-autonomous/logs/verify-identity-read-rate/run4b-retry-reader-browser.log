@@ -1,0 +1,5 @@
+[1A[2KVERIFY RETRY card Low, exact 8 px/module (488 px)       N=150  as drawn 141 (94.0%)  turned 90/180/270: 134/146/150  RETRY-UNTIL-/r/-TOKEN 150 (100.0%) wrong-token-accepted=0 read-on-attempt#=[141,6,3,0]  non-payload texts seen=[]
+[1A[2KVERIFY RETRY card Medium 512 (the "negative control")   N=150  as drawn 122 (81.3%)  turned 90/180/270: 114/146/140  RETRY-UNTIL-/r/-TOKEN 150 (100.0%) wrong-token-accepted=0 read-on-attempt#=[122,12,15,1]  non-payload texts seen=["11501244","19568737","04588566","10612194"]
+[1A[2KVERIFY RETRY bare identity Low 512                      N=150  as drawn 145 (96.7%)  turned 90/180/270: 150/149/150  RETRY-UNTIL-/r/-TOKEN 150 (100.0%) wrong-token-accepted=0 read-on-attempt#=[145,5,0,0]  non-payload texts seen=[]
+[1A[2K  1 passed (6.4m)
+exit=0

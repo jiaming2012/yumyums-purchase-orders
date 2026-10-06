@@ -1,0 +1,3416 @@
+[
+ {
+  "i": 0,
+  "token": "2n8dbkv58su8bf87",
+  "payload": "https://hq.yumyums.kitchen/r/2n8dbkv58su8bf87#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiOWU1NzZiNDktNmE4Zi00NzE2LTg2Y2ItMTc0MzA0MjIzZjNiIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTAiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-000.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 1,
+  "token": "74f8ht5m5bmv6hvm",
+  "payload": "https://hq.yumyums.kitchen/r/74f8ht5m5bmv6hvm#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI0OTdmMWJkMS0xODQ4LTRlM2YtYmNkMC1kZGVhNzM5NWY5YWYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xMSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-001.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 2,
+  "token": "up82xnr6uwt86bjf",
+  "payload": "https://hq.yumyums.kitchen/r/up82xnr6uwt86bjf#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjgwMjBiYmJlLTUyY2MtNDYyYS1iMGE1LWM2YzM0MTY2NDA1NSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTEyIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-002.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 3,
+  "token": "4m2efyrjvhcbzta3",
+  "payload": "https://hq.yumyums.kitchen/r/4m2efyrjvhcbzta3#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJjYmRjNTIyYS0xMWU2LTRjYzItYTFhYS0yYTZlYjYwNThlMmIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-003.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 4,
+  "token": "33zpz5bwdtydnjz9",
+  "payload": "https://hq.yumyums.kitchen/r/33zpz5bwdtydnjz9#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6Ijk2OTAxZmYwLTczNGMtNDkxYS04Nzc5LTZlNWIzYTBhYmRhYyIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE0IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-004.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 5,
+  "token": "xsnpmyjeryb9w4mz",
+  "payload": "https://hq.yumyums.kitchen/r/xsnpmyjeryb9w4mz#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNmQ3OWQ1NjgtMzc5Yy00ODA1LWI3NmEtMjk5NDVjNDcxZjA3IiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTUiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-005.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 6,
+  "token": "gwfdpas6pjrzqh4q",
+  "payload": "https://hq.yumyums.kitchen/r/gwfdpas6pjrzqh4q#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI5MDU3YjI2Zi1iYWFkLTQ1NzgtODMwMS1lMGVjNWI5OGZkNjIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xNiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-006.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 7,
+  "token": "24mxk9xaftxjjbuy",
+  "payload": "https://hq.yumyums.kitchen/r/24mxk9xaftxjjbuy#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjIwNzA2NmY3LTUwZGYtNGFkOS05NWQwLWNmZTE5OTI1ZWMwMSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE3IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-007.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "invalidPayload",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   },
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   },
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": "04634874"
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 8,
+  "token": "gb5pcrqqhwxpch9p",
+  "payload": "https://hq.yumyums.kitchen/r/gb5pcrqqhwxpch9p#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJmYTg1ZDMzNC1iNjZiLTQ1NmYtYTFhMC0zZDkxNjZiZDhkYjciLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xOCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-008.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 9,
+  "token": "ffry7canhz5yqhwu",
+  "payload": "https://hq.yumyums.kitchen/r/ffry7canhz5yqhwu#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImY0ZDA1YjlkLWE5MGYtNDk4MS1iMzhjLWRhZWRmNTgwZjdlNiIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE5IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-009.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 10,
+  "token": "2g6ndx4s8dfzpz6x",
+  "payload": "https://hq.yumyums.kitchen/r/2g6ndx4s8dfzpz6x#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMTQ1YWI4NGYtODg2MS00MDJiLWI0MDktM2E5MjMwYzBkODFiIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMjAiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-010.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 11,
+  "token": "u77rs9fjycgm83ny",
+  "payload": "https://hq.yumyums.kitchen/r/u77rs9fjycgm83ny#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4N2U1YzZkZS0zMWE0LTQ5M2YtYWU5My04YzQwMzZiZDQ2NzEiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yMSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-011.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 12,
+  "token": "9vea9uq9ssejvyvn",
+  "payload": "https://hq.yumyums.kitchen/r/9vea9uq9ssejvyvn#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImM5YzM3ZTRmLTZkNzYtNDY0Zi05MjRmLTcxNDJiMmJkNzFhMyIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTIyIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-012.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 13,
+  "token": "um4yatsj2yv7z8ez",
+  "payload": "https://hq.yumyums.kitchen/r/um4yatsj2yv7z8ez#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI1N2RhNGQ0Zi03YzBiLTQyMjctODFmOC1jNjY2ODczN2M2ZTQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yMyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-013.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 14,
+  "token": "vxmbjdqx25y3e2vt",
+  "payload": "https://hq.yumyums.kitchen/r/vxmbjdqx25y3e2vt#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjRhZmE2MTFhLTBmMDUtNGExZS1iMTFiLTVmOGZjMzQ1NDYwYSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTI0IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-014.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 15,
+  "token": "cnqggyvanene9abr",
+  "payload": "https://hq.yumyums.kitchen/r/cnqggyvanene9abr#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZjY0OWQxMzItOGU5Ny00NjU4LWFiNWYtMmQxMTM2ODU3MzliIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjUiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-015.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 16,
+  "token": "qwbx9m4dxtcsvnbm",
+  "payload": "https://hq.yumyums.kitchen/r/qwbx9m4dxtcsvnbm#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI5OTgzZjYzMi04ZGJjLTQzYWYtYmI2Zi05NTNiNWFmMDBkMGMiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yNiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-016.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 17,
+  "token": "485a9k3u9yhnapxj",
+  "payload": "https://hq.yumyums.kitchen/r/485a9k3u9yhnapxj#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjY0ZGYyN2ZjLWFhN2QtNDkyMC1hYTE1LWY1ZjliNzg5NGM4MCIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTI3IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-017.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 18,
+  "token": "wmug3qkewu5bqec8",
+  "payload": "https://hq.yumyums.kitchen/r/wmug3qkewu5bqec8#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJhYjE1NmU5MC0yY2M4LTRjNTktYWE0OS03NzdlNTE2M2ZhYTIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yOCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-018.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 19,
+  "token": "vfzyhm5dn3hygdju",
+  "payload": "https://hq.yumyums.kitchen/r/vfzyhm5dn3hygdju#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6Ijg2MzBjOWJjLTY1NDItNDE1NS04MTg2LWE2NzcxODA1YWYyNSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTEwIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-019.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 20,
+  "token": "4fteg9m6ynreat3u",
+  "payload": "https://hq.yumyums.kitchen/r/4fteg9m6ynreat3u#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMGZlY2QwOTctZTQzOC00NDkzLWJiOWMtODFmZTFjMDlmZjljIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTEiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-020.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 21,
+  "token": "pmnrmmzrr5bwudqs",
+  "payload": "https://hq.yumyums.kitchen/r/pmnrmmzrr5bwudqs#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzYzJlOWQ1Mi0yNDk1LTRkZjQtYTgwNS0xNzcxNmFkODM3YjgiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-021.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 22,
+  "token": "sc56k5n2h79hkgkx",
+  "payload": "https://hq.yumyums.kitchen/r/sc56k5n2h79hkgkx#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjI4ZjhjNjkxLTlkOWYtNDE5My04Y2U5LWI1NzJjZWNiNjljMyIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTEzIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-022.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 23,
+  "token": "fdbdvzg8hrq64s3k",
+  "payload": "https://hq.yumyums.kitchen/r/fdbdvzg8hrq64s3k#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI5MWU4YzM0My1iZGFkLTQ0ZDItYjBjMS01NDViNzBkOWFmOTUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xNCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-023.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 24,
+  "token": "xmy84qm83nj4uf2x",
+  "payload": "https://hq.yumyums.kitchen/r/xmy84qm83nj4uf2x#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjJmZmMyODI5LWM3NDItNGQxZi05ZGM1LWQ1NzBkYzBkZDEyNSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE1IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-024.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 25,
+  "token": "46k34k7uwd56jh3f",
+  "payload": "https://hq.yumyums.kitchen/r/46k34k7uwd56jh3f#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMWEzOGM0MDAtOGI5My00NDYxLWFhZmItZTQ2M2QxNjQ3ODZlIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMTYiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-025.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 26,
+  "token": "79rhtjt3vxh7wf3t",
+  "payload": "https://hq.yumyums.kitchen/r/79rhtjt3vxh7wf3t#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzNGNhN2FiYi0yMDUzLTRlMDktYjBiMi00OWJiYTRjMDQyNDMiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xNyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-026.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 27,
+  "token": "gkxfme7pershgjfs",
+  "payload": "https://hq.yumyums.kitchen/r/gkxfme7pershgjfs#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImIzMDAzMDEzLTk4YjMtNDg1NS05YmJiLTc0ZWI4OTVjNjAzNCIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE4IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-027.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 28,
+  "token": "pmhf4xw536dkusbf",
+  "payload": "https://hq.yumyums.kitchen/r/pmhf4xw536dkusbf#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI1YjEzYjU5Yy1kNzU5LTQxYjYtYWQ5My0yYjM1Y2FkNTg1MDkiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xOSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-028.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 29,
+  "token": "hux8vc47ktt96tf2",
+  "payload": "https://hq.yumyums.kitchen/r/hux8vc47ktt96tf2#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImZlMDJhMGE3LTBlMzQtNDdhZi05Y2M1LWQwYmM3NjJlNGI2MiIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTIwIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-029.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 30,
+  "token": "w9wdakbu5n5qppuf",
+  "payload": "https://hq.yumyums.kitchen/r/w9wdakbu5n5qppuf#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZjhkNWZjOGItNDU0ZS00NzdjLWJkNTAtYjE0MTllZjAwZDRlIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjEiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-030.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 31,
+  "token": "pv2h7sghphzkm5vr",
+  "payload": "https://hq.yumyums.kitchen/r/pv2h7sghphzkm5vr#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJkMmNjYTdkNC1mODVjLTQ0MWMtYjBiOC0zZWRmYTBkOTYwNDQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yMiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-031.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 32,
+  "token": "h4v43q2wgnqnhkrx",
+  "payload": "https://hq.yumyums.kitchen/r/h4v43q2wgnqnhkrx#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImM5YjIwZDE2LWRlMzEtNDY3NS04OGFlLTY2Mjk4YzAyOGIxMyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTIzIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-032.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 33,
+  "token": "svqy5uet6vxdjz6x",
+  "payload": "https://hq.yumyums.kitchen/r/svqy5uet6vxdjz6x#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3MGNjZGM4YS0wYzE1LTQwZjYtYmNlZS05YWRiM2ZmYTQ4OWUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yNCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-033.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 34,
+  "token": "e2uqk4uknfumr3nh",
+  "payload": "https://hq.yumyums.kitchen/r/e2uqk4uknfumr3nh#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6Ijk2YzM5MDZkLTJiYTMtNDM0YS05YWI2LTMzNDM5YjNkODliNiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI1IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-034.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 35,
+  "token": "8pqnbhkdk9gwg8hz",
+  "payload": "https://hq.yumyums.kitchen/r/8pqnbhkdk9gwg8hz#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMTZhOTYxMmItMzEzNy00NGU0LTk5ZWQtM2QzMjk4ZjY2MjE3IiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMjYiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-035.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 36,
+  "token": "6fjnqa3k2fbxzkra",
+  "payload": "https://hq.yumyums.kitchen/r/6fjnqa3k2fbxzkra#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzZWE0ZjQyMy0wMjU4LTQwZGQtYTY1Ny1iMjg2ODg3MmRkODkiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yNyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-036.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 37,
+  "token": "sgb7tm28cju9t2em",
+  "payload": "https://hq.yumyums.kitchen/r/sgb7tm28cju9t2em#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjdmZGYwYmE4LWZmOGMtNDNiZC1hNTM3LTI0MTRjYjIyYWE4YiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI4IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-037.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 38,
+  "token": "nczux4n37e2wegj8",
+  "payload": "https://hq.yumyums.kitchen/r/nczux4n37e2wegj8#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI2YWFlMWEzYS1kYTE4LTQ5OWItYjk4MC1kYWEyNDFjY2UyMTAiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xMCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-038.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 39,
+  "token": "skbgc95ws5me3q94",
+  "payload": "https://hq.yumyums.kitchen/r/skbgc95ws5me3q94#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjU2YTJlY2RjLTkwNzEtNGViOS05NWU4LThlNGNkNDJjM2ZlYSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTExIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-039.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 40,
+  "token": "d6zsqgve2h5kdhg9",
+  "payload": "https://hq.yumyums.kitchen/r/d6zsqgve2h5kdhg9#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNjhmNWJkYzQtYjE1ZC00ZjNmLWFmNGQtZjhjYTZhMWE1NWIwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMTIiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-040.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 41,
+  "token": "7rtpkbmkyp588fef",
+  "payload": "https://hq.yumyums.kitchen/r/7rtpkbmkyp588fef#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJmYWU1YjI5YS1lYjk0LTQ3OTctYTExMC05NmJmMTBjZTBlNDkiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xMyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-041.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 42,
+  "token": "qhkp7y7g57hgmspx",
+  "payload": "https://hq.yumyums.kitchen/r/qhkp7y7g57hgmspx#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImY1N2IyYzk2LTA3M2EtNDA0ZS1iY2MzLTE2NDVlOTUxMTg4NSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE0IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-042.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 43,
+  "token": "k3tgad7r9prnct5d",
+  "payload": "https://hq.yumyums.kitchen/r/k3tgad7r9prnct5d#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzYWQ2NjM2Ni0zMTdjLTQ1MjItODc4MC0yZGU4MDU3Njk4ZWYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xNSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-043.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 44,
+  "token": "mdk42cdbxnvyjfqk",
+  "payload": "https://hq.yumyums.kitchen/r/mdk42cdbxnvyjfqk#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImE0MmZiODhhLTZhMWUtNDc0Ny1iNjUyLTU0ODNiODVkNzhiMSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE2IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-044.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 45,
+  "token": "kmrzsn6brd33yc7t",
+  "payload": "https://hq.yumyums.kitchen/r/kmrzsn6brd33yc7t#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiYTVmOTFmZWUtOTI4NS00ZDY5LTk4MmMtMGJmZWIyNTBkNTRlIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTciLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-045.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 46,
+  "token": "8nrnst3zm2m2tde4",
+  "payload": "https://hq.yumyums.kitchen/r/8nrnst3zm2m2tde4#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIwYmE0MWVhZi1jODdlLTQ4YzgtOWM1OC1hNTE3MmJmYzNmYTYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xOCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-046.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 47,
+  "token": "62rycxsu5yxdmkqu",
+  "payload": "https://hq.yumyums.kitchen/r/62rycxsu5yxdmkqu#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjJlYjdhMmJiLWQwMzItNDBkYS1iYmY1LWEyNTQ0NzdhZmQ2MSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE5IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-047.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 48,
+  "token": "qt6gz5hw3nf8fph3",
+  "payload": "https://hq.yumyums.kitchen/r/qt6gz5hw3nf8fph3#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI0OTVjMTgwOS01OTA4LTRkMmYtYWNlNi1jZjU3NmFhMDQ3NmQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yMCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-048.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 49,
+  "token": "m7nd85ah98mv3aqu",
+  "payload": "https://hq.yumyums.kitchen/r/m7nd85ah98mv3aqu#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjYzNWNiYTQ1LWM2ZWMtNGY4MC1iMzYzLWUzOThlY2U0YjU1NiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTIxIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-049.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 50,
+  "token": "yd6n7gmphs5kszza",
+  "payload": "https://hq.yumyums.kitchen/r/yd6n7gmphs5kszza#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiOGVjYzliNTktYWQyNC00NGMxLTk1YzMtMmFlNDE4MGM3ZWYxIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMjIiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-050.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 51,
+  "token": "ycmuar7wa2k2zz49",
+  "payload": "https://hq.yumyums.kitchen/r/ycmuar7wa2k2zz49#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIyMDZhOGFhNS1jNmY2LTQ3YzItOGVkNy1jMzA1MDBlYmIxYTQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yMyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-051.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 52,
+  "token": "74vztuwkc5jrayhj",
+  "payload": "https://hq.yumyums.kitchen/r/74vztuwkc5jrayhj#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjdmNjc4NDc4LTE0OTMtNDlkNy1iYjAxLTg3ODhhODUwMzk4ZCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI0IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-052.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 53,
+  "token": "dga3mr5qz85xzhej",
+  "payload": "https://hq.yumyums.kitchen/r/dga3mr5qz85xzhej#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJjNDM5NGQ0ZC0wYWUzLTRiYmYtYWI0Mi0yOThjNDY3MWI3YTIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yNSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-053.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 54,
+  "token": "u74zqm8qzapke7ev",
+  "payload": "https://hq.yumyums.kitchen/r/u74zqm8qzapke7ev#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImI5MjEzYmU2LTNiNDItNDQyNi04YjllLWZhYjM3MmU2ZDI2MCIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTI2IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-054.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 55,
+  "token": "jk8gj5sd2emteg2b",
+  "payload": "https://hq.yumyums.kitchen/r/jk8gj5sd2emteg2b#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZGVjOWYxNmUtMTAxZC00MmVlLThlNDAtZjEwMGM0ZmY3OWIzIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMjciLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-055.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 56,
+  "token": "xpegy9z5mdrn7xjp",
+  "payload": "https://hq.yumyums.kitchen/r/xpegy9z5mdrn7xjp#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIyYmVhZmU0Yy0yOGFkLTQ4ZmUtYTcyOC1lMjJlODI2Mzc4YzQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yOCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-056.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 57,
+  "token": "25b5aaku55qmgn9k",
+  "payload": "https://hq.yumyums.kitchen/r/25b5aaku55qmgn9k#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjljNmExMjVmLTYzNGQtNDE1Ny05YWQwLWRkODRkMDc0YzdhZSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTEwIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-057.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 58,
+  "token": "pksg2byj7jggdk3r",
+  "payload": "https://hq.yumyums.kitchen/r/pksg2byj7jggdk3r#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJkM2I5ZDZkNS02NmQ2LTQ2YWUtOTJjYi1jNWRkMTRmZTM4YTYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xMSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-058.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 59,
+  "token": "ep4e6ydbczhgkh9n",
+  "payload": "https://hq.yumyums.kitchen/r/ep4e6ydbczhgkh9n#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjI3NWE2MTQxLTZiZmMtNDg3Yi04MjIxLTk4YmQyMjY5MmY4NSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTEyIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-059.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 60,
+  "token": "f2vw2yyc3wrpj5k5",
+  "payload": "https://hq.yumyums.kitchen/r/f2vw2yyc3wrpj5k5#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiOTUyZGM5OTEtYzY5Ny00MmVhLWFmMzItYjg3Zjk3YmZlMzZlIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTMiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-060.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 61,
+  "token": "y9z474ggbadas7rv",
+  "payload": "https://hq.yumyums.kitchen/r/y9z474ggbadas7rv#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4YmNiMTBjMi0xODRmLTRlZDMtYWYwMC03Y2ZhODBlMDQ3M2EiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xNCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-061.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 62,
+  "token": "crd2accfsrwtxbzn",
+  "payload": "https://hq.yumyums.kitchen/r/crd2accfsrwtxbzn#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImRlNmIxYTM3LTFmYjctNGQxYS1hOTcyLTkxOWQ1NzQwYmQyMyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE1IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-062.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 63,
+  "token": "2v4grbnc4n9dfj3f",
+  "payload": "https://hq.yumyums.kitchen/r/2v4grbnc4n9dfj3f#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIxZGRiOTY1ZS03MDg0LTQ4OWUtYmQwMi04MGU0MTM5NDE0YjMiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xNiIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-063.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 64,
+  "token": "m5e3yeajsstu489h",
+  "payload": "https://hq.yumyums.kitchen/r/m5e3yeajsstu489h#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjVjM2QwYWQ1LTM2ZTItNDY1My1iNWE4LTlhNTUwYTYxYmFiNiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE3IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-064.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 65,
+  "token": "7kjd8rby2fkjk664",
+  "payload": "https://hq.yumyums.kitchen/r/7kjd8rby2fkjk664#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiOGRiMTc4MDQtODQzYS00MGRjLWIyMjMtMWVmMTU5ZGE0ODFmIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTgiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-065.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 66,
+  "token": "ydqmpp55r22h6b89",
+  "payload": "https://hq.yumyums.kitchen/r/ydqmpp55r22h6b89#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3NTkyNmYxNy1jNGI1LTQwOTMtODRmMC1hODUxZjA1MzQwOWMiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xOSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-066.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 67,
+  "token": "hpw2ve9tx8ax47jz",
+  "payload": "https://hq.yumyums.kitchen/r/hpw2ve9tx8ax47jz#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImM5M2FkNzhkLWFlMjAtNGY2Zi05YjBiLTBmOTQxYmRjNGE0ZiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTIwIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-067.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 68,
+  "token": "qyjtyh6kz6psqvk8",
+  "payload": "https://hq.yumyums.kitchen/r/qyjtyh6kz6psqvk8#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3MGNlNTRiMi01YzU5LTQ3OTEtODYxZC05YzU1M2Y0NGI5OWYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yMSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-068.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 69,
+  "token": "ejs6dew7x5a6r7em",
+  "payload": "https://hq.yumyums.kitchen/r/ejs6dew7x5a6r7em#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6Ijc0NjdjNDY2LWIyODYtNDFjNi1iMzc4LWM3YTk1MGM1MWZkOSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTIyIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-069.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 70,
+  "token": "myeb4t4wpjhu3mux",
+  "payload": "https://hq.yumyums.kitchen/r/myeb4t4wpjhu3mux#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNmFlZjNhNjEtNDgyNC00ZDNlLWFiY2UtOTg5ZjRhMTk0MDg2IiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMjMiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-070.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 71,
+  "token": "gcbzh7hnc6udw4dc",
+  "payload": "https://hq.yumyums.kitchen/r/gcbzh7hnc6udw4dc#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJlYzg0ZWUyOS1jYWI4LTQ4OGQtYmY1MS1mOTQxNWI3Njc4M2EiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yNCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-071.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 72,
+  "token": "usrjwp2yyghnbvph",
+  "payload": "https://hq.yumyums.kitchen/r/usrjwp2yyghnbvph#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6Ijg0NmI1MTYyLTliNjAtNGYyYS1hZDcyLWI4ODcxYWEwMTA1YyIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTI1IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-072.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 73,
+  "token": "bkznygxfkggpuzge",
+  "payload": "https://hq.yumyums.kitchen/r/bkznygxfkggpuzge#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI2Y2RmZGRhYy02N2NlLTRiYmEtYTQ2MC1iODU0NDIxNDIxOGEiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yNiIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-073.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 74,
+  "token": "k886r72bckmg7z8k",
+  "payload": "https://hq.yumyums.kitchen/r/k886r72bckmg7z8k#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImM3ZWFmNzY5LTc4ZmQtNDE1NC04ODJkLTYyOTAyZjE0ZDU5OSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTI3IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-074.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 75,
+  "token": "jfrfed82e9qbnxrc",
+  "payload": "https://hq.yumyums.kitchen/r/jfrfed82e9qbnxrc#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZWYzMDBlMDctMGVhNy00MTc3LTg1ZTItYTMxNDI0OGZmZDBiIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjgiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-075.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 76,
+  "token": "e6s3rejj8nf9gk4f",
+  "payload": "https://hq.yumyums.kitchen/r/e6s3rejj8nf9gk4f#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzMjRlMjM1ZC05ZGRkLTQwZjAtOTg1OC1iZDEwZDhhM2NkMzAiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xMCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-076.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 77,
+  "token": "x9b2kmpgqqbbemaf",
+  "payload": "https://hq.yumyums.kitchen/r/x9b2kmpgqqbbemaf#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImY2ZTIwMTQxLTQwMjctNGQ3Mi1hNDkxLWU0MDZhMDA0MmU4MyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTExIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-077.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 78,
+  "token": "sr5y6v7xvz7hsrjk",
+  "payload": "https://hq.yumyums.kitchen/r/sr5y6v7xvz7hsrjk#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIxYjhlNmZiYy1jNGVkLTQzMDYtODU2Mi1iOGM3N2ZiYTE3YjgiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMiIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-078.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 79,
+  "token": "765tg29taw2hhq2m",
+  "payload": "https://hq.yumyums.kitchen/r/765tg29taw2hhq2m#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjNlYjczNWVmLTBjODEtNDU2ZC04MjZhLTg2MTFjN2Q5MDVlOSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTEzIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-079.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 80,
+  "token": "pq7pm9zu2hxtz387",
+  "payload": "https://hq.yumyums.kitchen/r/pq7pm9zu2hxtz387#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiM2YzNjEwZDUtNzdmNy00Y2I3LTg3NzUtOWYyZmEyM2I1YTQwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTQiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-080.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 81,
+  "token": "vfv3rymn5hg4nase",
+  "payload": "https://hq.yumyums.kitchen/r/vfv3rymn5hg4nase#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4ZjdmZDA3Ny04MzEwLTQ5M2EtYTM5YS1iNjI1ZDljMTQwYzUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xNSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-081.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 82,
+  "token": "8tmtwggar2wcb4rs",
+  "payload": "https://hq.yumyums.kitchen/r/8tmtwggar2wcb4rs#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjJkMzFjZDkxLTM4ZmMtNDE5OC05ODk1LTEzZmUzNWMyZDdlNCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE2IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-082.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 83,
+  "token": "76muc4pbxr7g5ma5",
+  "payload": "https://hq.yumyums.kitchen/r/76muc4pbxr7g5ma5#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4NWVjMjdjNy0zMTczLTQ3MzAtYmY5MS1lNGMyMjUwZjA1YTkiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xNyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-083.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 84,
+  "token": "zzct8wp7k68wx2ce",
+  "payload": "https://hq.yumyums.kitchen/r/zzct8wp7k68wx2ce#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImZkMDVhNTExLThiYmQtNDdjZS1hNThlLWM5ZmUyNGNlMWQxMSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE4IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-084.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 85,
+  "token": "v3k2jx89m86mhu8u",
+  "payload": "https://hq.yumyums.kitchen/r/v3k2jx89m86mhu8u#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiOGI2ZjQwZTktMmYwNy00NzAwLThmYTYtYmFmOTNlZWQ2N2U5IiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMTkiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-085.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 86,
+  "token": "jbf4vq44k57jqf6f",
+  "payload": "https://hq.yumyums.kitchen/r/jbf4vq44k57jqf6f#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJjODQ4MGRhOC1hOWUxLTRlZWQtYmNhMi0wMzRjMGIyZTZhOTciLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yMCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-086.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 87,
+  "token": "zbfmn2wykbexqwh2",
+  "payload": "https://hq.yumyums.kitchen/r/zbfmn2wykbexqwh2#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjcyMTIxYmJhLTgzOWYtNDZkYy04NjA3LWYzMmMxNGVkMGI2ZCIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTIxIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-087.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 88,
+  "token": "yu9pyxzqxa9uk4et",
+  "payload": "https://hq.yumyums.kitchen/r/yu9pyxzqxa9uk4et#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIxM2ZkMjgwNy05MzY2LTQxNDAtYTRhYi01OWU3YmI5NGVlNDYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yMiIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-088.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 89,
+  "token": "febdyp68q8pmvwdu",
+  "payload": "https://hq.yumyums.kitchen/r/febdyp68q8pmvwdu#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjFiOGY4N2Q0LTdmOWYtNDYyZC1hMjJlLTA5ZjcwNjhhYjQ0NCIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTIzIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-089.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 90,
+  "token": "zrzuftgjyf3n6eth",
+  "payload": "https://hq.yumyums.kitchen/r/zrzuftgjyf3n6eth#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNzU5N2MzMzMtNGIzYy00YjFiLThmMWEtYmNlZDU2NjNjYWU1IiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjQiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-090.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 91,
+  "token": "wu2p6tn9v9qtyf9d",
+  "payload": "https://hq.yumyums.kitchen/r/wu2p6tn9v9qtyf9d#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJhNTE2YWU5Ny1kMWJmLTQyYzUtYTE2My1jNDA1YTJiOWFlMWYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yNSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-091.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 92,
+  "token": "c34h8kg4ucufc4w5",
+  "payload": "https://hq.yumyums.kitchen/r/c34h8kg4ucufc4w5#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjE1NzFhYWZmLWIyODgtNDgxOC1iYjdjLTNmYzI0YjhiOTYyMiIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTI2IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-092.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 93,
+  "token": "mrev7djr4da6a4bf",
+  "payload": "https://hq.yumyums.kitchen/r/mrev7djr4da6a4bf#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJhN2MzOGM4MS1jZTI0LTRjZjYtOTQxMS04MTZhY2JlZDAzOGMiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yNyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-093.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 94,
+  "token": "mf6xmc5xurwekcz9",
+  "payload": "https://hq.yumyums.kitchen/r/mf6xmc5xurwekcz9#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjQ1ZjU0OTY3LWRmYmYtNDY5ZS1hZWNlLTY0MTYzN2ZiNzM1MCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI4IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-094.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "invalidPayload",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   },
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   },
+   {
+    "kind": "invalidPayload",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": "17440400"
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 95,
+  "token": "6vw6h6envqcjjgjn",
+  "payload": "https://hq.yumyums.kitchen/r/6vw6h6envqcjjgjn#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiY2NjYzFkN2MtMDYxNi00OTcwLTg3YWItZjdlZmI3NzcyYjExIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTAiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-095.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 96,
+  "token": "9nnyexvkpa4ss4bs",
+  "payload": "https://hq.yumyums.kitchen/r/9nnyexvkpa4ss4bs#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJlZjk2NDgwNC0wYzg5LTRhZjYtYTRiZS1iZmNiYzE3Y2JiZDgiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-096.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 97,
+  "token": "w9xn8bw9zaukzhav",
+  "payload": "https://hq.yumyums.kitchen/r/w9xn8bw9zaukzhav#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImMzYTRlOWFlLTFjOTEtNDIwMy05ZGMwLWQ4MjQwMGFjYTQ4YyIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTEyIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-097.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 98,
+  "token": "hpztwxr76p7h3rbr",
+  "payload": "https://hq.yumyums.kitchen/r/hpztwxr76p7h3rbr#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI1N2I3ZjA3Yi1kYzA2LTQ1M2ItYjU1My1mMTNiYzc4NDhiNzYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xMyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-098.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 99,
+  "token": "6b4ec2zgaczbxvan",
+  "payload": "https://hq.yumyums.kitchen/r/6b4ec2zgaczbxvan#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjdhMTJiM2YxLTIzNGQtNDAwMi1hYjMxLTEzZGIwNWNiN2E2NSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE0IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-099.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 100,
+  "token": "5cyzpsx3ut2882fj",
+  "payload": "https://hq.yumyums.kitchen/r/5cyzpsx3ut2882fj#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNzgwYWM1OWMtYWM5MC00MzlhLWFhYzUtZjY5NzQyYjkwNWRmIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMTUiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-100.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 101,
+  "token": "kcjkek8tcpwqrsqn",
+  "payload": "https://hq.yumyums.kitchen/r/kcjkek8tcpwqrsqn#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIwZWIwMDZhNS0zMmJiLTRhNjItOTQxNC1mNzI2Y2U5NDhmNTQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xNiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-101.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 102,
+  "token": "4c4648uambz6zq44",
+  "payload": "https://hq.yumyums.kitchen/r/4c4648uambz6zq44#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjJjOTEzMzQyLTNiMWQtNDg5Ni05ZmE1LWJmZGZkNzIwMjE0MiIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE3IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-102.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 103,
+  "token": "we7kdadn2xs7236h",
+  "payload": "https://hq.yumyums.kitchen/r/we7kdadn2xs7236h#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIyOGJmMmVjMS1mZGVmLTQ4YzYtODdiOS1kNDhiMzAyYmViZjAiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xOCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-103.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 104,
+  "token": "kaydj3sxcs9eypzj",
+  "payload": "https://hq.yumyums.kitchen/r/kaydj3sxcs9eypzj#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImM4Y2JkZjFiLWEzMTQtNGVlZS05NDA0LTIyZTFmOWYzYWViNyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE5IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-104.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 105,
+  "token": "mchgjwnr88f337c3",
+  "payload": "https://hq.yumyums.kitchen/r/mchgjwnr88f337c3#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMjdlY2RmNjAtM2FlMS00NjJiLWE0MDQtYjQ1OGU3YjhkYzVkIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjAiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-105.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 106,
+  "token": "fgth9jvkarws6gg4",
+  "payload": "https://hq.yumyums.kitchen/r/fgth9jvkarws6gg4#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIwMTljNzkyNi0wOGE2LTRjMDMtODQ2OC1iMTE5OTQ3MzdlNjAiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yMSIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-106.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 107,
+  "token": "uzjx45fnupe475y9",
+  "payload": "https://hq.yumyums.kitchen/r/uzjx45fnupe475y9#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjMwNDk5ZDJjLWFiY2QtNDFlYi04N2RjLTg3NGE0NTY0Yzc2YSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTIyIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-107.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 108,
+  "token": "rym2rm8pgacnsapc",
+  "payload": "https://hq.yumyums.kitchen/r/rym2rm8pgacnsapc#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIxMTQ4ZjFkZS1kYTQ3LTQ0ZGEtYmRmZS1iOTVhMTIzNjgwMmIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yMyIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-108.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 109,
+  "token": "k7v7gbywv57qawqw",
+  "payload": "https://hq.yumyums.kitchen/r/k7v7gbywv57qawqw#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjkzNzM5NTRlLWRlNDUtNDBhZi1hN2YwLTI4Y2YwMDg2ZDJkZiIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI0IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-109.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 110,
+  "token": "hhpsg6a8wk6hy539",
+  "payload": "https://hq.yumyums.kitchen/r/hhpsg6a8wk6hy539#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiYjgxMTRiNWItZGUxYS00MmZkLWExNmEtNDFmYzgzYmZlYzRkIiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMjUiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-110.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 111,
+  "token": "ky64y7sray7szn3u",
+  "payload": "https://hq.yumyums.kitchen/r/ky64y7sray7szn3u#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI5ZjgxYjNiMi0xYTE5LTRlOTctYjUyYi00YjExNDU5NWE0YjgiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yNiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-111.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 112,
+  "token": "huxhuqchscch3en8",
+  "payload": "https://hq.yumyums.kitchen/r/huxhuqchscch3en8#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjUzNzM0Yjg3LTJjMDEtNDM2YS1hNGY5LTQwYmY3M2I2Y2EyOSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTI3IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-112.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 113,
+  "token": "s6qz2jdjbrv6d7ud",
+  "payload": "https://hq.yumyums.kitchen/r/s6qz2jdjbrv6d7ud#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI1NDJiMWZlNS05ZDc0LTRiZGItOGFhZC04ZTVjYzY2ZWZjYzIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yOCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-113.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 114,
+  "token": "gumcunwpavqsyt42",
+  "payload": "https://hq.yumyums.kitchen/r/gumcunwpavqsyt42#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImNiM2VlMzZiLTRmM2MtNDVlYS05NDVmLTcyMjQ1MjY4MmZkNCIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTEwIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-114.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 115,
+  "token": "mgjp83zcpwq42fjp",
+  "payload": "https://hq.yumyums.kitchen/r/mgjp83zcpwq42fjp#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZTYwOTNhNjQtNmI5MC00Njc1LWE4ZmUtMzIxZmFkOWZkZTQzIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMTEiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-115.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 116,
+  "token": "b7fq76nvktca848p",
+  "payload": "https://hq.yumyums.kitchen/r/b7fq76nvktca848p#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJlNWQwMTAyMC00N2U3LTQwZWQtYWE5Ni05YWY1YzdiY2NjN2QiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xMiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-116.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 117,
+  "token": "yq8hay7ckqn87rd8",
+  "payload": "https://hq.yumyums.kitchen/r/yq8hay7ckqn87rd8#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImE0ZDVmZmI3LWNkNmQtNGFjMi1hMTc5LWMzZTFkYjFkOWU0NSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTEzIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-117.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 118,
+  "token": "kyqy4a8hhpm6g5e5",
+  "payload": "https://hq.yumyums.kitchen/r/kyqy4a8hhpm6g5e5#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJhNzNkZjQ2Ni00YzQ4LTQ0NjQtYmM2OS04NTRjYTVlMjM2ZDUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xNCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-118.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 119,
+  "token": "7yhfnjb3uc23muzs",
+  "payload": "https://hq.yumyums.kitchen/r/7yhfnjb3uc23muzs#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImY2OGE0NjE4LWQ1YjQtNDk3OC1iZTBmLTFkZWNiZTAwZTJlNyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE1IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-119.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 120,
+  "token": "rvkdbb3hzrm6nxv2",
+  "payload": "https://hq.yumyums.kitchen/r/rvkdbb3hzrm6nxv2#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiYmQ5NzIxZTktOGUwMS00Mjc0LTljYTItMDg3ZjU5MmFlOGY5IiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTYiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-120.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 121,
+  "token": "mpmnya5b6u9d285d",
+  "payload": "https://hq.yumyums.kitchen/r/mpmnya5b6u9d285d#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3M2Y1YmRjNS1lOWM2LTRiY2QtOTdiMC1mZTU0YjUwZDg4MWUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xNyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-121.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 122,
+  "token": "6etbhgxc36b88re5",
+  "payload": "https://hq.yumyums.kitchen/r/6etbhgxc36b88re5#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjQxNWUxMmI4LTRlYTAtNDMyYS1hZTdhLTlmZjdhY2JlNjk0NyIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE4IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-122.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 123,
+  "token": "7uudpkgnfv6tzr7v",
+  "payload": "https://hq.yumyums.kitchen/r/7uudpkgnfv6tzr7v#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI5OGVmZmM2My02N2ZjLTRlZDctOWI3ZC01MDRiOTk2YWE0ZmYiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xOSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-123.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 124,
+  "token": "zyw99f3t24xta99r",
+  "payload": "https://hq.yumyums.kitchen/r/zyw99f3t24xta99r#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjljNTRhMzg4LTQ2YzAtNGMzMC1iM2U0LTlkYzVlYzM1OGMwOSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTIwIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-124.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 125,
+  "token": "waxhbkgsadym3723",
+  "payload": "https://hq.yumyums.kitchen/r/waxhbkgsadym3723#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiM2E0MzE0NjgtNDgwNi00MDI5LWI2MWQtYTMwYmJiYTMxMWI4IiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMjEiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-125.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 126,
+  "token": "s4qg9ppm9usftg4c",
+  "payload": "https://hq.yumyums.kitchen/r/s4qg9ppm9usftg4c#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4MjNlOWZlMy1hMmFiLTQ1YTMtOTJkOS0xMDIyMjRkY2ZhODQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0yMiIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-126.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 127,
+  "token": "zte3cfweecdvangm",
+  "payload": "https://hq.yumyums.kitchen/r/zte3cfweecdvangm#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjkxN2MzNDAzLTI4OWItNDZiMC1iOWZhLTJlMmI5NDdmMzM4ZCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTIzIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-127.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 128,
+  "token": "2bfgk75byksbjscs",
+  "payload": "https://hq.yumyums.kitchen/r/2bfgk75byksbjscs#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3ZmQwN2U0OC05NDJkLTQ1NTQtOGNhNC1hZGQ4NWIzNTY2MzUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yNCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-128.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 129,
+  "token": "e4tucq37nruhgr89",
+  "payload": "https://hq.yumyums.kitchen/r/e4tucq37nruhgr89#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjRlMzQ4MmQ5LWE4MDgtNDlkNC05ODI0LTc1MjU4N2IwNjYzMSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTI1IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-129.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 130,
+  "token": "53ckcqyuywh7ueb5",
+  "payload": "https://hq.yumyums.kitchen/r/53ckcqyuywh7ueb5#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZjc3NjQ4ZjktOTQyMC00NGVjLWIxMzYtODg1MDY0NGFkOTkyIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMjYiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-130.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 131,
+  "token": "rfjbrbus8vhu8z6q",
+  "payload": "https://hq.yumyums.kitchen/r/rfjbrbus8vhu8z6q#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIwYjYxM2QyMS04NjUxLTQ5ZmUtYTEwMS0xODFiZWE2Zjg3YmIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yNyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-131.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 132,
+  "token": "fwqk3n78mu2srk9j",
+  "payload": "https://hq.yumyums.kitchen/r/fwqk3n78mu2srk9j#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImJmOTkzMmExLWM1YTItNGJkNC1iZmJiLTI4OGZjNTc5NmUzMyIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTI4IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-132.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 133,
+  "token": "wkqdejh72xub4c7v",
+  "payload": "https://hq.yumyums.kitchen/r/wkqdejh72xub4c7v#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJiZGJkZjhjMC1hN2FkLTRhODctODRkOS04ZDllNWVkNDUwZWIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xMCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-133.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 134,
+  "token": "vm7bma6rces7kyjg",
+  "payload": "https://hq.yumyums.kitchen/r/vm7bma6rces7kyjg#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjY1YTZkNmMxLTUyNmMtNDk4Zi1iNDhmLWM0NDA2MWQ0OWVhNSIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTExIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-134.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 135,
+  "token": "qz3dnx3jt4cjwew3",
+  "payload": "https://hq.yumyums.kitchen/r/qz3dnx3jt4cjwew3#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNjM2NmE3ZDYtNjI3Mi00N2IyLWI4ZTUtYTFhMGY5NTc2MzI1IiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTIiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-135.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 136,
+  "token": "cvp84rgtp8xneakd",
+  "payload": "https://hq.yumyums.kitchen/r/cvp84rgtp8xneakd#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJkMDVhY2U0Yi1hZTY3LTQ5MzQtOWUxNS0xZjExMmE3ZDg2YTkiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0xMyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-136.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 137,
+  "token": "aa72d8e7tte7n32m",
+  "payload": "https://hq.yumyums.kitchen/r/aa72d8e7tte7n32m#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6ImY4ZjhjZGMxLTA5YjAtNGM4ZC05OTUzLWE5ODM0ZmJjMjZjYiIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTE0IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-137.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 138,
+  "token": "bag5qjh9ngqtcghx",
+  "payload": "https://hq.yumyums.kitchen/r/bag5qjh9ngqtcghx#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIwNDlhMDI4Zi0yYjc3LTQ4NWYtODEyZi0yOTk2NjRiNWJkYzAiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xNSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-138.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 139,
+  "token": "9vnwxjmy63syjphx",
+  "payload": "https://hq.yumyums.kitchen/r/9vnwxjmy63syjphx#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6ImE3YzU3M2MzLTNhZDktNDM2MC05YjFjLTBkMTUxZmE2N2YwYSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE2IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-139.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 140,
+  "token": "p9jn7v5m7ns7dkvr",
+  "payload": "https://hq.yumyums.kitchen/r/p9jn7v5m7ns7dkvr#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMGU2OWUyM2MtNGY1Zi00M2NiLWE3ZDYtYWM5NzZmYjdhYzg0IiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTciLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-140.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 141,
+  "token": "89k4m5ad5m4pj9yw",
+  "payload": "https://hq.yumyums.kitchen/r/89k4m5ad5m4pj9yw#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIyNjAzM2YyMC1kZjAxLTRjMmEtYWU2My0zMTJlZDBmNWQ0YmEiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xOCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-141.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 142,
+  "token": "jurdxgwxysdas29v",
+  "payload": "https://hq.yumyums.kitchen/r/jurdxgwxysdas29v#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjA4MmY0OWVmLTNkYjMtNGIwMi05Yzg3LTQ0YzNjYjJmOTA3YSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE5IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-142.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 143,
+  "token": "z46yvy9rwfvyj5vv",
+  "payload": "https://hq.yumyums.kitchen/r/z46yvy9rwfvyj5vv#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIyZjc1NWUzOC1mMGU4LTQyYWYtYjk5NC0zZTQ3MDM2NjYyZjIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yMCIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-143.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 144,
+  "token": "fvtagxh6a5fdppks",
+  "payload": "https://hq.yumyums.kitchen/r/fvtagxh6a5fdppks#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjQ4YjFlYjE2LTYzNzQtNDJiMS05NTkzLWQ0ZDUzODQzYTMxOCIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTIxIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-144.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 145,
+  "token": "9ppjf4ybnya3zs2d",
+  "payload": "https://hq.yumyums.kitchen/r/9ppjf4ybnya3zs2d#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiNmQ3NmMxZmMtMDYwNi00MGM4LWE3ZWQtNGQ0ZDRkNmFkNGFmIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMjIiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-145.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 146,
+  "token": "gewj7xcmefx3c77m",
+  "payload": "https://hq.yumyums.kitchen/r/gewj7xcmefx3c77m#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzNmYzOGRmOC1hY2Q3LTQ5MmUtOGJjMy1mYjBlZDVlNDc3OGUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0yMyIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-146.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 147,
+  "token": "rg6q6km2mkq54ens",
+  "payload": "https://hq.yumyums.kitchen/r/rg6q6km2mkq54ens#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6Ijc2Y2RlYWY3LTFiNGYtNDE3Mi04ZGFmLTUxYmVkN2EyODFjNiIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTI0IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-147.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 148,
+  "token": "kz6tnpbaydd9zrau",
+  "payload": "https://hq.yumyums.kitchen/r/kz6tnpbaydd9zrau#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiIzM2I1Y2U1Ny0xNjFlLTRmMmEtOGQyYS03NDBlNjVhYWIxYWIiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yNSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-148.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 149,
+  "token": "var4bzu6uxe46kpx",
+  "payload": "https://hq.yumyums.kitchen/r/var4bzu6uxe46kpx#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjliOWRmMWM5LTMxMzUtNGU1OS04NjcwLWYwMzc4ZTBkZjZjOCIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTI2IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-149.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 150,
+  "token": "mxdvuqpbrdq48muy",
+  "payload": "https://hq.yumyums.kitchen/r/mxdvuqpbrdq48muy#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMTFiNDIxZGMtNWJmZi00MTYwLWE0NWEtMTBmNWExMDk1Y2U4IiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMjciLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-150.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 151,
+  "token": "tmtwan5kc6dakpmw",
+  "payload": "https://hq.yumyums.kitchen/r/tmtwan5kc6dakpmw#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJkZTM2NThjMC1kNDAzLTRiN2QtOWQzOS1lYzdjMDEwNTQ2MGQiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0yOCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-151.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 152,
+  "token": "bz75vypkwae29vtw",
+  "payload": "https://hq.yumyums.kitchen/r/bz75vypkwae29vtw#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjY0ZTNhZTAyLThiYzQtNGJiMi04MjYyLWNmZGRhYWQ5OTRiZiIsImV4cGlyZXNfYXQiOiIyMDI2LTEyLTEwIiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-152.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 153,
+  "token": "hpnsynh6kv3ape6n",
+  "payload": "https://hq.yumyums.kitchen/r/hpnsynh6kv3ape6n#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiJkZTRlNjdhNi05YTMxLTQ0OGMtYmJlZi1jOGZjZDE4YTllNTgiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xMSIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-153.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 154,
+  "token": "wxeuzrakwuxdck3m",
+  "payload": "https://hq.yumyums.kitchen/r/wxeuzrakwuxdck3m#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjY2OWExMDk0LTExNjUtNDliYS05ZDUwLTQ2MjM1NGZkM2NlZCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTEyIiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-154.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "decodeError",
+   "ok": false,
+   "wrongHash": false
+  },
+  "realRepeats": [
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   },
+   {
+    "kind": "decodeError",
+    "ok": false
+   }
+  ],
+  "short": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  },
+  "shortQr": {
+   "ok": false,
+   "text": null,
+   "err": "No MultiFormat Readers were able to detect the code."
+  }
+ },
+ {
+  "i": 155,
+  "token": "gxbdz5d64hdap4hy",
+  "payload": "https://hq.yumyums.kitchen/r/gxbdz5d64hdap4hy#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiZDI1ZjliMmItNWNhMS00YmNlLTgxYjctNzZkN2EyMWM3OWE5IiwiZXhwaXJlc19hdCI6IjIwMjYtMTItMTMiLCJmYWNlX3ZhbHVlIjoyfQ",
+  "file": "cardL-155.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 156,
+  "token": "4cdf94cqcas8kqqd",
+  "payload": "https://hq.yumyums.kitchen/r/4cdf94cqcas8kqqd#o=eyJsYWJlbCI6IiQyIG9mZiBhbnkgNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI3MDcwZTNkNi1iZmJiLTRhOGQtYjJkZi0xZmExM2E2ODQxODUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMC0xNCIsImZhY2VfdmFsdWUiOjJ9",
+  "file": "cardL-156.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 157,
+  "token": "vc4gzjuhk68fmyc6",
+  "payload": "https://hq.yumyums.kitchen/r/vc4gzjuhk68fmyc6#o=eyJsYWJlbCI6IkZyZWUgZHJpbmsgd2l0aCBhbnkgY29tYm8iLCJjYW1wYWlnbl9pZCI6IjU0OGQ4MTYzLWE1M2MtNGI5Yi05MGIyLTBjODc0MjhlNTk2MSIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTE1IiwiZmFjZV92YWx1ZSI6M30",
+  "file": "cardL-157.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 158,
+  "token": "vxz3x4g5fdejrcyb",
+  "payload": "https://hq.yumyums.kitchen/r/vxz3x4g5fdejrcyb#o=eyJsYWJlbCI6IkJPR08gNnBjIHdpbmdzIiwiY2FtcGFpZ25faWQiOiI4NmNjYjcxYi02NTVmLTRmOGEtOTUyZi1iMDNkZDE5MGMwNzUiLCJleHBpcmVzX2F0IjoiMjAyNi0xMi0xNiIsImZhY2VfdmFsdWUiOjkuNX0",
+  "file": "cardL-158.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ },
+ {
+  "i": 159,
+  "token": "5ykhsums7e5m6bp6",
+  "payload": "https://hq.yumyums.kitchen/r/5ykhsums7e5m6bp6#o=eyJsYWJlbCI6IkZyZWUgZnJpZXMiLCJjYW1wYWlnbl9pZCI6IjFiYjg3ZjIyLTMxYjYtNDIwZi1iMTlmLWJhZGZhYTAyOWIwOSIsImV4cGlyZXNfYXQiOiIyMDI2LTEwLTE3IiwiZmFjZV92YWx1ZSI6NH0",
+  "file": "cardL-159.png",
+  "version": 9,
+  "modules": 53,
+  "real": {
+   "kind": "embeddedOffer",
+   "ok": true,
+   "wrongHash": false
+  },
+  "short": {
+   "ok": true
+  },
+  "shortQr": {
+   "ok": true
+  }
+ }
+]
