@@ -1,0 +1,5 @@
+[1A[2KVERIFY RETRY card Low 512 (as built)                    N=150  as drawn 134 (89.3%)  turned 90/180/270: 135/144/140  RETRY-UNTIL-/r/-TOKEN 150 (100.0%) wrong-token-accepted=0 read-on-attempt#=[134,10,5,1]  non-payload texts seen=["16448971","06841942","11256311","01140118","07269332"]
+    Error: Command failed: /tmp/claude-1000/-home-jcole-projects-hq/5a2d9ee5-d193-432e-9f38-100a8a7f4848/scratchpad/qrgen https://hq.yumyums.kitchen/r/g47uhmn8nu83dbu6#o=eyJsYWJlbCI6IkZyZWUgc2lkZSBvZiB3aW5ncyIsImNhbXBhaWduX2lkIjoiMjZkNGUwZjctOWUzMi00ODhmLWEzOTMtMTIyNDkwNWM5MDVkIiwiZXhwaXJlc19hdCI6IjIwMjYtMTAtMTAiLCJmYWNlX3ZhbHVlIjoyfQ /tmp/claude-1000/-home-jcole-projects-hq/5a2d9ee5-d193-432e-9f38-100a8a7f4848/scratchpad/png5/r-0.png -8 L
+    Error Context: test-results/zz-verify-e1-retry-verify-e1-retry-reader-chromium/error-context.md
+[1A[2K  1 failed
+exit=1

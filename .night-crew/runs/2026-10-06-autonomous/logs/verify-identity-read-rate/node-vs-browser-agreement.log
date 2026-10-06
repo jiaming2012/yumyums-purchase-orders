@@ -1,0 +1,1 @@
+NODE-vs-BROWSER agreement (node zxing 0.19.1 QR-only vs in-page vendored decoder QR-only, same 160 PNGs): 160/160 | browser real-path failures where node says finder picked a false corner: 20/21

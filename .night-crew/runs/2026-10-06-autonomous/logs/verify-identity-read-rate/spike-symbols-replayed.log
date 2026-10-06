@@ -1,0 +1,6 @@
+# the signed spike's own symbols, re-drawn with the same go-qrcode and read with the vendored library's recipe (node; agrees 160/160 with the in-page decoder)
+spike card-L-512 (its ONE Low sample)      v9 | read as drawn: true | finder picked the 3 true corners: true | turned 90/180/270: true true true | jsQR: true
+spike full-M-512 (its ONE Medium sample)   v11 | read as drawn: false | finder picked the 3 true corners: false | turned 90/180/270: true true true | jsQR: true
+spike full-M-1024 (same symbol, bigger)    v11 | read as drawn: true | finder picked the 3 true corners: true | turned 90/180/270: true true true | jsQR: true
+spike full-L-512                           v10 | read as drawn: true | finder picked the 3 true corners: true | turned 90/180/270: true true true | jsQR: true
+swap: the CARD token drawn at Medium       v11 | read as drawn: false | finder picked the 3 true corners: false | turned 90/180/270: true true true | jsQR: true

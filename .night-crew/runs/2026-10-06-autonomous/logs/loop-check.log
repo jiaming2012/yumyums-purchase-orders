@@ -1,0 +1,9 @@
+loop check — run 20261006
+
+  on the loop  identity-code-and-qr (failed)
+  on the loop  mms-send-on-signup (failed)
+
+  read from /home/jcole/projects/hq/.night-crew/runs/20261006/summary.json
+
+  all 2 card(s) accounted for on the loop.
+LOOP_CHECK_EXIT=0

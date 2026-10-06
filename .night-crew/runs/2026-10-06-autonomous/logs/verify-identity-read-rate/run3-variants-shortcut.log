@@ -1,0 +1,8 @@
+VERIFY ENV {"barcodeDetector":false,"ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36","surfaceW":640,"dpr":1}
+[1A[2KVERIFY SHORT cardL      v=9 read 215/250 (86.0%)  wrong-text=3 ["08736024","16976665","07025815"]   QR-only read 216/250 (86.4%) wrong-text=0
+[1A[2KVERIFY SHORT cardM      v=11/10 read 202/250 (80.8%)  wrong-text=2 ["12076406","03951651"]   QR-only read 203/250 (81.2%) wrong-text=0
+[1A[2KVERIFY SHORT bareL      v=3 read 241/250 (96.4%)  wrong-text=0 []   QR-only read 241/250 (96.4%) wrong-text=0
+[1A[2KVERIFY SHORT bareM      v=4 read 225/250 (90.0%)  wrong-text=0 []   QR-only read 225/250 (90.0%) wrong-text=0
+[1A[2KVERIFY SHORT cardL1024  v=9 read 221/250 (88.4%)  wrong-text=2 ["16976665","06673475"]   QR-only read 223/250 (89.2%) wrong-text=0
+[1A[2K  1 passed (7.1m)
+exit=0

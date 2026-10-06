@@ -1512,3 +1512,27 @@ Launched 22:02, closeout ~01:10 (≈3 h 10 m; slate projected 4 h 40 m – 5 h 4
 
 **No size-class range moves on this evidence** — both builds were inside their class range (well
 inside). The per-night overheads stand: full suite 55 m, the lock a serial resource.
+
+## Run `20261006` (night of 2026-10-05 → 06) — 2 cards, serial, FIRST night on the run loop, 0 landed, 2 parked
+
+| Card | Class | Estimate | Actual | Outcome |
+|---|---|---|---|---|
+| `identity-code-and-qr` (E1) | new-mechanism, risk | 110–160 m (150) | **86 m** build session to its park (19:38 → 21:04), no review, no merge, no full suite | PARKED — built to spec; its own measurement refuted the signed encoding premise |
+| `mms-send-on-signup` (E2) | new-mechanism | 80–120 m (110) | **1 m** | PARKED with E1, nothing built |
+
+Per-night overheads observed: launch guards + lane setup + card lift 16 m (19:22 → 19:38), of
+which the collision with another night's worker and the operator question cost ~8 m; base
+measurement 62 m wall (Go 4 m, browser suite 57 m); independent re-check of the parked finding
+43 m; closeout ~15 m.
+
+Lessons, for sizing and for slates:
+1. **A spike that draws one sample per variant cannot sign a rate.** The encoding correction was
+   signed on one symbol each; 250 samples reversed it. A spike whose claim is "this reads / this
+   does not" needs a sample size in its recipe.
+2. **A build session that measures before it lands is worth its minutes.** ~35 of E1's 86 minutes
+   went on the read-rate measurement; without it the card lands green on a retry and the defect
+   ships.
+3. **The loop's first-night allowance (+45 m) was not needed for mechanics** — dispatch and run
+   worked first time once the lane was separate. The cost was in discovering what the loop does
+   not do (prose gates, session-visible sections, default deadline), all before dispatch.
+4. No size-class range moves on this evidence: neither card completed.

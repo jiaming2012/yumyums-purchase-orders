@@ -1,0 +1,44 @@
+# NOTE: the "exact module grid -> zxing Decoder" leg of analyze2.js printed 0/N for every variant, successes included: a harness fault of the reviewer's, not a finding. Its lines are removed here; ignore that leg in analyze2.js.
+ANALYZE2 cardL: 300 PNGs, version 9, 512px, module pitch 8.393 px
+  shipped recipe (zxing, QR only, as drawn)                 263/300 (87.7%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 37/300 — among shipped failures 37/37, among shipped successes 0/263
+  example wrong picks (module coordinates; true corners are 3.5 / 49.5): [[[3.6,49.6],[3.6,3.6],[41.5,33.5]],[[3.6,49.6],[3.6,3.6],[40,41.1]],[[11.1,27],[3.6,3.6],[49.6,3.6]],[[3.6,35],[3.6,3.6],[3.6,49.6]]]
+  same pixels rotated: 90° 292/300 (97.3%) · 180° 288/300 (96.0%) · 270° 293/300 (97.7%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+ANALYZE2 cardL488: 300 PNGs, version 9, 488px, module pitch 8.000 px
+  shipped recipe (zxing, QR only, as drawn)                 275/300 (91.7%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 25/300 — among shipped failures 25/25, among shipped successes 0/275
+  example wrong picks (module coordinates; true corners are 3.5 / 49.5): [[[11.5,27],[3.5,3.5],[49.5,3.5]],[[49.5,3.5],[49.5,26],[3.5,3.5]],[[11.5,26.5],[3.5,3.5],[49.5,3.5]],[[35,48.5],[3.5,49.5],[42,36.5]]]
+  same pixels rotated: 90° 281/300 (93.7%) · 180° 284/300 (94.7%) · 270° 298/300 (99.3%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+ANALYZE2 cardM: 300 PNGs, version 11/10, 512px, module pitch 7.420 px
+  shipped recipe (zxing, QR only, as drawn)                 270/300 (90.0%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 30/300 — among shipped failures 30/30, among shipped successes 0/270
+  example wrong picks (module coordinates; true corners are 3.5 / 57.5): [[[3.5,3.5],[57.6,3.5],[25.1,54]],[[3.6,53.6],[3.6,3.6],[50.1,31.5]],[[3.5,3.5],[57.6,3.5],[21.6,49]],[[3.5,57.6],[3.5,3.5],[25.1,53.5]]]
+  same pixels rotated: 90° 254/300 (84.7%) · 180° 290/300 (96.7%) · 270° 291/300 (97.0%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+ANALYZE2 bareL: 300 PNGs, version 3, 512px, module pitch 13.838 px
+  shipped recipe (zxing, QR only, as drawn)                 281/300 (93.7%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 19/300 — among shipped failures 19/19, among shipped successes 0/281
+  example wrong picks (module coordinates; true corners are 3.5 / 25.5): [[[3.6,25.5],[3.6,3.6],[18.5,22]],[[3.6,25.5],[3.6,3.6],[18.5,22]],[[12.5,16],[3.6,3.6],[25.5,3.6]],[[3.6,25.5],[3.6,3.6],[18.5,22]]]
+  same pixels rotated: 90° 299/300 (99.7%) · 180° 299/300 (99.7%) · 270° 297/300 (99.0%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+ANALYZE2 bareL518: 300 PNGs, version 3, 518px, module pitch 14.000 px
+  shipped recipe (zxing, QR only, as drawn)                 280/300 (93.3%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 20/300 — among shipped failures 20/20, among shipped successes 0/280
+  example wrong picks (module coordinates; true corners are 3.5 / 25.5): [[[3.5,25.5],[3.5,3.5],[18.5,22]],[[3.5,3.5],[25.5,3.5],[5.5,20]],[[3.5,25.5],[3.5,3.5],[18.5,22]],[[12.5,16],[3.5,3.5],[25.5,3.5]]]
+  same pixels rotated: 90° 299/300 (99.7%) · 180° 299/300 (99.7%) · 270° 284/300 (94.7%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+ANALYZE2 bareL296: 300 PNGs, version 3, 296px, module pitch 8.000 px
+  shipped recipe (zxing, QR only, as drawn)                 294/300 (98.0%)
+  independent decoder (jsQR)                                300/300 (100.0%)
+  zxing's finder search picked 3 points that are NOT the 3 corner squares: 6/300 — among shipped failures 6/6, among shipped successes 0/294
+  example wrong picks (module coordinates; true corners are 3.5 / 25.5): [[[3.5,3.5],[25.5,3.5],[5.5,20]],[[12.5,16],[3.5,3.5],[25.5,3.5]],[[3.5,25.5],[3.5,3.5],[18.5,22]],[[3.5,3.5],[25.5,3.5],[4.5,17]]]
+  same pixels rotated: 90° 300/300 (100.0%) · 180° 299/300 (99.7%) · 270° 284/300 (94.7%)
+  RETRY READER — as drawn, else 90°, else 180°, else 270°   300/300 (100.0%)
+done

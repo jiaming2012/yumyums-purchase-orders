@@ -1,0 +1,3239 @@
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.log
+new file mode 100644
+index 0000000..3609904
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.log
+@@ -0,0 +1,66 @@
++# density-probe — run 20261006, card identity-code-and-qr. Script: density-probe.spec.js.txt beside this file.
++# tree: dev@efcd970 + this card's working tree (marketing.html surface at 640px)
++# $ cp <logs>/density-probe.spec.js.txt tests/zz-e1-density-probe.spec.js
++# $ PROBE_N=100 TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test tests/zz-e1-density-probe.spec.js --project=chromium --retries=0 --reporter=line
++PROBE N=100 random tokens per variant; decoder = lib/html5-qrcode.min.js Html5Qrcode#scanFile in the shipped marketing.html, fresh instance per image, 640px surface
++PROBE card: full descriptor, Low, 512px                    len=214  v9/53mod     read  89/100 (89%)  not-read 10  WRONG-TEXT 1  ..xx..............x............x..........................x....x......x......x..x....W..........x...
++PROBE control: full descriptor, MEDIUM, 512px              len=214  v11/61mod    read  85/100 (85%)  not-read 14  WRONG-TEXT 1  ........x....xx...x.............xx.x.....x.x...........x.............................x...xx.x..W....
++PROBE full descriptor, Low, 1024px                         len=214  v9/53mod     read  83/100 (83%)  not-read 15  WRONG-TEXT 2  .xx..........W..x.x.......x..x.x..x...x........................x......x..x......x....W.x....x.......
++PROBE full descriptor, Low, 488px (8px modules exactly)    len=214  v9/53mod     read  83/100 (83%)  not-read 17  WRONG-TEXT 0  .xx.............x.........x....x..x...x......x........x...x....x.....x...x..xx.........x...........x
++PROBE descriptor WITHOUT campaign_id, Low, 512px           len=143  v7/45mod     read  96/100 (96%)  not-read 2  WRONG-TEXT 2  x...........................................x..........................W.........................W..
++PROBE descriptor label only, Low, 512px                    len=88   v5/37mod     read  97/100 (97%)  not-read 3  WRONG-TEXT 0  .......x............................x.....x.........................................................
++PROBE identity-only (no descriptor), Low, 512px            len=45   v3/29mod     read  93/100 (93%)  not-read 7  WRONG-TEXT 0  ....x.................x.....................x.........x.....x...........x...x.......................
++  1 passed (3.4m)
++# exit=0
++
++# ── second run, N=150, with the failing tokens dumped (PROBE_DUMP=1) ──
++PROBE card: full descriptor, Low, 512px                    len=214  v9/53mod     read 123/150 (82%)  not-read 26  WRONG-TEXT 1  .....x..x..x.x.....x..x....................W..xx..xx..xx.........x.x......x.x.....x..x...x.x.x.x.x.x............................x.............x.......
++PROBE control: full descriptor, MEDIUM, 512px              len=214  v11/61mod    read 123/150 (82%)  not-read 26  WRONG-TEXT 1  .xx.....x....x.x......xx.................x.x..x......x..................x.....x..xx............x...............xx......x.x.....xx.......W.x.x.xx......
++PROBE full descriptor, Low, 1024px                         len=214  v9/53mod     read 118/150 (79%)  not-read 30  WRONG-TEXT 2  x....x..x....x.....x..x..x.......x.xxx........xx..x...xx...........x......x.xx....x..x.....x...x...x...W......x..............x...x...x..W......x......
++PROBE full descriptor, Low, 488px (8px modules exactly)    len=214  v9/53mod     read 124/150 (83%)  not-read 24  WRONG-TEXT 2  x.......x..x.x.....x..x........x...xW..............x..xx...........x......x.x.x..x...x...x.x.......x............x...............x....x.W..........x...
++PROBE descriptor WITHOUT campaign_id, Low, 512px           len=143  v7/45mod     read 145/150 (97%)  not-read 3  WRONG-TEXT 2  ............x.....................................................................x...............W...............W............................x......
++PROBE descriptor label only, Low, 512px                    len=88   v5/37mod     read 145/150 (97%)  not-read 5  WRONG-TEXT 0  ....x.............x.............................x..................................x...........................................................x......
++PROBE identity-only (no descriptor), Low, 512px            len=45   v3/29mod     read 143/150 (95%)  not-read 7  WRONG-TEXT 0  .....................x...........................x........................x.................x........................x..............x...........x.....
++# decoded-but-wrong texts were all EMPTY/short strings (a spurious non-QR 'barcode' found in the image), never another token:
++PROBEFAIL {"v":"card: full d","token":"6ybnr93q7cvxfezp","got":""}
++PROBEFAIL {"v":"control: ful","token":"ar7wp4pugwgebmfx","got":""}
++PROBEFAIL {"v":"full descrip","token":"5kpz9xjmhm8z9qbw","got":""}
++PROBEFAIL {"v":"full descrip","token":"ar7wp4pugwgebmfx","got":""}
++PROBEFAIL {"v":"full descrip","token":"g6vjet7b3bkvszb9","got":""}
++PROBEFAIL {"v":"full descrip","token":"wrgjc74thu3bjw82","got":""}
++PROBEFAIL {"v":"descriptor W","token":"arg76zv3sm453g9x","got":""}
++PROBEFAIL {"v":"descriptor W","token":"dz48pzduj7dw9vwn","got":""}
++
++# ── third run, N=150, decoder restricted to QR codes (PROBE_QR_ONLY=1:
++#    new Html5Qrcode(id, {formatsToSupport:[QR_CODE]})) — transcribed from the terminal, not piped to this file ──
++PROBE card: full descriptor, Low, 512px                    len=214  v9/53mod     read 132/150 (88%)  not-read 18  WRONG-TEXT 0
++PROBE control: full descriptor, MEDIUM, 512px              len=214  v11/61mod    read 130/150 (87%)  not-read 20  WRONG-TEXT 0
++PROBE full descriptor, Low, 1024px                         len=214  v9/53mod     read 131/150 (87%)  not-read 19  WRONG-TEXT 0
++PROBE full descriptor, Low, 488px (8px modules exactly)    len=214  v9/53mod     read 133/150 (89%)  not-read 17  WRONG-TEXT 0
++PROBE descriptor WITHOUT campaign_id, Low, 512px           len=143  v7/45mod     read 146/150 (97%)  not-read 4  WRONG-TEXT 0
++PROBE descriptor label only, Low, 512px                    len=88   v5/37mod     read 143/150 (95%)  not-read 7  WRONG-TEXT 0
++PROBE identity-only (no descriptor), Low, 512px            len=45   v3/29mod     read 141/150 (94%)  not-read 9  WRONG-TEXT 0
++#   1 passed (4.5m)
++
++# ── earlier sweeps of the SAME 30 codes across surface widths (unsaved runs, transcribed) ──
++#   Low / version 9:    px=320 29/30 · 512 29/30 · 640 29/30 · 768 29/30 · 1024 29/30 · 1280 29/30 — the SAME code failed at every width
++#   Medium / version 11: px=320 25/30 · 640 25/30 — the same five codes failed at both widths
++#   through the shipped page's own "Scan from photo" input, fresh page load per code: Low 6/8, Medium 7/8
++#   through the shipped page with "Scan next" tapped between customers: Low 9/10
++
++# ── READING ──
++# 1. Whether the shipped photo-scan decoder reads an identity code depends on the individual
++#    symbol, and so on the random token. At the card's signed encoding (Low, version 9) it read
++#    89/100 and 123/150 freshly drawn codes: 212 of 250, 85% — about one code in seven is not read
++#    from a pristine PNG, and the same code fails every time.
++# 2. Medium correction (version 11) — the signed spike's "does not decode" — read 85/100 and
++#    123/150: 208 of 250, 83%. The two are indistinguishable. The spike drew ONE symbol per variant.
++# 3. The scan surface's width (320 vs 640 vs anything) changed nothing: the decoder already works
++#    on a canvas at least as large as the image.
++# 4. The floor is not this card's payload: a bare identity-only code (45 characters, version 3)
++#    read 93/100, 143/150, 141/150 — about one in seventeen is not read.
++# 5. A decode never produced another customer's token. The "WRONG-TEXT" cases are empty strings
++#    from a non-QR format the decoder thought it saw; the scanner shows those as invalidPayload
++#    (nothing rendered), and they vanish when the decoder is restricted to QR.
++# 6. NOT MEASURED: the live-camera path (many frames per second, real optics) — no gate exercises
++#    it — and any decoder other than the vendored one (this box has none).
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.spec.js.txt b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.spec.js.txt
+new file mode 100644
+index 0000000..4edf759
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/density-probe.spec.js.txt
+@@ -0,0 +1,72 @@
++// density-probe — evidence script for card identity-code-and-qr (run 20261006). NOT part of the
++// suite: it was run from tests/ under a throwaway name and is kept beside its output as a record.
++//
++// Question: is "the shipped photo-scan decoder reads a Low/version-9 identity code and does not
++// read a Medium/version-11 one" a property of the ENCODING, or of the one symbol the spike drew?
++//
++// Method: N random 16-character tokens. For each, the card's payload (and variants of it) is
++// drawn by backend/cmd/qrgen — the server's own go-qrcode — and decoded in the shipped
++// marketing.html page by the vendored decoder (lib/html5-qrcode.min.js, the same
++// Html5Qrcode#scanFile the scanner's "Scan from photo" calls), a fresh instance per image on a
++// 640 px offscreen surface. A decode counts only if the text equals the payload.
++const { test } = require('@playwright/test');
++const { execFileSync } = require('child_process');
++const crypto = require('crypto');
++const path = require('path');
++const fs = require('fs');
++const ALPHA = '23456789abcdefghjkmnpqrstuvwxyz';
++const N = Number(process.env.PROBE_N || 60);
++function token() { let t = ''; while (t.length < 16) { const b = crypto.randomBytes(1)[0]; if (b < 248) t += ALPHA[b % 31]; } return t; }
++const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
++const BASE = 'https://hq.yumyums.kitchen/r/';
++const VARIANTS = [
++  { name: 'card: full descriptor, Low, 512px', level: 'L', size: 512, payload: (t, c) => `${BASE}${t}#o=${b64({ label: 'Free side of wings', campaign_id: c, expires_at: '2026-10-20', face_value: 2 })}` },
++  { name: 'control: full descriptor, MEDIUM, 512px', level: 'M', size: 512, payload: (t, c) => `${BASE}${t}#o=${b64({ label: 'Free side of wings', campaign_id: c, expires_at: '2026-10-20', face_value: 2 })}` },
++  { name: 'full descriptor, Low, 1024px', level: 'L', size: 1024, payload: (t, c) => `${BASE}${t}#o=${b64({ label: 'Free side of wings', campaign_id: c, expires_at: '2026-10-20', face_value: 2 })}` },
++  { name: 'full descriptor, Low, 488px (8px modules exactly)', level: 'L', size: 488, payload: (t, c) => `${BASE}${t}#o=${b64({ label: 'Free side of wings', campaign_id: c, expires_at: '2026-10-20', face_value: 2 })}` },
++  { name: 'descriptor WITHOUT campaign_id, Low, 512px', level: 'L', size: 512, payload: (t) => `${BASE}${t}#o=${b64({ label: 'Free side of wings', expires_at: '2026-10-20', face_value: 2 })}` },
++  { name: 'descriptor label only, Low, 512px', level: 'L', size: 512, payload: (t) => `${BASE}${t}#o=${b64({ label: 'Free side of wings' })}` },
++  { name: 'identity-only (no descriptor), Low, 512px', level: 'L', size: 512, payload: (t) => `${BASE}${t}` },
++];
++test('density probe', async ({ page }) => {
++  test.setTimeout(1500000);
++  const dir = fs.mkdtempSync('/tmp/e1-density-');
++  const bin = path.join(dir, 'qrgen');
++  execFileSync('go', ['build', '-o', bin, './cmd/qrgen'], { cwd: path.join(__dirname, '..', 'backend') });
++  const tokens = Array.from({ length: N }, token);
++  const camps = Array.from({ length: N }, () => crypto.randomUUID());
++  await page.goto('/login.html');
++  await page.fill('input[type="email"]', 'jamal@yumyums.kitchen');
++  await page.fill('input[type="password"]', 'test123');
++  await page.click('button.btn');
++  await page.waitForURL((u) => !u.pathname.includes('login'));
++  await page.goto('/marketing.html');
++  await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
++  console.log(`PROBE N=${N} random tokens per variant; decoder = lib/html5-qrcode.min.js Html5Qrcode#scanFile in the shipped marketing.html, fresh instance per image, 640px surface`);
++  for (const v of VARIANTS) {
++    const items = tokens.map((t, i) => {
++      const payload = v.payload(t, camps[i]);
++      const out = path.join(dir, `p-${i}.png`);
++      const o = execFileSync(bin, [payload, out, String(v.size), v.level], { encoding: 'utf8' });
++      return { payload, data: fs.readFileSync(out).toString('base64'), version: Number(/version=(\d+)/.exec(o)[1]), modules: Number(/modules=(\d+)/.exec(o)[1]) };
++    });
++    await page.evaluate((qrOnly) => { window.__probeCfg = qrOnly ? { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], verbose: false } : null; }, !!process.env.PROBE_QR_ONLY);
++    const got = await page.evaluate(async (files) => {
++      const res = [];
++      for (let i = 0; i < files.length; i++) {
++        const h = document.createElement('div'); h.id = 'probe-' + i; h.style.cssText = 'position:absolute;left:-9999px;width:640px;height:640px;overflow:hidden'; document.body.appendChild(h);
++        const f = new File([Uint8Array.from(atob(files[i]), (c) => c.charCodeAt(0))], `p${i}.png`, { type: 'image/png' });
++        // eslint-disable-next-line no-undef
++        try { res.push(await new Html5Qrcode(h.id, window.__probeCfg || undefined).scanFile(f, false)); } catch (e) { res.push(null); }
++        h.remove();
++      }
++      return res;
++    }, items.map((x) => x.data));
++    if (process.env.PROBE_DUMP) got.forEach((t, i) => { if (t !== items[i].payload) console.log('PROBEFAIL ' + JSON.stringify({ v: v.name.slice(0, 12), token: tokens[i], got: t === null ? null : t.slice(29, 60) })); });
++    const marks = got.map((t, i) => (t === null ? 'x' : (t === items[i].payload ? '.' : 'W')));
++    const ok = marks.filter((m) => m === '.').length;
++    const versions = [...new Set(items.map((x) => `v${x.version}/${x.modules}mod`))].join(',');
++    const lens = [...new Set(items.map((x) => x.payload.length))].join(',');
++    console.log(`PROBE ${v.name.padEnd(52)} len=${lens.padEnd(4)} ${versions.padEnd(12)} read ${String(ok).padStart(3)}/${N} (${(100 * ok / N).toFixed(0)}%)  not-read ${marks.filter((m) => m === 'x').length}  WRONG-TEXT ${marks.filter((m) => m === 'W').length}  ${marks.join('')}`);
++  }
++});
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/g1-build-vet.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/g1-build-vet.log
+new file mode 100644
+index 0000000..ae16c93
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/g1-build-vet.log
+@@ -0,0 +1 @@
++# go build ./... && go vet ./...  exit=0
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/go-full.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/go-full.log
+new file mode 100644
+index 0000000..fec5da2
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/go-full.log
+@@ -0,0 +1,45 @@
++# full Go suite on the card's tree (dev@efcd970 + working tree), under the box lock
++# $ cd backend && DB_TEST_URL=postgres://hqtest:…@localhost:5434/hq_test_go_e1 flock /tmp/hq-full-suite.lock go test ./... -p 1 -count=1 -v
++# lock requested 2026-10-05T20:50:57-04:00
++# lock acquired 2026-10-05T20:50:57-04:00
++?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
++?   	github.com/yumyums/hq/cmd/bucket-cors	[no test files]
++?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
++?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
++?   	github.com/yumyums/hq/cmd/qrgen	[no test files]
++?   	github.com/yumyums/hq/cmd/seed	[no test files]
++ok  	github.com/yumyums/hq/cmd/server	0.008s
++?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
++?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
++ok  	github.com/yumyums/hq/internal/alerts	0.005s
++ok  	github.com/yumyums/hq/internal/auth	0.547s
++?   	github.com/yumyums/hq/internal/config	[no test files]
++?   	github.com/yumyums/hq/internal/db	[no test files]
++ok  	github.com/yumyums/hq/internal/inventory	39.709s
++ok  	github.com/yumyums/hq/internal/marketing	23.726s
++ok  	github.com/yumyums/hq/internal/marketing/sources	0.005s
++?   	github.com/yumyums/hq/internal/me	[no test files]
++ok  	github.com/yumyums/hq/internal/onboarding	0.333s
++ok  	github.com/yumyums/hq/internal/photos	0.909s
++ok  	github.com/yumyums/hq/internal/purchasing	7.970s
++ok  	github.com/yumyums/hq/internal/receipt	47.216s
++ok  	github.com/yumyums/hq/internal/recipes	59.843s
++ok  	github.com/yumyums/hq/internal/redemption	2.888s
++ok  	github.com/yumyums/hq/internal/sync	49.627s
++?   	github.com/yumyums/hq/internal/testdb	[no test files]
++ok  	github.com/yumyums/hq/internal/toast	0.805s
++?   	github.com/yumyums/hq/internal/users	[no test files]
++?   	github.com/yumyums/hq/internal/version	[no test files]
++ok  	github.com/yumyums/hq/internal/workflow	2.256s
++# exit=0
++# lock released 2026-10-05T20:55:21-04:00
++# counts (from -v output): top-level --- PASS 463 · --- FAIL 0 · --- SKIP 3; including subtests --- PASS 727 · --- FAIL 0
++# the skips:
++    projection_test.go:151: MKT_PROJECTION_LIVE != 1 — the local spike-supabase substrate leg is opt-in
++--- SKIP: TestProjectionConfiguredUpsertsToSubstrate (0.00s)
++    proxy_live_test.go:208: live proofs not requested — set HQ_SYNC_SPIKE_LIVE=1 to run them against the spike stack. SKIPPED IS NOT PASSED: with this off, the only WebSocket-upgrade evidence in this package is the hermetic test.
++--- SKIP: TestProxyLive_RealtimeUpgrade (0.12s)
++    proxy_live_test.go:295: live proofs not requested — set HQ_SYNC_SPIKE_LIVE=1 to run them against the spike stack. SKIPPED IS NOT PASSED: with this off, the only WebSocket-upgrade evidence in this package is the hermetic test.
++--- SKIP: TestProxyLive_RESTRequest (0.12s)
++# TestRowVisibilityRLS:
++--- PASS: TestRowVisibilityRLS (7.30s)
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/green-go.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/green-go.log
+new file mode 100644
+index 0000000..4f344a0
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/green-go.log
+@@ -0,0 +1,61 @@
++# GREEN — Go, the named tests plus the three that ride with them, on the card's tree (dev@efcd970 + working tree)
++# $ cd backend && DB_TEST_URL=postgres://hqtest:…@localhost:5434/hq_test_go_e1 go test ./internal/marketing/ -count=1 -v -run 'TestMintIdentityCode|TestProjectIdentityCodeUpserts|TestMigration0088IdentityCodesDownAndUpRoundTrip|TestNothingInThisPackageSends|TestIdentityMediaRouteIsPublicPNG|TestSubscriberDetailReportsIdentityCodeStatus|TestIdentityCodeLongOfferTextStaysScannable|TestMountPublicRegistersExactlyThePublicSurface'
++2026/10/05 20:50:40 goose: no migrations to run. current version: 88
++2026/10/05 20:50:40 INFO database migrations applied successfully
++=== RUN   TestMintIdentityCodeIsIdempotent
++2026/10/05 20:50:40 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=cbf3b250-adf8-47e7-ab88-370dddfd4362
++    identity_test.go:215: payload 214 chars, QR version 9 at Low
++--- PASS: TestMintIdentityCodeIsIdempotent (0.41s)
++=== RUN   TestMintIdentityCodeNoFirstTouchIsIdentityOnly
++    identity_test.go:365: identity-only payload 45 chars, QR version 3
++--- PASS: TestMintIdentityCodeNoFirstTouchIsIdentityOnly (0.56s)
++=== RUN   TestProjectIdentityCodeUpserts
++=== RUN   TestProjectIdentityCodeUpserts/201_lands_one_row_on_/codes_as_a_merge-duplicates_upsert
++=== RUN   TestProjectIdentityCodeUpserts/the_id_is_derived_from_the_subscriber,_so_a_re-projection_is_the_same_row
++=== RUN   TestProjectIdentityCodeUpserts/500_is_an_error_and_unconfigured_is_an_error
++=== RUN   TestProjectIdentityCodeUpserts/import:_a_201_projects_the_first-touch_code_and_only_that_one
++2026/10/05 20:50:41 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=9b58fdcd-158e-4c55-868b-4a1208e08066
++=== RUN   TestProjectIdentityCodeUpserts/import:_a_500_keeps_the_mint_and_says_not_projected
++2026/10/05 20:50:42 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=266991ca-7836-4b1c-9c5b-9e34beb3d8de
++2026/10/05 20:50:42 ERROR marketing: identity code projection failed; the code is minted but the arbiter does not know it error="identity code upsert: postgrest status 500" subscriber_id=eb62022d-8c74-4ba3-b866-dba70b9ac0a2
++=== RUN   TestProjectIdentityCodeUpserts/import:_an_unconfigured_projection_keeps_the_mint_and_says_not_projected
++2026/10/05 20:50:42 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c7e69b03-1929-4e5b-85c4-f4d1581428cb
++--- PASS: TestProjectIdentityCodeUpserts (1.12s)
++    --- PASS: TestProjectIdentityCodeUpserts/201_lands_one_row_on_/codes_as_a_merge-duplicates_upsert (0.00s)
++    --- PASS: TestProjectIdentityCodeUpserts/the_id_is_derived_from_the_subscriber,_so_a_re-projection_is_the_same_row (0.00s)
++    --- PASS: TestProjectIdentityCodeUpserts/500_is_an_error_and_unconfigured_is_an_error (0.00s)
++    --- PASS: TestProjectIdentityCodeUpserts/import:_a_201_projects_the_first-touch_code_and_only_that_one (0.36s)
++    --- PASS: TestProjectIdentityCodeUpserts/import:_a_500_keeps_the_mint_and_says_not_projected (0.40s)
++    --- PASS: TestProjectIdentityCodeUpserts/import:_an_unconfigured_projection_keeps_the_mint_and_says_not_projected (0.35s)
++=== RUN   TestIdentityMediaRouteIsPublicPNG
++--- PASS: TestIdentityMediaRouteIsPublicPNG (0.24s)
++=== RUN   TestSubscriberDetailReportsIdentityCodeStatus
++--- PASS: TestSubscriberDetailReportsIdentityCodeStatus (0.24s)
++=== RUN   TestIdentityCodeLongOfferTextStaysScannable
++2026/10/05 20:50:43 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=008c2ccb-f519-4484-a204-b4131cef9861
++    identity_test.go:661: label shortened to 55 of 93 chars ("Buy any two combos and get a free large side of our sig…"); payload 271 chars, version 10
++--- PASS: TestIdentityCodeLongOfferTextStaysScannable (0.55s)
++=== RUN   TestMigration0088IdentityCodesDownAndUpRoundTrip
++2026/10/05 20:50:43 goose: no migrations to run. current version: 88
++2026/10/05 20:50:43 INFO database migrations applied successfully
++2026/10/05 20:50:43 OK   0088_identity_codes.sql (19.26ms)
++2026/10/05 20:50:43 goose: no migrations to run. current version: 87
++2026/10/05 20:50:43 OK   0088_identity_codes.sql (62.18ms)
++2026/10/05 20:50:43 goose: successfully migrated database to version: 88
++2026/10/05 20:50:43 INFO database migrations applied successfully
++    identity_test.go:766: migration 88 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
++2026/10/05 20:50:43 goose: no migrations to run. current version: 88
++2026/10/05 20:50:43 INFO database migrations applied successfully
++--- PASS: TestMigration0088IdentityCodesDownAndUpRoundTrip (0.15s)
++=== RUN   TestMountPublicRegistersExactlyThePublicSurface
++--- PASS: TestMountPublicRegistersExactlyThePublicSurface (0.00s)
++=== RUN   TestNothingInThisPackageSends
++    subscribers_test.go:400: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
++    subscribers_test.go:400: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
++--- PASS: TestNothingInThisPackageSends (0.03s)
++PASS
++ok  	github.com/yumyums/hq/internal/marketing	3.328s
++# exit=0
++# egress allowlist unchanged: $ git diff --stat -- backend/internal/marketing/subscribers_test.go ; git diff -- backend/internal/marketing/subscribers_test.go | grep -c egressAllowlist
++ 1 file changed, 11 insertions(+), 9 deletions(-)
++0
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/mutation-medium-ic01.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/mutation-medium-ic01.log
+new file mode 100644
+index 0000000..01276ea
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/mutation-medium-ic01.log
+@@ -0,0 +1,151 @@
++# MUTATION — is [IC-01] sensitive to the encoding? identity.go's qrcode.Low flipped to qrcode.Medium in the working tree (never committed), [IC-01] run alone, then reverted.
++# $ sed -i 's/return qrcode.New(payload, qrcode.Low)/return qrcode.New(payload, qrcode.Medium)/' backend/internal/marketing/identity.go   (1 site mutated)
++# $ TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test tests/marketing-identity.spec.js -g 'IC-01' --project=chromium --retries=0 --reporter=line
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++Running 1 test using 1 worker
++
++[1/1] [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
++
++
++  1) [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
++
++    Error: page.evaluate: D: No MultiFormat Readers were able to detect the code.
++        at lr.decodeInternal (http://localhost:8341/lib/html5-qrcode.min.js:1:253484)
++        at lr.decode (http://localhost:8341/lib/html5-qrcode.min.js:1:252382)
++        at e.decode (http://localhost:8341/lib/html5-qrcode.min.js:1:299459)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:299248
++        at new Promise (<anonymous>)
++        at e.decodeAsync (http://localhost:8341/lib/html5-qrcode.min.js:1:299213)
++        at t.<anonymous> (http://localhost:8341/lib/html5-qrcode.min.js:1:305832)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:304845
++        at Object.next (http://localhost:8341/lib/html5-qrcode.min.js:1:304950)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:303865
++        at lr.decodeInternal (http://localhost:8341/lib/html5-qrcode.min.js:1:253484)
++        at lr.decode (http://localhost:8341/lib/html5-qrcode.min.js:1:252382)
++        at e.decode (http://localhost:8341/lib/html5-qrcode.min.js:1:299459)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:299248
++        at e.decodeAsync (http://localhost:8341/lib/html5-qrcode.min.js:1:299213)
++        at t.<anonymous> (http://localhost:8341/lib/html5-qrcode.min.js:1:305832)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:304845
++        at Object.next (http://localhost:8341/lib/html5-qrcode.min.js:1:304950)
++        at http://localhost:8341/lib/html5-qrcode.min.js:1:303865
++        at decodePng (/home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:186:15)
++        at /home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:268:24
++
++    Error Context: test-results/marketing-identity-Identit-38567-d-the-hash-of-its-own-token-chromium/error-context.md
++
++
++  1 failed
++    [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
++# exit=1
++# reverted: 1 Low call site(s), 0 Medium
++# READING: red, and NOT at the scanner. At Medium the full payload would be QR version 11, so
++# buildIdentityQR's density bound (never above version 10) shortened the embedded label to fit.
++# On THIS run the test's own independent decode of that image then failed ("No MultiFormat Readers
++# were able to detect the code"); on an earlier, unsaved run of the same mutation the image decoded
++# and the test went red on the label instead ("Free side of w…" where "Free side of wings" was
++# expected). Two different reds for one mutation is itself the finding density-probe.log sizes:
++# whether the vendored decoder reads a given code depends on the individual symbol.
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/playwright-identity-first-run.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/playwright-identity-first-run.log
+new file mode 100644
+index 0000000..bde26e9
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/playwright-identity-first-run.log
+@@ -0,0 +1,9 @@
++# FIRST RUN of the three identity specs after the implementation (before the spec's UTC-date fix; --retries=0) — all three passed.
++# $ TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test tests/marketing-identity.spec.js --project=chromium --retries=0 --reporter=line
++IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"decodeError","hash":null,"source":null}
++  3 passed (3.5m)
++# exit=0
++# READING: [IC-03] passed here because the Medium symbol this run happened to draw was one the decoder
++# could not find (kind=decodeError). In seam-marketing.log the same test, on another token, is RED: the
++# Medium symbol was read (kind=embeddedOffer, the token's own hash). Two runs, two outcomes, no code change
++# between them that touches the scanner — density-probe.log sizes it at 83% read.
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-go.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-go.log
+new file mode 100644
+index 0000000..1064b69
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-go.log
+@@ -0,0 +1,17 @@
++# RED — Go, pre-change tree (dev@efcd970 + identity_test.go only; no identity.go, no 0088 migration, no route)
++# $ cd backend && DB_TEST_URL=postgres://hqtest:…@localhost:5434/hq_test_go_e1 go test ./internal/marketing/ -count=1 -run 'TestMintIdentityCodeIsIdempotent|TestMintIdentityCodeNoFirstTouchIsIdentityOnly|TestProjectIdentityCodeUpserts|TestMigration0088IdentityCodesDownAndUpRoundTrip'
++# github.com/yumyums/hq/internal/marketing [github.com/yumyums/hq/internal/marketing.test]
++internal/marketing/identity_test.go:54:16: undefined: newIdentityToken
++internal/marketing/identity_test.go:58:10: undefined: identityRand
++internal/marketing/identity_test.go:59:2: undefined: identityRand
++internal/marketing/identity_test.go:60:21: undefined: identityRand
++internal/marketing/identity_test.go:101:63: undefined: IdentityCode
++internal/marketing/identity_test.go:109:15: undefined: MintIdentityCode
++internal/marketing/identity_test.go:252:2: undefined: identityRand
++internal/marketing/identity_test.go:252:17: undefined: defaultIdentityRand
++internal/marketing/identity_test.go:253:37: cannot use d (variable of struct type Deps) as interface{Begin(context.Context) (pgx.Tx, error)} value in argument to ImportSubscribers: Deps does not implement interface{Begin(context.Context) (pgx.Tx, error)} (missing method Begin)
++internal/marketing/identity_test.go:264:38: cannot use d (variable of struct type Deps) as interface{Begin(context.Context) (pgx.Tx, error)} value in argument to ImportSubscribers: Deps does not implement interface{Begin(context.Context) (pgx.Tx, error)} (missing method Begin)
++internal/marketing/identity_test.go:264:38: too many errors
++FAIL	github.com/yumyums/hq/internal/marketing [build failed]
++FAIL
++# exit=1
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-playwright.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-playwright.log
+new file mode 100644
+index 0000000..37c7cd6
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/red-playwright.log
+@@ -0,0 +1,313 @@
++# RED — Playwright, pre-change tree (dev@efcd970 + tests/marketing-identity.spec.js + the playwright.config.js HQ_FF_FIXTURE_PATH line; no backend change, no marketing.html change)
++# $ TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test tests/marketing-identity.spec.js --project=chromium --retries=0 --reporter=line
++[1A[2K[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_e1_20261006" does not exist, skipping
++
++[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_e1_20261006 on localhost:5434 ──
++
++[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.002321187-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.002621139-04:00","level":"INFO","msg":"loaded superadmins","count":1}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.02248039-04:00","level":"INFO","msg":"connected to database"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.092566089-04:00","level":"INFO","msg":"OK   0001_users.sql (42.61ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.140906451-04:00","level":"INFO","msg":"OK   0002_sessions.sql (47.86ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.181162053-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (40.11ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.218658182-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (37.31ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.269766171-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (50.99ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.304734032-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (34.85ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.334142784-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (29.32ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.372399265-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (38.15ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.402594037-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (30.08ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.434571923-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (31.87ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.474892247-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (40.13ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.522049503-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (47.06ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.553677712-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (31.54ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.584119794-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (30.33ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.637052971-04:00","level":"INFO","msg":"OK   0015_ops.sql (52.84ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.651479135-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.33ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.67605984-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (24.47ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.756466263-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (80.24ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.832926482-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (76.34ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.885373794-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (52.32ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.932716357-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (47.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:11.980746297-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (47.88ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.045229698-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (64.37ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.266313305-04:00","level":"INFO","msg":"OK   0024_inventory.sql (220.89ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.30622899-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (39.8ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.315222174-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.89ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.321921098-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (6.61ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.335932379-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (13.93ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.343094627-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (7.06ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.367453405-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (24.18ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.376171858-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (8.63ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.389476213-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (13.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.418733302-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (29.16ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.499373049-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (80.49ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.511860968-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.38ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.523367332-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (11.42ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.553278154-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (29.79ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.570491708-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (17.09ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.593469477-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (22.88ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.698987743-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (105.34ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.711487349-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.41ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.779890131-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (68.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.832061015-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (52.02ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.877815565-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (45.62ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.915320932-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (37.38ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.921724673-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (6.32ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.962861989-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (41.05ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.968789207-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (5.82ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:12.996937499-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (28ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.008914499-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (11.88ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.020281966-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (11.27ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.038855743-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (18.47ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.046136157-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.19ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.053380981-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.15ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.060156978-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.68ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.073512671-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (13.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.085238564-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (11.63ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.097722342-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (12.39ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.104300222-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (6.49ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.157822608-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (53.42ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.188533634-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (30.61ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.244965362-04:00","level":"INFO","msg":"OK   0062_recipes.sql (56.3ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.279205993-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (34.13ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.297921729-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (18.56ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.310137721-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.11ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.322978714-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.7ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.388334771-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (65.23ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.41479531-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (26.3ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.433517196-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (18.61ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.452007391-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (18.38ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.483884735-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (31.78ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.514628428-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (30.58ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.547210827-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (32.12ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.56019519-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (12.67ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.635775586-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (75.43ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.661063153-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (25.13ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.710089346-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (48.87ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.730016265-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (19.82ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.757109568-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (26.93ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.772220486-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (14.97ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.796462016-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (24.07ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.81397554-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (17.39ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:13.919712841-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (105.47ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.046200696-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (126.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.149450085-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (103.07ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.17577912-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (26.21ms)","source":"stdlog"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.235023158-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (59.05ms)","source":"stdlog"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.235095396-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 87","source":"stdlog"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.235174696-04:00","level":"INFO","msg":"database migrations applied successfully"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.315228221-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.372464829-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"80b529c2-c546-4a30-b632-97ec4c48263a"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.372544735-04:00","level":"INFO","msg":"seeded templates","count":1}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.408862893-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"22eef366-917d-4b6d-842f-c3d7ed7d01cd"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.431711389-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.512325364-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:14.64274078-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.143670244-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.14374949-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.143816017-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.143910406-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.143988744-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144619383-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.14472942-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144787567-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144810887-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144826635-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144839153-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.144951208-04:00","level":"INFO","msg":"alerts queue started"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.188819678-04:00","level":"INFO","msg":"server listening","port":"8341"}
++
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.199485937-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8341"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.199531768-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8341"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.199542873-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8341"}
++[2m[WebServer] [22m{"time":"2026-10-05T19:50:15.199556299-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
++
++
++Running 3 tests using 1 worker
++
++[1A[2K[1/3] [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:18.190592521-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"2115de46-f76b-4099-b32e-dcc104f304fc"}
++
++[1A[2K  1) [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
++
++    Error: an imported subscriber has a code, and nothing has been sent
++
++    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
++
++    Expected: [32m"minted"[39m
++    Received: [31m"not_sent"[39m
++
++      130 |   const detail = await api(page, 'GET', `/api/v1/marketing/subscribers/${subscriberId}`);
++      131 |   expect(detail.status, `GET /subscribers/{id} → ${detail.text}`).toBe(200);
++    > 132 |   expect(detail.json.identity_code.status, 'an imported subscriber has a code, and nothing has been sent').toBe('minted');
++          |                                                                                                            ^
++      133 |   const mediaUrl = detail.json.identity_code.media_url;
++      134 |   expect(mediaUrl, 'identity_code.media_url').toMatch(/^\/m\/[0-9a-f-]{36}\.png$/);
++      135 |
++        at mintFixtureCode (/home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:132:108)
++        at /home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:264:20
++
++    Error Context: test-results/marketing-identity-Identit-38567-d-the-hash-of-its-own-token-chromium/error-context.md
++
++
++[1A[2K[2/3] [chromium] › tests/marketing-identity.spec.js:294:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:22.051344557-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"7931f4bb-2d23-47d0-8457-9f5b95b17717"}
++
++[1A[2K  2) [chromium] › tests/marketing-identity.spec.js:294:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server 
++
++    Error: an imported subscriber has a code, and nothing has been sent
++
++    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
++
++    Expected: [32m"minted"[39m
++    Received: [31m"not_sent"[39m
++
++      130 |   const detail = await api(page, 'GET', `/api/v1/marketing/subscribers/${subscriberId}`);
++      131 |   expect(detail.status, `GET /subscribers/{id} → ${detail.text}`).toBe(200);
++    > 132 |   expect(detail.json.identity_code.status, 'an imported subscriber has a code, and nothing has been sent').toBe('minted');
++          |                                                                                                            ^
++      133 |   const mediaUrl = detail.json.identity_code.media_url;
++      134 |   expect(mediaUrl, 'identity_code.media_url').toMatch(/^\/m\/[0-9a-f-]{36}\.png$/);
++      135 |
++        at mintFixtureCode (/home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:132:108)
++        at /home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:295:20
++
++    Error Context: test-results/marketing-identity-Identit-fc5ec--→-offerReady-source-server-chromium/error-context.md
++
++
++[1A[2K[3/3] [chromium] › tests/marketing-identity.spec.js:337:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
++[1A[2K[2m[WebServer] [22m{"time":"2026-10-05T19:50:27.304292523-04:00","level":"ERROR","msg":"marketing: campaign projection failed; projected_at left NULL","error":"projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)","campaign_id":"f4165cdb-ed73-4abe-8c59-4c8b3918cb49"}
++
++[1A[2K  3) [chromium] › tests/marketing-identity.spec.js:337:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
++
++    Error: an imported subscriber has a code, and nothing has been sent
++
++    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
++
++    Expected: [32m"minted"[39m
++    Received: [31m"not_sent"[39m
++
++      130 |   const detail = await api(page, 'GET', `/api/v1/marketing/subscribers/${subscriberId}`);
++      131 |   expect(detail.status, `GET /subscribers/{id} → ${detail.text}`).toBe(200);
++    > 132 |   expect(detail.json.identity_code.status, 'an imported subscriber has a code, and nothing has been sent').toBe('minted');
++          |                                                                                                            ^
++      133 |   const mediaUrl = detail.json.identity_code.media_url;
++      134 |   expect(mediaUrl, 'identity_code.media_url').toMatch(/^\/m\/[0-9a-f-]{36}\.png$/);
++      135 |
++        at mintFixtureCode (/home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:132:108)
++        at /home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:338:20
++
++    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium/error-context.md
++
++
++[1A[2K  3 failed
++    [chromium] › tests/marketing-identity.spec.js:263:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup's offer and the hash of its own token 
++    [chromium] › tests/marketing-identity.spec.js:294:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-02] ONLINE: the same PNG resolves the server's row for that code → offerReady, source server 
++    [chromium] › tests/marketing-identity.spec.js:337:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
++# exit=1
++
++# The route itself, on the same pre-change binary (hand-started on :8342 against hq_test_e2e_e1_20261006, :5434):
++# $ curl -s -o /dev/null -w '%{http_code} %{content_type}' http://localhost:8342/m/00000000-0000-4000-8000-000000000000.png
++404 text/plain; charset=utf-8
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/repo-hygiene.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/repo-hygiene.log
+new file mode 100644
+index 0000000..a3b0621
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/repo-hygiene.log
+@@ -0,0 +1,5 @@
++# repo-hygiene spec (it guards seam roll-calls and spec counts) on the card's tree, NO retries
++# $ TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test tests/repo-hygiene.spec.js --project=chromium --retries=0 --reporter=line
++Running 5 tests using 1 worker
++  5 passed (2.4m)
++# exit=0
+diff --git a/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/seam-marketing.log b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/seam-marketing.log
+new file mode 100644
+index 0000000..51a9975
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/seam-marketing.log
+@@ -0,0 +1,37 @@
++# marketing seam subset on the card's tree (dev@efcd970 + working tree), NO retries
++# $ TEST_DB_NAME=hq_test_e2e_e1_20261006 TEST_PORT=8341 npx playwright test "marketing" --retries=0 --reporter=line
++Running 132 tests using 1 worker
++[chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer
++IC-03 {"payload_len":214,"medium":{"version":11,"modules":61},"low":{"version":9,"modules":53},"kind":"embeddedOffer","hash":"32116b9c50161a6f888a5814130786120672b5f3358f73b40f2b04105021e37e","source":"embedded"}
++  1) [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
++    Error: Medium/version-11 photo → embeddedOffer
++    expect(received).toContain(expected) // indexOf
++    Expected value: "embeddedOffer"
++    Received array: ["decodeError", "invalidPayload"]
++      382 |     const got = await readResult(page);
++      383 |     console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
++    > 384 |     expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
++          |                                                                                        ^
++      385 |     // Whatever the reader made of it, it never showed an offer under a hash
++      386 |     // that is not this token's.
++      387 |     if (got.hash) expect(got.hash).toBe(sha256Hex(token));
++        at /home/jcole/projects/hq/.night-crew/runs/20261006/worktrees/identity-code-and-qr/tests/marketing-identity.spec.js:384:88
++    Error Context: test-results/marketing-identity-Identit-92008-version-11-renders-no-offer-chromium/error-context.md
++  1 failed
++    [chromium] › tests/marketing-identity.spec.js:362:3 › Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr) › [IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer 
++  131 passed (5.2m)
++# exit=1
++# READING: 132 tests in the seam's eight spec files, 131 passed, 1 failed, no retries.
++#   [IC-01] passed, [IC-02] passed — this run's minted code was a readable one.
++#   [IC-03] FAILED — the Medium / version-11 control WAS read by the shipped scanner and rendered the
++#   offer under the token's own (correct) hash. That is the refutation of the signed premise, not a
++#   regression: see density-probe.log.
++#   Every pre-existing marketing spec passed, including tests/marketing-subscribers.spec.js with its
++#   one assertion moved from "not_sent" to "minted".
++# NOTE for the orchestrator (B-486): this leg rewrote committed PNGs under
++#   .night-crew/runs/2026-10-02-autonomous/logs/h5/states/ as well as h4/states/ — seven files
++#   (04-success, 05-long-content, 06-detail-sheet, 07-empty-filtered, 09-offline-list,
++#   10-offline-sheet, 11-offline-filter-refused). Restored with git checkout; the launch prompt's
++#   restore command names only h4/states/.
++# (An earlier attempt of this leg, started while the full Go suite was running, died with
++#  "Timed out waiting 60000ms from config.webServer" and ran zero tests; this is the re-run.)
+diff --git a/.night-crew/runs/2026-10-06-autonomous/merge-intents/identity-code-and-qr.md b/.night-crew/runs/2026-10-06-autonomous/merge-intents/identity-code-and-qr.md
+new file mode 100644
+index 0000000..346080d
+--- /dev/null
++++ b/.night-crew/runs/2026-10-06-autonomous/merge-intents/identity-code-and-qr.md
+@@ -0,0 +1,147 @@
++# Merge intent — Card 1 (E1) · `identity-code-and-qr`
++
++Run `20261006` · loop-owned branch `night-crew/20261006/identity-code-and-qr` off `dev` at
++`efcd970` · roadmap Activity E card E1 (one permanent identity code per customer, as a QR the
++shipped scanner reads offline and online). Card 2 (`mms-send-on-signup`, the MMS send) builds on
++this card's merged tip. Written before any implementation; the "Facts at the end of the card"
++section at the bottom is appended when the card finishes.
++
++## Shared files touched (outside the card's own packages)
++
++| File | Why |
++|---|---|
++| `backend/internal/marketing/subscribers.go` | Slate-named shared surface. `ImportSubscribers` mints an identity code for every NEW subscriber after its import transaction commits; the import result gains `warnings`; `GET /subscribers/{id}` reports `identity_code.status` as `not_minted / minted / sent` plus `identity_code.media_url`. **Signature change:** `ImportSubscribers(ctx, pool, imp)` → `ImportSubscribers(ctx, d Deps, imp)` — the mint needs the QR base URL and the projection config, and Card 2 needs the sender from the same struct. |
++| `backend/internal/marketing/routes.go` | Slate-named shared surface. `GET` + `HEAD /m/{id}.png` under `MountPublic`, beside `/q/{short}`. |
++| `backend/internal/marketing/projection.go` | Slate-named, this card is the solo owner tonight. Adds `ProjectIdentityCode` beside `ProjectCampaign`. No egress-allowlist change: the file is already on the list for its PostgREST client. |
++| `backend/internal/marketing/subscribers_test.go` | (a) the eight `ImportSubscribers(ctx, pool, …)` call sites take `testDeps(pool)`; (b) ONE assertion moves from `not_sent` to `minted` — an imported subscriber now has a code, and the spec's status set no longer contains `not_sent`. The egress allowlist in this file is NOT edited. |
++| `tests/marketing-subscribers.spec.js` | The same one assertion (`identity_code.status` `not_sent` → `minted`) for the same reason. The on-screen text the spec checks ("not sent yet") is unchanged — `marketing/subscribers.js` treats every status other than `sent` as not sent, and this card does not edit that file (it is Card 2's). |
++| `marketing.html` | Slate-named: ONE line, `#scan-file-surface` 320 → 640 px. Any other diff in this file is not this card's. |
++| `playwright.config.js` | **Outside the slate's footprint table — stated, not a park.** The `webServer` command gains `HQ_FF_FIXTURE_PATH=internal/marketing/sources/testdata/fluentforms_submissions.json` so the e2e stack's `POST /subscribers/import/web-form` reads the committed fixture. The gate says "import the fixture with `HQ_FF_FIXTURE_PATH`"; the variable is read from the SERVER's environment, and without this line `[IC-01]` would pass only when the person launching Playwright remembered to export it — and would red on the orchestrator's full suite. No existing spec drives the web-form route, so nothing else changes behaviour. A stack hand-provisioned behind `NIGHTCREW_ENV_URL` must export the same variable; the spec fails with that sentence if the import answers `503 ff_not_configured`. |
++| `night-crew.toml` | Comment only: the `marketing` seam's roll call moves 7 → 8 (`marketing-identity.spec.js` joins by filename). **No key, no token.** |
++| `.night-crew/knowledge/roadmap.md` | This card's own Activity E line: `PLANNED` → `LANDED` (the orchestrator adds the merge SHA). Append-only otherwise. |
++| `.night-crew/runs/2026-10-06-autonomous/merge-intents/identity-code-and-qr.md` | This note. |
++| `.night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/*` | Red / green / gate logs with commands and exit lines. |
++
++Inside the footprint (new files): `backend/internal/db/migrations/0088_identity_codes.sql`,
++`backend/internal/marketing/identity.go`, `identity_test.go`, `backend/cmd/qrgen/main.go`
++(a small dev/test generator re-homed from the spike's `qrgen.go` — `[IC-03]` needs a
++Medium-correction PNG "generated in-test" and the repo has no Node QR encoder; it is not built
++into the server image, which compiles `./cmd/server` only), `tests/marketing-identity.spec.js`.
++
++**Not touched:** `sw.js` and `version.json` (generated from git HEAD — the orchestrator
++regenerates at the merged HEAD; this card adds and removes no precached file, count stays 51),
++`backend/internal/marketing/helpers_test.go` (Card 2's), `backend/cmd/server/main.go` (Card 2's),
++`marketing/subscribers.js` (Card 2's), `marketing/scanner.js` and `parseEmbeddedOffer` (the reader
++is untouched — the descriptor contract is the shipped one), migrations `0083`–`0087`, anything
++under `.night-crew/qa/`, any `scan_attempts` status or submit-machine pair.
++
++## What must survive any merge
++
++1. **The encoding: `qrcode.New(payload, qrcode.Low)` at 512 px, a 16-character token, date-only
++   `expires_at`.** The spike measured the shipped reader failing on denser symbols; "upgrading" to
++   Medium makes the code unreadable from a photo. `[IC-03]` is the control for exactly this.
++2. **The raw token exists only inside the PNG.** `subscribers.identity_token_hash` holds
++   `hex(sha256(token))`; no log line, event, response body or column carries the token.
++3. **`/m/{id}.png` is mounted by `MountPublic`** (root router, no session) — a customer's phone
++   and, in Card 2, the carrier fetch the image with no HQ login. Moving it under `Mount` breaks
++   both. Its only secret is the unguessable media id.
++4. **The mint happens AFTER the import transaction commits, one subscriber per transaction**, and
++   a projection that is unconfigured or failing never rolls a mint back: the import answers 200
++   with `warnings:["not_projected"]`.
++5. **Identity-only codes (no first-touch campaign) are never projected** and their payload has no
++   `#o=` fragment. Which campaign such a signup is entitled to is an operator question (the
++   card's PARK note); nothing here guesses one.
++6. **`identity_media.subscriber_id … ON DELETE CASCADE`** — deleting a subscriber deletes their
++   image; that is the erasure path.
++7. **Migration number `0088`**, with its Down.
++8. Card 2 extends `ImportSubscribers` AFTER this card's mint loop; the `signed_up` insert path and
++   the `resend_requested` event are unchanged by this card.
++
++## What is safe to drop
++
++`backend/cmd/qrgen/` is safe to drop only together with `[IC-03]` (its one caller). The evidence
++logs are safe to drop in the sense that no suite reads them. Nothing else.
++
++## done_when clauses — stubs and fixtures
++
++**The sender stub is the point tonight (D-KR2), and this card has no sender at all**: it mints,
++renders and projects; nothing is sent, no provider is called, and
++`TestNothingInThisPackageSends` stays green with no allowlist change. Per clause:
++
++| Clause | Rides a stub or fixture? |
++|---|---|
++| `[IC-01]` offline scan of the server-minted PNG → `embeddedOffer` | **Fixture input, real path.** Subscribers come from the committed Fluent Forms fixture (`HQ_FF_FIXTURE_PATH`), never the live website database; the campaign and its code are seeded by SQL on the e2e database (:5434). The mint, the PNG, the public route and the shipped scanner page are all real. No sender involved. |
++| `[IC-02]` the same PNG online → `offerReady`, source `server` | **Stub — the one permitted one.** The server lookup is answered by `page.route` on the sync door's path (the e2e stack has no substrate), returning the row the projection would have written (id = the uuid-v5 of the subscriber id, the campaign, its `ends_at`). The projection itself is NOT exercised here — `TestProjectIdentityCodeUpserts` covers it against a fake PostgREST. No sender involved. |
++| `[IC-03]` negative control (Medium / version 11) | No stub. The PNG is generated in-test by `backend/cmd/qrgen` with the repo's own `go-qrcode`, scanned through the shipped page. |
++| `TestMintIdentityCodeIsIdempotent`, `TestMintIdentityCodeNoFirstTouchIsIdentityOnly` | No stub. Real Postgres on :5434 (`hq_test_go_e1`). Projection deliberately unconfigured in the second. |
++| `TestProjectIdentityCodeUpserts` | **Stub: an `httptest` server standing in for PostgREST** (the slate names this shape). The real substrate is not written to tonight. |
++| `TestMigration0088IdentityCodesDownAndUpRoundTrip` | No stub. `db.MigrateTo` / `db.Migrate` on the package database, restored to HEAD. |
++| `TestNothingInThisPackageSends` | No stub; a source walk. No allowlist change. |
++| G1 build + vet; full Go `-p 1` counts | No stub. |
++| `sw.js` idempotent, count 51; full Playwright suite on the merged tree | **Not this card's legs — the orchestrator's**, at the merged HEAD under the lock. Owed. |
++
++## Facts at the end of the card — 🛑 PARKED, work preserved
++
++**The card is built as specified and reported `halt`.** The Go gates are green; the three
++Playwright gates cannot be honestly reported green, because the measurement they rest on does not
++hold. Nothing above changed except as listed here.
++
++### Why it is parked (the operator's question is in the result contract)
++
++The signed encoding correction says: a Low / QR-version-9 code is read by the shipped scanner from
++a photo, a Medium / version-11 code is not, and widening the scan surface buys headroom. Over 250
++freshly drawn codes (`logs/identity-code-and-qr/density-probe.log`):
++
++| What a crew member photographs | Read | Not read |
++|---|---|---|
++| the card's code (Low, version 9, full offer inside) | 212 of 250 — 85% | about 1 in 7, and the same code fails every time |
++| the "negative control" (Medium, version 11) | 208 of 250 — 83% | — it reads as often as the card's own |
++| a code with no offer inside (identity-only, version 3) | 93/100, 143/150 | about 1 in 17 |
++| same codes, scan surface 320 px vs 640 px vs 1280 px | identical | the SAME codes fail at every width |
++
++So `[IC-03]` as signed is false on most runs, `[IC-01]` / `[IC-02]` pass only when the token just
++minted happens to draw a readable symbol, and the 640 px widening does nothing measurable. No
++decode ever produced another customer's token. The live-camera path was not measured — no gate
++exercises it.
++
++### Changes to the lists above
++
++- **One more shared file:** `backend/internal/marketing/routes_test.go` —
++  `TestMountPublicRegistersOnlyTheLanding` pinned the public surface at exactly two routes; it is
++  now `TestMountPublicRegistersExactlyThePublicSurface` and pins four (`GET`+`HEAD /q/{short}`,
++  `GET`+`HEAD /m/{id}.png`). Card 2's `POST /sms/inbound` will have to be added to it on purpose.
++- **Not done, because the card did not land:** the roadmap line is still `PLANNED`; the
++  `night-crew.toml` roll-call comment is still 7 (the new spec joins the `marketing` seam by
++  filename the moment it is on a branch — whoever lands it moves the comment to 8).
++- **`tests/marketing-identity.spec.js` is left as the signed gates, with a header that says what
++  was measured.** Landing it unchanged puts a mostly-red `[IC-03]` and two one-in-seven-red tests
++  into the suite; with the config's one retry they would mostly pass, which is worse.
++- **Decided at engineer level, for ratification (delegation/P-1):**
++  1. the QR never encodes above version 10 — a long `offer_text` has its embedded label shortened
++     with "…" (the spec says label = `offer_text`; an ordinary offer line is untouched);
++  2. `identity_code.media_url` is a relative path (`/m/<id>.png`), like `png_url` on a campaign
++     code; Card 2 will need to prefix a public host for the carrier;
++  3. `expires_at` in the QR is the campaign's end date in UTC;
++  4. an import whose new subscriber could not be minted answers 200 with a second warning,
++     `identity_not_minted` (the spec names only `not_projected`);
++  5. `not_projected` is reported only when a code that HAS a campaign was not projected; after the
++     first projection failure in one import the rest are skipped, not retried one by one;
++  6. the uuid-v5 name is `https://hq.yumyums.kitchen/identity-code/<subscriber id>` in the RFC URL
++     namespace; the token alphabet has 31 symbols (the spec's string), about 79 bits.
++- **Known gap, not in the spec:** a code that was minted but not projected is never projected
++  again (no column records it, and only NEW subscribers are minted on import). Subscribers who
++  existed before migration 0088 get no code from any path in this card.
++
++### What was run on this tree (logs under `logs/identity-code-and-qr/`)
++
++| Leg | Observed |
++|---|---|
++| Red-first, Go (`red-go.log`) | build failure on the pre-change tree — every named symbol undefined; exit 1 |
++| Red-first, Playwright (`red-playwright.log`) | 3 failed (`identity_code.status` was `not_sent`); the pre-change binary answers `GET /m/<uuid>.png` with 404; exit 1 |
++| Named Go tests (`green-go.log`) | 9 of 9 pass, exit 0; the egress allowlist is not in the diff |
++| `go build ./... && go vet ./...` (`g1-build-vet.log`) | exit 0 |
++| Full Go suite, `-p 1`, under the lock (`go-full.log`) | 15 packages `ok`; 463 top-level tests pass, 0 fail, 3 skip (all three are opt-in live-substrate legs); `TestRowVisibilityRLS` pass |
++| `marketing` seam subset, no retries (`seam-marketing.log`) | 132 tests: 131 pass, 1 fail — `[IC-03]`, because the Medium control was READ |
++| `tests/repo-hygiene.spec.js` (`repo-hygiene.log`) | 5 of 5 pass |
++| Decode-rate measurement (`density-probe.log`, script beside it) | the table above |
++| NOT run (the orchestrator's): the full Playwright suite; `sw.js` regeneration and the precache count | owed |
+diff --git a/backend/cmd/qrgen/main.go b/backend/cmd/qrgen/main.go
+new file mode 100644
+index 0000000..e5490db
+--- /dev/null
++++ b/backend/cmd/qrgen/main.go
+@@ -0,0 +1,59 @@
++// qrgen draws one QR PNG with the same library the server mints identity codes
++// with (go-qrcode), at a chosen error-correction level, and reports the QR
++// version it came out at.
++//
++// It is a TEST TOOL, not part of the server: tests/marketing-identity.spec.js
++// [IC-03] uses it to draw the negative control — an identity payload at Medium
++// correction, which the shipped scanner cannot read off a photo — and to check
++// that the server's own PNG is the Low/512 drawing of its payload. The server
++// image builds ./cmd/server only.
++//
++//	go run ./cmd/qrgen <payload> <out.png> <size-px> <L|M|Q|H>
++//
++// Prints one line: version=<n> modules=<n> bytes=<n> payload_len=<n> level=<x>
++// (modules excludes the 4-module quiet zone on each side).
++package main
++
++import (
++	"fmt"
++	"os"
++	"strconv"
++
++	qrcode "github.com/skip2/go-qrcode"
++)
++
++func main() {
++	if len(os.Args) != 5 {
++		fmt.Fprintln(os.Stderr, "usage: qrgen <payload> <out.png> <size-px> <L|M|Q|H>")
++		os.Exit(2)
++	}
++	payload, out := os.Args[1], os.Args[2]
++	size, err := strconv.Atoi(os.Args[3])
++	if err != nil || size <= 0 {
++		fmt.Fprintln(os.Stderr, "bad size")
++		os.Exit(2)
++	}
++	level, ok := map[string]qrcode.RecoveryLevel{
++		"L": qrcode.Low, "M": qrcode.Medium, "Q": qrcode.High, "H": qrcode.Highest,
++	}[os.Args[4]]
++	if !ok {
++		fmt.Fprintln(os.Stderr, "bad level (want L, M, Q or H)")
++		os.Exit(2)
++	}
++	q, err := qrcode.New(payload, level)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "encode:", err)
++		os.Exit(1)
++	}
++	png, err := q.PNG(size)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "png:", err)
++		os.Exit(1)
++	}
++	if err := os.WriteFile(out, png, 0o644); err != nil {
++		fmt.Fprintln(os.Stderr, "write:", err)
++		os.Exit(1)
++	}
++	fmt.Printf("version=%d modules=%d bytes=%d payload_len=%d level=%s\n",
++		q.VersionNumber, len(q.Bitmap())-8, len(png), len(payload), os.Args[4])
++}
+diff --git a/backend/internal/db/migrations/0088_identity_codes.sql b/backend/internal/db/migrations/0088_identity_codes.sql
+new file mode 100644
+index 0000000..a252fbc
+--- /dev/null
++++ b/backend/internal/db/migrations/0088_identity_codes.sql
+@@ -0,0 +1,59 @@
++-- +goose Up
++BEGIN;
++
++-- ===========================================================================
++-- 0088 — one permanent identity code per customer (card E1
++-- `identity-code-and-qr`, roadmap Activity E, run 20261006).
++--
++-- A subscriber gets ONE code, minted once and never rotated by an import
++-- (internal/marketing/identity.go MintIdentityCode). Three things are stored:
++--
++--   subscribers.identity_token_hash  hex(sha256(token)) — what the truck's
++--                                    scanner computes on-device from the QR and
++--                                    what the arbiter's `codes` table is keyed
++--                                    by. UNIQUE: two customers can never share
++--                                    a code. NULL until minted.
++--   subscribers.identity_minted_at   when.
++--   identity_media                   the scannable PNG itself, served at the
++--                                    public GET /m/{id}.png.
++--
++-- 🛑 THE RAW TOKEN IS IN NO COLUMN. It exists only inside the PNG's QR symbol.
++-- The hash cannot be turned back into a code; the image can be scanned. That
++-- is why the image row hangs off the subscriber with ON DELETE CASCADE: a
++-- right-to-erasure delete of the subscriber (0086 made that one statement)
++-- takes the scannable image with it, and nothing else in HQ can re-create it.
++--
++-- identity_media.id is a random uuid and is the route's ONLY secret — the
++-- route is public because a customer's phone, and the carrier fetching an MMS
++-- attachment, hold no HQ session.
++-- ===========================================================================
++
++alter table subscribers
++  add column identity_token_hash text unique null,
++  add column identity_minted_at  timestamptz null;
++
++create table identity_media (
++  id            uuid primary key default gen_random_uuid(),
++  subscriber_id uuid not null references subscribers(id) on delete cascade,
++  png           bytea not null,
++  created_at    timestamptz not null default now()
++);
++
++-- The detail sheet and the mint's idempotent arm both read "this subscriber's
++-- image"; without the index that is a scan of every stored PNG row.
++create index identity_media_subscriber_idx on identity_media (subscriber_id);
++
++COMMIT;
++
++-- +goose Down
++BEGIN;
++-- Reverse order: the image table, then the two columns (the unique constraint
++-- goes with its column). 🛑 This DESTROYS every minted code: the hashes and the
++-- images are gone and a re-apply mints NEW tokens, so a QR already on a
++-- customer's phone stops resolving. Roll the image back with the schema, and
++-- only before codes have been sent.
++DROP TABLE IF EXISTS identity_media;
++ALTER TABLE subscribers
++  DROP COLUMN IF EXISTS identity_minted_at,
++  DROP COLUMN IF EXISTS identity_token_hash;
++COMMIT;
+diff --git a/backend/internal/marketing/identity.go b/backend/internal/marketing/identity.go
+new file mode 100644
+index 0000000..fd2c793
+--- /dev/null
++++ b/backend/internal/marketing/identity.go
+@@ -0,0 +1,422 @@
++package marketing
++
++// identity.go — card E1 (`identity-code-and-qr`, roadmap Activity E, run
++// 20261006). One permanent identity code per customer.
++//
++// What a customer holds is ONE QR image. Photographed at the truck:
++//
++//   - with no signal, on a tablet that has never synced this customer, the
++//     scanner shows the offer they signed up for — it is written INTO the QR;
++//   - with signal, the scanner asks the server about the code and shows the
++//     server's answer instead.
++//
++// This file mints the code, draws the image and serves it. It sends nothing:
++// delivering the image to the customer is card `mms-send-on-signup`.
++//
++// ═══════════════════════════════════════════════════════════════════════════
++// 🛑 THREE THINGS THAT LOOK IMPROVABLE AND ARE NOT
++//
++//  1. LOW ERROR CORRECTION, A 16-CHARACTER TOKEN, A DATE-ONLY EXPIRY. The
++//     shipped scanner reads a photo of the code, and what it can read is
++//     bounded by how DENSE the symbol is, not by how large the image is. The
++//     signed spike measured it: this encoding (QR version 9) reads; the same
++//     payload at Medium (version 11) does not, at any pixel size, and one
++//     larger copy decoded to a corrupted payload. "Upgrading" to Medium makes
++//     every customer's code unreadable. tests/marketing-identity.spec.js
++//     [IC-03] is the control. Low is acceptable because the image lives on a
++//     phone screen, never on a weathered sign.
++//
++//  2. THE RAW TOKEN IS STORED NOWHERE. It exists only inside the PNG's QR
++//     symbol. HQ keeps hex(sha256(token)) — what the scanner computes on-device
++//     and what the arbiter's `codes` table is keyed by. Nothing here logs the
++//     token, returns it, or writes it to a column.
++//
++//  3. NO FIRST-TOUCH CODE → NO OFFER. A signup that did not come through a
++//     campaign's QR gets a code that says who they are and nothing else: no
++//     `#o=` fragment, and no entitlement row is projected. Which campaign such
++//     a signup is entitled to is an OPERATOR decision (the card's PARK note);
++//     this file never guesses one.
++// ═══════════════════════════════════════════════════════════════════════════
++
++import (
++	"context"
++	"crypto/rand"
++	"crypto/sha1"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"log/slog"
++	"net/http"
++	"os"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/go-chi/chi/v5"
++	"github.com/jackc/pgx/v5"
++	qrcode "github.com/skip2/go-qrcode"
++)
++
++// identityAlphabet is the token alphabet: digits and lower-case letters with
++// 0, 1, i, l and o removed, so a token read aloud or retyped cannot be
++// mistaken. 31 symbols × 16 characters is a little over 79 bits.
++const identityAlphabet = "23456789abcdefghjkmnpqrstuvwxyz"
++
++// identityTokenLen is fixed by the signed encoding (see the file comment).
++const identityTokenLen = 16
++
++// identityPNGSize is the stored image's edge in pixels.
++const identityPNGSize = 512
++
++// identityMaxQRVersion is the densest symbol the shipped reader was MEASURED
++// to read from a photo (spike 01's variant table: versions 9 and 10 read,
++// version 11 did not). A payload that would encode above it has its embedded
++// label shortened — see buildIdentityQR.
++const identityMaxQRVersion = 10
++
++// defaultIdentityRand is the token's entropy source; identityRand is the
++// variable the mint reads, so a test can hand it a fixed stream and know the
++// token without it ever having been stored.
++var (
++	defaultIdentityRand io.Reader = rand.Reader
++	identityRand                  = defaultIdentityRand
++)
++
++// ErrSubscriberNotFound is returned by the mint for an id that names nobody.
++var ErrSubscriberNotFound = errors.New("marketing: subscriber not found")
++
++// IdentityCode is what a mint reports. It carries no token and no payload.
++type IdentityCode struct {
++	SubscriberID string
++	TokenHash    string
++	// MediaID is the identity_media row holding the PNG — GET /m/{MediaID}.png.
++	MediaID string
++	// CampaignID and ExpiresAt describe the first-touch campaign the code's
++	// entitlement comes from. Both are zero for an identity-only code.
++	CampaignID string
++	ExpiresAt  time.Time
++	// Minted is false when the subscriber already had a code and it was
++	// returned unchanged.
++	Minted bool
++}
++
++// identityDescriptor is the offer written into the QR. The four keys, and
++// their ORDER, are the ones the shipped reader's parseEmbeddedOffer reads
++// (marketing/scanner.js) — the descriptor contract is not this card's to
++// change.
++type identityDescriptor struct {
++	Label      string  `json:"label"`
++	CampaignID string  `json:"campaign_id"`
++	ExpiresAt  string  `json:"expires_at"`
++	FaceValue  float64 `json:"face_value"`
++}
++
++// newIdentityToken draws identityTokenLen characters from identityAlphabet.
++// Bytes at or above the largest multiple of 31 are discarded rather than
++// folded, so every symbol is equally likely.
++func newIdentityToken(r io.Reader) (string, error) {
++	const n = len(identityAlphabet)
++	limit := byte(256 - 256%n)
++	out := make([]byte, 0, identityTokenLen)
++	buf := make([]byte, 1)
++	for len(out) < identityTokenLen {
++		if _, err := io.ReadFull(r, buf); err != nil {
++			return "", fmt.Errorf("read entropy: %w", err)
++		}
++		if buf[0] >= limit {
++			continue
++		}
++		out = append(out, identityAlphabet[int(buf[0])%n])
++	}
++	return string(out), nil
++}
++
++func identityTokenHash(token string) string {
++	sum := sha256.Sum256([]byte(token))
++	return hex.EncodeToString(sum[:])
++}
++
++// identityPayload is the text the QR encodes: the URL wrapping the token, plus
++// — only when there is an offer — the descriptor as base64url JSON in the
++// FRAGMENT, so a customer who opens the URL on their own phone never sends the
++// descriptor to any server.
++func identityPayload(baseURL, token string, d *identityDescriptor) (string, error) {
++	payload := strings.TrimRight(baseURL, "/") + "/r/" + token
++	if d == nil {
++		return payload, nil
++	}
++	raw, err := json.Marshal(d)
++	if err != nil {
++		return "", fmt.Errorf("marshal descriptor: %w", err)
++	}
++	return payload + "#o=" + base64.RawURLEncoding.EncodeToString(raw), nil
++}
++
++// buildIdentityQR draws the PNG at the signed encoding.
++//
++// A campaign with a long offer line would otherwise push the symbol past the
++// densest version the shipped reader was measured to read. When that happens
++// the LABEL written into the QR is shortened, one character at a time, to the
++// longest prefix that fits, and ends in "…". Nothing else gives: the token,
++// the campaign id, the expiry and the correction level are untouched, and the
++// full offer text is still what the server answers with online. An ordinary
++// offer line ("Free side of wings", "$2 off any 6pc wings") is never touched.
++func buildIdentityQR(baseURL, token string, d *identityDescriptor) ([]byte, error) {
++	encode := func(desc *identityDescriptor) (*qrcode.QRCode, error) {
++		payload, err := identityPayload(baseURL, token, desc)
++		if err != nil {
++			return nil, err
++		}
++		return qrcode.New(payload, qrcode.Low)
++	}
++	q, err := encode(d)
++	if d != nil {
++		full := []rune(d.Label)
++		for n := len(full) - 1; n >= 1 && (err != nil || q.VersionNumber > identityMaxQRVersion); n-- {
++			short := *d
++			short.Label = strings.TrimRight(string(full[:n]), " ") + "…"
++			q, err = encode(&short)
++		}
++	}
++	if err != nil {
++		return nil, fmt.Errorf("encode identity qr: %w", err)
++	}
++	png, err := q.PNG(identityPNGSize)
++	if err != nil {
++		return nil, fmt.Errorf("render identity qr: %w", err)
++	}
++	return png, nil
++}
++
++// identityBaseURL resolves the host the QR encodes the way NewDeps does, for
++// callers that hold no Deps.
++func identityBaseURL() string {
++	if v := strings.TrimRight(os.Getenv(QRBaseURLEnv), "/"); v != "" {
++		return v
++	}
++	return DefaultQRBaseURL
++}
++
++// MintIdentityCode gives a subscriber their one permanent identity code.
++//
++// It is IDEMPOTENT: a subscriber who already has a code gets that code back,
++// unchanged, and Minted is false. The subscriber row is locked for the mint, so
++// two concurrent calls cannot both draw a token.
++//
++// The offer written into the QR is the subscriber's FIRST-TOUCH campaign
++// (source_short → qr_codes.campaign_id → campaigns_admin). With no first-touch
++// code the payload is the bare URL and CampaignID is empty.
++//
++// It writes inside the caller's transaction and reaches no network.
++func MintIdentityCode(ctx context.Context, tx pgx.Tx, subscriberID string) (IdentityCode, error) {
++	return mintIdentityCode(ctx, tx, subscriberID, identityBaseURL())
++}
++
++func mintIdentityCode(ctx context.Context, tx pgx.Tx, subscriberID, baseURL string) (IdentityCode, error) {
++	var (
++		existing   *string
++		campaignID *string
++		offerText  *string
++		faceCents  *int
++		endsAt     *time.Time
++	)
++	err := tx.QueryRow(ctx, `
++		SELECT s.identity_token_hash, c.id::text, c.offer_text, c.face_value_cents, c.ends_at
++		  FROM subscribers s
++		  LEFT JOIN qr_codes k ON k.short = s.source_short
++		  LEFT JOIN campaigns_admin c ON c.id = k.campaign_id
++		 WHERE s.id = $1
++		   FOR UPDATE OF s`, subscriberID).
++		Scan(&existing, &campaignID, &offerText, &faceCents, &endsAt)
++	if errors.Is(err, pgx.ErrNoRows) || isBadUUID(err) {
++		return IdentityCode{}, ErrSubscriberNotFound
++	}
++	if err != nil {
++		return IdentityCode{}, fmt.Errorf("load subscriber for mint: %w", err)
++	}
++
++	code := IdentityCode{SubscriberID: subscriberID}
++	var desc *identityDescriptor
++	if campaignID != nil {
++		code.CampaignID = *campaignID
++		code.ExpiresAt = *endsAt
++		desc = &identityDescriptor{
++			Label:      *offerText,
++			CampaignID: *campaignID,
++			// Date-only, in UTC: the reader parses a bare date as UTC midnight,
++			// so the offline display never outlives the campaign's real end.
++			ExpiresAt: endsAt.UTC().Format("2006-01-02"),
++			FaceValue: float64(*faceCents) / 100.0,
++		}
++	}
++
++	if existing != nil {
++		code.TokenHash = *existing
++		if err := tx.QueryRow(ctx, `
++			SELECT id::text FROM identity_media
++			 WHERE subscriber_id = $1 ORDER BY created_at DESC, id LIMIT 1`, subscriberID).
++			Scan(&code.MediaID); err != nil {
++			return IdentityCode{}, fmt.Errorf("load identity media: %w", err)
++		}
++		return code, nil
++	}
++
++	token, err := newIdentityToken(identityRand)
++	if err != nil {
++		return IdentityCode{}, err
++	}
++	png, err := buildIdentityQR(baseURL, token, desc)
++	if err != nil {
++		return IdentityCode{}, err
++	}
++	code.TokenHash = identityTokenHash(token)
++	if _, err := tx.Exec(ctx, `
++		UPDATE subscribers SET identity_token_hash = $2, identity_minted_at = now()
++		 WHERE id = $1`, subscriberID, code.TokenHash); err != nil {
++		return IdentityCode{}, fmt.Errorf("store identity hash: %w", err)
++	}
++	if err := tx.QueryRow(ctx, `
++		INSERT INTO identity_media (subscriber_id, png) VALUES ($1, $2)
++		RETURNING id::text`, subscriberID, png).Scan(&code.MediaID); err != nil {
++		return IdentityCode{}, fmt.Errorf("store identity media: %w", err)
++	}
++	code.Minted = true
++	return code, nil
++}
++
++// identityCodeNamespace is RFC 4122's URL namespace.
++var identityCodeNamespace = [16]byte{
++	0x6b, 0xa7, 0xb8, 0x11, 0x9d, 0xad, 0x11, 0xd1,
++	0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
++}
++
++// IdentityCodeID is the arbiter row's id for a subscriber's identity code: a
++// version-5 uuid over a URL naming the subscriber. It is derived, not drawn,
++// so projecting the same subscriber twice writes the same row.
++//
++// tests/marketing-identity.spec.js derives it the same way; change both or
++// neither. Changing it at all orphans every row already projected.
++func IdentityCodeID(subscriberID string) string {
++	h := sha1.New()
++	h.Write(identityCodeNamespace[:])
++	h.Write([]byte(DefaultQRBaseURL + "/identity-code/" + strings.ToLower(subscriberID)))
++	u := h.Sum(nil)[:16]
++	u[6] = (u[6] & 0x0f) | 0x50 // version 5
++	u[8] = (u[8] & 0x3f) | 0x80 // RFC 4122 variant
++	x := hex.EncodeToString(u)
++	return x[0:8] + "-" + x[8:12] + "-" + x[12:16] + "-" + x[16:20] + "-" + x[20:]
++}
++
++// WarningIdentityNotMinted is reported by an import when a new subscriber was
++// saved but their code could not be minted. The subscriber is kept.
++const WarningIdentityNotMinted = "identity_not_minted"
++
++// mintForNewSubscribers runs after an import's transaction has committed: one
++// short transaction per new subscriber, then — for a code that carries an
++// offer — the projection to the arbiter.
++//
++// Nothing here can undo the import or a mint. A projection that is
++// unconfigured or failing leaves the code minted and adds "not_projected" to
++// the returned warnings (decision 187's shape); after the first failure the
++// rest of this import's projections are skipped rather than each waiting out
++// a dead substrate inside one manager's request.
++func mintForNewSubscribers(ctx context.Context, d Deps, subscriberIDs []string) []string {
++	var notMinted, notProjected bool
++	projectionDown := !d.Projection.Configured()
++	for _, id := range subscriberIDs {
++		code, err := mintOne(ctx, d, id)
++		if err != nil {
++			slog.Error("marketing: identity code not minted; the subscriber is saved without one",
++				"error", err, "subscriber_id", id)
++			notMinted = true
++			continue
++		}
++		if code.CampaignID == "" {
++			continue // identity-only: there is no entitlement to project
++		}
++		if projectionDown {
++			notProjected = true
++			continue
++		}
++		if err := ProjectIdentityCode(ctx, d.Projection, IdentityProjectionRow{
++			ID:         IdentityCodeID(id),
++			TokenHash:  code.TokenHash,
++			CampaignID: code.CampaignID,
++			ExpiresAt:  code.ExpiresAt,
++		}); err != nil {
++			slog.Error("marketing: identity code projection failed; the code is minted but the arbiter does not know it",
++				"error", err, "subscriber_id", id)
++			notProjected = true
++			projectionDown = true
++		}
++	}
++	var warnings []string
++	if notProjected {
++		warnings = append(warnings, WarningNotProjected)
++	}
++	if notMinted {
++		warnings = append(warnings, WarningIdentityNotMinted)
++	}
++	return warnings
++}
++
++func mintOne(ctx context.Context, d Deps, subscriberID string) (IdentityCode, error) {
++	tx, err := d.Pool.Begin(ctx)
++	if err != nil {
++		return IdentityCode{}, err
++	}
++	defer func() { _ = tx.Rollback(ctx) }()
++	code, err := mintIdentityCode(ctx, tx, subscriberID, d.QRBaseURL)
++	if err != nil {
++		return IdentityCode{}, err
++	}
++	if err := tx.Commit(ctx); err != nil {
++		return IdentityCode{}, err
++	}
++	return code, nil
++}
++
++// identityMediaPath is the public path of a stored identity image.
++func identityMediaPath(mediaID string) string {
++	return "/m/" + mediaID + ".png"
++}
++
++// IdentityMediaHandler serves GET and HEAD /m/{id}.png: a subscriber's
++// identity-code image.
++//
++// It is PUBLIC — mounted by MountPublic, outside every gate — because the two
++// things that fetch it hold no HQ session: the customer's phone, and the
++// carrier collecting an MMS attachment. The media id is a random uuid and is
++// the route's only secret, so an unknown id and a malformed id are the same
++// 404.
++//
++// Cache-Control is PRIVATE: the image identifies one person and must not sit
++// in a shared cache.
++func IdentityMediaHandler(d Deps) http.HandlerFunc {
++	return func(w http.ResponseWriter, r *http.Request) {
++		id := chi.URLParam(r, "id")
++		var png []byte
++		err := d.Pool.QueryRow(r.Context(),
++			`SELECT png FROM identity_media WHERE id = $1`, id).Scan(&png)
++		if errors.Is(err, pgx.ErrNoRows) || isBadUUID(err) {
++			writeError(w, http.StatusNotFound, "not_found")
++			return
++		}
++		if err != nil {
++			slog.Error("marketing: load identity media", "error", err)
++			writeError(w, http.StatusInternalServerError, "internal_error")
++			return
++		}
++		w.Header().Set("Content-Type", "image/png")
++		w.Header().Set("Cache-Control", "private, max-age=3600")
++		w.Header().Set("Content-Length", strconv.Itoa(len(png)))
++		w.WriteHeader(http.StatusOK)
++		if r.Method != http.MethodHead {
++			_, _ = w.Write(png)
++		}
++	}
++}
+diff --git a/backend/internal/marketing/identity_test.go b/backend/internal/marketing/identity_test.go
+new file mode 100644
+index 0000000..3c10f55
+--- /dev/null
++++ b/backend/internal/marketing/identity_test.go
+@@ -0,0 +1,791 @@
++package marketing
++
++// identity_test.go — card E1 (`identity-code-and-qr`, roadmap Activity E).
++//
++// The five named gates, and three that ride with them:
++//
++//	TestMintIdentityCodeIsIdempotent                  one code per customer, for good
++//	TestMintIdentityCodeNoFirstTouchIsIdentityOnly    no campaign → no offer in the QR, nothing projected
++//	TestProjectIdentityCodeUpserts                    the arbiter row, and a failed projection keeps the mint
++//	TestMigration0088IdentityCodesDownAndUpRoundTrip  0088's Down, run
++//	(TestNothingInThisPackageSends is subscribers_test.go's, unedited)
++//
++//	TestIdentityMediaRouteIsPublicPNG                 GET/HEAD /m/{id}.png
++//	TestSubscriberDetailReportsIdentityCodeStatus     not_minted → minted → sent
++//	TestIdentityCodeLongOfferTextStaysScannable       a long offer never produces a denser symbol
++//
++// 🛑 No test here learns a token from the database — there is none there. The
++// token is fixed by handing the mint a known random stream (withIdentityRand),
++// and every claim about the QR is made by re-encoding the expected payload and
++// comparing it to the stored PNG byte for byte.
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"strconv"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/go-chi/chi/v5"
++	"github.com/jackc/pgx/v5/pgxpool"
++	qrcode "github.com/skip2/go-qrcode"
++	"github.com/yumyums/hq/internal/db"
++)
++
++// withIdentityRand swaps the mint's random source for a fixed stream and
++// returns the token that stream produces, so a test knows the token without it
++// ever having been stored.
++func withIdentityRand(t *testing.T, seed byte) string {
++	t.Helper()
++	stream := make([]byte, 256)
++	for i := range stream {
++		stream[i] = seed + byte(i*7)
++	}
++	token, err := newIdentityToken(bytes.NewReader(stream))
++	if err != nil {
++		t.Fatalf("newIdentityToken on the fixed stream: %v", err)
++	}
++	prev := identityRand
++	identityRand = bytes.NewReader(stream)
++	t.Cleanup(func() { identityRand = prev })
++	return token
++}
++
++func sha256Hex(s string) string {
++	sum := sha256.Sum256([]byte(s))
++	return hex.EncodeToString(sum[:])
++}
++
++// seedFirstTouchCampaign creates a campaign through the real route and
++// re-points its first code's short, returning the campaign.
++func seedFirstTouchCampaign(t *testing.T, pool *pgxpool.Pool, mux *chi.Mux, short, offerText string, cents int) campaignDTO {
++	t.Helper()
++	mgr := seedUser(t, pool, "manager")
++	created := createCampaign(t, mux, mgr, map[string]any{
++		"name": "Wing Wednesday " + randSuffix(t), "offer_text": offerText,
++		"face_value_cents": cents, "runs_days": 14,
++		"channels": []map[string]any{{"channel": "flyer"}},
++	})
++	if _, err := pool.Exec(context.Background(),
++		`UPDATE qr_codes SET short = $2 WHERE id = $1`, created.Codes[0].ID, short); err != nil {
++		t.Fatalf("re-point the code's short: %v", err)
++	}
++	return created.Campaign
++}
++
++// seedSubscriber inserts one subscriber directly; short "" means no first touch.
++func seedSubscriber(t *testing.T, pool *pgxpool.Pool, short string) string {
++	t.Helper()
++	var id string
++	if err := pool.QueryRow(context.Background(), `
++		INSERT INTO subscribers (display_name, email, source, source_short, joined_at)
++		VALUES ('Identity Test', $1, 'web_form', NULLIF($2,''), now())
++		RETURNING id::text`,
++		"ic-"+randSuffix(t)+"@test.invalid", short).Scan(&id); err != nil {
++		t.Fatalf("seedSubscriber: %v", err)
++	}
++	return id
++}
++
++// mintInTx runs MintIdentityCode in its own committed transaction.
++func mintInTx(t *testing.T, pool *pgxpool.Pool, subID string) IdentityCode {
++	t.Helper()
++	ctx := context.Background()
++	tx, err := pool.Begin(ctx)
++	if err != nil {
++		t.Fatalf("begin: %v", err)
++	}
++	defer func() { _ = tx.Rollback(ctx) }()
++	code, err := MintIdentityCode(ctx, tx, subID)
++	if err != nil {
++		t.Fatalf("MintIdentityCode: %v", err)
++	}
++	if err := tx.Commit(ctx); err != nil {
++		t.Fatalf("commit: %v", err)
++	}
++	return code
++}
++
++func storedPNG(t *testing.T, pool *pgxpool.Pool, mediaID string) []byte {
++	t.Helper()
++	var png []byte
++	if err := pool.QueryRow(context.Background(),
++		`SELECT png FROM identity_media WHERE id = $1`, mediaID).Scan(&png); err != nil {
++		t.Fatalf("read identity_media %s: %v", mediaID, err)
++	}
++	return png
++}
++
++// encodeAsTheCardDoes is the spec's encoding, restated independently of the
++// code under test: Low correction, 512 px.
++func encodeAsTheCardDoes(t *testing.T, payload string) (png []byte, version int) {
++	t.Helper()
++	q, err := qrcode.New(payload, qrcode.Low)
++	if err != nil {
++		t.Fatalf("encode %q: %v", payload, err)
++	}
++	png, err = q.PNG(512)
++	if err != nil {
++		t.Fatalf("png: %v", err)
++	}
++	return png, q.VersionNumber
++}
++
++func descriptorFragment(t *testing.T, label, campaignID, expires string, faceValue float64) string {
++	t.Helper()
++	// Key ORDER is part of the byte-for-byte comparison, so this is a struct
++	// and not a map.
++	raw, err := json.Marshal(struct {
++		Label      string  `json:"label"`
++		CampaignID string  `json:"campaign_id"`
++		ExpiresAt  string  `json:"expires_at"`
++		FaceValue  float64 `json:"face_value"`
++	}{label, campaignID, expires, faceValue})
++	if err != nil {
++		t.Fatalf("marshal descriptor: %v", err)
++	}
++	return "#o=" + base64.RawURLEncoding.EncodeToString(raw)
++}
++
++// A customer gets one code and keeps it: minting twice — and importing twice —
++// leaves the same hash, the same image and one image row.
++func TestMintIdentityCodeIsIdempotent(t *testing.T) {
++	pool := setupSubsTestDB(t)
++	ctx := context.Background()
++	d := testDeps(pool)
++	camp := seedFirstTouchCampaign(t, pool, mountedMux(d), "K7MNPQ", "Free side of wings", 200)
++	subID := seedSubscriber(t, pool, "K7MNPQ")
++
++	token := withIdentityRand(t, 3)
++	if len(token) != 16 {
++		t.Fatalf("token %q is %d chars, want 16", token, len(token))
++	}
++	for _, r := range token {
++		if !strings.ContainsRune("23456789abcdefghjkmnpqrstuvwxyz", r) {
++			t.Fatalf("token %q carries %q, which is outside the alphabet", token, r)
++		}
++	}
++
++	first := mintInTx(t, pool, subID)
++	if !first.Minted {
++		t.Error("first mint reported Minted=false")
++	}
++	if first.TokenHash != sha256Hex(token) {
++		t.Fatalf("token_hash = %s, want hex(sha256(token)) = %s", first.TokenHash, sha256Hex(token))
++	}
++	if first.CampaignID != camp.ID {
++		t.Errorf("CampaignID = %q, want the first-touch campaign %q", first.CampaignID, camp.ID)
++	}
++	if !first.ExpiresAt.Equal(camp.EndsAt) {
++		t.Errorf("ExpiresAt = %s, want the campaign's ends_at %s", first.ExpiresAt, camp.EndsAt)
++	}
++
++	var storedHash string
++	var mintedAt *time.Time
++	if err := pool.QueryRow(ctx,
++		`SELECT identity_token_hash, identity_minted_at FROM subscribers WHERE id = $1`, subID).
++		Scan(&storedHash, &mintedAt); err != nil {
++		t.Fatalf("read the subscriber: %v", err)
++	}
++	if storedHash != first.TokenHash || mintedAt == nil {
++		t.Fatalf("subscriber row holds hash %q / minted_at %v, want %q and a timestamp", storedHash, mintedAt, first.TokenHash)
++	}
++
++	// The stored image IS the spec's payload at the spec's encoding.
++	wantPayload := DefaultQRBaseURL + "/r/" + token +
++		descriptorFragment(t, "Free side of wings", camp.ID, camp.EndsAt.UTC().Format("2006-01-02"), 2)
++	wantPNG, version := encodeAsTheCardDoes(t, wantPayload)
++	png := storedPNG(t, pool, first.MediaID)
++	if !bytes.Equal(png, wantPNG) {
++		t.Fatalf("stored PNG is not qrcode.New(%q, Low).PNG(512)", wantPayload)
++	}
++	if version > 10 {
++		t.Errorf("the card's payload encodes at version %d; the shipped reader was measured to version 10", version)
++	}
++	t.Logf("payload %d chars, QR version %d at Low", len(wantPayload), version)
++
++	// 🛑 The raw token is in no row.
++	for _, q := range []string{
++		`SELECT count(*) FROM subscribers s WHERE to_jsonb(s)::text LIKE '%' || $1 || '%'`,
++		`SELECT count(*) FROM subscriber_events e WHERE to_jsonb(e)::text LIKE '%' || $1 || '%'`,
++	} {
++		if n := countRows(t, pool, q, token); n != 0 {
++			t.Errorf("the raw token appears in %d row(s): %s", n, q)
++		}
++	}
++
++	// Mint again with a DIFFERENT random stream: nothing may move.
++	withIdentityRand(t, 91)
++	second := mintInTx(t, pool, subID)
++	if second.Minted {
++		t.Error("second mint reported Minted=true — it must return the existing code")
++	}
++	if second.TokenHash != first.TokenHash || second.MediaID != first.MediaID {
++		t.Fatalf("second mint = hash %s / media %s, want the first's %s / %s",
++			second.TokenHash, second.MediaID, first.TokenHash, first.MediaID)
++	}
++	if second.CampaignID != first.CampaignID || !second.ExpiresAt.Equal(first.ExpiresAt) {
++		t.Errorf("second mint's campaign/expiry = %q/%s, want %q/%s",
++			second.CampaignID, second.ExpiresAt, first.CampaignID, first.ExpiresAt)
++	}
++	if n := countRows(t, pool, `SELECT count(*) FROM identity_media WHERE subscriber_id = $1`, subID); n != 1 {
++		t.Fatalf("identity_media rows = %d, want 1", n)
++	}
++	if !bytes.Equal(storedPNG(t, pool, first.MediaID), wantPNG) {
++		t.Fatal("the stored PNG changed on the second mint")
++	}
++
++	// And through the import: every NEW subscriber is minted, a re-import
++	// mints nobody and rotates nothing. The real random source goes back first:
++	// two subscribers minted from one fixed stream would collide on the unique
++	// hash, which is the constraint doing its job, not the behaviour under test.
++	identityRand = defaultIdentityRand
++	res, err := ImportSubscribers(ctx, d, ffImporter(t))
++	if err != nil {
++		t.Fatalf("first import: %v", err)
++	}
++	if res.Created != 4 {
++		t.Fatalf("first import created %d, want 4", res.Created)
++	}
++	before := identityHashes(t, pool)
++	if len(before) != 5 { // the four imported + the one seeded above
++		t.Fatalf("%d subscribers carry a code after the import, want 5: %v", len(before), before)
++	}
++	if _, err := ImportSubscribers(ctx, d, ffImporter(t)); err != nil {
++		t.Fatalf("second import: %v", err)
++	}
++	after := identityHashes(t, pool)
++	if len(after) != len(before) {
++		t.Fatalf("re-import changed the minted count: %d → %d", len(before), len(after))
++	}
++	for id, h := range before {
++		if after[id] != h {
++			t.Errorf("subscriber %s's code rotated on re-import: %s → %s", id, h, after[id])
++		}
++	}
++	if n := countRows(t, pool, `SELECT count(*) FROM identity_media`); n != 5 {
++		t.Errorf("identity_media rows = %d after two imports, want 5", n)
++	}
++}
++
++func identityHashes(t *testing.T, pool *pgxpool.Pool) map[string]string {
++	t.Helper()
++	rows, err := pool.Query(context.Background(),
++		`SELECT id::text, identity_token_hash FROM subscribers WHERE identity_token_hash IS NOT NULL`)
++	if err != nil {
++		t.Fatalf("read hashes: %v", err)
++	}
++	defer rows.Close()
++	out := map[string]string{}
++	for rows.Next() {
++		var id, h string
++		if err := rows.Scan(&id, &h); err != nil {
++			t.Fatalf("scan: %v", err)
++		}
++		out[id] = h
++	}
++	return out
++}
++
++// fakePostgREST records what the projection sent and answers with `status`.
++type fakePostgREST struct {
++	mu     sync.Mutex
++	status int
++	hits   []recordedUpsert
++	srv    *httptest.Server
++}
++
++type recordedUpsert struct {
++	Method, Path, Prefer, APIKey, Auth string
++	Body                               []map[string]any
++}
++
++func newFakePostgREST(t *testing.T, status int) *fakePostgREST {
++	t.Helper()
++	f := &fakePostgREST{status: status}
++	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		raw, _ := io.ReadAll(r.Body)
++		var body []map[string]any
++		_ = json.Unmarshal(raw, &body)
++		f.mu.Lock()
++		f.hits = append(f.hits, recordedUpsert{
++			Method: r.Method, Path: r.URL.Path, Prefer: r.Header.Get("Prefer"),
++			APIKey: r.Header.Get("apikey"), Auth: r.Header.Get("Authorization"), Body: body,
++		})
++		f.mu.Unlock()
++		w.WriteHeader(f.status)
++	}))
++	t.Cleanup(f.srv.Close)
++	return f
++}
++
++func (f *fakePostgREST) config() ProjectionConfig {
++	return ProjectionConfig{RESTURL: f.srv.URL, ServiceKey: "test-service-key"}
++}
++
++func (f *fakePostgREST) recorded() []recordedUpsert {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	return append([]recordedUpsert(nil), f.hits...)
++}
++
++// A signup with no first-touch code gets a code that says who they are and
++// nothing about an offer, and no entitlement row is written anywhere.
++func TestMintIdentityCodeNoFirstTouchIsIdentityOnly(t *testing.T) {
++	pool := setupSubsTestDB(t)
++	ctx := context.Background()
++	subID := seedSubscriber(t, pool, "")
++
++	token := withIdentityRand(t, 17)
++	code := mintInTx(t, pool, subID)
++	if code.CampaignID != "" || !code.ExpiresAt.IsZero() {
++		t.Fatalf("identity-only code carries campaign %q / expiry %s, want neither", code.CampaignID, code.ExpiresAt)
++	}
++	if code.TokenHash != sha256Hex(token) {
++		t.Fatalf("token_hash = %s, want %s", code.TokenHash, sha256Hex(token))
++	}
++	wantPayload := DefaultQRBaseURL + "/r/" + token
++	if strings.Contains(wantPayload, "#o=") {
++		t.Fatal("test bug: the expected identity-only payload carries a fragment")
++	}
++	wantPNG, version := encodeAsTheCardDoes(t, wantPayload)
++	if !bytes.Equal(storedPNG(t, pool, code.MediaID), wantPNG) {
++		t.Fatalf("stored PNG is not the bare %q — an identity-only code must carry no #o= fragment", wantPayload)
++	}
++	t.Logf("identity-only payload %d chars, QR version %d", len(wantPayload), version)
++
++	// Through the import, with a projection that WOULD answer: the fixture's
++	// one short (K7MNPQ) names no code here, so all four signups are
++	// identity-only — and the substrate must hear nothing.
++	identityRand = defaultIdentityRand
++	fake := newFakePostgREST(t, http.StatusCreated)
++	d := testDeps(pool)
++	d.Projection = fake.config()
++	res, err := ImportSubscribers(ctx, d, ffImporter(t))
++	if err != nil {
++		t.Fatalf("import: %v", err)
++	}
++	if res.Created != 4 {
++		t.Fatalf("import created %d, want 4", res.Created)
++	}
++	if n := countRows(t, pool,
++		`SELECT count(*) FROM subscribers WHERE identity_token_hash IS NOT NULL AND source_short IS NULL`); n != 5 {
++		t.Fatalf("%d identity-only subscribers minted, want 5 (four imported + one seeded)", n)
++	}
++	if hits := fake.recorded(); len(hits) != 0 {
++		t.Fatalf("the projection was called %d time(s) for identity-only codes, want 0: %+v", len(hits), hits)
++	}
++	if len(res.Warnings) != 0 {
++		t.Errorf("warnings = %v, want none — nothing was owed to the substrate", res.Warnings)
++	}
++
++	// Unconfigured projection, still nothing owed: no warning either.
++	if _, err := pool.Exec(ctx, `TRUNCATE subscriber_events, subscribers RESTART IDENTITY CASCADE`); err != nil {
++		t.Fatalf("truncate: %v", err)
++	}
++	res, err = ImportSubscribers(ctx, testDeps(pool), ffImporter(t))
++	if err != nil {
++		t.Fatalf("import (unconfigured): %v", err)
++	}
++	if len(res.Warnings) != 0 {
++		t.Errorf("warnings = %v with no campaign anywhere, want none", res.Warnings)
++	}
++}
++
++// The entitlement row the arbiter answers from: where it is written, how, and
++// what happens to the customer's code when the write fails.
++func TestProjectIdentityCodeUpserts(t *testing.T) {
++	ends := time.Date(2028, 1, 1, 5, 59, 59, 0, time.UTC)
++	row := IdentityProjectionRow{
++		ID:         IdentityCodeID("0b6f2c1e-6f0a-4f6e-9c59-0c1d2e3f4a5b"),
++		TokenHash:  sha256Hex("ic7k3m9q2x5p8w4z"),
++		CampaignID: "a0000000-0000-4000-8000-000000000001",
++		ExpiresAt:  ends,
++	}
++
++	t.Run("201 lands one row on /codes as a merge-duplicates upsert", func(t *testing.T) {
++		fake := newFakePostgREST(t, http.StatusCreated)
++		if err := ProjectIdentityCode(context.Background(), fake.config(), row); err != nil {
++			t.Fatalf("ProjectIdentityCode = %v, want nil on 201", err)
++		}
++		hits := fake.recorded()
++		if len(hits) != 1 {
++			t.Fatalf("%d requests, want 1", len(hits))
++		}
++		h := hits[0]
++		if h.Method != http.MethodPost || h.Path != "/codes" {
++			t.Errorf("request = %s %s, want POST /codes", h.Method, h.Path)
++		}
++		if h.Prefer != "resolution=merge-duplicates" {
++			t.Errorf("Prefer = %q, want resolution=merge-duplicates", h.Prefer)
++		}
++		if h.APIKey != "test-service-key" || h.Auth != "Bearer test-service-key" {
++			t.Errorf("apikey/Authorization = %q / %q, want the service_role key on both", h.APIKey, h.Auth)
++		}
++		if len(h.Body) != 1 {
++			t.Fatalf("body carries %d rows, want 1: %v", len(h.Body), h.Body)
++		}
++		got := h.Body[0]
++		if len(got) != 4 {
++			t.Errorf("row has %d fields (%v), want exactly id, token_hash, campaign_id, expires_at", len(got), got)
++		}
++		if got["id"] != row.ID || got["token_hash"] != row.TokenHash || got["campaign_id"] != row.CampaignID {
++			t.Errorf("row = %v, want id %s / token_hash %s / campaign_id %s", got, row.ID, row.TokenHash, row.CampaignID)
++		}
++		exp, _ := got["expires_at"].(string)
++		parsed, err := time.Parse(time.RFC3339, exp)
++		if err != nil || !parsed.Equal(ends) {
++			t.Errorf("expires_at = %q, want the campaign's ends_at %s as RFC 3339", exp, ends)
++		}
++	})
++
++	t.Run("the id is derived from the subscriber, so a re-projection is the same row", func(t *testing.T) {
++		a := IdentityCodeID("0b6f2c1e-6f0a-4f6e-9c59-0c1d2e3f4a5b")
++		b := IdentityCodeID("0B6F2C1E-6F0A-4F6E-9C59-0C1D2E3F4A5B")
++		c := IdentityCodeID("1b6f2c1e-6f0a-4f6e-9c59-0c1d2e3f4a5b")
++		if a != b {
++			t.Errorf("the id depends on the subscriber id's letter case: %s vs %s", a, b)
++		}
++		if a == c {
++			t.Error("two subscribers derived the same code id")
++		}
++		if len(a) != 36 || a[14] != '5' || !strings.ContainsRune("89ab", rune(a[19])) {
++			t.Errorf("%s is not a version-5 uuid", a)
++		}
++	})
++
++	t.Run("500 is an error and unconfigured is an error", func(t *testing.T) {
++		fake := newFakePostgREST(t, http.StatusInternalServerError)
++		if err := ProjectIdentityCode(context.Background(), fake.config(), row); err == nil {
++			t.Error("ProjectIdentityCode = nil on a 500")
++		}
++		if err := ProjectIdentityCode(context.Background(), ProjectionConfig{}, row); err == nil {
++			t.Error("ProjectIdentityCode = nil with the projection unconfigured")
++		}
++	})
++
++	// The same three outcomes through the import, against a real database.
++	importWith := func(t *testing.T, cfg ProjectionConfig) (importResultDTO, campaignDTO, string, string) {
++		t.Helper()
++		pool := setupSubsTestDB(t)
++		d := testDeps(pool)
++		camp := seedFirstTouchCampaign(t, pool, mountedMux(d), "K7MNPQ", "Free side of wings", 200)
++		d.Projection = cfg
++		res, err := ImportSubscribers(context.Background(), d, ffImporter(t))
++		if err != nil {
++			t.Fatalf("import: %v", err)
++		}
++		var subID string
++		var hash *string
++		if err := pool.QueryRow(context.Background(),
++			`SELECT id::text, identity_token_hash FROM subscribers WHERE external_ref = '1182'`).
++			Scan(&subID, &hash); err != nil {
++			t.Fatalf("read the first-touch subscriber: %v", err)
++		}
++		if hash == nil {
++			t.Fatal("the first-touch subscriber has no identity_token_hash — the mint did not commit")
++		}
++		if n := countRows(t, pool, `SELECT count(*) FROM identity_media WHERE subscriber_id = $1`, subID); n != 1 {
++			t.Fatalf("identity_media rows for the first-touch subscriber = %d, want 1", n)
++		}
++		if n := countRows(t, pool, `SELECT count(*) FROM subscribers WHERE identity_token_hash IS NULL`); n != 0 {
++			t.Fatalf("%d imported subscribers were left without a code", n)
++		}
++		return res, camp, subID, *hash
++	}
++
++	t.Run("import: a 201 projects the first-touch code and only that one", func(t *testing.T) {
++		fake := newFakePostgREST(t, http.StatusCreated)
++		res, camp, subID, hash := importWith(t, fake.config())
++		if len(res.Warnings) != 0 {
++			t.Errorf("warnings = %v, want none", res.Warnings)
++		}
++		hits := fake.recorded()
++		if len(hits) != 1 {
++			t.Fatalf("%d projection requests, want 1 (three of the four signups are identity-only)", len(hits))
++		}
++		got := hits[0].Body[0]
++		if got["id"] != IdentityCodeID(subID) || got["token_hash"] != hash || got["campaign_id"] != camp.ID {
++			t.Errorf("projected row = %v, want id %s / hash %s / campaign %s", got, IdentityCodeID(subID), hash, camp.ID)
++		}
++		exp, _ := got["expires_at"].(string)
++		if parsed, err := time.Parse(time.RFC3339, exp); err != nil || !parsed.Equal(camp.EndsAt) {
++			t.Errorf("projected expires_at = %q, want the campaign's ends_at %s", exp, camp.EndsAt)
++		}
++	})
++
++	t.Run("import: a 500 keeps the mint and says not_projected", func(t *testing.T) {
++		fake := newFakePostgREST(t, http.StatusInternalServerError)
++		res, _, _, _ := importWith(t, fake.config()) // importWith asserts the mint committed
++		if len(res.Warnings) != 1 || res.Warnings[0] != WarningNotProjected {
++			t.Fatalf("warnings = %v, want [%q]", res.Warnings, WarningNotProjected)
++		}
++	})
++
++	t.Run("import: an unconfigured projection keeps the mint and says not_projected", func(t *testing.T) {
++		res, _, _, _ := importWith(t, ProjectionConfig{})
++		if len(res.Warnings) != 1 || res.Warnings[0] != WarningNotProjected {
++			t.Fatalf("warnings = %v, want [%q]", res.Warnings, WarningNotProjected)
++		}
++	})
++}
++
++// GET and HEAD /m/{id}.png: public, image/png, privately cached for an hour,
++// and 404 for anything that is not a stored image.
++func TestIdentityMediaRouteIsPublicPNG(t *testing.T) {
++	pool := setupSubsTestDB(t)
++	mux := mountedMux(testDeps(pool))
++	code := mintInTx(t, pool, seedSubscriber(t, pool, ""))
++	want := storedPNG(t, pool, code.MediaID)
++
++	// context.Background(): no user, no session — the route is public.
++	rec := do(t, mux, context.Background(), http.MethodGet, "/m/"+code.MediaID+".png", nil)
++	if rec.Code != http.StatusOK {
++		t.Fatalf("GET = %d, want 200\nbody: %s", rec.Code, rec.Body.String())
++	}
++	if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
++		t.Errorf("Content-Type = %q, want image/png", ct)
++	}
++	if cc := rec.Header().Get("Cache-Control"); cc != "private, max-age=3600" {
++		t.Errorf("Cache-Control = %q, want private, max-age=3600", cc)
++	}
++	if !bytes.Equal(rec.Body.Bytes(), want) {
++		t.Error("GET body is not the stored PNG")
++	}
++	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
++		t.Error("GET body does not start with the PNG signature")
++	}
++
++	head := do(t, mux, context.Background(), http.MethodHead, "/m/"+code.MediaID+".png", nil)
++	if head.Code != http.StatusOK || head.Body.Len() != 0 {
++		t.Errorf("HEAD = %d with %d body bytes, want 200 and none", head.Code, head.Body.Len())
++	}
++	if cl := head.Header().Get("Content-Length"); cl != strconv.Itoa(len(want)) {
++		t.Errorf("HEAD Content-Length = %q, want %d", cl, len(want))
++	}
++
++	for _, id := range []string{"00000000-0000-4000-8000-000000000000", "not-a-uuid", code.MediaID + "x"} {
++		for _, method := range []string{http.MethodGet, http.MethodHead} {
++			if rec := do(t, mux, context.Background(), method, "/m/"+id+".png", nil); rec.Code != http.StatusNotFound {
++				t.Errorf("%s /m/%s.png = %d, want 404", method, id, rec.Code)
++			}
++		}
++	}
++}
++
++// The detail sheet's status: no code, a code, a code that was sent.
++func TestSubscriberDetailReportsIdentityCodeStatus(t *testing.T) {
++	pool := setupSubsTestDB(t)
++	ctx := context.Background()
++	mgr := seedUser(t, pool, "manager")
++	mux := mountedMux(testDeps(pool))
++	subID := seedSubscriber(t, pool, "")
++
++	detail := func() identityCodeDTO {
++		rec := do(t, mux, userCtx(mgr, "manager"), http.MethodGet, "/api/v1/marketing/subscribers/"+subID, nil)
++		if rec.Code != http.StatusOK {
++			t.Fatalf("GET detail = %d\nbody: %s", rec.Code, rec.Body.String())
++		}
++		var out subscriberDetailDTO
++		decode(t, rec, &out)
++		return out.IdentityCode
++	}
++
++	if ic := detail(); ic.Status != "not_minted" || ic.MediaURL != nil {
++		t.Fatalf("before the mint: status %q / media_url %v, want not_minted / null", ic.Status, ic.MediaURL)
++	}
++	code := mintInTx(t, pool, subID)
++	ic := detail()
++	if ic.Status != "minted" {
++		t.Fatalf("after the mint: status %q, want minted", ic.Status)
++	}
++	if ic.MediaURL == nil || *ic.MediaURL != "/m/"+code.MediaID+".png" {
++		t.Fatalf("media_url = %v, want /m/%s.png", ic.MediaURL, code.MediaID)
++	}
++	if rec := do(t, mux, context.Background(), http.MethodGet, *ic.MediaURL, nil); rec.Code != http.StatusOK {
++		t.Errorf("GET media_url = %d, want 200", rec.Code)
++	}
++	// `sent` is Card 2's to cause; this card only reports it.
++	if _, err := pool.Exec(ctx,
++		`INSERT INTO subscriber_events (subscriber_id, kind) VALUES ($1, 'code_sent')`, subID); err != nil {
++		t.Fatalf("seed code_sent: %v", err)
++	}
++	if ic := detail(); ic.Status != "sent" || ic.SentAt == nil || ic.MediaURL == nil {
++		t.Fatalf("after a code_sent event: status %q / sent_at %v / media_url %v, want sent with both", ic.Status, ic.SentAt, ic.MediaURL)
++	}
++}
++
++// The shipped reader was measured up to QR version 10. A campaign with a long
++// offer line must not push a customer's code past that: the label in the QR is
++// shortened, the code itself is not weakened.
++func TestIdentityCodeLongOfferTextStaysScannable(t *testing.T) {
++	pool := setupSubsTestDB(t)
++	long := "Buy any two combos and get a free large side of our signature honey-garlic wings plus a drink"
++	camp := seedFirstTouchCampaign(t, pool, mountedMux(testDeps(pool)), "K7MNPQ", long, 1250)
++	subID := seedSubscriber(t, pool, "K7MNPQ")
++
++	token := withIdentityRand(t, 44)
++	code := mintInTx(t, pool, subID)
++	png := storedPNG(t, pool, code.MediaID)
++
++	// Find the label the mint settled on: the longest prefix whose payload
++	// reproduces the stored PNG.
++	runes := []rune(long)
++	for n := len(runes); n >= 1; n-- {
++		label := string(runes[:n])
++		if n < len(runes) {
++			label = strings.TrimRight(label, " ") + "…"
++		}
++		payload := DefaultQRBaseURL + "/r/" + token +
++			descriptorFragment(t, label, camp.ID, camp.EndsAt.UTC().Format("2006-01-02"), 12.5)
++		want, version := encodeAsTheCardDoes(t, payload)
++		if !bytes.Equal(png, want) {
++			continue
++		}
++		if n == len(runes) {
++			t.Fatalf("the full %d-char offer text was encoded at version %d — expected it to be shortened", len(runes), version)
++		}
++		if version > 10 {
++			t.Fatalf("label shortened to %q but the symbol is still version %d", label, version)
++		}
++		t.Logf("label shortened to %d of %d chars (%q); payload %d chars, version %d", n, len(runes), label, len(payload), version)
++		return
++	}
++	t.Fatal("the stored PNG matches no prefix of the offer text — the label rule is not the one this test states")
++}
++
++// 0088's Down, run: the two columns and the image table go, `subscribers`
++// itself stays, and re-applying brings them back with the cascade and the
++// unique hash intact.
++//
++// Same rules as the 0085 and 0086 legs: start from HEAD, derive the version
++// from the filename, restore with db.Migrate (never a literal), touch no row.
++func TestMigration0088IdentityCodesDownAndUpRoundTrip(t *testing.T) {
++	if testPool == nil {
++		t.Skip("no test database (DB_TEST_URL unset and the local fallback is unreachable)")
++	}
++	pool := testPool
++	ctx := context.Background()
++	if err := db.Migrate(pool); err != nil {
++		t.Fatalf("migrate up to HEAD before the down leg: %v", err)
++	}
++	t.Cleanup(func() {
++		if err := db.Migrate(pool); err != nil {
++			t.Errorf("restore to HEAD: %v", err)
++		}
++	})
++
++	version := identityMigrationVersion(t)
++	if version != 88 {
++		t.Fatalf("*_identity_codes.sql is migration %d; the slate fixes it at 88 (a renumbering is scope drift)", version)
++	}
++
++	tableExists := func(name string) bool {
++		var ok bool
++		if err := pool.QueryRow(ctx, `
++			SELECT EXISTS (SELECT 1 FROM information_schema.tables
++			                WHERE table_schema = current_schema() AND table_name = $1)`, name).Scan(&ok); err != nil {
++			t.Fatalf("tableExists(%s): %v", name, err)
++		}
++		return ok
++	}
++	columnExists := func(table, column string) bool {
++		var ok bool
++		if err := pool.QueryRow(ctx, `
++			SELECT EXISTS (SELECT 1 FROM information_schema.columns
++			                WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2)`,
++			table, column).Scan(&ok); err != nil {
++			t.Fatalf("columnExists(%s.%s): %v", table, column, err)
++		}
++		return ok
++	}
++	assertUp := func(leg string) {
++		t.Helper()
++		if !tableExists("identity_media") {
++			t.Errorf("%s: identity_media is missing", leg)
++		}
++		for _, c := range []string{"identity_token_hash", "identity_minted_at"} {
++			if !columnExists("subscribers", c) {
++				t.Errorf("%s: subscribers.%s is missing", leg, c)
++			}
++		}
++		// The erasure path: deleting a subscriber deletes their image.
++		var del string
++		if err := pool.QueryRow(ctx, `
++			SELECT confdeltype::text FROM pg_constraint
++			 WHERE conrelid = 'identity_media'::regclass AND contype = 'f'
++			   AND confrelid = 'subscribers'::regclass`).Scan(&del); err != nil {
++			t.Errorf("%s: read identity_media's FK onto subscribers: %v", leg, err)
++		} else if del != "c" {
++			t.Errorf("%s: identity_media → subscribers is ON DELETE %q, want c (cascade)", leg, del)
++		}
++		// Two customers can never share a code.
++		var uniques int
++		if err := pool.QueryRow(ctx, `
++			SELECT count(*) FROM pg_constraint c
++			  JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
++			 WHERE c.conrelid = 'subscribers'::regclass AND c.contype = 'u'
++			   AND a.attname = 'identity_token_hash'`).Scan(&uniques); err != nil {
++			t.Errorf("%s: read the unique constraint: %v", leg, err)
++		} else if uniques != 1 {
++			t.Errorf("%s: %d unique constraints on subscribers.identity_token_hash, want 1", leg, uniques)
++		}
++	}
++
++	assertUp("at HEAD")
++
++	if err := db.MigrateTo(pool, version-1); err != nil {
++		t.Fatalf("migrate down to %d: %v", version-1, err)
++	}
++	if tableExists("identity_media") {
++		t.Errorf("identity_media survived migration %d's Down", version)
++	}
++	for _, c := range []string{"identity_token_hash", "identity_minted_at"} {
++		if columnExists("subscribers", c) {
++			t.Errorf("subscribers.%s survived migration %d's Down", c, version)
++		}
++	}
++	if !tableExists("subscribers") || !columnExists("subscribers", "source_short") {
++		t.Fatalf("migration %d's Down took more than its own: subscribers (or its 0085 columns) is gone", version)
++	}
++
++	if err := db.Migrate(pool); err != nil {
++		t.Fatalf("migrate back up to HEAD: %v", err)
++	}
++	assertUp("after re-apply")
++	t.Logf("migration %d Down/Up round-trip clean; schema restored to HEAD (not to a literal)", version)
++}
++
++func identityMigrationVersion(t *testing.T) int64 {
++	t.Helper()
++	entries, err := os.ReadDir(migrationsDir)
++	if err != nil {
++		t.Fatalf("read %s: %v", migrationsDir, err)
++	}
++	for _, e := range entries {
++		if !strings.HasSuffix(e.Name(), "_identity_codes.sql") {
++			continue
++		}
++		m := migrationNumRe.FindStringSubmatch(e.Name())
++		if m == nil {
++			t.Fatalf("migration %q does not start with a version number", e.Name())
++		}
++		v, err := strconv.ParseInt(m[1], 10, 64)
++		if err != nil {
++			t.Fatalf("parse version from %q: %v", e.Name(), err)
++		}
++		return v
++	}
++	t.Fatalf("no *_identity_codes.sql migration found in %s", migrationsDir)
++	return 0
++}
+diff --git a/backend/internal/marketing/projection.go b/backend/internal/marketing/projection.go
+index 9916e6f..f03ad2e 100644
+--- a/backend/internal/marketing/projection.go
++++ b/backend/internal/marketing/projection.go
+@@ -124,6 +124,80 @@ func ProjectCampaign(ctx context.Context, cfg ProjectionConfig, row ProjectionRo
+ 	return nil
+ }
+ 
++// IdentityProjectionRow is one customer's identity code as the arbiter holds
++// it: the four columns of Supabase public.codes HQ writes. redeemed_at,
++// redeemed_by, updated_at and _deleted are the substrate's own.
++type IdentityProjectionRow struct {
++	// ID is IdentityCodeID(subscriber id) — derived, so the same subscriber
++	// always lands on the same row.
++	ID         string
++	TokenHash  string
++	CampaignID string
++	// ExpiresAt is the first-touch campaign's ends_at. public.codes.expires_at
++	// is NOT NULL, which is one reason an identity-only code (no campaign) has
++	// no row to write.
++	ExpiresAt time.Time
++}
++
++// ProjectIdentityCode upserts one identity code into Supabase `codes` over
++// PostgREST as service_role, keyed by id, so a tablet with signal can ask the
++// server about a customer it has never synced and — once the replica pulls —
++// answer offline from its own copy.
++//
++// The shape is the one the signed spike ran against the local substrate
++// (.night-crew/spikes/activity-e-customer-delivery-one-identity-code-qr-image/
++// identity-code-and-qr/02-identity-code-row-projects-and-the-device-pull-sees-it.sh,
++// exit 0 three times): POST the row with `Prefer: resolution=merge-duplicates`;
++// a second identical POST leaves exactly one row.
++//
++// Like ProjectCampaign it is called AFTER the local transaction commits, and a
++// failure here is NEVER a rollback: the customer's code is minted either way
++// and the caller surfaces warnings:["not_projected"].
++//
++// 🛑 Identity-only codes are not projected — the caller never builds a row
++// without a campaign. `codes.campaign_id` references the projected campaign,
++// so a campaign that is itself "not on tablets yet" makes this fail loudly
++// (a non-2xx) rather than write an orphan.
++func ProjectIdentityCode(ctx context.Context, cfg ProjectionConfig, row IdentityProjectionRow) error {
++	if !cfg.Configured() {
++		return fmt.Errorf("projection not configured (%s and/or %s empty)", RESTURLEnv, ServiceKeyEnv)
++	}
++	if row.CampaignID == "" {
++		return fmt.Errorf("identity code projection: no campaign (identity-only codes are not projected)")
++	}
++	body, err := json.Marshal([]map[string]any{{
++		"id":          row.ID,
++		"token_hash":  row.TokenHash,
++		"campaign_id": row.CampaignID,
++		// Nano, not seconds: the row must expire exactly when the campaign does.
++		"expires_at": row.ExpiresAt.UTC().Format(time.RFC3339Nano),
++	}})
++	if err != nil {
++		return fmt.Errorf("marshal identity code row: %w", err)
++	}
++	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
++		strings.TrimRight(cfg.RESTURL, "/")+"/codes", bytes.NewReader(body))
++	if err != nil {
++		return fmt.Errorf("build identity code request: %w", err)
++	}
++	req.Header.Set("apikey", cfg.ServiceKey)
++	req.Header.Set("Authorization", "Bearer "+cfg.ServiceKey)
++	req.Header.Set("Content-Type", "application/json")
++	req.Header.Set("Prefer", "resolution=merge-duplicates")
++
++	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
++	if err != nil {
++		return fmt.Errorf("identity code upsert: %w", err)
++	}
++	defer resp.Body.Close()
++	_, _ = io.Copy(io.Discard, resp.Body)
++	if resp.StatusCode < 200 || resp.StatusCode > 299 {
++		// Never echo the response body — PostgREST errors can carry row data.
++		return fmt.Errorf("identity code upsert: postgrest status %d", resp.StatusCode)
++	}
++	return nil
++}
++
+ // thresholdCents resolves #5's requires_online threshold.
+ //
+ // Configured substrate -> read marketing_settings.requires_online_threshold_cents.
+diff --git a/backend/internal/marketing/routes.go b/backend/internal/marketing/routes.go
+index 6596196..45ccef1 100644
+--- a/backend/internal/marketing/routes.go
++++ b/backend/internal/marketing/routes.go
+@@ -222,7 +222,8 @@ func MountReportsDeps(r chi.Router, d Deps) {
+ 	})
+ }
+ 
+-// MountPublic registers the public landing on the ROOT router. It must be
++// MountPublic registers the public landing — and the public identity-code
++// image, GET /m/{id}.png — on the ROOT router. It must be
+ // mounted OUTSIDE /api/v1, outside auth.Middleware and outside every
+ // RequirePermission, and BEFORE main.go's "/*" static handler.
+ func MountPublic(r chi.Router, d Deps) {
+@@ -231,6 +232,17 @@ func MountPublic(r chi.Router, d Deps) {
+ 	// HEAD is answered but never logged (§5): a link unfurler or a monitor must
+ 	// not read as a customer. The handler branches on r.Method.
+ 	r.Head("/q/{short}", h)
++
++	// ── card E1 `identity-code-and-qr` (run 20261006) ──
++	//
++	// A customer's identity-code image. Public for the same reason the landing
++	// is: the customer's phone — and, once codes are sent, the carrier fetching
++	// the MMS attachment — has no HQ session. The unguessable media id is the
++	// only secret. 🛑 Moving this under Mount puts it behind a login neither
++	// of them holds.
++	m := IdentityMediaHandler(d)
++	r.Get("/m/{id}.png", m)
++	r.Head("/m/{id}.png", m)
+ }
+ 
+ // ── manager tier (handoff §16) ──
+diff --git a/backend/internal/marketing/routes_test.go b/backend/internal/marketing/routes_test.go
+index 32ddc3d..ae749be 100644
+--- a/backend/internal/marketing/routes_test.go
++++ b/backend/internal/marketing/routes_test.go
+@@ -95,9 +95,14 @@ func TestMountRegistersTheGatedRouteTable(t *testing.T) {
+ 	}
+ }
+ 
+-// MountPublic owns exactly one route and it is deliberately OUTSIDE every
+-// permission gate: a customer with a phone camera has no HQ session.
+-func TestMountPublicRegistersOnlyTheLanding(t *testing.T) {
++// MountPublic owns exactly two public things, both deliberately OUTSIDE every
++// permission gate because whoever fetches them has no HQ session: the landing
++// a customer's camera opens (GET /q/{short}), and — card identity-code-and-qr,
++// run 20261006 — a customer's identity-code image (GET /m/{id}.png).
++//
++// The COUNT is the guard: a route added to the public surface must be added
++// here on purpose. (Named ...OnlyTheLanding until the identity image joined.)
++func TestMountPublicRegistersExactlyThePublicSurface(t *testing.T) {
+ 	r := chi.NewRouter()
+ 	MountPublic(r, Deps{})
+ 	routes := []string{}
+@@ -108,18 +113,19 @@ func TestMountPublicRegistersOnlyTheLanding(t *testing.T) {
+ 		t.Fatalf("walk: %v", err)
+ 	}
+ 	// GET and HEAD are the two methods chi reports for one r.Get + r.Head pair.
+-	for _, want := range []string{"GET /q/{short}", "HEAD /q/{short}"} {
++	want := []string{"GET /q/{short}", "HEAD /q/{short}", "GET /m/{id}.png", "HEAD /m/{id}.png"}
++	for _, w := range want {
+ 		found := false
+ 		for _, r := range routes {
+-			if r == want {
++			if r == w {
+ 				found = true
+ 			}
+ 		}
+ 		if !found {
+-			t.Errorf("MountPublic did not register %q (registered: %v)", want, routes)
++			t.Errorf("MountPublic did not register %q (registered: %v)", w, routes)
+ 		}
+ 	}
+-	if len(routes) != 2 {
+-		t.Errorf("MountPublic registered %d routes (%v); the public surface is exactly GET+HEAD /q/{short}", len(routes), routes)
++	if len(routes) != len(want) {
++		t.Errorf("MountPublic registered %d routes (%v); the public surface is exactly %v", len(routes), routes, want)
+ 	}
+ }
+diff --git a/backend/internal/marketing/subscribers.go b/backend/internal/marketing/subscribers.go
+index bef70c0..bf5458a 100644
+--- a/backend/internal/marketing/subscribers.go
++++ b/backend/internal/marketing/subscribers.go
+@@ -116,17 +116,29 @@ type offerDTO struct {
+ 	EndsAt         time.Time `json:"ends_at"`
+ }
+ 
++// Identity-code statuses, in the order a customer's code moves through them.
++const (
++	IdentityNotMinted = "not_minted" // no code exists for this subscriber
++	IdentityMinted    = "minted"     // a code exists; nothing has gone out
++	IdentitySent      = "sent"       // a `code_sent` event exists
++)
++
+ // identityCodeDTO is the detail sheet's "identity-code status".
+ //
+-// Activity E owns the identity code itself (`identity-code-and-qr`), so there
+-// is no code to show yet and no table holding one. The honest status is
+-// therefore derived from the TIMELINE: a `code_sent` event means a code went
+-// out and when; no such event means it has not. `status` is "sent" or
+-// "not_sent", and `requested_at` carries the last `resend_requested` so the
+-// sheet can say "Resend requested · 2026-10-01" without implying a send
++// `status` is not_minted, minted or sent (card `identity-code-and-qr`, run
++// 20261006 — before it the values were "sent" / "not_sent", derived from the
++// timeline alone because no code existed). "minted" comes from the subscriber
++// row: the import mints a code for every new signup. "sent" still comes ONLY
++// from a `code_sent` event on the timeline, which is the send's event and the
++// send's alone — so a minted code never reads as delivered.
++//
++// `media_url` is the public path of the code's image (GET /m/{id}.png), null
++// until there is one. `requested_at` carries the last `resend_requested` so
++// the sheet can say "Resend requested · 2026-10-01" without implying a send
+ // happened.
+ type identityCodeDTO struct {
+ 	Status      string     `json:"status"`
++	MediaURL    *string    `json:"media_url"`
+ 	SentAt      *time.Time `json:"sent_at"`
+ 	RequestedAt *time.Time `json:"requested_at"`
+ }
+@@ -152,14 +164,20 @@ type subscriberDetailDTO struct {
+ // importResultDTO is what an import route answers with. It carries COUNTS and
+ // no contact values — an import summary is a response body like any other and
+ // the masking contract applies to it too.
++//
++// `warnings` is decision 187's shape, the one a campaign save already uses:
++// the import SUCCEEDED, and something after it did not. "not_projected" — a
++// new signup's identity code was minted but the scanner's server does not know
++// it yet. "identity_not_minted" — a new signup was saved without a code.
+ type importResultDTO struct {
+-	Source     string `json:"source"`
+-	Read       int    `json:"read"`
+-	Created    int    `json:"created"`
+-	Updated    int    `json:"updated"`
+-	Unchanged  int    `json:"unchanged"`
+-	Skipped    int    `json:"skipped"`
+-	ScansBound int    `json:"scans_bound"`
++	Source     string   `json:"source"`
++	Read       int      `json:"read"`
++	Created    int      `json:"created"`
++	Updated    int      `json:"updated"`
++	Unchanged  int      `json:"unchanged"`
++	Skipped    int      `json:"skipped"`
++	ScansBound int      `json:"scans_bound"`
++	Warnings   []string `json:"warnings,omitempty"`
+ }
+ 
+ // ── GET /subscribers ──
+@@ -309,19 +327,24 @@ func GetSubscriberHandler(d Deps) http.HandlerFunc {
+ 			sms, emailOK                                 bool
+ 			optedOut                                     *time.Time
+ 			visits                                       int
++			minted                                       bool
++			mediaID                                      *string
+ 		)
+ 		err := d.Pool.QueryRow(r.Context(), `
+ 			SELECT s.display_name, s.phone_e164, s.email, s.source, s.source_short,
+ 			       c.name, s.consent_evidence, s.joined_at, s.sms_consent,
+ 			       s.email_consent, s.opted_out_at,
+ 			       (SELECT count(*) FROM subscriber_events e
+-			          WHERE e.subscriber_id = s.id AND e.kind IN ('scanned','redeemed'))
++			          WHERE e.subscriber_id = s.id AND e.kind IN ('scanned','redeemed')),
++			       s.identity_token_hash IS NOT NULL,
++			       (SELECT m.id::text FROM identity_media m
++			         WHERE m.subscriber_id = s.id ORDER BY m.created_at DESC, m.id LIMIT 1)
+ 			  FROM subscribers s
+ 			  LEFT JOIN qr_codes k ON k.short = s.source_short
+ 			  LEFT JOIN campaigns_admin c ON c.id = k.campaign_id
+ 			 WHERE s.id = $1`, id).
+ 			Scan(&name, &phone, &email, &source, &short, &camName, &evidence,
+-				&joined, &sms, &emailOK, &optedOut, &visits)
++				&joined, &sms, &emailOK, &optedOut, &visits, &minted, &mediaID)
+ 		if errors.Is(err, pgx.ErrNoRows) || isBadUUID(err) {
+ 			writeError(w, http.StatusNotFound, "not_found")
+ 			return
+@@ -336,6 +359,14 @@ func GetSubscriberHandler(d Deps) http.HandlerFunc {
+ 			writeError(w, http.StatusInternalServerError, "detail_failed")
+ 			return
+ 		}
++		// The timeline decides "sent"; the subscriber row decides the rest.
++		if ic.Status != IdentitySent && minted {
++			ic.Status = IdentityMinted
++		}
++		if mediaID != nil {
++			u := identityMediaPath(*mediaID)
++			ic.MediaURL = &u
++		}
+ 		offers, err := offersNow(r.Context(), d)
+ 		if err != nil {
+ 			writeError(w, http.StatusInternalServerError, "detail_failed")
+@@ -361,8 +392,10 @@ func GetSubscriberHandler(d Deps) http.HandlerFunc {
+ 	}
+ }
+ 
+-// subscriberTimeline reads the events newest-first and derives the
+-// identity-code status from them in one pass.
++// subscriberTimeline reads the events newest-first and derives the timeline's
++// half of the identity-code status from them in one pass: "sent" when a
++// `code_sent` event exists, otherwise "not_minted" — which the caller raises to
++// "minted" when the subscriber row holds a code.
+ func subscriberTimeline(ctx context.Context, d Deps, id string) ([]eventDTO, identityCodeDTO, error) {
+ 	rows, err := d.Pool.Query(ctx, `
+ 		SELECT id, kind, at, ref FROM subscriber_events
+@@ -372,7 +405,7 @@ func subscriberTimeline(ctx context.Context, d Deps, id string) ([]eventDTO, ide
+ 	}
+ 	defer rows.Close()
+ 	out := []eventDTO{}
+-	ic := identityCodeDTO{Status: "not_sent"}
++	ic := identityCodeDTO{Status: IdentityNotMinted}
+ 	for rows.Next() {
+ 		var e eventDTO
+ 		if err := rows.Scan(&e.ID, &e.Kind, &e.At, &e.Ref); err != nil {
+@@ -384,7 +417,7 @@ func subscriberTimeline(ctx context.Context, d Deps, id string) ([]eventDTO, ide
+ 			if ic.SentAt == nil {
+ 				at := e.At
+ 				ic.SentAt = &at
+-				ic.Status = "sent"
++				ic.Status = IdentitySent
+ 			}
+ 		case "resend_requested":
+ 			if ic.RequestedAt == nil {
+@@ -532,7 +565,7 @@ func ImportWebFormHandler(d Deps) http.HandlerFunc {
+ }
+ 
+ func runImport(w http.ResponseWriter, r *http.Request, d Deps, imp sources.Importer) {
+-	res, err := ImportSubscribers(r.Context(), d.Pool, imp)
++	res, err := ImportSubscribers(r.Context(), d, imp)
+ 	if err != nil {
+ 		writeError(w, http.StatusInternalServerError, "import_failed")
+ 		return
+@@ -589,20 +622,28 @@ func csvBody(r *http.Request) (string, error) {
+ // `signed_up` is appended on INSERT only. An idempotent re-run that appended an
+ // event every time would make the timeline a log of imports instead of a
+ // history of the person.
+-func ImportSubscribers(ctx context.Context, pool interface {
+-	Begin(context.Context) (pgx.Tx, error)
+-}, imp sources.Importer) (importResultDTO, error) {
++//
++// # Identity codes (card `identity-code-and-qr`, run 20261006)
++//
++// Every subscriber this import CREATES gets their one permanent identity code,
++// minted after the import's transaction has committed (mintForNewSubscribers).
++// A subscriber the import merely updated is not touched: a code is never
++// rotated by an import. Minting cannot fail or undo the import — a code that
++// could not be projected to the scanner's server, or could not be minted at
++// all, comes back as a `warnings` entry on a 200.
++func ImportSubscribers(ctx context.Context, d Deps, imp sources.Importer) (importResultDTO, error) {
+ 	cands, err := imp.Read()
+ 	if err != nil {
+ 		return importResultDTO{}, err
+ 	}
+ 	res := importResultDTO{Source: imp.Source(), Read: len(cands)}
+-	tx, err := pool.Begin(ctx)
++	tx, err := d.Pool.Begin(ctx)
+ 	if err != nil {
+ 		return res, err
+ 	}
+ 	defer func() { _ = tx.Rollback(ctx) }()
+ 
++	var created []string
+ 	for _, c := range cands {
+ 		if c.PhoneE164 == "" && c.Email == "" {
+ 			res.Skipped++
+@@ -643,6 +684,7 @@ func ImportSubscribers(ctx context.Context, pool interface {
+ 				return res, err
+ 			}
+ 			res.Created++
++			created = append(created, id)
+ 		}
+ 		if short != "" {
+ 			n, err := sources.BackfillScanSubscriber(ctx, tx, short, id, c.JoinedAt)
+@@ -655,6 +697,7 @@ func ImportSubscribers(ctx context.Context, pool interface {
+ 	if err := tx.Commit(ctx); err != nil {
+ 		return res, err
+ 	}
++	res.Warnings = mintForNewSubscribers(ctx, d, created)
+ 	return res, nil
+ }
+ 
+diff --git a/backend/internal/marketing/subscribers_test.go b/backend/internal/marketing/subscribers_test.go
+index 6e0e022..192982b 100644
+--- a/backend/internal/marketing/subscribers_test.go
++++ b/backend/internal/marketing/subscribers_test.go
+@@ -87,7 +87,7 @@ func TestFluentFormsImportIsIdempotent(t *testing.T) {
+ 	pool := setupSubsTestDB(t)
+ 	ctx := context.Background()
+ 
+-	first, err := ImportSubscribers(ctx, pool, ffImporter(t))
++	first, err := ImportSubscribers(ctx, testDeps(pool), ffImporter(t))
+ 	if err != nil {
+ 		t.Fatalf("first import: %v", err)
+ 	}
+@@ -108,7 +108,7 @@ func TestFluentFormsImportIsIdempotent(t *testing.T) {
+ 		t.Fatalf("after one import: %d signed_up events, want 4 (one per person, not one per row)", events)
+ 	}
+ 
+-	second, err := ImportSubscribers(ctx, pool, ffImporter(t))
++	second, err := ImportSubscribers(ctx, testDeps(pool), ffImporter(t))
+ 	if err != nil {
+ 		t.Fatalf("second import: %v", err)
+ 	}
+@@ -210,7 +210,7 @@ func TestSubscriberSourceShortSetsCampaignAttribution(t *testing.T) {
+ 		}
+ 	}
+ 
+-	res, err := ImportSubscribers(ctx, pool, ffImporter(t))
++	res, err := ImportSubscribers(ctx, testDeps(pool), ffImporter(t))
+ 	if err != nil {
+ 		t.Fatalf("import: %v", err)
+ 	}
+@@ -269,7 +269,7 @@ func TestSubscriberSourceShortSetsCampaignAttribution(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatalf("NewQRSignup: %v", err)
+ 	}
+-	r2, err := ImportSubscribers(ctx, pool, stale)
++	r2, err := ImportSubscribers(ctx, testDeps(pool), stale)
+ 	if err != nil {
+ 		t.Fatalf("stale-short import: %v", err)
+ 	}
+@@ -419,7 +419,7 @@ func TestResendRecords202AndAppendsNoCodeSent(t *testing.T) {
+ 	mgr := seedUser(t, pool, "manager")
+ 	mux := mountedMux(testDeps(pool))
+ 
+-	if _, err := ImportSubscribers(ctx, pool, ffImporter(t)); err != nil {
++	if _, err := ImportSubscribers(ctx, testDeps(pool), ffImporter(t)); err != nil {
+ 		t.Fatalf("import: %v", err)
+ 	}
+ 	var id string
+@@ -450,8 +450,10 @@ func TestResendRecords202AndAppendsNoCodeSent(t *testing.T) {
+ 	}
+ 	var detail subscriberDetailDTO
+ 	decode(t, rec, &detail)
+-	if detail.IdentityCode.Status != "not_sent" {
+-		t.Errorf("identity_code.status = %q, want not_sent — a request is not a send", detail.IdentityCode.Status)
++	// "minted", not "sent": the import gave this subscriber a code (card
++	// identity-code-and-qr), and a resend REQUEST still sends nothing.
++	if detail.IdentityCode.Status != IdentityMinted {
++		t.Errorf("identity_code.status = %q, want %q — a request is not a send", detail.IdentityCode.Status, IdentityMinted)
+ 	}
+ 	if detail.IdentityCode.RequestedAt == nil {
+ 		t.Error("identity_code.requested_at is nil, want the resend request's timestamp")
+@@ -558,7 +560,7 @@ func TestNoResponseCarriesAFullPhoneOrEmail(t *testing.T) {
+ 	ctx := context.Background()
+ 	mgr := seedUser(t, pool, "manager")
+ 	mux := mountedMux(testDeps(pool))
+-	if _, err := ImportSubscribers(ctx, pool, ffImporter(t)); err != nil {
++	if _, err := ImportSubscribers(ctx, testDeps(pool), ffImporter(t)); err != nil {
+ 		t.Fatalf("import: %v", err)
+ 	}
+ 
+@@ -818,7 +820,7 @@ func TestReImportConvergesCorrectedFieldsAndCountsHonestly(t *testing.T) {
+ 		if err != nil {
+ 			t.Fatalf("fixture: %v", err)
+ 		}
+-		res, err := ImportSubscribers(ctx, pool, ff)
++		res, err := ImportSubscribers(ctx, testDeps(pool), ff)
+ 		if err != nil {
+ 			t.Fatalf("import: %v", err)
+ 		}
+diff --git a/marketing.html b/marketing.html
+index 09d9459..18728db 100644
+--- a/marketing.html
++++ b/marketing.html
+@@ -140,7 +140,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
+           <!-- file-scan work surface: offscreen, NOT display:none — html5-qrcode
+                owns this element during scanFile and a rendered box is the shape
+                the spike proved. -->
+-          <div id="scan-file-surface" style="position:absolute;left:-9999px;width:320px;height:320px;overflow:hidden" aria-hidden="true"></div>
++          <div id="scan-file-surface" style="position:absolute;left:-9999px;width:640px;height:640px;overflow:hidden" aria-hidden="true"></div>
+           <div id="scan-result" hidden></div>
+         </div>
+       </div>
+diff --git a/playwright.config.js b/playwright.config.js
+index e959303..e4978c7 100644
+--- a/playwright.config.js
++++ b/playwright.config.js
+@@ -139,7 +139,14 @@ module.exports = defineConfig({
+     // would presign and upload REAL objects into the production bucket. Blank
+     // creds also pin /api/v1/health's storage field to 'unconfigured' here,
+     // which tests/storage-banner.spec.js relies on being a non-alarming state.
+-    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= STORAGE_KEY= STORAGE_SECRET= STORAGE_BUCKET= STORAGE_REGION= STORAGE_ENDPOINT= go run ./cmd/server/`,
++    // HQ_FF_FIXTURE_PATH (card identity-code-and-qr, run 20261006): points the
++    // manager-only POST /subscribers/import/web-form at the COMMITTED Fluent
++    // Forms fixture, so tests/marketing-identity.spec.js can import signups
++    // through the real route. Without it that route answers 503
++    // ff_not_configured (FF_DB_* are never set here) — it can never reach the
++    // live website database from this stack either way. The path is relative to
++    // `backend/`, the server's working directory.
++    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= STORAGE_KEY= STORAGE_SECRET= STORAGE_BUCKET= STORAGE_REGION= STORAGE_ENDPOINT= HQ_FF_FIXTURE_PATH=internal/marketing/sources/testdata/fluentforms_submissions.json go run ./cmd/server/`,
+     url: `http://localhost:${testPort}/api/v1/health`,
+     // Unconditionally false (audit surface #2): reuse has cost four runs. The
+     // 8199 default protects against reusing the DEV server, but the same
+diff --git a/tests/marketing-identity.spec.js b/tests/marketing-identity.spec.js
+new file mode 100644
+index 0000000..b28ec0d
+--- /dev/null
++++ b/tests/marketing-identity.spec.js
+@@ -0,0 +1,391 @@
++// ═══════════════════════════════════════════════════════════════════════════
++// Marketing · identity codes — card E1 `identity-code-and-qr` (run 20261006)
++// roadmap Activity E; goal ledger
++// .night-crew/knowledge/spikes/activity-e-customer-delivery-one-identity-code-qr-image/identity-code-and-qr.md
++// ═══════════════════════════════════════════════════════════════════════════
++//
++// What these three tests are about, in the truck's terms: a customer who signed
++// up holds ONE code on their phone. The crew member photographs it.
++//
++//   [IC-01] With no signal, and before that customer has ever synced to this
++//           tablet, the scanner still shows the offer they signed up for.
++//   [IC-02] With signal, the scanner shows the server's answer for that code.
++//   [IC-03] NEGATIVE control: the same code drawn more densely (Medium error
++//           correction, QR version 11) is NOT read off the photo by the shipped
++//           scanner — which is why the server draws it at Low. A change that
++//           "upgrades" the correction level turns [IC-01] into this.
++//
++// 🛑 THE PNG IS THE SERVER'S. Subscribers are imported through the real
++// POST /subscribers/import/web-form (the committed Fluent Forms fixture, via
++// HQ_FF_FIXTURE_PATH on the e2e server — never the live website database), the
++// code is minted by that import, and the image is fetched from the real public
++// GET /m/{id}.png. The raw token is stored nowhere, so the test learns it the
++// only way anyone can: by DECODING THE PNG.
++//
++// 🟡 THE ONE STUB is in [IC-02]: the server lookup is answered by page.route on
++// the sync door's path (the e2e stack has no substrate). It returns the row the
++// projection would have written. The projection itself is gated in Go
++// (TestProjectIdentityCodeUpserts).
++//
++// ═══════════════════════════════════════════════════════════════════════════
++// 🛑 READ BEFORE TRUSTING A RESULT FROM THIS FILE (measured 2026-10-05, run
++// 20261006 — logs/identity-code-and-qr/density-probe.log)
++//
++// These three tests are the signed slate's gates, written as signed. Two of
++// their premises did not survive measurement over 250 freshly drawn codes:
++//
++//   * [IC-03] IS NOT A STABLE PROPERTY. The shipped photo-scan decoder read a
++//     Medium / version-11 code 83% of the time (208 of 250) — as often as it
++//     read the card's own Low / version-9 code (212 of 250). This test passes
++//     only when the one token it happened to mint draws a symbol the decoder
++//     cannot find. Expect it RED on most runs.
++//   * [IC-01] AND [IC-02] PASS ONLY WHEN THE MINTED CODE IS A READABLE ONE —
++//     about six runs in seven. A red here with "decodeError" (or the test's own
++//     decode throwing "No MultiFormat Readers were able to detect the code") is
++//     that, not a regression. 🛑 playwright.config.js retries once, and a retry
++//     mints a NEW token: a pass on retry is the lottery re-drawn, not a flake
++//     going away.
++//
++// The card is PARKED on this (the encoding was a signed correction; what
++// replaces it is the operator's). Do not "stabilise" these tests by pinning a
++// token or adding retries.
++// ═══════════════════════════════════════════════════════════════════════════
++//
++// RED-FIRST: written and run against the pre-change tree — no /m/ route, no
++// mint, `identity_code.status` still "not_sent". Evidence:
++// .night-crew/runs/2026-10-06-autonomous/logs/identity-code-and-qr/.
++
++const { test, expect } = require('@playwright/test');
++const { execFileSync } = require('child_process');
++const crypto = require('crypto');
++const fs = require('fs');
++const path = require('path');
++const { resolveE2eDb } = require('../scripts/reset-e2e-db');
++
++const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
++const ADMIN_PASSWORD = 'test123';
++const MINT_SUB = 'e2e-identity-mint-sub';
++
++// The committed fixture's row 1182 is the one signup carrying a first-touch
++// code (`source: "K7MNPQ"`); the other three have none.
++const FIRST_TOUCH_SHORT = 'K7MNPQ';
++const OFFER_TEXT = 'Free side of wings';
++const TOKEN_RE = /^[23456789abcdefghjkmnpqrstuvwxyz]{16}$/;
++
++const sha256Hex = (s) => crypto.createHash('sha256').update(s).digest('hex');
++
++// The arbiter row's id, derived the way internal/marketing/identity.go derives
++// it: uuid v5 (RFC 4122 URL namespace) over a URL naming the subscriber.
++function identityCodeId(subscriberId) {
++  const ns = Buffer.from('6ba7b8119dad11d180b400c04fd430c8', 'hex');
++  const name = 'https://hq.yumyums.kitchen/identity-code/' + subscriberId.toLowerCase();
++  const h = crypto.createHash('sha1').update(ns).update(name).digest().subarray(0, 16);
++  h[6] = (h[6] & 0x0f) | 0x50;
++  h[8] = (h[8] & 0x3f) | 0x80;
++  const x = h.toString('hex');
++  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
++}
++
++// `psqlUrl`, not `testUrl` — libpq does not understand TimeZone (the note
++// tests/marketing-stats.spec.js carries).
++function psql(sqlText) {
++  const db = resolveE2eDb();
++  return execFileSync('psql', [db.psqlUrl, '-At', '-v', 'ON_ERROR_STOP=1', '-c', sqlText],
++    { encoding: 'utf8' }).trim();
++}
++
++// This file owns subscribers, campaigns and codes while it runs. Deleting a
++// subscriber deletes their timeline and their identity image with them.
++function resetIdentityFixture() {
++  psql(`DELETE FROM subscribers;
++        DELETE FROM reconciliation_decisions;
++        DELETE FROM scan_attempts_mirror;
++        DELETE FROM qr_scans;
++        DELETE FROM qr_codes;
++        DELETE FROM campaigns_admin;`);
++}
++
++async function loginAs(page, email, password) {
++  await page.goto('/login.html');
++  await page.fill('input[type="email"]', email);
++  await page.fill('input[type="password"]', password);
++  await page.click('button.btn');
++  await page.waitForURL((url) => !url.pathname.includes('login'));
++}
++
++async function api(page, method, url, body) {
++  return page.evaluate(async ([m, u, b]) => {
++    const r = await fetch(u, {
++      method: m,
++      headers: b ? { 'Content-Type': 'application/json' } : {},
++      body: b ? JSON.stringify(b) : undefined,
++    });
++    const text = await r.text();
++    let json = null;
++    try { json = JSON.parse(text); } catch (e) { /* not JSON */ }
++    return { status: r.status, text, json };
++  }, [method, url, body || null]);
++}
++
++// mintFixtureCode: a live campaign whose code is the fixture's first-touch
++// short, then the real import. Returns what the SERVER reports — and the PNG,
++// fetched with NO session, written to a per-test file.
++async function mintFixtureCode(page, testInfo) {
++  resetIdentityFixture();
++  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
++
++  const created = await api(page, 'POST', '/api/v1/marketing/campaigns', {
++    name: 'Identity E2E', offer_text: OFFER_TEXT, face_value_cents: 200, runs_days: 14,
++    channels: [{ channel: 'flyer' }],
++  });
++  expect(created.status, `POST /campaigns → ${created.text}`).toBe(201);
++  const campaign = created.json.campaign;
++  psql(`UPDATE qr_codes SET short = '${FIRST_TOUCH_SHORT}' WHERE id = '${created.json.codes[0].id}'`);
++
++  const imported = await api(page, 'POST', '/api/v1/marketing/subscribers/import/web-form');
++  expect(imported.status,
++    `POST /subscribers/import/web-form → ${imported.text}. A 503 ff_not_configured means the e2e ` +
++    'server was started without HQ_FF_FIXTURE_PATH (playwright.config.js sets it; a stack ' +
++    'hand-provisioned behind NIGHTCREW_ENV_URL must export it too).').toBe(200);
++  expect(imported.json.created, 'the committed fixture lands four new subscribers').toBe(4);
++
++  const subscriberId = psql(`SELECT id FROM subscribers WHERE source_short = '${FIRST_TOUCH_SHORT}'`);
++  expect(subscriberId, 'the first-touch subscriber exists').toMatch(/^[0-9a-f-]{36}$/);
++  const detail = await api(page, 'GET', `/api/v1/marketing/subscribers/${subscriberId}`);
++  expect(detail.status, `GET /subscribers/{id} → ${detail.text}`).toBe(200);
++  expect(detail.json.identity_code.status, 'an imported subscriber has a code, and nothing has been sent').toBe('minted');
++  const mediaUrl = detail.json.identity_code.media_url;
++  expect(mediaUrl, 'identity_code.media_url').toMatch(/^\/m\/[0-9a-f-]{36}\.png$/);
++
++  // PUBLIC: a context with no cookies at all, as a customer's phone has.
++  const anon = await page.context().browser().newContext({ baseURL: testInfo.project.use.baseURL });
++  let png;
++  try {
++    const res = await anon.request.get(mediaUrl);
++    expect(res.status(), `GET ${mediaUrl} with no session`).toBe(200);
++    expect(res.headers()['content-type']).toBe('image/png');
++    expect(res.headers()['cache-control']).toBe('private, max-age=3600');
++    png = await res.body();
++    const head = await anon.request.head(mediaUrl);
++    expect(head.status(), 'HEAD is supported').toBe(200);
++    const missing = await anon.request.get('/m/00000000-0000-4000-8000-000000000000.png');
++    expect(missing.status(), 'an unknown media id is a 404').toBe(404);
++  } finally {
++    await anon.close();
++  }
++  const pngPath = testInfo.outputPath('identity-code.png');
++  fs.writeFileSync(pngPath, png);
++
++  // The e2e stack has no substrate, so the first-touch code could not be
++  // projected — and the import says so instead of failing (decision 187's shape).
++  expect(imported.json.warnings, 'an unprojected identity code is reported, not hidden').toEqual(['not_projected']);
++  const storedHash = psql(`SELECT identity_token_hash FROM subscribers WHERE id = '${subscriberId}'`);
++  return { campaign, subscriberId, mediaUrl, pngPath, storedHash };
++}
++
++async function openScanner(page) {
++  await page.goto('/marketing.html');
++  await page.waitForFunction(() => window.MarketingScan && window.MarketingScan.booted === true);
++}
++
++async function scanFile(page, file) {
++  await page.setInputFiles('#scan-file', file);
++  await page.waitForSelector('#scan-result[data-kind]', { state: 'attached' });
++}
++
++async function readResult(page) {
++  const r = page.locator('#scan-result');
++  return {
++    kind: await r.getAttribute('data-kind'),
++    hash: await r.getAttribute('data-token-hash'),
++    source: await r.getAttribute('data-source'),
++  };
++}
++
++// decodePng reads the QR's TEXT out of a PNG with the page's own vendored
++// decoder on a wide private surface — independent of the scanner's result
++// rendering. This is the only way the test (or anyone) learns the token.
++async function decodePng(page, pngPath) {
++  const b64 = fs.readFileSync(pngPath).toString('base64');
++  return page.evaluate(async (data) => {
++    const host = document.createElement('div');
++    host.id = 'ic-test-decode-surface';
++    host.style.cssText = 'position:absolute;left:-9999px;width:1024px;height:1024px;overflow:hidden';
++    document.body.appendChild(host);
++    try {
++      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
++      const file = new File([bytes], 'identity-code.png', { type: 'image/png' });
++      // eslint-disable-next-line no-undef
++      return await new Html5Qrcode(host.id).scanFile(file, false);
++    } finally {
++      host.remove();
++    }
++  }, b64);
++}
++
++// What the payload must be, read off the decoded text.
++function parsePayload(text) {
++  const m = /^https:\/\/hq\.yumyums\.kitchen\/r\/([^/?#]+)(?:#o=([A-Za-z0-9_-]+))?$/.exec(text);
++  expect(m, `decoded payload is not <base>/r/<token>[#o=<descriptor>]: ${text}`).not.toBeNull();
++  return {
++    token: m[1],
++    descriptor: m[2] ? JSON.parse(Buffer.from(m[2], 'base64url').toString('utf8')) : null,
++  };
++}
++
++async function mockSyncTransports(page, campaign) {
++  await page.route('**/api/v1/sync/token', (route) => route.fulfill({
++    status: 200, contentType: 'application/json',
++    body: JSON.stringify({
++      token: 'e2e-bridge-token', expires_at: Math.floor(Date.now() / 1000) + 900,
++      sub: MINT_SUB, role: 'authenticated', grants: ['marketing'],
++    }),
++  }));
++  await page.route('**/sync/rest/**', (route) => {
++    const req = route.request();
++    const u = new URL(req.url());
++    // The replica pulls: this tablet has never seen the customer's code.
++    if (req.method() === 'GET' && u.pathname.endsWith('/codes')) {
++      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
++    }
++    if (req.method() === 'GET' && u.pathname.endsWith('/campaigns')) {
++      return route.fulfill({
++        status: 200, contentType: 'application/json',
++        body: JSON.stringify([{
++          id: campaign.id, name: campaign.name, requires_online: false,
++          updated_at: '2026-09-01T00:00:00.000Z',
++        }]),
++      });
++    }
++    if (req.method() === 'POST' && u.pathname.endsWith('/scan_attempts')) {
++      return route.fulfill({ status: 201, contentType: 'application/json', body: '' });
++    }
++    return route.fulfill({ status: 503, body: 'unmocked sync transport' });
++  });
++}
++
++const isLookupUrl = (url) =>
++  url.pathname.endsWith('/sync/rest/codes') && url.searchParams.has('token_hash');
++
++// qrgen draws a payload with the repo's own go-qrcode (the library the server
++// mints with) at a chosen correction level, and reports the QR version.
++function qrgen(payload, outPath, level) {
++  const out = execFileSync('go', ['run', './cmd/qrgen', payload, outPath, '512', level], {
++    cwd: path.join(__dirname, '..', 'backend'),
++    encoding: 'utf8',
++    env: { ...process.env, PATH: `/usr/local/go/bin:${process.env.PATH}` },
++  });
++  const m = /version=(\d+) modules=(\d+)/.exec(out);
++  expect(m, `qrgen output: ${out}`).not.toBeNull();
++  return { version: Number(m[1]), modules: Number(m[2]) };
++}
++
++test.describe('Identity code — minted by the server, read by the shipped scanner (card identity-code-and-qr)', () => {
++  // `go run` on a cold build cache and the import both sit inside one test.
++  test.setTimeout(120000);
++
++  test('[IC-01] OFFLINE, nothing seeded: the server-minted PNG shows the signup\'s offer and the hash of its own token', async ({ page }, testInfo) => {
++    const minted = await mintFixtureCode(page, testInfo);
++    await openScanner(page);
++
++    // The token, learned ONLY by decoding the server's PNG.
++    const text = await decodePng(page, minted.pngPath);
++    const { token, descriptor } = parsePayload(text);
++    expect(token, 'a 16-character token over the unambiguous alphabet').toMatch(TOKEN_RE);
++    expect(sha256Hex(token), 'the server stored the hash of exactly the token it drew').toBe(minted.storedHash);
++    expect(descriptor, 'a first-touch signup\'s code carries the offer').toEqual({
++      label: OFFER_TEXT,
++      campaign_id: minted.campaign.id,
++      // Date-only and in UTC, whatever offset the API printed ends_at with.
++      expires_at: new Date(minted.campaign.ends_at).toISOString().slice(0, 10),
++      face_value: 2,
++    });
++    // The token itself is in no column of the subscriber's row.
++    expect(psql(`SELECT count(*) FROM subscribers s WHERE to_jsonb(s)::text LIKE '%${token}%'`)).toBe('0');
++
++    await page.context().setOffline(true);
++    await scanFile(page, minted.pngPath);
++    const result = page.locator('#scan-result');
++    await expect(result).toHaveAttribute('data-kind', 'embeddedOffer');
++    await expect(result).toHaveAttribute('data-source', 'embedded');
++    await expect(result).toHaveAttribute('data-token-hash', sha256Hex(token));
++    await expect(result).toContainText(OFFER_TEXT);
++    // Display-only until the server has been asked — the crew is told so.
++    await expect(result.locator('.result-note')).toContainText('not yet verified');
++    // The raw token never lands in the DOM — only its hash.
++    expect(await result.innerHTML()).not.toContain(token);
++  });
++
++  test('[IC-02] ONLINE: the same PNG resolves the server\'s row for that code → offerReady, source server', async ({ page }, testInfo) => {
++    const minted = await mintFixtureCode(page, testInfo);
++    await mockSyncTransports(page, minted.campaign);
++
++    // 🟡 The permitted stub. The "server" holds exactly the row the projection
++    // writes for this subscriber, keyed by the hash HQ stored; any other hash
++    // gets `200 []`, the way PostgREST answers.
++    const projected = {
++      id: identityCodeId(minted.subscriberId),
++      campaign_id: minted.campaign.id,
++      expires_at: new Date(minted.campaign.ends_at).toISOString().replace(/Z$/, '+00:00'),
++      redeemed_at: null,
++      redeemed_by: null,
++    };
++    const lookups = [];
++    await page.route(isLookupUrl, (route) => {
++      const asked = /^eq\.(.+)$/.exec(new URL(route.request().url()).searchParams.get('token_hash') || '');
++      lookups.push(asked ? asked[1] : null);
++      const rows = asked && asked[1] === minted.storedHash ? [projected] : [];
++      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
++    });
++
++    await page.goto('/marketing.html');
++    await page.waitForFunction(() =>
++      window.MarketingScan && window.MarketingScan.booted === true
++      && window.MarketingSubmit && window.MarketingSubmit.booted === true);
++    await page.waitForFunction(() =>
++      document.getElementById('scan-status').textContent.includes('Replica synced'));
++    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'online');
++
++    const { token } = parsePayload(await decodePng(page, minted.pngPath));
++    await scanFile(page, minted.pngPath);
++    await page.waitForFunction(() =>
++      document.getElementById('scan-result').getAttribute('data-kind') !== 'checkingServer', null, { timeout: 10000 });
++
++    const result = page.locator('#scan-result');
++    await expect(result).toHaveAttribute('data-kind', 'offerReady');
++    await expect(result).toHaveAttribute('data-source', 'server');
++    await expect(result).toHaveAttribute('data-token-hash', sha256Hex(token));
++    await expect(result.locator('.offer-row').first()).toHaveAttribute('data-code-id', projected.id);
++    expect(lookups, 'the scanner asked the server about this code\'s hash, and only that').toEqual([minted.storedHash]);
++  });
++
++  test('[IC-03] NEGATIVE control: the same payload at Medium correction (QR version 11) renders no offer', async ({ page }, testInfo) => {
++    const minted = await mintFixtureCode(page, testInfo);
++    await openScanner(page);
++    const text = await decodePng(page, minted.pngPath);
++    const { token } = parsePayload(text);
++
++    // The control must be what it claims: the SAME text, one correction level
++    // up, which costs two QR versions. The Low twin is drawn by the same tool
++    // so the comparison is like for like.
++    const mediumPath = testInfo.outputPath('identity-code-medium.png');
++    const lowPath = testInfo.outputPath('identity-code-low.png');
++    const medium = qrgen(text, mediumPath, 'M');
++    const low = qrgen(text, lowPath, 'L');
++    expect(medium.version, `the ${text.length}-char payload at Medium`).toBe(11);
++    expect(low.version, `the ${text.length}-char payload at Low — the card's encoding`).toBeLessThanOrEqual(10);
++    expect(fs.readFileSync(lowPath).equals(fs.readFileSync(minted.pngPath)),
++      'the server\'s PNG is byte-for-byte the Low/512 drawing of its payload').toBe(true);
++
++    await page.context().setOffline(true);
++    await scanFile(page, mediumPath);
++    const got = await readResult(page);
++    console.log('IC-03 ' + JSON.stringify({ payload_len: text.length, medium, low, ...got }));
++    expect(['decodeError', 'invalidPayload'], `Medium/version-11 photo → ${got.kind}`).toContain(got.kind);
++    // Whatever the reader made of it, it never showed an offer under a hash
++    // that is not this token's.
++    if (got.hash) expect(got.hash).toBe(sha256Hex(token));
++    await expect(page.locator('#scan-result .offer-row')).toHaveCount(0);
++    await expect(page.locator('#scan-result')).not.toContainText(OFFER_TEXT);
++  });
++});
+diff --git a/tests/marketing-subscribers.spec.js b/tests/marketing-subscribers.spec.js
+index 070b158..349d346 100644
+--- a/tests/marketing-subscribers.spec.js
++++ b/tests/marketing-subscribers.spec.js
+@@ -247,7 +247,9 @@ test.describe('Marketing · Subscribers (card H5)', () => {
+     const kinds = detail.events.map(e => e.kind);
+     expect(kinds, 'resend_requested is on the timeline').toContain('resend_requested');
+     expect(kinds, 'code_sent is NOT — that is the send\'s event and the Stats funnel counts it').not.toContain('code_sent');
+-    expect(detail.identity_code.status).toBe('not_sent');
++    // A Toast-guest import mints the subscriber's identity code (card
++    // identity-code-and-qr), so the status is "minted" — and still not "sent".
++    expect(detail.identity_code.status).toBe('minted');
+     expect(detail.identity_code.requested_at, 'the request is timestamped').toBeTruthy();
+ 
+     // Nothing left the origin. Every request the page made is same-origin HQ.

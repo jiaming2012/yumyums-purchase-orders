@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git remote add*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh release*)",
+      "Bash(kubectl*)",
+      "Bash(helm*)",
+      "Bash(terraform*)",
+      "Bash(pulumi*)",
+      "Bash(aws *)",
+      "Bash(gcloud *)",
+      "Bash(az *)",
+      "Bash(doctl *)",
+      "Bash(flyctl *)",
+      "Bash(fly *)",
+      "Bash(vercel *)",
+      "Bash(netlify *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(rsync *)",
+      "WebFetch"
+    ]
+  }
+}
