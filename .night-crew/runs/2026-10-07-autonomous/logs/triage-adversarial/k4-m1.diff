@@ -1,0 +1,13 @@
+diff --git a/marketing/scan-page.js b/marketing/scan-page.js
+index 3f8dd35..d63a936 100644
+--- a/marketing/scan-page.js
++++ b/marketing/scan-page.js
+@@ -356,7 +356,7 @@ async function boot() {
+   // TEST-ONLY: a spec may have installed its own source before boot (file
+   // header). Read here and nowhere else, so the source submit-flow.js
+   // captures is the spec's, normalised by adoptPolicyOverride.
+-  const policyOverride = window.__MARKETING_POLICY_SOURCE__;
++  const policyOverride = undefined; // ADV MUTATION
+   const campaignPolicy = (policyOverride && typeof policyOverride.policyFor === 'function')
+     ? adoptPolicyOverride(policyOverride)
+     : createCampaignPolicySource(cols.campaigns);

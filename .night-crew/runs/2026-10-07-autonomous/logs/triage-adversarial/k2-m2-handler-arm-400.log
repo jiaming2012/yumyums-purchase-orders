@@ -1,0 +1,28 @@
+# M2 diff:
+diff --git a/backend/internal/recipes/handler.go b/backend/internal/recipes/handler.go
+index 5b09c5c..70cea7d 100644
+--- a/backend/internal/recipes/handler.go
++++ b/backend/internal/recipes/handler.go
+@@ -531,7 +531,7 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+ 			case errors.Is(err, ErrMergeTargetNotFound):
+ 				writeError(w, http.StatusNotFound, "target_not_found")
+ 			case errors.Is(err, ErrMergeSourceNotFound):
+-				writeError(w, http.StatusNotFound, "source_not_found")
++				writeError(w, http.StatusBadRequest, "source_not_found")
+ 			default:
+ 				slog.Error("MergeMenuItem", "error", err)
+ 				writeError(w, http.StatusInternalServerError, "internal_error")
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+    repository_test.go:446: status = 400 body={"error":"source_not_found"}
+        , want 404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- FAIL: TestMergeMenuItem_MissingSourceIs404 (1.99s)
+    --- FAIL: TestMergeMenuItem_MissingSourceIs404/handler (0.65s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/repository (0.66s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (0.68s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	1.999s
+FAIL
+EXIT=1

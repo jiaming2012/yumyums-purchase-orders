@@ -1,0 +1,4 @@
+tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab
+tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames
+tests/inventory.spec.js:2767:3 › Inventory › user can set store_location from Setup tab edit form
+tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown

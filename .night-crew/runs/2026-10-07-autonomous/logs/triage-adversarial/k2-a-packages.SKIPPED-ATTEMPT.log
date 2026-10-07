@@ -1,0 +1,456 @@
+# K2 (a): recipes + marketing packages on final, DB_TEST_URL=
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example) (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+    cost_test.go:248: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_Fixture_HandComputedToTheCent (0.00s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+    cost_test.go:345: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (0.00s)
+=== RUN   TestCost_Movers_BothOrderings
+    cost_test.go:398: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_Movers_BothOrderings (0.00s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+    cost_test.go:452: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_ReconcilesWithMenuCogs_OnMessyData (0.00s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+    cost_test.go:517: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (0.00s)
+=== RUN   TestCostHandler_ServerComputedWindow
+    cost_test.go:554: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCostHandler_ServerComputedWindow (0.00s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+    cost_test.go:611: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_EmptyDataset_ReturnsEmptyArrays (0.00s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+    cost_test.go:657: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.00s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+    cost_test.go:790: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCost_TiedRows_DeterministicAcrossCalls (0.00s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+    handler_test.go:79: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCreateRecipe_HappyPath (0.00s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+    handler_test.go:106: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCreateRecipe_SumExceeds100_NamesLargestSibling (0.00s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+    handler_test.go:148: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCreateRecipe_DuplicateReturns409 (0.00s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+    handler_test.go:174: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestCreateRecipe_InvalidSnapReturns422 (0.00s)
+=== RUN   TestUpdateRecipe_HappyPath
+    handler_test.go:199: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestUpdateRecipe_HappyPath (0.00s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+    handler_test.go:223: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestUpdateRecipe_NotFoundReturns404 (0.00s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+    handler_test.go:237: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestUpdateRecipe_SumExceeds100_NamesSibling (0.00s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+    handler_test.go:266: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestUpdateRecipe_InvalidSnapReturns422 (0.00s)
+=== RUN   TestDeleteRecipe_RemovesRow
+    handler_test.go:290: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestDeleteRecipe_RemovesRow (0.00s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+    handler_test.go:313: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestDeleteRecipe_NotFoundReturns404 (0.00s)
+=== RUN   TestMergeMenuItem_RePointsRows
+    handler_test.go:331: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMergeMenuItem_RePointsRows (0.00s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+    handler_test.go:380: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMergeMenuItem_SelfReturns400 (0.00s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+    handler_test.go:398: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMergeMenuItem_MissingFields_400 (0.00s)
+=== RUN   TestListRecipes_HappyPath
+    handler_test.go:414: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestListRecipes_HappyPath (0.00s)
+=== RUN   TestListRecipes_InvalidDates_400
+    handler_test.go:470: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestListRecipes_InvalidDates_400 (0.00s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+    handler_test.go:484: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.00s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+    menu_cogs_test.go:59: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_HappyPath_SummaryMode (0.00s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+    menu_cogs_test.go:120: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_HappyPath_BreakdownMode (0.00s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+    menu_cogs_test.go:189: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (0.00s)
+=== RUN   TestMenuCogs_FromMissing_400
+    menu_cogs_test.go:227: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_FromMissing_400 (0.00s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+    menu_cogs_test.go:243: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_FromAfterTo_400 (0.00s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+    menu_cogs_test.go:259: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_CacheControlHeader_OnSuccess (0.00s)
+=== RUN   TestMenuCogs_BearerMissing_401
+    menu_cogs_test.go:287: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_BearerMissing_401 (0.00s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+    menu_cogs_test.go:301: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_ServiceTokenUnset_503 (0.00s)
+=== RUN   TestMenuCogs_BearerWrong_401
+    menu_cogs_test.go:316: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_BearerWrong_401 (0.00s)
+=== RUN   TestMenuCogs_EmitsVisibilityLog
+    menu_cogs_visibility_test.go:76: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_EmitsVisibilityLog (0.00s)
+=== RUN   TestMenuCogs_VisibilityLogBreakdownMode
+    menu_cogs_visibility_test.go:117: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMenuCogs_VisibilityLogBreakdownMode (0.00s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+    repository_test.go:18: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_CreateRecipe_HappyPath (0.00s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+    repository_test.go:46: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_CreateRecipe_SumExceeds100_Rollsback (0.00s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+    repository_test.go:76: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (0.00s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+    repository_test.go:96: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_UpdateRecipeUsagePct_NotFound (0.00s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+    repository_test.go:107: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_DeleteRecipe_RemovesRow (0.00s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+    repository_test.go:133: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_MergeMenuItem_RePointsRows (0.00s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+    repository_test.go:175: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.00s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+    repository_test.go:246: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_MergeMenuItem_SelfFails (0.00s)
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused/repository
+    repository_test.go:262: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused/handler
+    repository_test.go:274: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- PASS: TestMergeMenuItem_CaseVariantSelfIsRefused (0.00s)
+    --- SKIP: TestMergeMenuItem_CaseVariantSelfIsRefused/repository (0.00s)
+    --- SKIP: TestMergeMenuItem_CaseVariantSelfIsRefused/handler (0.00s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+    repository_test.go:294: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRepository_LargestSiblingAllocation_PicksDescByPct (0.00s)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+    repository_test.go:353: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+    repository_test.go:368: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+    repository_test.go:389: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingTargetIsRefused/repository (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingTargetIsRefused/handler (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (0.00s)
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+    repository_test.go:436: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+    repository_test.go:455: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+    repository_test.go:468: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- PASS: TestMergeMenuItem_MissingSourceIs404 (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingSourceIs404/handler (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingSourceIs404/repository (0.00s)
+    --- SKIP: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (0.00s)
+=== RUN   TestMergeMenuItem_BadIDIs400
+=== RUN   TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/both_are_not_uuids
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_uuid_wrapped_in_two_stray_characters
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_without_hyphens
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_in_braces
+    repository_test.go:508: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+=== RUN   TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID
+    repository_test.go:541: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- PASS: TestMergeMenuItem_BadIDIs400 (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/both_are_not_uuids (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/source_is_a_uuid_wrapped_in_two_stray_characters (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_without_hyphens (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_in_braces (0.00s)
+    --- SKIP: TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID (0.00s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:566: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.00s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+    scheduler_test.go:40: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestComputeDrift_Unallocated_FlagsAbove10Pct (0.00s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+    scheduler_test.go:68: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestComputeDrift_ZeroSales_FlagsMissingItems (0.00s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+    scheduler_test.go:96: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestComputeDrift_Divergence_FlagsAbove20Pct (0.00s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+    scheduler_test.go:120: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestComputeDrift_HappyClean_NoSections (0.00s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+    scheduler_test.go:155: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRunDriftWeek_IdempotentOnSecondCall (0.00s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+    scheduler_test.go:176: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRunDriftWeek_SkipsWhenIngestStale (0.00s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+    scheduler_test.go:196: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (0.00s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+    scheduler_test.go:231: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestRunDriftWeek_NoEnqueueWhenClean (0.00s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+    scheduler_test.go:247: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestDriftBannerHandler_ReturnsLatest (0.00s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+    scheduler_test.go:275: DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test
+--- SKIP: TestDriftBannerHandler_EmptyObjectWhenNoRows (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	0.017s
+=== RUN   TestCreateCampaignMintsOneCodePerChannel
+    campaigns_test.go:24: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCreateCampaignMintsOneCodePerChannel (0.00s)
+=== RUN   TestCreateCampaignRejectsOtherWithoutLabel
+    campaigns_test.go:112: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCreateCampaignRejectsOtherWithoutLabel (0.00s)
+=== RUN   TestCreateCampaignSlugsAreUnique
+    campaigns_test.go:129: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCreateCampaignSlugsAreUnique (0.00s)
+=== RUN   TestRequiresOnlineDerivedFromThreshold
+    campaigns_test.go:146: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestRequiresOnlineDerivedFromThreshold (0.00s)
+=== RUN   TestTeamMemberGets403ManagersOnly
+    campaigns_test.go:175: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestTeamMemberGets403ManagersOnly (0.00s)
+=== RUN   TestListCampaignsFunnelAndZeroMoney
+    campaigns_test.go:227: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestListCampaignsFunnelAndZeroMoney (0.00s)
+=== RUN   TestPatchCodeRepointsWithoutChangingShort
+    campaigns_test.go:275: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestPatchCodeRepointsWithoutChangingShort (0.00s)
+=== RUN   TestPatchCampaignStatus
+    campaigns_test.go:305: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestPatchCampaignStatus (0.00s)
+=== RUN   TestAddCodeToExistingCampaign
+    campaigns_test.go:333: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestAddCodeToExistingCampaign (0.00s)
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+    erasure_test.go:86: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.00s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+    erasure_test.go:140: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCodeDeleteBlanksFirstTouch (0.00s)
+=== RUN   TestScannedCodeDeleteIsRefused
+    erasure_test.go:170: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestScannedCodeDeleteIsRefused (0.00s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+    erasure_test.go:282: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.00s)
+=== RUN   TestMigration0086BlanksDanglingScanReferences
+    erasure_test.go:347: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0086BlanksDanglingScanReferences (0.00s)
+=== RUN   TestMigration0086DishDeleteBlanksCampaignAndCode
+    erasure_test.go:428: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0086DishDeleteBlanksCampaignAndCode (0.00s)
+=== RUN   TestCampaignListDisclosesUnattributedMoney
+    fixround_test.go:24: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCampaignListDisclosesUnattributedMoney (0.00s)
+=== RUN   TestCampaignListReportsZeroUnattributedAsAFact
+    fixround_test.go:105: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCampaignListReportsZeroUnattributedAsAFact (0.00s)
+=== RUN   TestSliceRowsCarryNullForThePeriodScopedKeys
+    fixround_test.go:129: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSliceRowsCarryNullForThePeriodScopedKeys (0.00s)
+=== RUN   TestOrphanRateDisclosesItsNumerator
+    fixround_test.go:178: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestOrphanRateDisclosesItsNumerator (0.00s)
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+    landing_test.go:44: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingLogsScanAndRedirectsWithUTM (0.00s)
+=== RUN   TestLandingWithoutItemOmitsUTMContent
+    landing_test.go:184: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingWithoutItemOmitsUTMContent (0.00s)
+=== RUN   TestLandingInactiveCodeRendersEndedPage
+    landing_test.go:210: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingInactiveCodeRendersEndedPage (0.00s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+    landing_test.go:335: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingDedupeIsAtomicUnderConcurrency (0.00s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+    landing_test.go:429: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingAnonymousScansNeverDedupe (0.00s)
+=== RUN   TestLandingCountsAgainAfterWindow
+    landing_test.go:461: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestLandingCountsAgainAfterWindow (0.00s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+    landing_test.go:579: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0087DedupeBucketDownAndUpRoundTrip (0.00s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+    landing_test.go:637: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0087CollapsesPreExistingDuplicates (0.00s)
+=== RUN   TestScanAttemptsMirrorKeysetResumes
+    mirror_test.go:234: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestScanAttemptsMirrorKeysetResumes (0.00s)
+=== RUN   TestMirrorUnconfiguredIsIdleNotFatal
+2026/10/07 08:01:38 INFO scan-attempts mirror idle: substrate not configured; scan_attempts_mirror will stay empty missing="HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY" interval=5m0s
+--- PASS: TestMirrorUnconfiguredIsIdleNotFatal (0.00s)
+=== RUN   TestProjectionUnconfiguredLeavesProjectedAtNull
+    projection_test.go:28: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestProjectionUnconfiguredLeavesProjectedAtNull (0.00s)
+=== RUN   TestProjectionFailureLeavesProjectedAtNull
+    projection_test.go:85: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestProjectionFailureLeavesProjectedAtNull (0.00s)
+=== RUN   TestProjectionConfiguredUpsertsToSubstrate
+    projection_test.go:151: MKT_PROJECTION_LIVE != 1 — the local spike-supabase substrate leg is opt-in
+--- SKIP: TestProjectionConfiguredUpsertsToSubstrate (0.00s)
+=== RUN   TestPayloadStaysAtQRVersion3
+--- PASS: TestPayloadStaysAtQRVersion3 (0.00s)
+=== RUN   TestCodePNGHandler
+    qrpng_test.go:46: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCodePNGHandler (0.00s)
+=== RUN   TestNewShortCodeShape
+--- PASS: TestNewShortCodeShape (0.00s)
+=== RUN   TestSlugify
+--- PASS: TestSlugify (0.00s)
+=== RUN   TestUAFamily
+--- PASS: TestUAFamily (0.00s)
+=== RUN   TestIsLinkPreview
+--- PASS: TestIsLinkPreview (0.00s)
+=== RUN   TestLooksAutomatedIsWiderThanIsLinkPreview
+--- PASS: TestLooksAutomatedIsWiderThanIsLinkPreview (0.00s)
+=== RUN   TestQueueOrdersOverridesThenOrphansThenUnmatched
+    reconciliation_test.go:12: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestQueueOrdersOverridesThenOrphansThenUnmatched (0.00s)
+=== RUN   TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes
+    reconciliation_test.go:63: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes (0.00s)
+=== RUN   TestSuggestionSurvivesAOneHourOpenedAtOffset
+    reconciliation_test.go:120: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSuggestionSurvivesAOneHourOpenedAtOffset (0.00s)
+=== RUN   TestDeclineOtherRequiresNote
+    reconciliation_test.go:163: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestDeclineOtherRequiresNote (0.00s)
+=== RUN   TestMatchUnknownOrderIs409AndKnownOrderResolves
+    reconciliation_test.go:242: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMatchUnknownOrderIs409AndKnownOrderResolves (0.00s)
+=== RUN   TestReopenReturnsAttemptToTheQueue
+    reconciliation_test.go:286: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestReopenReturnsAttemptToTheQueue (0.00s)
+=== RUN   TestVerifyAndRejectResolveAnOverride
+    reconciliation_test.go:322: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestVerifyAndRejectResolveAnOverride (0.00s)
+=== RUN   TestReconciliationQueueIsManagerOnly
+    reconciliation_test.go:350: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestReconciliationQueueIsManagerOnly (0.00s)
+=== RUN   TestMountReportsRegistersTheBICampaignReports
+--- PASS: TestMountReportsRegistersTheBICampaignReports (0.00s)
+=== RUN   TestMountReportsKeepsCardH1sSignature
+--- PASS: TestMountReportsKeepsCardH1sSignature (0.00s)
+=== RUN   TestMountRegistersTheGatedRouteTable
+--- PASS: TestMountRegistersTheGatedRouteTable (0.00s)
+=== RUN   TestMountPublicRegistersOnlyTheLanding
+--- PASS: TestMountPublicRegistersOnlyTheLanding (0.00s)
+=== RUN   TestSlicesReconcileToOverview
+    stats_test.go:122: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSlicesReconcileToOverview (0.00s)
+=== RUN   TestOrphanRateCountsDeclinesExceptDuplicateScan
+    stats_test.go:223: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestOrphanRateCountsDeclinesExceptDuplicateScan (0.00s)
+=== RUN   TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies
+    stats_test.go:276: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies (0.00s)
+=== RUN   TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion
+    stats_test.go:329: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion (0.00s)
+=== RUN   TestCampaignListCarriesRealMoneyPerCampaign
+    stats_test.go:388: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestCampaignListCarriesRealMoneyPerCampaign (0.00s)
+=== RUN   TestStatsByDrillInsScopeToTheirParent
+    stats_test.go:432: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestStatsByDrillInsScopeToTheirParent (0.00s)
+=== RUN   TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown
+    stats_test.go:485: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown (0.00s)
+=== RUN   TestSignupsStatesItsBasisWhenSubscribersIsAbsent
+    stats_test.go:533: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSignupsStatesItsBasisWhenSubscribersIsAbsent (0.00s)
+=== RUN   TestFluentFormsImportIsIdempotent
+    subscribers_test.go:87: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestFluentFormsImportIsIdempotent (0.00s)
+=== RUN   TestSubscriberSourceShortSetsCampaignAttribution
+    subscribers_test.go:188: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestSubscriberSourceShortSetsCampaignAttribution (0.00s)
+=== RUN   TestNothingInThisPackageSends
+    subscribers_test.go:400: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
+    subscribers_test.go:400: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
+--- PASS: TestNothingInThisPackageSends (0.02s)
+=== RUN   TestResendRecords202AndAppendsNoCodeSent
+    subscribers_test.go:417: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestResendRecords202AndAppendsNoCodeSent (0.00s)
+=== RUN   TestWebFormImportRefusesWhenUnconfigured
+    subscribers_test.go:483: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestWebFormImportRefusesWhenUnconfigured (0.00s)
+=== RUN   TestWebFormImportReadsTheCommittedFixture
+    subscribers_test.go:507: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestWebFormImportReadsTheCommittedFixture (0.00s)
+=== RUN   TestNoResponseCarriesAFullPhoneOrEmail
+    subscribers_test.go:557: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestNoResponseCarriesAFullPhoneOrEmail (0.00s)
+=== RUN   TestE164NormalizeAndMaskHoldOnTheSpikesSet
+--- PASS: TestE164NormalizeAndMaskHoldOnTheSpikesSet (0.00s)
+=== RUN   TestTeamMemberGets403ManagersOnlyOnSubscribers
+    subscribers_test.go:649: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestTeamMemberGets403ManagersOnlyOnSubscribers (0.00s)
+=== RUN   TestToastGuestCSVImportsAndFiltersByConsent
+    subscribers_test.go:672: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestToastGuestCSVImportsAndFiltersByConsent (0.00s)
+=== RUN   TestToastGuestIDAliasDoesNotMergeTwoPeople
+    subscribers_test.go:763: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestToastGuestIDAliasDoesNotMergeTwoPeople (0.00s)
+=== RUN   TestReImportConvergesCorrectedFieldsAndCountsHonestly
+    subscribers_test.go:806: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestReImportConvergesCorrectedFieldsAndCountsHonestly (0.00s)
+=== RUN   TestNormalizeE164RejectsImpossibleAreaCodes
+--- PASS: TestNormalizeE164RejectsImpossibleAreaCodes (0.00s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+    zz_migration_down_test.go:18: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0083DownAndUpRoundTrip (0.00s)
+=== RUN   TestMigration0085SubscribersDownAndUpRoundTrip
+    zzz_subscribers_migration_down_test.go:92: no test database (DB_TEST_URL unset and the local fallback is unreachable)
+--- SKIP: TestMigration0085SubscribersDownAndUpRoundTrip (0.00s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	0.049s
+EXIT=0

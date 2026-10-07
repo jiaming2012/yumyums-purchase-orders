@@ -1,0 +1,157 @@
+# triage-adversarial pw leg k4-probe-permissive-override. WT=/home/jcole/projects/hq-worktrees/triage-adv-20261007 SHA=62877165d5f8709cb8754e75ec6ddf20ebd8b8a2 start 2026-10-07T08:52:30-04:00
+# env: TEST_PORT=8393 TEST_DB_NAME=hq_test_triage_adv_20261007_e2e DB_PORT=5434 DB_USER=hqtest
+# cmd: npx playwright test --reporter=list tests/marketing.spec.js -g ADV-K4 --retries=0
+# git status --porcelain BEFORE: 1 lines
+[2m[WebServer] [22m── reset hq_test_triage_adv_20261007_e2e on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.773280477-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.773621403-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.792689606-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.862602537-04:00","level":"INFO","msg":"OK   0001_users.sql (41.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.914166641-04:00","level":"INFO","msg":"OK   0002_sessions.sql (51.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.950126427-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (35.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:36.980781821-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (30.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.015032275-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (34.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.045306548-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (30.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.078542029-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (33.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.118771241-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (40.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.151714012-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (32.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.187830416-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (35.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.230797074-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (42.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.284913568-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.317951118-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (32.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.352111261-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (34.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.405145918-04:00","level":"INFO","msg":"OK   0015_ops.sql (52.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.420193459-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.438105717-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (17.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.504989505-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (66.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.579092783-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (73.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.636065715-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (56.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.683908628-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (47.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.728182876-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (44.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:37.79589256-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (67.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.025907313-04:00","level":"INFO","msg":"OK   0024_inventory.sql (229.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.069797433-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (43.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.078644733-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.086519993-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.102881654-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (16.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.109849826-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.135927591-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (25.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.145674559-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (9.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.159716937-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (13.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.190869981-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (31.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.27241202-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (81.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.285799489-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (13.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.298227176-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.33042044-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (32.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.348188813-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (17.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.372477459-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (24.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.492861331-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (120.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.505993503-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.568137531-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (62.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.618259508-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (50.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.669181141-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (50.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.718713483-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (49.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.726320112-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.779205613-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (52.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.78675202-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.832192308-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (45.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.840817971-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.848419008-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.864862183-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.872494621-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.879901765-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.88717524-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.901634759-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (14.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.915518518-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (13.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.928896953-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:38.936327541-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.000909683-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (64.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.037419005-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (36.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.079757237-04:00","level":"INFO","msg":"OK   0062_recipes.sql (42.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.111523789-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (31.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.125950832-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (14.32ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.138233342-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.150728564-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.202786126-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (51.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.227144888-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.240324377-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.254142107-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (13.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.276492587-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (22.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.292481519-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.81ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.314817804-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (22.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.32675146-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (11.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.377421883-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (50.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.404295755-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (26.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.451406653-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (46.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.465288907-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (13.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.488719719-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (23.32ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.502307746-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (13.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.528387447-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (25.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.546659529-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (18.09ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.666039636-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (119.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.794484917-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (128.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.904045791-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (109.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.929014511-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (24.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.983112509-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (53.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.983182624-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 87","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:39.983199615-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.066892532-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.100761784-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"349a186c-d87a-4ec3-b472-62a908ee5ac9"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.100824371-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.133522636-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"e1cf8fa9-9678-4c77-800e-5053cacc09cf"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.157597066-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.242754442-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.379305653-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.875461322-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.875549503-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.87561123-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.875682851-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.875724576-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876162365-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.87630722-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876363892-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876379055-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876389164-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876400886-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.876827921-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.89485944-04:00","level":"INFO","msg":"server listening","port":"8393"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.90540187-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8393"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.905445638-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8393"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.905456822-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8393"}
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:40.905469726-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 2 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-10-07T08:54:44.050035728-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  1 [chromium] › tests/marketing.spec.js:3133:5 › ADV probe › [ADV-K4] requires-online $40 code scanned offline, permissive boot override=true (30.1s)
+[2m[WebServer] [22m{"time":"2026-10-07T08:55:13.13429907-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+ADV-K4 RESULT override=false: origin=http://localhost:8393 gate-branch=requires-online order-field=0 submit-button=0 posts=0
+  ✓  2 [chromium] › tests/marketing.spec.js:3133:5 › ADV probe › [ADV-K4] requires-online $40 code scanned offline, permissive boot override=false (1.5s)
+
+
+  1) [chromium] › tests/marketing.spec.js:3133:5 › ADV probe › [ADV-K4] requires-online $40 code scanned offline, permissive boot override=true 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.count: Target page, context or browser has been closed
+
+      3147 |       await page.waitForTimeout(500);
+      3148 |       const branch = await page.locator('#ms-gate').getAttribute('data-branch').catch(() => null);
+    > 3149 |       const orderCount = await page.locator('#ms-order').count();
+           |                                                          ^
+      3150 |       const submitCount = await page.locator('[data-action="ms-submit"]').count();
+      3151 |       const origin = await page.evaluate(() => location.origin);
+      3152 |       console.log(`ADV-K4 RESULT override=${withOverride}: origin=${origin} gate-branch=${branch} order-field=${orderCount} submit-button=${submitCount} posts=${calls.length}`);
+        at /home/jcole/projects/hq-worktrees/triage-adv-20261007/tests/marketing.spec.js:3149:58
+
+    Error Context: ../../../../../tmp/claude-1000/-home-jcole-projects-hq/d35260ba-2f67-4dc1-9824-435e818e0e51/scratchpad/pw-out-k4-probe-permissive-override/marketing-ADV-probe-ADV-K4-69a16-rmissive-boot-override-true-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/marketing.spec.js:3133:5 › ADV probe › [ADV-K4] requires-online $40 code scanned offline, permissive boot override=true 
+  1 passed (2.9m)
+EXIT_PW=1
+# git status --porcelain AFTER:
+ M tests/marketing.spec.js
+# porcelain_lines=1
+# end 2026-10-07T08:55:14-04:00

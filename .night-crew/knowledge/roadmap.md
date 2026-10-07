@@ -1228,6 +1228,11 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 > keeps what they typed). Four cards, two tracks: **A (client)** K1 → K4; **B (backend + tests)**
 > K2 → K3. Spike ledgers under
 > `.night-crew/knowledge/spikes/activity-k-review-leftovers-and-inventory-setup-races-triage-20261005-follow-ups/`.
+>
+> **Triaged 2026-10-07 (ledger T-72, receipt `reference/triage-20261007.md`):** run `20261007`
+> merged `--no-ff` into `dev` at `b93a18c`, 4 of 4 cards landed on independent gate evidence. K4's
+> boot-time test override was shut to a loopback origin the same sitting (decision 215, `[SV-13]`);
+> its post-boot door is B-500. Findings graduated: B-498 … B-504. Activity K is complete.
 
 ### inventory-setup-races
 

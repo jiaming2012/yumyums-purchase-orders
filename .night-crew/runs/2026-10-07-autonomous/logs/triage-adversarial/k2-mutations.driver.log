@@ -1,0 +1,23 @@
+## M1: remove ' FOR SHARE' from the target read; lock test x3
+ backend/internal/recipes/repository.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+   -> PASS=0 FAIL=3 SKIP=0 FAIL	github.com/yumyums/hq/internal/recipes	2.148s EXIT=1
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+## M2: handler arm swap: source_not_found answers 400 instead of 404; MissingSourceIs404
+   -> PASS=0 FAIL=1 SKIP=0 FAIL	github.com/yumyums/hq/internal/recipes	1.999s EXIT=1
+    repository_test.go:446: status = 400 body={"error":"source_not_found"}
+## M3: remove the source-existence refusal (fall through on no rows); MissingSourceIs404
+   -> PASS=0 FAIL=1 SKIP=0 FAIL	github.com/yumyums/hq/internal/recipes	2.488s EXIT=1
+    repository_test.go:446: status = 500 body={"error":"internal_error"}
+    repository_test.go:449: body = {"error":"internal_error"}
+    repository_test.go:461: MergeMenuItem from a missing source returned (0, no rows in result set), want ErrMergeSourceNotFound
+## M4: migration 0086 SET NULL -> NO ACTION on the two item_id FKs; fresh DB; backstop test
+NOTICE:  database "hq_test_triage_adv_20261007_go_k2m" does not exist, skipping
+   -> PASS=0 FAIL=1 SKIP=0 FAIL	github.com/yumyums/hq/internal/marketing	4.639s EXIT=1
+    erasure_test.go:455: DELETE the dish a campaign and a code name: ERROR: update or delete on table "menu_items" violates foreign key constraint "campaigns_admin_item_id_fkey" on table "campaigns_admin" (SQLSTATE 23503
+## M4 control: unmutated 0086 on another fresh DB
+NOTICE:  database "hq_test_triage_adv_20261007_go_k2c" does not exist, skipping
+   -> PASS=1 FAIL=0 SKIP=0 ok  	github.com/yumyums/hq/internal/marketing	3.663s EXIT=0
+?? backend/internal/recipes/zz_adv_probe_test.go

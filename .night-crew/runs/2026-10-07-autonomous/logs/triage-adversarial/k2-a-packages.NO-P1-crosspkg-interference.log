@@ -1,0 +1,448 @@
+# K2 (a): recipes + marketing packages on final, DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_triage_adv_20261007_go_k2?sslmode=disable (previous attempt had the var EMPTY and every DB test skipped: PASS=23 SKIP=116 — recorded in k2-a-packages.SKIPPED-ATTEMPT.log)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example) (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week (0.00s)
+    --- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+--- PASS: TestCost_Fixture_HandComputedToTheCent (1.22s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+--- PASS: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (1.19s)
+=== RUN   TestCost_Movers_BothOrderings
+--- PASS: TestCost_Movers_BothOrderings (1.29s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+2026/10/07 08:01:58 INFO menu-cogs served from=2026-05-04 to=2026-05-31 menu_item_count=4 breakdown=false
+--- PASS: TestCost_ReconcilesWithMenuCogs_OnMessyData (1.36s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+--- PASS: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (1.12s)
+=== RUN   TestCostHandler_ServerComputedWindow
+--- PASS: TestCostHandler_ServerComputedWindow (1.07s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+--- PASS: TestCost_EmptyDataset_ReturnsEmptyArrays (1.14s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+--- PASS: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.97s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+--- PASS: TestCost_TiedRows_DeterministicAcrossCalls (1.54s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+--- PASS: TestCreateRecipe_HappyPath (1.06s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+--- PASS: TestCreateRecipe_SumExceeds100_NamesLargestSibling (1.46s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+--- PASS: TestCreateRecipe_DuplicateReturns409 (1.31s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+--- PASS: TestCreateRecipe_InvalidSnapReturns422 (0.89s)
+=== RUN   TestUpdateRecipe_HappyPath
+--- PASS: TestUpdateRecipe_HappyPath (0.87s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+--- PASS: TestUpdateRecipe_NotFoundReturns404 (0.73s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+--- PASS: TestUpdateRecipe_SumExceeds100_NamesSibling (1.16s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+--- PASS: TestUpdateRecipe_InvalidSnapReturns422 (1.02s)
+=== RUN   TestDeleteRecipe_RemovesRow
+--- PASS: TestDeleteRecipe_RemovesRow (1.25s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+--- PASS: TestDeleteRecipe_NotFoundReturns404 (0.90s)
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (1.24s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.93s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (1.43s)
+=== RUN   TestListRecipes_HappyPath
+--- PASS: TestListRecipes_HappyPath (1.02s)
+=== RUN   TestListRecipes_InvalidDates_400
+--- PASS: TestListRecipes_InvalidDates_400 (1.19s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+--- PASS: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.99s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+2026/10/07 08:02:21 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_HappyPath_SummaryMode (1.38s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+2026/10/07 08:02:22 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=true
+--- PASS: TestMenuCogs_HappyPath_BreakdownMode (1.34s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+2026/10/07 08:02:24 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=1 breakdown=false
+--- PASS: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (2.09s)
+=== RUN   TestMenuCogs_FromMissing_400
+--- PASS: TestMenuCogs_FromMissing_400 (1.15s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+--- PASS: TestMenuCogs_FromAfterTo_400 (1.19s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+2026/10/07 08:02:27 INFO menu-cogs served from=2026-05-25 to=2026-05-31 menu_item_count=0 breakdown=false
+--- PASS: TestMenuCogs_CacheControlHeader_OnSuccess (1.00s)
+=== RUN   TestMenuCogs_BearerMissing_401
+--- PASS: TestMenuCogs_BearerMissing_401 (1.23s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+--- PASS: TestMenuCogs_ServiceTokenUnset_503 (1.95s)
+=== RUN   TestMenuCogs_BearerWrong_401
+--- PASS: TestMenuCogs_BearerWrong_401 (1.19s)
+=== RUN   TestMenuCogs_EmitsVisibilityLog
+--- PASS: TestMenuCogs_EmitsVisibilityLog (1.05s)
+=== RUN   TestMenuCogs_VisibilityLogBreakdownMode
+--- PASS: TestMenuCogs_VisibilityLogBreakdownMode (1.30s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+--- PASS: TestRepository_CreateRecipe_HappyPath (1.42s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+--- PASS: TestRepository_CreateRecipe_SumExceeds100_Rollsback (0.96s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+--- PASS: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (1.22s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+--- PASS: TestRepository_UpdateRecipeUsagePct_NotFound (1.21s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+--- PASS: TestRepository_DeleteRecipe_RemovesRow (1.32s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (1.14s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+--- PASS: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (1.28s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.96s)
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused/repository
+=== RUN   TestMergeMenuItem_CaseVariantSelfIsRefused/handler
+--- PASS: TestMergeMenuItem_CaseVariantSelfIsRefused (2.32s)
+    --- PASS: TestMergeMenuItem_CaseVariantSelfIsRefused/repository (1.12s)
+    --- PASS: TestMergeMenuItem_CaseVariantSelfIsRefused/handler (1.20s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+--- PASS: TestRepository_LargestSiblingAllocation_PicksDescByPct (1.34s)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+    repository_test.go:420: read campaign: no rows in result set
+--- FAIL: TestMergeMenuItem_MissingTargetIsRefused (3.85s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/repository (1.22s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/handler (1.03s)
+    --- FAIL: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (1.60s)
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- PASS: TestMergeMenuItem_MissingSourceIs404 (3.67s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/handler (1.04s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/repository (1.35s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (1.28s)
+=== RUN   TestMergeMenuItem_BadIDIs400
+=== RUN   TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/both_are_not_uuids
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_uuid_wrapped_in_two_stray_characters
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_without_hyphens
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_in_braces
+=== RUN   TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID
+    repository_test.go:541: setupTestDB truncate: ERROR: deadlock detected (SQLSTATE 40P01)
+--- FAIL: TestMergeMenuItem_BadIDIs400 (8.55s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid (1.02s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid (1.31s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/both_are_not_uuids (1.32s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_a_uuid_wrapped_in_two_stray_characters (1.29s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_without_hyphens (1.35s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_a_real_dish_id_in_braces (1.24s)
+    --- FAIL: TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID (1.03s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.52s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+--- PASS: TestComputeDrift_Unallocated_FlagsAbove10Pct (0.96s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+--- PASS: TestComputeDrift_ZeroSales_FlagsMissingItems (1.09s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+--- PASS: TestComputeDrift_Divergence_FlagsAbove20Pct (1.32s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+--- PASS: TestComputeDrift_HappyClean_NoSections (0.95s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+--- PASS: TestRunDriftWeek_IdempotentOnSecondCall (1.21s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+--- PASS: TestRunDriftWeek_SkipsWhenIngestStale (1.21s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+--- PASS: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (0.99s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+--- PASS: TestRunDriftWeek_NoEnqueueWhenClean (0.81s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+--- PASS: TestDriftBannerHandler_ReturnsLatest (1.03s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+--- PASS: TestDriftBannerHandler_EmptyObjectWhenNoRows (1.36s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	84.895s
+2026/10/07 08:01:53 goose: no migrations to run. current version: 87
+2026/10/07 08:01:53 INFO database migrations applied successfully
+=== RUN   TestCreateCampaignMintsOneCodePerChannel
+2026/10/07 08:01:55 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=46d4099b-ab95-4a11-8fb3-f2356882dbf5
+--- PASS: TestCreateCampaignMintsOneCodePerChannel (2.05s)
+=== RUN   TestCreateCampaignRejectsOtherWithoutLabel
+--- PASS: TestCreateCampaignRejectsOtherWithoutLabel (0.41s)
+=== RUN   TestCreateCampaignSlugsAreUnique
+2026/10/07 08:01:58 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=f183a360-cb02-4ec3-9db1-a2b8e4178dfd
+2026/10/07 08:01:58 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=cc842a30-e98f-4740-80cc-85bb172952a7
+--- PASS: TestCreateCampaignSlugsAreUnique (2.22s)
+=== RUN   TestRequiresOnlineDerivedFromThreshold
+2026/10/07 08:01:59 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=320f169a-c22a-4c09-a119-f575eaf61340
+2026/10/07 08:01:59 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=ba163582-4593-46ff-87da-39e7b80790b6
+--- PASS: TestRequiresOnlineDerivedFromThreshold (1.13s)
+=== RUN   TestTeamMemberGets403ManagersOnly
+2026/10/07 08:02:00 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=972402dc-c823-412d-9611-af5842d236b9
+--- PASS: TestTeamMemberGets403ManagersOnly (1.26s)
+=== RUN   TestListCampaignsFunnelAndZeroMoney
+2026/10/07 08:02:01 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=52c5941d-3450-41c4-9632-84d806b74235
+    campaigns_test.go:250: got 0 campaigns, want 1
+--- FAIL: TestListCampaignsFunnelAndZeroMoney (2.07s)
+=== RUN   TestPatchCodeRepointsWithoutChangingShort
+2026/10/07 08:02:04 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=539c1151-bd82-485f-9349-486611adbc17
+--- PASS: TestPatchCodeRepointsWithoutChangingShort (1.51s)
+=== RUN   TestPatchCampaignStatus
+2026/10/07 08:02:05 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=ad99d332-a26f-4a42-8b32-726be050d41f
+--- PASS: TestPatchCampaignStatus (1.14s)
+=== RUN   TestAddCodeToExistingCampaign
+2026/10/07 08:02:04 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=18a1e245-45b7-4629-b7e6-506c9c0209d1
+--- PASS: TestAddCodeToExistingCampaign (1.44s)
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+    erasure_test.go:121: the scan row is gone — erasure must blank it, not delete it: no rows in result set
+--- FAIL: TestSubscriberDeleteCascadesTimelineAndBlanksScans (2.21s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+--- PASS: TestCodeDeleteBlanksFirstTouch (0.88s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.76s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/07 08:02:08 goose: no migrations to run. current version: 87
+2026/10/07 08:02:08 INFO database migrations applied successfully
+2026/10/07 08:02:09 OK   0087_qr_scans_dedupe_bucket.sql (1.07s)
+2026/10/07 08:02:09 OK   0086_merge_repoint_and_erasure_backstop.sql (26.22ms)
+2026/10/07 08:02:09 goose: no migrations to run. current version: 85
+2026/10/07 08:02:09 OK   0086_merge_repoint_and_erasure_backstop.sql (26.23ms)
+2026/10/07 08:02:09 OK   0087_qr_scans_dedupe_bucket.sql (79.37ms)
+2026/10/07 08:02:09 goose: successfully migrated database to version: 87
+2026/10/07 08:02:09 INFO database migrations applied successfully
+    erasure_test.go:325: migration 86 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/07 08:02:09 goose: no migrations to run. current version: 87
+2026/10/07 08:02:09 INFO database migrations applied successfully
+--- PASS: TestMigration0086ErasureBackstopDownAndUpRoundTrip (1.23s)
+=== RUN   TestMigration0086BlanksDanglingScanReferences
+2026/10/07 08:02:11 goose: no migrations to run. current version: 87
+2026/10/07 08:02:11 INFO database migrations applied successfully
+2026/10/07 08:02:12 OK   0087_qr_scans_dedupe_bucket.sql (957.92ms)
+2026/10/07 08:02:12 OK   0086_merge_repoint_and_erasure_backstop.sql (28.53ms)
+2026/10/07 08:02:12 goose: no migrations to run. current version: 85
+    erasure_test.go:385: seed the control scan at 85: ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+2026/10/07 08:02:14 OK   0086_merge_repoint_and_erasure_backstop.sql (870.89ms)
+2026/10/07 08:02:14 OK   0087_qr_scans_dedupe_bucket.sql (98.43ms)
+2026/10/07 08:02:14 goose: successfully migrated database to version: 87
+2026/10/07 08:02:14 INFO database migrations applied successfully
+--- FAIL: TestMigration0086BlanksDanglingScanReferences (4.35s)
+=== RUN   TestMigration0086DishDeleteBlanksCampaignAndCode
+    erasure_test.go:462: the campaign has 0 rows after its dish was deleted, want 1 (it must survive)
+    erasure_test.go:465: campaigns_admin.item_id is not NULL after its dish was deleted
+    erasure_test.go:468: the code has 0 rows after its dish was deleted, want 1 (it must survive)
+    erasure_test.go:471: qr_codes.item_id is not NULL after its dish was deleted
+--- FAIL: TestMigration0086DishDeleteBlanksCampaignAndCode (3.27s)
+=== RUN   TestCampaignListDisclosesUnattributedMoney
+    fixround_test.go:29: seedScanRows("UUUUU2"): ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestCampaignListDisclosesUnattributedMoney (2.24s)
+=== RUN   TestCampaignListReportsZeroUnattributedAsAFact
+--- PASS: TestCampaignListReportsZeroUnattributedAsAFact (1.34s)
+=== RUN   TestSliceRowsCarryNullForThePeriodScopedKeys
+    fixround_test.go:130: seedScanRows("AAAAA3"): ERROR: deadlock detected (SQLSTATE 40P01)
+--- FAIL: TestSliceRowsCarryNullForThePeriodScopedKeys (2.40s)
+=== RUN   TestOrphanRateDisclosesItsNumerator
+--- PASS: TestOrphanRateDisclosesItsNumerator (4.41s)
+=== RUN   TestLandingLogsScanAndRedirectsWithUTM
+2026/10/07 08:02:29 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=dd62d521-3413-49f5-8503-1cae61e8205f
+2026/10/07 08:02:30 ERROR marketing: resolve short code error="ERROR: deadlock detected (SQLSTATE 40P01)" short=5RNGWG
+    landing_test.go:59: GET /q/5RNGWG = 503, want 302
+        body: temporarily unavailable
+--- FAIL: TestLandingLogsScanAndRedirectsWithUTM (2.26s)
+=== RUN   TestLandingWithoutItemOmitsUTMContent
+2026/10/07 08:02:32 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=9168c431-f698-4268-8499-e1897c6b43d1
+--- PASS: TestLandingWithoutItemOmitsUTMContent (2.13s)
+=== RUN   TestLandingInactiveCodeRendersEndedPage
+2026/10/07 08:02:32 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=2e7adf53-e2f5-455d-be82-033ccf4f4bac
+--- PASS: TestLandingInactiveCodeRendersEndedPage (2.32s)
+=== RUN   TestLandingDedupeIsAtomicUnderConcurrency
+2026/10/07 08:02:33 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=a1ae7e26-909e-4cfe-b516-d75ccb2ecd41
+    landing_test.go:367: warm connection 2: ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestLandingDedupeIsAtomicUnderConcurrency (2.35s)
+=== RUN   TestLandingAnonymousScansNeverDedupe
+2026/10/07 08:02:35 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=783b0816-4c7f-47b9-92c0-1437fa1e5ac7
+--- PASS: TestLandingAnonymousScansNeverDedupe (1.25s)
+=== RUN   TestLandingCountsAgainAfterWindow
+2026/10/07 08:02:37 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=618f34a8-5b65-4406-b769-b0dbbe556040
+--- PASS: TestLandingCountsAgainAfterWindow (1.24s)
+=== RUN   TestMigration0087DedupeBucketDownAndUpRoundTrip
+2026/10/07 08:02:37 goose: no migrations to run. current version: 87
+2026/10/07 08:02:37 INFO database migrations applied successfully
+2026/10/07 08:02:38 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=7da9ba66-6f50-455d-810f-bbb63d9312f9
+2026/10/07 08:02:38 OK   0087_qr_scans_dedupe_bucket.sql (18.37ms)
+2026/10/07 08:02:38 goose: no migrations to run. current version: 86
+2026/10/07 08:02:39 OK   0087_qr_scans_dedupe_bucket.sql (1.15s)
+2026/10/07 08:02:39 goose: successfully migrated database to version: 87
+2026/10/07 08:02:39 INFO database migrations applied successfully
+    landing_test.go:615: after re-apply: 0 qr_scans rows, want 1
+    landing_test.go:617: migration 87 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/07 08:02:40 goose: no migrations to run. current version: 87
+2026/10/07 08:02:40 INFO database migrations applied successfully
+--- FAIL: TestMigration0087DedupeBucketDownAndUpRoundTrip (3.35s)
+=== RUN   TestMigration0087CollapsesPreExistingDuplicates
+2026/10/07 08:02:40 goose: no migrations to run. current version: 87
+2026/10/07 08:02:40 INFO database migrations applied successfully
+2026/10/07 08:02:41 OK   0087_qr_scans_dedupe_bucket.sql (940.36ms)
+2026/10/07 08:02:41 goose: no migrations to run. current version: 86
+    landing_test.go:704: seed g1-first at version 86: ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+2026/10/07 08:02:42 OK   0087_qr_scans_dedupe_bucket.sql (80.23ms)
+2026/10/07 08:02:42 goose: successfully migrated database to version: 87
+2026/10/07 08:02:42 INFO database migrations applied successfully
+--- FAIL: TestMigration0087CollapsesPreExistingDuplicates (1.42s)
+=== RUN   TestScanAttemptsMirrorKeysetResumes
+    mirror_test.go:277: poll 0 (drain): fetched=0 pages=1 cursor=(none)
+    mirror_test.go:296: poll 1: fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111
+    mirror_test.go:356: LIVE substrate http://127.0.0.1:53277 — poll1 fetched=1 cursor=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111; poll2 fetched=2 from=2099-01-01T12:00:00Z/11111111-1111-4111-8111-111111111111 to=2099-01-01T12:01:00Z/33333333-3333-4333-8333-333333333333; A's mirrored_at unchanged
+--- PASS: TestScanAttemptsMirrorKeysetResumes (0.42s)
+=== RUN   TestMirrorUnconfiguredIsIdleNotFatal
+2026/10/07 08:02:42 INFO scan-attempts mirror idle: substrate not configured; scan_attempts_mirror will stay empty missing="HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY" interval=5m0s
+--- PASS: TestMirrorUnconfiguredIsIdleNotFatal (0.00s)
+=== RUN   TestProjectionUnconfiguredLeavesProjectedAtNull
+2026/10/07 08:02:44 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=c4afbd52-75ed-49dd-b0cb-a2b9863544f9
+--- PASS: TestProjectionUnconfiguredLeavesProjectedAtNull (1.79s)
+=== RUN   TestProjectionFailureLeavesProjectedAtNull
+2026/10/07 08:02:44 WARN marketing: marketing_settings read refused; using the default requires_online threshold status=503 default_cents=2000
+2026/10/07 08:02:45 ERROR marketing: campaign projection failed; projected_at left NULL error="projection upsert: postgrest status 503" campaign_id=39ef25f4-f4fa-4875-8084-0a661d02c5f9
+--- PASS: TestProjectionFailureLeavesProjectedAtNull (1.30s)
+=== RUN   TestProjectionConfiguredUpsertsToSubstrate
+    projection_test.go:151: MKT_PROJECTION_LIVE != 1 — the local spike-supabase substrate leg is opt-in
+--- SKIP: TestProjectionConfiguredUpsertsToSubstrate (0.00s)
+=== RUN   TestPayloadStaysAtQRVersion3
+--- PASS: TestPayloadStaysAtQRVersion3 (0.00s)
+=== RUN   TestCodePNGHandler
+2026/10/07 08:02:46 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=aa1ec550-3331-43ed-8feb-5b5f82f95161
+    qrpng_test.go:80: size=1024 = 404, want 200
+    qrpng_test.go:80: size=2048 = 404, want 200
+--- FAIL: TestCodePNGHandler (2.27s)
+=== RUN   TestNewShortCodeShape
+--- PASS: TestNewShortCodeShape (0.00s)
+=== RUN   TestSlugify
+--- PASS: TestSlugify (0.00s)
+=== RUN   TestUAFamily
+--- PASS: TestUAFamily (0.00s)
+=== RUN   TestIsLinkPreview
+--- PASS: TestIsLinkPreview (0.00s)
+=== RUN   TestLooksAutomatedIsWiderThanIsLinkPreview
+--- PASS: TestLooksAutomatedIsWiderThanIsLinkPreview (0.00s)
+=== RUN   TestQueueOrdersOverridesThenOrphansThenUnmatched
+--- PASS: TestQueueOrdersOverridesThenOrphansThenUnmatched (1.34s)
+=== RUN   TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes
+--- PASS: TestUnmatchedCarriesNearestOrderSuggestionWithinThirtyMinutes (1.33s)
+=== RUN   TestSuggestionSurvivesAOneHourOpenedAtOffset
+--- PASS: TestSuggestionSurvivesAOneHourOpenedAtOffset (1.35s)
+=== RUN   TestDeclineOtherRequiresNote
+--- PASS: TestDeclineOtherRequiresNote (2.27s)
+=== RUN   TestMatchUnknownOrderIs409AndKnownOrderResolves
+--- PASS: TestMatchUnknownOrderIs409AndKnownOrderResolves (1.35s)
+=== RUN   TestReopenReturnsAttemptToTheQueue
+--- PASS: TestReopenReturnsAttemptToTheQueue (1.32s)
+=== RUN   TestVerifyAndRejectResolveAnOverride
+--- PASS: TestVerifyAndRejectResolveAnOverride (1.29s)
+=== RUN   TestReconciliationQueueIsManagerOnly
+--- PASS: TestReconciliationQueueIsManagerOnly (0.52s)
+=== RUN   TestMountReportsRegistersTheBICampaignReports
+--- PASS: TestMountReportsRegistersTheBICampaignReports (0.00s)
+=== RUN   TestMountReportsKeepsCardH1sSignature
+--- PASS: TestMountReportsKeepsCardH1sSignature (0.00s)
+=== RUN   TestMountRegistersTheGatedRouteTable
+--- PASS: TestMountRegistersTheGatedRouteTable (0.00s)
+=== RUN   TestMountPublicRegistersOnlyTheLanding
+--- PASS: TestMountPublicRegistersOnlyTheLanding (0.00s)
+=== RUN   TestSlicesReconcileToOverview
+    stats_test.go:123: seedScanRows("AAAAA2"): ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestSlicesReconcileToOverview (4.23s)
+=== RUN   TestOrphanRateCountsDeclinesExceptDuplicateScan
+    stats_test.go:224: seedScanRows("AAAAA3"): ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestOrphanRateCountsDeclinesExceptDuplicateScan (2.35s)
+=== RUN   TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies
+    stats_test.go:277: seedScanRows("BBBBB2"): ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestStatsReportsAreRegisteredTwiceWithByteIdenticalBodies (2.32s)
+=== RUN   TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion
+--- PASS: TestMoneyBlockKeepsEveryKeyAndNullsMeanNoOpinion (1.15s)
+=== RUN   TestCampaignListCarriesRealMoneyPerCampaign
+    stats_test.go:389: seedCodeRow("BBBBB2"): ERROR: insert or update on table "qr_codes" violates foreign key constraint "qr_codes_campaign_id_fkey" (SQLSTATE 23503)
+--- FAIL: TestCampaignListCarriesRealMoneyPerCampaign (2.12s)
+=== RUN   TestStatsByDrillInsScopeToTheirParent
+    stats_test.go:433: seedScanRows("BBBBB2"): ERROR: insert or update on table "qr_scans" violates foreign key constraint "qr_scans_short_fkey" (SQLSTATE 23503)
+--- FAIL: TestStatsByDrillInsScopeToTheirParent (1.98s)
+=== RUN   TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown
+--- PASS: TestUnresolvableCodeIDBucketsAsDirectAndCountsAsUnknown (1.36s)
+=== RUN   TestSignupsStatesItsBasisWhenSubscribersIsAbsent
+--- PASS: TestSignupsStatesItsBasisWhenSubscribersIsAbsent (1.12s)
+=== RUN   TestFluentFormsImportIsIdempotent
+--- PASS: TestFluentFormsImportIsIdempotent (0.42s)
+=== RUN   TestSubscriberSourceShortSetsCampaignAttribution
+2026/10/07 08:03:13 ERROR marketing: campaign projection failed; projected_at left NULL error="projection not configured (HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY empty)" campaign_id=e8053396-65ca-4f97-852a-ef55c08c30ae
+--- PASS: TestSubscriberSourceShortSetsCampaignAttribution (0.72s)
+=== RUN   TestNothingInThisPackageSends
+    subscribers_test.go:400: allowed egress: mirror.go ("http.Client") — the scan-attempts poller: it READS scan_attempts back from the same PostgREST surface into HQ's own tables. Inbound data over an outbound GET; it reaches no customer.
+    subscribers_test.go:400: allowed egress: projection.go ("http.NewRequestWithContext") — decision 187's PostgREST projection: campaigns and codes are written to the Supabase project the scanner replicates from. It speaks to the sync substrate, never to a customer.
+--- PASS: TestNothingInThisPackageSends (0.03s)
+=== RUN   TestResendRecords202AndAppendsNoCodeSent
+--- PASS: TestResendRecords202AndAppendsNoCodeSent (0.39s)
+=== RUN   TestWebFormImportRefusesWhenUnconfigured
+--- PASS: TestWebFormImportRefusesWhenUnconfigured (0.38s)
+=== RUN   TestWebFormImportReadsTheCommittedFixture
+--- PASS: TestWebFormImportReadsTheCommittedFixture (0.42s)
+=== RUN   TestNoResponseCarriesAFullPhoneOrEmail
+--- PASS: TestNoResponseCarriesAFullPhoneOrEmail (0.46s)
+=== RUN   TestE164NormalizeAndMaskHoldOnTheSpikesSet
+--- PASS: TestE164NormalizeAndMaskHoldOnTheSpikesSet (0.00s)
+=== RUN   TestTeamMemberGets403ManagersOnlyOnSubscribers
+--- PASS: TestTeamMemberGets403ManagersOnlyOnSubscribers (0.37s)
+=== RUN   TestToastGuestCSVImportsAndFiltersByConsent
+--- PASS: TestToastGuestCSVImportsAndFiltersByConsent (0.44s)
+=== RUN   TestToastGuestIDAliasDoesNotMergeTwoPeople
+--- PASS: TestToastGuestIDAliasDoesNotMergeTwoPeople (0.44s)
+=== RUN   TestReImportConvergesCorrectedFieldsAndCountsHonestly
+--- PASS: TestReImportConvergesCorrectedFieldsAndCountsHonestly (0.40s)
+=== RUN   TestNormalizeE164RejectsImpossibleAreaCodes
+--- PASS: TestNormalizeE164RejectsImpossibleAreaCodes (0.00s)
+=== RUN   TestMigration0083DownAndUpRoundTrip
+2026/10/07 08:03:17 OK   0087_qr_scans_dedupe_bucket.sql (20.89ms)
+2026/10/07 08:03:17 OK   0086_merge_repoint_and_erasure_backstop.sql (37.69ms)
+2026/10/07 08:03:18 OK   0085_subscribers.sql (45.09ms)
+2026/10/07 08:03:18 OK   0084_toast_orders_reconciliation.sql (37.63ms)
+2026/10/07 08:03:18 OK   0083_campaigns_admin.sql (43.41ms)
+2026/10/07 08:03:18 goose: no migrations to run. current version: 82
+2026/10/07 08:03:18 OK   0083_campaigns_admin.sql (180.56ms)
+2026/10/07 08:03:18 OK   0084_toast_orders_reconciliation.sql (224.13ms)
+2026/10/07 08:03:18 OK   0085_subscribers.sql (201.8ms)
+2026/10/07 08:03:18 OK   0086_merge_repoint_and_erasure_backstop.sql (46.5ms)
+2026/10/07 08:03:18 OK   0087_qr_scans_dedupe_bucket.sql (97.54ms)
+2026/10/07 08:03:18 goose: successfully migrated database to version: 87
+2026/10/07 08:03:18 INFO database migrations applied successfully
+    zz_migration_down_test.go:61: 0083 Down/Up round-trip clean; schema left fully migrated
+--- PASS: TestMigration0083DownAndUpRoundTrip (1.35s)
+=== RUN   TestMigration0085SubscribersDownAndUpRoundTrip
+2026/10/07 08:03:18 goose: no migrations to run. current version: 87
+2026/10/07 08:03:18 INFO database migrations applied successfully
+2026/10/07 08:03:18 OK   0087_qr_scans_dedupe_bucket.sql (34.4ms)
+2026/10/07 08:03:18 OK   0086_merge_repoint_and_erasure_backstop.sql (34.08ms)
+2026/10/07 08:03:19 OK   0085_subscribers.sql (32.79ms)
+2026/10/07 08:03:19 goose: no migrations to run. current version: 84
+2026/10/07 08:03:19 OK   0085_subscribers.sql (187.15ms)
+2026/10/07 08:03:19 OK   0086_merge_repoint_and_erasure_backstop.sql (39.99ms)
+2026/10/07 08:03:19 OK   0087_qr_scans_dedupe_bucket.sql (83.64ms)
+2026/10/07 08:03:19 goose: successfully migrated database to version: 87
+2026/10/07 08:03:19 INFO database migrations applied successfully
+    zzz_subscribers_migration_down_test.go:158: migration 85 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+--- PASS: TestMigration0085SubscribersDownAndUpRoundTrip (0.46s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	92.163s
+FAIL
+EXIT=1

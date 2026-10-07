@@ -1,0 +1,13 @@
+diff --git a/inventory.html b/inventory.html
+index f0d6533..d45a566 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -2504,7 +2504,7 @@ document.getElementById('items-list').addEventListener('error',function(e){
+   if(!it||!it.photo_url)return;
+   console.warn('[inventory] item photo failed to load, showing placeholder',it.description,it.photo_url);
+   it.photo_url=null;
+-  if(img.classList.contains('item-photo-thumb')){
++  renderItemsList();if(false){
+     // Editor thumb → the letter placeholder, and the link offers to ADD a photo.
+     var ph=document.createElement('div');
+     ph.className='item-photo-thumb';

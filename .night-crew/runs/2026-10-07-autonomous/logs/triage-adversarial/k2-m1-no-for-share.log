@@ -1,0 +1,27 @@
+# M1 diff:
+diff --git a/backend/internal/recipes/repository.go b/backend/internal/recipes/repository.go
+index 9cc07df..97d6b37 100644
+--- a/backend/internal/recipes/repository.go
++++ b/backend/internal/recipes/repository.go
+@@ -207,7 +207,7 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
+ 	// BEFORE any UPDATE so both shapes get the same refusal.
+ 	var targetExists int
+ 	if err := tx.QueryRow(ctx,
+-		`SELECT 1 FROM menu_items WHERE id = $1 FOR SHARE`, targetMenuItemID,
++		`SELECT 1 FROM menu_items WHERE id = $1`, targetMenuItemID,
+ 	).Scan(&targetExists); err != nil {
+ 		if errors.Is(err, pgx.ErrNoRows) {
+ 			return 0, ErrMergeTargetNotFound
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+--- FAIL: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.77s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+--- FAIL: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.68s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:691: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+--- FAIL: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.69s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	2.148s
+FAIL
+EXIT=1

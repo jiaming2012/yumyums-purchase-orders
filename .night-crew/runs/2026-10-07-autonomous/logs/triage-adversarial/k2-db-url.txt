@@ -1,0 +1,1 @@
+postgres://hqtest:hqtest@localhost:5434/hq_test_triage_adv_20261007_go_k2?sslmode=disable

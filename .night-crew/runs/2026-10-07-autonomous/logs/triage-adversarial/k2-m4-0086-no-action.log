@@ -1,0 +1,113 @@
+# M4 diff:
+diff --git a/backend/internal/db/migrations/0086_merge_repoint_and_erasure_backstop.sql b/backend/internal/db/migrations/0086_merge_repoint_and_erasure_backstop.sql
+index 84b4610..902841a 100644
+--- a/backend/internal/db/migrations/0086_merge_repoint_and_erasure_backstop.sql
++++ b/backend/internal/db/migrations/0086_merge_repoint_and_erasure_backstop.sql
+@@ -48,8 +48,8 @@ BEGIN;
+ -- ones spike 02 printed, verbatim.
+ -- ===========================================================================
+ 
+-ALTER TABLE campaigns_admin   DROP CONSTRAINT campaigns_admin_item_id_fkey,         ADD CONSTRAINT campaigns_admin_item_id_fkey         FOREIGN KEY (item_id)       REFERENCES menu_items(id)  ON DELETE SET NULL;
+-ALTER TABLE qr_codes          DROP CONSTRAINT qr_codes_item_id_fkey,                ADD CONSTRAINT qr_codes_item_id_fkey                FOREIGN KEY (item_id)       REFERENCES menu_items(id)  ON DELETE SET NULL;
++ALTER TABLE campaigns_admin   DROP CONSTRAINT campaigns_admin_item_id_fkey,         ADD CONSTRAINT campaigns_admin_item_id_fkey         FOREIGN KEY (item_id)       REFERENCES menu_items(id)  ON DELETE NO ACTION;
++ALTER TABLE qr_codes          DROP CONSTRAINT qr_codes_item_id_fkey,                ADD CONSTRAINT qr_codes_item_id_fkey                FOREIGN KEY (item_id)       REFERENCES menu_items(id)  ON DELETE NO ACTION;
+ ALTER TABLE subscribers       DROP CONSTRAINT subscribers_source_short_fkey,        ADD CONSTRAINT subscribers_source_short_fkey        FOREIGN KEY (source_short)  REFERENCES qr_codes(short) ON DELETE SET NULL;
+ ALTER TABLE subscriber_events DROP CONSTRAINT subscriber_events_subscriber_id_fkey, ADD CONSTRAINT subscriber_events_subscriber_id_fkey FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE;
+ 
+# control first: the mutated migration on the fresh DB, marketing backstop test
+2026/10/07 08:07:38 OK   0001_users.sql (69.99ms)
+2026/10/07 08:07:38 OK   0002_sessions.sql (87.81ms)
+2026/10/07 08:07:38 OK   0003_invite_tokens.sql (62.99ms)
+2026/10/07 08:07:38 OK   0004_hq_apps.sql (54.22ms)
+2026/10/07 08:07:38 OK   0005_app_permissions.sql (73.78ms)
+2026/10/07 08:07:38 OK   0006_checklist_templates.sql (41.27ms)
+2026/10/07 08:07:39 OK   0007_checklist_schedules.sql (44.88ms)
+2026/10/07 08:07:39 OK   0008_template_assignments.sql (66.41ms)
+2026/10/07 08:07:39 OK   0009_checklist_sections.sql (52.96ms)
+2026/10/07 08:07:39 OK   0010_checklist_fields.sql (46.48ms)
+2026/10/07 08:07:39 OK   0011_checklist_submissions.sql (73.69ms)
+2026/10/07 08:07:39 OK   0012_submission_responses.sql (82.91ms)
+2026/10/07 08:07:39 OK   0013_submission_fail_notes.sql (46.86ms)
+2026/10/07 08:07:39 OK   0014_submission_rejections.sql (54.5ms)
+2026/10/07 08:07:39 OK   0015_ops.sql (69.03ms)
+2026/10/07 08:07:39 OK   0016_lamport_ts.sql (22.8ms)
+2026/10/07 08:07:39 OK   0017_users_naming.sql (24.44ms)
+2026/10/07 08:07:39 OK   0018_ob_templates.sql (89.49ms)
+2026/10/07 08:07:39 OK   0019_ob_items.sql (123.05ms)
+2026/10/07 08:07:39 OK   0020_ob_progress.sql (64.28ms)
+2026/10/07 08:07:39 OK   0021_ob_signoffs.sql (70.84ms)
+2026/10/07 08:07:39 OK   0022_ob_template_assignments.sql (56.6ms)
+2026/10/07 08:07:40 OK   0023_multi_role.sql (91.43ms)
+2026/10/07 08:07:40 OK   0024_inventory.sql (321.77ms)
+2026/10/07 08:07:40 OK   0025_pending_purchases.sql (79.57ms)
+2026/10/07 08:07:40 OK   0026_ob_progress_faq.sql (10.17ms)
+2026/10/07 08:07:40 OK   0027_ob_section_signoff_roles.sql (9.26ms)
+2026/10/07 08:07:40 OK   0028_ob_video_upgrade.sql (18.62ms)
+2026/10/07 08:07:40 OK   0029_ob_templates_archived_at.sql (9.14ms)
+2026/10/07 08:07:40 OK   0030_item_groups_unique_name.sql (34.29ms)
+2026/10/07 08:07:40 OK   0031_remove_placeholder_items.sql (11.28ms)
+2026/10/07 08:07:40 OK   0032_item_group_thresholds.sql (16.86ms)
+2026/10/07 08:07:39 OK   0033_stock_count_overrides.sql (44.41ms)
+2026/10/07 08:07:38 OK   0034_purchase_orders.sql (129.22ms)
+2026/10/07 08:07:38 OK   0035_purchase_items_photo_store.sql (23.76ms)
+2026/10/07 08:07:38 OK   0036_purchase_items_full_name.sql (19.36ms)
+2026/10/07 08:07:38 OK   0037_cutoff_config.sql (65.13ms)
+2026/10/07 08:07:38 OK   0038_po_status_extend.sql (29.8ms)
+2026/10/07 08:07:38 OK   0039_purchase_items_vendor.sql (32.86ms)
+2026/10/07 08:07:38 OK   0040_shopping_lists.sql (163.89ms)
+2026/10/07 08:07:38 OK   0041_notification_channel.sql (13.02ms)
+2026/10/07 08:07:39 OK   0042_repurchase_tracking.sql (65.04ms)
+2026/10/07 08:07:39 OK   0043_alert_log.sql (58.23ms)
+2026/10/07 08:07:39 OK   0044_low_stock_alert_log.sql (74.63ms)
+2026/10/07 08:07:39 OK   0045_notification_channel_array.sql (70.35ms)
+2026/10/07 08:07:39 OK   0046_user_timezone.sql (10.04ms)
+2026/10/07 08:07:39 OK   0047_employee_fields.sql (73.69ms)
+2026/10/07 08:07:39 OK   0048_notification_default_both.sql (10.38ms)
+2026/10/07 08:07:39 OK   0049_ob_sub_items.sql (62.87ms)
+2026/10/07 08:07:39 OK   0050_ob_progress_sub_item.sql (11.13ms)
+2026/10/07 08:07:39 OK   0051_rejection_field_fk.sql (12.2ms)
+2026/10/07 08:07:39 OK   0052_template_name_unique.sql (19.99ms)
+2026/10/07 08:07:39 OK   0053_response_field_fk.sql (8.4ms)
+2026/10/07 08:07:39 OK   0054_failnote_field_fk.sql (11.33ms)
+2026/10/07 08:07:39 OK   0055_item_location_in_store.sql (7.93ms)
+2026/10/07 08:07:39 OK   0056_ob_progress_photo.sql (21.14ms)
+2026/10/07 08:07:39 OK   0057_ob_items_photo_type.sql (19.21ms)
+2026/10/07 08:07:39 OK   0058_ob_sub_items_photos.sql (17.79ms)
+2026/10/07 08:07:39 OK   0059_cleanup_photo_items.sql (10.4ms)
+2026/10/07 08:07:39 OK   0060_menu_items.sql (88.82ms)
+2026/10/07 08:07:39 OK   0061_daily_menu_sales.sql (44.27ms)
+2026/10/07 08:07:39 OK   0062_recipes.sql (62.73ms)
+2026/10/07 08:07:39 OK   0063_drift_check_results.sql (44.78ms)
+2026/10/07 08:07:39 OK   0064_no_itemized_receipt_seed.sql (17.91ms)
+2026/10/07 08:07:39 OK   0065_mercury_category_on_purchase_events.sql (18.8ms)
+2026/10/07 08:07:39 OK   0066_mercury_category_on_pending_purchases.sql (18.4ms)
+2026/10/07 08:07:39 OK   0067_receipt_sync_runs.sql (71.88ms)
+2026/10/07 08:07:39 OK   0068_pending_purchases_bank_tx_uniq.sql (30.01ms)
+2026/10/07 08:07:39 OK   0069_pending_purchases_parse_error.sql (12.26ms)
+2026/10/07 08:07:39 OK   0070_receipt_urls.sql (12.1ms)
+2026/10/07 08:07:39 OK   0071_submission_fail_notes_unique.sql (18.76ms)
+2026/10/07 08:07:39 OK   0072_app_timezone_new_york.sql (16.15ms)
+2026/10/07 08:07:40 OK   0073_sync_fdw_views.sql (29.19ms)
+2026/10/07 08:07:40 OK   0074_sync_fdw_approver_view.sql (11.52ms)
+2026/10/07 08:07:40 OK   0075_item_aliases.sql (74.61ms)
+2026/10/07 08:07:40 OK   0076_checklist_template_app.sql (44.71ms)
+2026/10/07 08:07:40 OK   0077_race_lost_notifications.sql (57.48ms)
+2026/10/07 08:07:40 OK   0078_card_holder_on_purchases.sql (18.19ms)
+2026/10/07 08:07:40 OK   0079_pending_purchases_retry_requested.sql (33.98ms)
+2026/10/07 08:07:40 OK   0080_receipt_sync_runs_cancelled.sql (20.57ms)
+2026/10/07 08:07:40 OK   0081_item_alias_display.sql (34.02ms)
+2026/10/07 08:07:40 OK   0082_bi_grants.sql (20.72ms)
+2026/10/07 08:07:40 OK   0083_campaigns_admin.sql (119.69ms)
+2026/10/07 08:07:40 OK   0084_toast_orders_reconciliation.sql (143.07ms)
+2026/10/07 08:07:40 OK   0085_subscribers.sql (108.2ms)
+2026/10/07 08:07:40 OK   0086_merge_repoint_and_erasure_backstop.sql (26.72ms)
+2026/10/07 08:07:40 OK   0087_qr_scans_dedupe_bucket.sql (63.4ms)
+2026/10/07 08:07:40 goose: successfully migrated database to version: 87
+2026/10/07 08:07:40 INFO database migrations applied successfully
+=== RUN   TestMigration0086DishDeleteBlanksCampaignAndCode
+    erasure_test.go:455: DELETE the dish a campaign and a code name: ERROR: update or delete on table "menu_items" violates foreign key constraint "campaigns_admin_item_id_fkey" on table "campaigns_admin" (SQLSTATE 23503) — 0086 should blank both references and let it go
+--- FAIL: TestMigration0086DishDeleteBlanksCampaignAndCode (0.23s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/marketing	4.639s
+FAIL
+EXIT=1

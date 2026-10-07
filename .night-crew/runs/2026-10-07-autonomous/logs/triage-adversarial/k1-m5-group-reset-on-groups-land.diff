@@ -1,0 +1,14 @@
+diff --git a/inventory.html b/inventory.html
+index f0d6533..fa48696 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -2287,8 +2287,7 @@ function syncAddBarGroups(optsHtml){
+   var picked=sel.value;
+   sel.innerHTML=optsHtml;
+   sel._optsHtml=optsHtml;
+-  sel.value=picked;
+-  if(sel.value!==picked)sel.value='';
++  sel.value='';
+ }
+ 
+ // The editable controls of the open item editor, by the class that survives a

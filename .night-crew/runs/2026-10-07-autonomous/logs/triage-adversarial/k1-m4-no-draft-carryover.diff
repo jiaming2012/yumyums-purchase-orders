@@ -1,0 +1,13 @@
+diff --git a/inventory.html b/inventory.html
+index f0d6533..d9b300c 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -2296,7 +2296,7 @@ function syncAddBarGroups(optsHtml){
+ // brings a new server value for an untouched field still shows it.
+ var ITEM_EDIT_DRAFT_FIELDS=['.item-edit-name','.item-edit-group','.item-edit-location','.item-edit-in-store','.item-alias-input','.merge-item-target'];
+ function captureItemEditDraft(body){
+-  if(!ITEM_EDIT_ID)return null;
++  return null;if(!ITEM_EDIT_ID)return null;
+   var form=body.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');
+   if(!form)return null;
+   var draft={id:ITEM_EDIT_ID,values:{},focus:null};

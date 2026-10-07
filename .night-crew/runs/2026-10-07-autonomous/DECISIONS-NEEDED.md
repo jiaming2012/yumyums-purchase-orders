@@ -1,3 +1,5 @@
+> **RESOLVED 2026-10-07 — recorded as ledger T-72** (decisions 215 and 216; receipt `reference/triage-20261007.md`). Both questions answered by the owner at the morning sitting: the scanner's test-only override is honoured on a loopback origin only and was shut the same morning (`[SV-13]`); the loop's findings stay in `ledger.md` and triage stamps each one. The file below is the analysis record as the run wrote it.
+
 # DECISIONS-NEEDED — run `20261007`
 
 **Nothing was parked tonight.** All four cards landed; no question was routed through

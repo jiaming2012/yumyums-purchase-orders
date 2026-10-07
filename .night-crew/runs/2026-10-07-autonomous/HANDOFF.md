@@ -138,3 +138,26 @@ were on the box, so the wobble rates are under load.
 1. `/nc-morning-triage` — review and merge `overnight-20261007`; file or drop the findings above.
 2. Decide whether the scanner test hook gets a guard before the next deploy.
 3. Activity E is untouched by tonight and still waits on its next slate (B-496, then the two cards).
+
+## Standing flags after morning triage 2026-10-07 (ledger T-72)
+
+- **Merged.** `overnight-20261007` → `dev` at `b93a18c` (`--no-ff`); the scanner-guard fix branch
+  merged after it. Not pushed at the time of writing (`git push origin dev` is the operator's).
+- **The scanner's boot-time test door is SHUT** (decision 215, `[SV-13]`): the override is honoured
+  on `localhost` / `127.0.0.1` / `[::1]` only. **Still armed: the post-boot door**
+  (`MarketingSubmit.setCampaignPolicy`) is open on every origin until B-500's card lands.
+- **The loop's `## LDG` entries in `ledger.md` are the designed home** (decision 216). All twenty
+  from this run are stamped. Re-arms every triage: a run's new entries are open until that morning
+  stamps them — an unstamped `- Status: open` after a triage means the step was skipped.
+- **The live camera has never been measured on a customer's own phone screen** (B-497 closed on
+  the owner's laptop-plus-iPhone check; glare, brightness and other devices remain unmeasured).
+- **Card 1's built work from run `20261006` is on no branch** — `fe45768`, worktree
+  `hq-worktrees/verify-e1-20261006`. Armed until re-dispatched or dropped; do not delete.
+- **The loop's own end-of-run browser stage has not produced a verdict on this box** two nights
+  running (a Docker credential helper hangs the compose build). The orchestrator's final suite has
+  stood in. Re-arms whenever the loop's E2E stage is relied on as a gate.
+- **Scratch worktree `hq-worktrees/k1-merged-20261007` holds three modified H4 PNGs** the run left
+  unrestored (scratch, not on a branch). Discard before it is ever used for a leg.
+- **Temporal namespace `night-crew-hq` still exists** (B-494). Not removed by triage.
+- **Carried unchanged:** `card/a3-rls-fixture-own`, `card/s2-demo-sync-target` (left in place by
+  ruling, B-442); B-474 production count before the `0086` deploy; decision 203 deploy note.

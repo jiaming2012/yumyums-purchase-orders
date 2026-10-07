@@ -1,0 +1,92 @@
+diff --git a/marketing/scan-page.js b/marketing/scan-page.js
+index 1dc3dee..3f8dd35 100644
+--- a/marketing/scan-page.js
++++ b/marketing/scan-page.js
+@@ -8,6 +8,35 @@
+ // State-first rendering (repo convention): mutate SCAN_STATE → render() → the
+ // DOM updates from state. ONE delegated click listener + ONE change listener
+ // on #scanner-host, routed via data-action / target id.
++//
++// 🛑 TEST-ONLY BOOT-TIME OVERRIDE — window.__MARKETING_POLICY_SOURCE__ (card
++// scanner-refusal-seam-and-pick-feedback, B-482). boot() reads it ONCE, where
++// the §8 campaign policy source is created: an object with a `policyFor`
++// function is used IN PLACE OF createCampaignPolicySource(cols.campaigns).
++// It is set by a Playwright spec's page.addInitScript before this module
++// runs, and NEVER by product code — nothing in the tree assigns it.
++//
++// What boot() hands on is a NORMALISED copy, not the spec's object
++// (adoptPolicyOverride below): `policyFor` is bound to the override, because
++// submit-flow.js calls it detached and a source written with `this` would
++// otherwise throw on every call and read as a refusal; a missing
++// `unresolved` defaults to () => false (setCampaignPolicy's own default — a
++// missing method must not be read as "policy unresolved" through a swallowed
++// TypeError); a missing `nameFor` defaults to () => null, so under an
++// override that has none the offer card shows its no-name label BY DESIGN;
++// `attach` is carried only when the override has one.
++//
++// Why a boot-time source and not the seam that already exists:
++// MarketingSubmit.setCampaignPolicy(fn, unresolvedFn) (submit-flow.js)
++// replaces the policy every scan reads, after boot, and a throwing fn handed
++// to it reaches the same fail-closed arm. The slate forbade that injection
++// seam for this proof (B-482): it swaps the function inside submit-flow.js
++// and so never exercises the path the product takes — scan-page.js creating
++// the source and submit-flow.js capturing it at boot. Patching
++// MS.campaignPolicy.policyFor after boot does not work either: the capture
++// has already happened, so the patch is inert (spike 01, leg b). This
++// override is the one route that drives the refusal through the shipped
++// wiring ([SV-12]).
+ 
+ import {
+   createRxDatabase, getRxStorageDexie, replicateRxCollection, Subject,
+@@ -278,6 +307,20 @@ function render() {
+ }
+ 
+ // ── boot ────────────────────────────────────────────────────────────────────
++// TEST-ONLY (file header): the shape submit-flow.js and this file consume,
++// built from a spec's window.__MARKETING_POLICY_SOURCE__. Every function is
++// bound to the override so a source written with `this` works when called
++// detached; the two optional reads get explicit defaults.
++function adoptPolicyOverride(src) {
++  const adopted = {
++    policyFor: src.policyFor.bind(src),
++    unresolved: typeof src.unresolved === 'function' ? src.unresolved.bind(src) : () => false,
++    nameFor: typeof src.nameFor === 'function' ? src.nameFor.bind(src) : () => null,
++  };
++  if (typeof src.attach === 'function') adopted.attach = src.attach.bind(src);
++  return adopted;
++}
++
+ async function boot() {
+   const clock = createSyncClock({
+     initialState: readJson(CLOCK_KEY),
+@@ -309,10 +352,18 @@ async function boot() {
+   // emission itself. This file owns both the collections and the replicas —
+   // it is the only place that ordering can be guaranteed. submit-flow.js
+   // consumes it through MS.campaignPolicy.
+-  const campaignPolicy = createCampaignPolicySource(cols.campaigns);
++  //
++  // TEST-ONLY: a spec may have installed its own source before boot (file
++  // header). Read here and nowhere else, so the source submit-flow.js
++  // captures is the spec's, normalised by adoptPolicyOverride.
++  const policyOverride = window.__MARKETING_POLICY_SOURCE__;
++  const campaignPolicy = (policyOverride && typeof policyOverride.policyFor === 'function')
++    ? adoptPolicyOverride(policyOverride)
++    : createCampaignPolicySource(cols.campaigns);
+   // B-447: the offer card's name lookup. Reads the SAME Map the §8 predicate
+   // reads, so the label and the policy can never disagree about which
+-  // campaign row the device holds.
++  // campaign row the device holds. (Under a test-only override with no
++  // nameFor there is no such Map: the label is the no-name fallback.)
+   campaignNameFor = (id) => {
+     try { return campaignPolicy.nameFor(id); } catch (e) { return null; }
+   };
+@@ -374,7 +425,8 @@ async function boot() {
+     // next touched server-side. A new identifier resets the checkpoint and
+     // costs exactly one full pull of a table with a handful of rows.
+     const campaignsRep = startCampaignsReplica(deps(cols.campaigns, 'marketing-campaigns-pull-v2'));
+-    campaignPolicy.attach(campaignsRep);
++    // (A test-only override — file header — need not carry the error latch.)
++    if (typeof campaignPolicy.attach === 'function') campaignPolicy.attach(campaignsRep);
+ 
+     // Card scan-time-verify (B-468 / decision 200): arm the scan-time lookup
+     // from the SAME coordinates the pull replicas just got — same door

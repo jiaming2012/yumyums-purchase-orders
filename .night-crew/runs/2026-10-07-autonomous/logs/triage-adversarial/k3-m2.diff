@@ -1,0 +1,13 @@
+diff --git a/tests/states-marketing-subscribers.spec.js b/tests/states-marketing-subscribers.spec.js
+index af05890..e07230e 100644
+--- a/tests/states-marketing-subscribers.spec.js
++++ b/tests/states-marketing-subscribers.spec.js
+@@ -53,7 +53,7 @@ const USER_PASSWORD = 'test456';
+ // the REVIEWED evidence for this card. This spec used to write there and
+ // rewrote those committed PNGs on every run (B-493); it no longer does, and
+ // that set is NOT rewritten, moved or re-captured.
+-const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-subscribers');
++const DEFAULT_SHOT_DIR = path.join(__dirname, '..', '.night-crew', 'runs', '2026-10-02-autonomous', 'logs', 'h5', 'states');
+ const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+ fs.mkdirSync(SHOT_DIR, { recursive: true });
+ 

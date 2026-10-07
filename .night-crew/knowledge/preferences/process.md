@@ -136,3 +136,14 @@
 - **Offered at:** an attended session
 - **Answers decision:** ledger T-66, decision 206
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-7 · The loop's deferred findings stay where the loop writes them; triage stamps each one
+
+- **Preference:** night-crew's run loop appends its deferred review findings to .night-crew/knowledge/ledger.md as `## LDG <run>/<card>/…` entries with a `- Status:` line. They stay there. Every morning triage reads each entry, files the ones worth keeping in BACKLOG.md with a B-NN handle, and rewrites the entry's status line with what became of it (graduated → B-NN, dropped — reason, or already filed), so the tool's own cross-night auto-close keeps working and nothing is moved by hand.
+- **Why (operator):** nothing is lost and the tool's own cross-night closing keeps working; the cost accepted is one file that grows about ten lines per finding per night.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-07
+- **Answer (operator, verbatim):** Keep them, triage marks each — chosen at triage of run 20261007 over moving them by hand each morning and over a night-crew path request.
+- **Offered at:** morning-triage
+- **Consent:** recorded on the operator's explicit yes to this item.

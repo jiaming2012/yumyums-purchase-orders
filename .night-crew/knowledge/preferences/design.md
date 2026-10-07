@@ -42,3 +42,14 @@
 - **Recorded:** 2026-09-05
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-3 · A test-only door in product code is shut off the production origin before it ships
+
+- **Preference:** When a card adds a test-only hook that product code honours at runtime (a global read at boot, a setter that swaps a policy, a flag that relaxes a refusal), the hook is honoured only on the local test origin (localhost / 127.0.0.1) from the commit that adds it. A hook that any same-origin script could use on a crew phone is not a test door, it is a product door, and it is closed in the same sitting that finds it open rather than carried to a later slate.
+- **Why (operator):** no crew phone ever carries the door; the cost accepted is about twenty minutes of build this morning and the post-boot setter still open until its card.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-10-07
+- **Answer (operator, verbatim):** Guard it this morning — chosen at triage of run 20261007 over filing a hardening card for a later slate and over arming a release gate.
+- **Offered at:** morning-triage
+- **Consent:** recorded on the operator's explicit yes to this item.

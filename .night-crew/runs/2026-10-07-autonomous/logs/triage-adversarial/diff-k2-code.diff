@@ -1,0 +1,133 @@
+diff --git a/backend/internal/recipes/handler.go b/backend/internal/recipes/handler.go
+index 1736dc1..5b09c5c 100644
+--- a/backend/internal/recipes/handler.go
++++ b/backend/internal/recipes/handler.go
+@@ -504,6 +504,8 @@ func DeleteRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
+ // MergeMenuItemHandler — POST /inventory/recipes/merge
+ // Body: {"source_menu_item_id":"<uuid>","target_menu_item_id":"<uuid>"}
+ // Re-points all recipe rows from source to target, then deletes the source menu_items row.
++// 400 bad_id (an id is not a 36-character hyphenated uuid) / cannot_merge_into_self; 404 target_not_found /
++// source_not_found (the id names no dish). Nothing is written on any of the four.
+ // Mirrors inventory.MergeItemsHandler / MergeVendorsHandler semantics (D-08).
+ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+ 	return func(w http.ResponseWriter, r *http.Request) {
+@@ -521,16 +523,19 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+ 		}
+ 		rows, err := MergeMenuItem(r.Context(), pool, input.SourceMenuItemID, input.TargetMenuItemID)
+ 		if err != nil {
+-			if strings.Contains(err.Error(), "cannot_merge_into_self") {
++			switch {
++			case errors.Is(err, ErrBadID):
++				writeError(w, http.StatusBadRequest, "bad_id")
++			case errors.Is(err, ErrMergeIntoSelf):
+ 				writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
+-				return
+-			}
+-			if strings.Contains(err.Error(), "target_not_found") {
++			case errors.Is(err, ErrMergeTargetNotFound):
+ 				writeError(w, http.StatusNotFound, "target_not_found")
+-				return
++			case errors.Is(err, ErrMergeSourceNotFound):
++				writeError(w, http.StatusNotFound, "source_not_found")
++			default:
++				slog.Error("MergeMenuItem", "error", err)
++				writeError(w, http.StatusInternalServerError, "internal_error")
+ 			}
+-			slog.Error("MergeMenuItem", "error", err)
+-			writeError(w, http.StatusInternalServerError, "internal_error")
+ 			return
+ 		}
+ 		writeJSON(w, http.StatusOK, map[string]int{"rows_re_pointed": rows})
+diff --git a/backend/internal/recipes/repository.go b/backend/internal/recipes/repository.go
+index 03f8b97..9cc07df 100644
+--- a/backend/internal/recipes/repository.go
++++ b/backend/internal/recipes/repository.go
+@@ -5,6 +5,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 
++	"github.com/google/uuid"
+ 	"github.com/jackc/pgx/v5"
+ 	"github.com/jackc/pgx/v5/pgxpool"
+ )
+@@ -22,6 +23,18 @@ var ErrRecipeNotFound = errors.New("recipes: not_found")
+ // no menu_items row. Nothing has been written when it is returned.
+ var ErrMergeTargetNotFound = errors.New("recipes: target_not_found")
+ 
++// ErrMergeSourceNotFound is returned by MergeMenuItem when the source id names
++// no menu_items row. Nothing has been written when it is returned.
++var ErrMergeSourceNotFound = errors.New("recipes: source_not_found")
++
++// ErrMergeIntoSelf is returned by MergeMenuItem when source and target are the
++// same dish.
++var ErrMergeIntoSelf = errors.New("recipes: cannot_merge_into_self")
++
++// ErrBadID is returned when an id that must be a uuid is not one. It is
++// returned before any query runs.
++var ErrBadID = errors.New("recipes: bad_id")
++
+ // ListRecipes returns all recipes; if purchaseItemID is non-nil, filters to that ingredient.
+ // Joined to menu_items for the menu_group / menu_subgroup display fields (D-09).
+ func ListRecipes(ctx context.Context, pool *pgxpool.Pool, purchaseItemID *string) ([]RecipeWithMenu, error) {
+@@ -151,12 +164,35 @@ func DeleteRecipe(ctx context.Context, pool *pgxpool.Pool, recipeID string) erro
+ // The re-point is the contract; migration 0086's ON DELETE SET NULL on the two
+ // item_id columns is only the backstop for a table that forgets this path.
+ //
+-// A target that names no dish is refused with ErrMergeTargetNotFound before
+-// anything is written (the handler answers 404 target_not_found).
++// Every wrong input is refused before anything is written, each with its own
++// sentinel (the handler's answer in brackets):
++//   - an id that is not a 36-character hyphenated uuid → ErrBadID (400 bad_id)
++//   - source and target the same dish → ErrMergeIntoSelf       (400 cannot_merge_into_self)
++//   - a target that names no dish     → ErrMergeTargetNotFound (404 target_not_found)
++//   - a source that names no dish     → ErrMergeSourceNotFound (404 source_not_found)
+ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, targetMenuItemID string) (int, error) {
+-	if sourceMenuItemID == targetMenuItemID {
+-		return 0, fmt.Errorf("recipes: cannot_merge_into_self")
+-	}
++	// Both ids are parsed before the transaction (card K2, B-485): a non-uuid
++	// used to reach Postgres, come back 22P02 and answer 500. Only the plain
++	// 36-character form is an id: uuid.Parse also takes `urn:uuid:` and any
++	// 38-character string without checking its first and last byte, so
++	// "X<uuid>Y" would parse to the dish inside it and be merged away. That
++	// refuses the 32-hex and {braced} spellings too, which Postgres itself
++	// would take for a real dish — chosen, and pinned by
++	// TestMergeMenuItem_BadIDIs400.
++	sourceID, err := uuid.Parse(sourceMenuItemID)
++	if err != nil || len(sourceMenuItemID) != 36 {
++		return 0, fmt.Errorf("%w: source_menu_item_id", ErrBadID)
++	}
++	targetID, err := uuid.Parse(targetMenuItemID)
++	if err != nil || len(targetMenuItemID) != 36 {
++		return 0, fmt.Errorf("%w: target_menu_item_id", ErrBadID)
++	}
++	if sourceID == targetID {
++		return 0, ErrMergeIntoSelf
++	}
++	// The canonical form from here on, so the queries see what was compared.
++	sourceMenuItemID, targetMenuItemID = sourceID.String(), targetID.String()
++
+ 	tx, err := pool.Begin(ctx)
+ 	if err != nil {
+ 		return 0, err
+@@ -179,6 +215,20 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
+ 		return 0, err
+ 	}
+ 
++	// The source must be a dish too (card K2, B-485). A source that named no
++	// dish re-pointed 0 rows, deleted 0 rows and answered 200 — a merge that
++	// did nothing, reported as done. Read AFTER the target's FOR SHARE, inside
++	// the same transaction; FOR UPDATE because the row is deleted below.
++	var sourceExists int
++	if err := tx.QueryRow(ctx,
++		`SELECT 1 FROM menu_items WHERE id = $1 FOR UPDATE`, sourceMenuItemID,
++	).Scan(&sourceExists); err != nil {
++		if errors.Is(err, pgx.ErrNoRows) {
++			return 0, ErrMergeSourceNotFound
++		}
++		return 0, err
++	}
++
+ 	ct, err := tx.Exec(ctx,
+ 		`UPDATE recipes SET menu_item_id = $1, updated_at = now()
+ 		 WHERE menu_item_id = $2`,

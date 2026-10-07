@@ -1,0 +1,34 @@
+# K2 (f): lock test -count=10, DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_triage_adv_20261007_go_k2?sslmode=disable
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.16s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.30s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.13s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.17s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.11s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.12s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.28s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.39s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.20s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:754: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (1.16s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	12.033s
+EXIT=0

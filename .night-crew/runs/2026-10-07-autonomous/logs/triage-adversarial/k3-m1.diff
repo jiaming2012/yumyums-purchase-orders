@@ -1,0 +1,13 @@
+diff --git a/tests/states-marketing-stats.spec.js b/tests/states-marketing-stats.spec.js
+index a7692c5..ca45ae4 100644
+--- a/tests/states-marketing-stats.spec.js
++++ b/tests/states-marketing-stats.spec.js
+@@ -67,7 +67,7 @@ const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
+ const ADMIN_PASSWORD = 'test123';
+ const USER_PASSWORD = 'test456';
+ 
+-const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-stats');
++const DEFAULT_SHOT_DIR = path.join(__dirname, '..', '.night-crew', 'runs', '2026-10-02-autonomous', 'logs', 'h4', 'states');
+ const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+ fs.mkdirSync(SHOT_DIR, { recursive: true });
+ test.use({ viewport: { width: 393, height: 852 } });

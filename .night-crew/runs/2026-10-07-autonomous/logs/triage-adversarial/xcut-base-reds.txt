@@ -1,0 +1,20 @@
+tests/inventory.spec.js:1008:3 › Inventory › a transient failure is still described in words
+tests/inventory.spec.js:1025:3 › Inventory › a running sync shows elapsed time that actually advances
+tests/inventory.spec.js:1288:3 › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel
+tests/inventory.spec.js:1296:3 › Inventory › cancelling asks first, and backing out does not cancel
+tests/inventory.spec.js:1313:3 › Inventory › confirming posts the cancel
+tests/inventory.spec.js:1325:3 › Inventory › a cancelled run reports what it finished, not just that it stopped
+tests/inventory.spec.js:1346:3 › Inventory › back link navigates to HQ
+tests/inventory.spec.js:1469:3 › Inventory › create new item via Items tab
+tests/inventory.spec.js:2186:3 › Inventory › Setup item editor shows alias chips, adds and removes nicknames
+tests/inventory.spec.js:2767:3 › Inventory › user can set store_location from Setup tab edit form
+tests/inventory.spec.js:2931:3 › Inventory › creating item opens edit form with store location dropdown
+tests/inventory.spec.js:3685:3 › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab
+tests/inventory.spec.js:4550:3 › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge
+tests/inventory.spec.js:949:3 › Inventory › a parse failure states its cause instead of only that it failed
+tests/inventory.spec.js:955:3 › Inventory › a parse failure with no recorded cause says so rather than standing bare
+tests/inventory.spec.js:961:3 › Inventory › Retry parse is offered on a pending row with no parse_error and no items
+tests/inventory.spec.js:969:3 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth
+tests/inventory.spec.js:982:3 › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload
+tests/inventory.spec.js:993:3 › Inventory › line items from a failed parse pre-fill the review form
+tests/marketing.spec.js:1550:3 › Test integrity (card test-integrity-fix, roadmap I1) › [TI-01] a codes/offers row without campaign_id is refused by the v1 schema (VD2), and a v0 store reopens at v1 with its rows

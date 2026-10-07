@@ -5256,8 +5256,104 @@ stopgap for the crew: scan a code again if the first try fails or says "Not a Yu
 (the unmeasured camera) is closed on this. Not measured: a customer's own phone screen at the
 window (brightness, glare, a cracked screen), and any device other than this iPhone.
 
+### T-72 — Morning triage: run `20261007` merged, four cards landed, the scanner's test door shut the same sitting (2026-10-07)
+
+Attended. The run branch `overnight-20261007` (15 commits, cut from `dev@c549c51`) was reviewed on
+an independent adversarial reviewer's evidence, not the closeout's: in its own worktrees it rebuilt
+and re-ran the gates on the final tree (build + vet exit 0; Go 461 pass / 0 fail / 3 skip across
+15 packages against the base's 456 / 0 / 3, the five new being K2's; G4 greps and the
+replay/testdata diff empty; `sw.js` idempotent at 51; `go mod tidy` a no-op) and spent the rest of
+its budget mutating what each card said it guarded. Every guard reddened under mutation except two
+it reproduced as unpinned (below). The three measured Inventory Setup reds were 15 of 15 green
+alone; both states specs left 0 of 36 committed screenshots changed where the base modified 19;
+the touched specs showed no test red on the final tree and green on the base. Conflict log: four
+entries for four merges, all four merge-intent notes present with their three durable fields;
+Merge 2's two document conflicts resolved as logged (Card 1's SHA kept on the roadmap line, both
+cards' loop entries kept); Merges 1, 3 and 4 byte-identical to their loop commits. Evidence:
+`.night-crew/runs/2026-10-07-autonomous/logs/triage-adversarial/` (76 files).
+
+**Merged** `--no-ff` into `dev` at `b93a18c` on the operator's yes. Go on the merged tree: 461 / 0 /
+3, 15 packages, exit 0. Post-merge worktree sweep with no exclusions: only `card/a3-rls-fixture-own`
+and `fe45768` remain, both standing.
+
+**Reproduced findings, none blocking (the reviewer's, by execution):** the scanner's boot-time
+policy override was honoured on every origin — one init script with a permissive source turned the
+requires-online refusal of an offline scan into an offer on the test origin; opposite-direction
+dish merges deadlock in 177 of 200 barrier-started pairs and answer 500; two K1 guards are unpinned
+(`[IS-01]` stays green when the picked group is reset, `[IS-04]` stays green when the dead-photo
+fallback goes back to a full re-render); two dishes sharing an ingredient merge to a 500 on both
+trees; on the base a hyphenless dish id merged 200 and deleted the source dish — the branch's 400
+closes that. Unverified: any scenario in which the editor draft carry-over loses or overwrites
+data (read, no probe written).
+
+**Decision 215 (operator) — the scanner's test-only policy override is honoured on a loopback
+origin only, and it was shut this sitting.** `marketing/scan-page.js` reads
+`window.__MARKETING_POLICY_SOURCE__` only when `location.hostname` is `localhost`, `127.0.0.1` or
+`[::1]`; elsewhere the global is not looked at. Red-first: `[SV-13]` reaches a non-local origin
+(`http://hq-guard.test`) by rewriting every request to the real test server with Playwright's
+`route.fetch`, installs a permissive source, and asserts the real policy source's refusal for the
+$40 requires-online code offline — on the unguarded tree the offer rendered
+(`logs/triage-guard/01-red-SV-13.log`); with the guard `[SV-12]` and `[SV-13]` pass
+(`02-green-SV-12-SV-13.log`) and the whole marketing seam was re-run (`03-marketing-seam.log`).
+Built on `fix/scanner-override-origin-guard` off `dev` after the merge, `sw.js` regenerated at
+its HEAD (51), merged `--no-ff`. Chosen over filing a hardening card for a later slate (the
+reviewer's and the loop's rating was low–medium; the server's atomic redeem still refuses used and
+expired codes) and over arming a release gate. What a crew member sees differ: nothing — on the
+truck the page behaves exactly as before; what changes is that no script on their phone can make
+a refused code show as an offer at boot. **Stated cost:** the post-boot seam
+`MarketingSubmit.setCampaignPolicy` is still open on every origin until its card (B-500).
+Candidate preference offered and recorded with consent: `design/C-3` (pending, not adopted).
+
+**Decision 216 (operator) — the run loop's deferred review findings stay where the loop writes
+them; triage stamps each one.** night-crew's review stage appends `## LDG <run>/<card>/…` entries to
+`.night-crew/knowledge/ledger.md` — this file — with a `- Status:` line it reads back to auto-close
+superseded findings; the path is fixed inside the tool (`internal/review/ledger.go`), not
+configurable here. Twenty landed tonight. They stay; every morning triage files the ones worth
+keeping in `BACKLOG.md` with a `B-NN` handle and rewrites each entry's status line with what became
+of it, which is the interface the tool designed (anything not starting with `open` reads as
+consumed). Chosen over moving them to a file of their own each morning (a hand move every triage,
+and the tool's cross-night closing would stop seeing them) and over waiting on a night-crew path
+request. **Stated cost:** the decision record and the loop's findings share one file that grows
+about ten lines per finding per night. Applied tonight: all twenty entries stamped (`graduated →
+B-498 … B-503`, two `closed in part` by decision 215). Candidate preference offered and recorded
+with consent: `process/C-7` (pending, not adopted).
+
+**Decision 217 (engineer-level, stated not asked) — the states specs' "REVIEWED evidence" wording
+is corrected, the screenshots are not restored.** The loop's review on K3 found that run
+`20261002`'s closeout commit re-captured 10 of the 36 committed H4/H5 PNGs after their last
+reviewed capture, so the headers K3 wrote overstate what the set is. B-467 already rules those
+blobs are never restored; the wording is reworded to say the set drifted once at closeout. Filed as
+B-503 to ride B-502's card rather than edited this sitting (two comment paragraphs, no behaviour).
+
+**Both forks routed through `night-crew decisions log`** (`decisions/20261007.jsonl`): the resolver
+read each as decided on its citation floor (gates/P-1 and ux/P-1 for 215; constitutional/P-3 for
+216). The questions had already been put to the operator — the citations argued for the guard and
+against moving the entries, and neither spoke to the part the operator settled (when, and whose
+file). Ratification queue and preference ratchet: both empty; the run decided nothing under a
+standing delegation.
+
+**Backlog:** B-498 (photo-load failure erases the stored photo on Save, major), B-499 (shared-
+ingredient merge 500 + the deadlock), B-500 (the post-boot scanner door and the untested bind /
+attach rules), B-501 (the rest of Setup's lost-typing class + the two unpinned K1 guards), B-502
+(`STATES_SHOT_DIR` shared and raw), B-503 (the wording), B-504 (`states-inventory-nav:288` flakes
+alone on `dev`) filed. B-459, B-478, B-482, B-484 … B-487 were marked `landed` by the run.
+
+**Left as found, deliberately:** the loop's branches and merge worktree for `20261007`; the nine
+scratch worktrees under `hq-worktrees/` (one, `k1-merged-20261007`, holds three modified H4
+PNGs the run never restored — scratch, not on any branch; one, `g6-k1-20261007`, an untracked
+probe spec); the `hq_test_*_20261007` databases on :5434; the standing `card/a3-rls-fixture-own`,
+`card/s2-demo-sync-target` and `fe45768`.
+
+**Unknown after this sitting:** whether the iPhone keyboard drops when the Setup editor is rebuilt
+under a focused field (needs the truck's phone); what the dish merge should do for a shared
+ingredient (refuse or combine — a product call for B-499's card); whether the loop's own
+end-of-run browser stage can run on this box at all while Docker's credential helper hangs
+(`docker-credential-wincred.exe`, `docker info`) — two nights running it has produced no verdict
+and the orchestrator's final suite has stood in for it.
+
+
 ## LDG 20261007/inventory-setup-races/a1/c1/adversarial/1
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: Sequence guard covers only writers that refetch; a late item-list response still overwrites local-only mutations (remove nickname, star toggle, photo upload)
@@ -5267,7 +5363,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c1/adversarial/3
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: Group created via '+ New Group' in the item editor is not seen as a changed field and is reverted by the next render
@@ -5277,7 +5373,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c1/adversarial/7
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: Focus is re-applied programmatically after every list rebuild; on the crew's iPhones that drops the keyboard mid-word
@@ -5287,7 +5383,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c1/adversarial/8
-- Status: open
+- Status: graduated 2026-10-07 → B-498 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: A photo that merely failed to load (offline truck) is nulled in state, and the next Save of that item PUTs photo_url:null
@@ -5297,7 +5393,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c1/edge-case/4
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: The editor is still destroyed and rebuilt under a focused field; value and caret are restored but the on-screen keyboard and any in-progress composition are not (unverified on device)
@@ -5307,7 +5403,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c1/edge-case/5
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:21:11Z
 - Work order: inventory-setup-races
 - Finding: Only the item editor's six fields are carried across a render; typed Stock Settings thresholds in the same list are still wiped by the same late response
@@ -5317,7 +5413,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/inventory-setup-races/a1/c2/edge-case/2
-- Status: open
+- Status: graduated 2026-10-07 → B-501 (morning triage, ledger T-72)
 - Opened: 2026-10-07T06:48:05Z
 - Work order: inventory-setup-races
 - Finding: Typing in the search box so the open item no longer matches throws away the unsaved edit the draft carry was meant to keep
@@ -5327,7 +5423,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/adversarial/1
-- Status: open
+- Status: graduated 2026-10-07 → B-499 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:20:22Z
 - Work order: dish-merge-shapes-and-backstop-tests
 - Finding: Merge still answers 500 when both dishes use the same ingredient, while the new doc comment claims every wrong input is refused with its own sentinel
@@ -5337,7 +5433,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/1
-- Status: open
+- Status: graduated 2026-10-07 → B-499 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:20:22Z
 - Work order: dish-merge-shapes-and-backstop-tests
 - Finding: Merging two dishes that share an ingredient still answers 500 (recipes UNIQUE(menu_item_id, purchase_item_id)) — outside the four 'every wrong input' sentinels
@@ -5347,7 +5443,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/3
-- Status: open
+- Status: graduated 2026-10-07 → B-499 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:20:22Z
 - Work order: dish-merge-shapes-and-backstop-tests
 - Finding: Opposite-direction concurrent merges (A→B and B→A) deadlock and answer 500 internal_error
@@ -5357,7 +5453,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/1
-- Status: open
+- Status: graduated 2026-10-07 → B-503 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:55:38Z
 - Work order: states-screenshots-out-of-tree
 - Finding: The committed H4/H5 PNGs the new comments call "the REVIEWED evidence" were already re-captured after review — 10 of 36 were rewritten by the run-closeout commit
@@ -5367,7 +5463,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/3
-- Status: open
+- Status: graduated 2026-10-07 → B-502 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:55:38Z
 - Work order: states-screenshots-out-of-tree
 - Finding: One STATES_SHOT_DIR is shared by three specs with no per-spec subdirectory — a run that sets it flattens all three sets into one folder
@@ -5377,7 +5473,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/1
-- Status: open
+- Status: graduated 2026-10-07 → B-502 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:55:38Z
 - Work order: states-screenshots-out-of-tree
 - Finding: STATES_SHOT_DIR is one variable for three specs: an override flattens all three PNG sets into one directory
@@ -5387,7 +5483,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/2
-- Status: open
+- Status: graduated 2026-10-07 → B-502 (morning triage, ledger T-72)
 - Opened: 2026-10-07T07:55:38Z
 - Work order: states-screenshots-out-of-tree
 - Finding: Default directory is never wiped and no longer diffed: a row that fails before shot() leaves the previous run's PNG in place
@@ -5397,7 +5493,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/1
-- Status: open
+- Status: graduated 2026-10-07 → B-502 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:01:24Z
 - Work order: states-screenshots-out-of-tree
 - Finding: [SS-01]/[SS-02] stay green when STATES_SHOT_DIR points at a tracked directory — including the reviewed H4/H5 sets the headers say are never rewritten
@@ -5407,7 +5503,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/2
-- Status: open
+- Status: graduated 2026-10-07 → B-502 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:01:24Z
 - Work order: states-screenshots-out-of-tree
 - Finding: STATES_SHOT_DIR is used raw: a relative value resolves against the process cwd, and an unexpanded or blank-ish value creates a stray directory
@@ -5417,7 +5513,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/adversarial/1
-- Status: open
+- Status: closed in part 2026-10-07 — the boot-time door is gated to a loopback origin (decision 215, [SV-13]); the post-boot door graduated → B-500 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:37:18Z
 - Work order: scanner-refusal-seam-and-pick-feedback
 - Finding: Production boot swaps the fail-closed campaign policy for any object found on a writable global, with no environment guard
@@ -5427,7 +5523,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/edge-case/1
-- Status: open
+- Status: closed in part 2026-10-07 — the boot-time door is gated to a loopback origin (decision 215, [SV-13]); the post-boot door graduated → B-500 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:37:18Z
 - Work order: scanner-refusal-seam-and-pick-feedback
 - Finding: The "test-only" policy override is honoured on every device, with no test-environment guard, and it replaces the fail-closed source wholesale
@@ -5437,7 +5533,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/adversarial/3
-- Status: open
+- Status: graduated 2026-10-07 → B-500 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:43:23Z
 - Work order: scanner-refusal-seam-and-pick-feedback
 - Finding: The bind and attach-passthrough rules the header promises have no test; only the two defaults do
@@ -5447,7 +5543,7 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
 
 ## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/edge-case/1
-- Status: open
+- Status: graduated 2026-10-07 → B-500 (morning triage, ledger T-72)
 - Opened: 2026-10-07T08:43:23Z
 - Work order: scanner-refusal-seam-and-pick-feedback
 - Finding: An override whose attach() throws silently stops the codes and offers replicas from ever starting

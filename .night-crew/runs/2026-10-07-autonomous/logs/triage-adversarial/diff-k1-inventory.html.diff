@@ -1,0 +1,352 @@
+diff --git a/inventory.html b/inventory.html
+index 1d9557d..f0d6533 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -924,6 +924,9 @@ function show(n){
+     // off-screen; on the hub itself no row is current.
+     if(btn){btn.classList.toggle('on',i===n);if(i===n)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');}
+   });
++  // Re-showing the section already open (the boot preload does, when Setup was
++  // tapped before it finished) is not a new open.
++  var wasTab=ACTIVE_TAB;
+   ACTIVE_TAB=n;
+   var backHq=document.getElementById('back-hq'),backHub=document.getElementById('back-hub');
+   if(backHq)backHq.style.display=n===0?'':'none';
+@@ -936,7 +939,7 @@ function show(n){
+   if(n===1){loadHistory();refreshSyncStatus();}
+   if(n===2){loadStock();}
+   if(n===4){loadRecipes();if(RECIPES_VIEW==='dish')loadMenu();}
+-  if(n===7){loadItems();if(isAdmin())loadBadgeResetConfig();}
++  if(n===7){if(wasTab!==7){resetAddItemBar();dropItemEditDraft();}loadItems();if(isAdmin())loadBadgeResetConfig();}
+   render();
+ }
+ 
+@@ -1033,6 +1036,12 @@ let MENU_DATA=[];
+ let PENDING_PURCHASES=[];
+ let ALL_ITEMS=[];
+ let ITEM_GROUPS=[];
++// Item-list request sequence (B-459): several callers fetch GET /items and
++// their responses can land in any order. Each takes a number BEFORE it asks;
++// a response older than the one already on screen is dropped, so the last
++// REQUEST wins, not the last response.
++let ITEMS_SEQ=0;
++let ITEMS_APPLIED=0;
+ let ITEM_SEARCH='';
+ let ITEM_EDIT_ID=null;
+ let PREFILL_NEW_ITEM=null;
+@@ -2173,10 +2182,29 @@ document.addEventListener('click',function(e){
+ 
+ // ── Items tab ──────────────────────────────────────────────────────────────
+ 
++// fetchItemsSeq — the one way to read GET /items into ALL_ITEMS. Resolves
++// {applied,data}: applied=false means a newer request already landed and the
++// caller must leave ALL_ITEMS alone.
++async function fetchItemsSeq(who){
++  const seq=++ITEMS_SEQ;
++  var data=await api('/api/v1/inventory/items');
++  if(seq<ITEMS_APPLIED){
++    console.debug('[inventory] stale item list discarded',who,'seq '+seq+' < applied '+ITEMS_APPLIED);
++    return {applied:false,data:data||[]};
++  }
++  ITEMS_APPLIED=seq;
++  return {applied:true,data:data||[]};
++}
++// Read-only view of the sequence for tests and the console.
++window.InventorySetup=Object.freeze({
++  get ITEMS_SEQ(){return ITEMS_SEQ;},
++  get ITEMS_APPLIED(){return ITEMS_APPLIED;}
++});
++
+ async function loadItems(){
+   try{
+-    var data=await api('/api/v1/inventory/items');
+-    ALL_ITEMS=data||[];
++    var res=await fetchItemsSeq('loadItems');
++    if(res.applied)ALL_ITEMS=res.data;
+   }catch(e){if(e.message!=='unauthorized')console.error('loadItems',e);}
+   try{
+     var groups=await api('/api/v1/inventory/groups');
+@@ -2218,14 +2246,15 @@ function gotoSetupItem(itemId,desc){
+   var searchEl=document.getElementById('item-search');
+   if(searchEl)searchEl.value='';
+   // Switch to Setup tab (t7/s7 — slot ids are stable even though tab 3 is gone, B-455)
++  if(ACTIVE_TAB!==7){resetAddItemBar();dropItemEditDraft();}
+   ACTIVE_TAB=7;
+   [1,2,3,4,5,6,7].forEach(function(i){
+     var el=document.getElementById('s'+i); if(el)el.style.display=i===7?'':'none';
+     var btn=document.getElementById('t'+i);if(btn)btn.className=i===7?'on':'';
+   });
+   showSetupSub(1);
+-  api('/api/v1/inventory/items').then(function(data){
+-    ALL_ITEMS=data||[];
++  fetchItemsSeq('gotoSetupItem').then(function(res){
++    if(res.applied)ALL_ITEMS=res.data;
+     var item=(itemId&&ALL_ITEMS.find(function(it){return it.id===itemId;}))
+       ||ALL_ITEMS.find(function(it){return it.description===desc;});
+     if(item)ITEM_EDIT_ID=item.id;
+@@ -2237,6 +2266,79 @@ function gotoSetupItem(itemId,desc){
+   }).catch(function(err){console.error('goto-setup',err);});
+ }
+ 
++// A new Setup open starts with a fresh add bar; renderItemsList() builds it.
++function resetAddItemBar(){
++  var bar=document.getElementById('items-add-bar');
++  if(bar)bar.remove();
++}
++// ...and with the item editor showing saved values: the hidden Setup DOM
++// outlives the hub, and a half-typed edit the manager walked away from must
++// not be carried into the first render of the new open.
++function dropItemEditDraft(){
++  var body=document.getElementById('items-list-body');
++  if(body)body.innerHTML='';
++}
++
++// Groups landed (or changed): rebuild ONLY the add bar's <select> options,
++// keeping the picked group. The name input is not touched.
++function syncAddBarGroups(optsHtml){
++  var sel=document.getElementById('new-item-group');
++  if(!sel||sel._optsHtml===optsHtml)return;
++  var picked=sel.value;
++  sel.innerHTML=optsHtml;
++  sel._optsHtml=optsHtml;
++  sel.value=picked;
++  if(sel.value!==picked)sel.value='';
++}
++
++// The editable controls of the open item editor, by the class that survives a
++// re-render. Only values the manager CHANGED are carried, so a render that
++// brings a new server value for an untouched field still shows it.
++var ITEM_EDIT_DRAFT_FIELDS=['.item-edit-name','.item-edit-group','.item-edit-location','.item-edit-in-store','.item-alias-input','.merge-item-target'];
++function captureItemEditDraft(body){
++  if(!ITEM_EDIT_ID)return null;
++  var form=body.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');
++  if(!form)return null;
++  var draft={id:ITEM_EDIT_ID,values:{},focus:null};
++  ITEM_EDIT_DRAFT_FIELDS.forEach(function(sel){
++    var el=form.querySelector(sel);
++    if(!el)return;
++    var dirty;
++    if(el.tagName==='SELECT'){
++      var def=Array.prototype.findIndex.call(el.options,function(o){return o.defaultSelected;});
++      // '__new__' is the "+ Add new" / "+ New Group" sentinel, never a value.
++      dirty=el.value!=='__new__'&&el.selectedIndex!==(def<0?0:def);
++    } else dirty=el.value!==el.defaultValue;
++    if(dirty)draft.values[sel]=el.value;
++    if(document.activeElement===el){
++      draft.focus={sel:sel,start:null,end:null};
++      try{draft.focus.start=el.selectionStart;draft.focus.end=el.selectionEnd;}catch(e){}
++    }
++  });
++  return draft;
++}
++function restoreItemEditDraft(body,draft){
++  if(!draft||draft.id!==ITEM_EDIT_ID)return;
++  var form=body.querySelector('.item-edit-form[data-item-id="'+draft.id+'"]');
++  if(!form)return;
++  Object.keys(draft.values).forEach(function(sel){
++    var el=form.querySelector(sel);
++    if(!el)return;
++    var def=el.tagName==='SELECT'?el.selectedIndex:-1;
++    el.value=draft.values[sel];
++    // The rebuilt select no longer offers the carried option: back to the
++    // server's value, not blank.
++    if(el.tagName==='SELECT'&&el.value!==draft.values[sel])el.selectedIndex=def;
++  });
++  if(draft.focus){
++    var f=form.querySelector(draft.focus.sel);
++    if(f){
++      f.focus({preventScroll:true});
++      if(draft.focus.start!==null){try{f.setSelectionRange(draft.focus.start,draft.focus.end);}catch(e){}}
++    }
++  }
++}
++
+ function renderItemsList(){
+   var list=document.getElementById('items-list');
+   if(!list)return;
+@@ -2269,11 +2371,20 @@ function renderItemsList(){
+   var groupOpts='<option value="">No Group</option>'+groupOptsList+'<option value="__new__">+ New Group</option>';
+   var addGroupOpts='<option value="">Select group...</option>'+groupOptsList+'<option value="__new__">+ New Group</option>';
+ 
+-  var html='<div class="add-item-bar">'+
+-    '<input type="text" class="field-input" id="new-item-name" placeholder="New item name...">'+
+-    '<select id="new-item-group" class="field-input">'+addGroupOpts+'</select>'+
+-    '<button data-action="create-item">Add</button>'+
+-    '</div>';
++  // The add bar is built ONCE per Setup open and never re-rendered (B-478):
++  // what a manager has typed or picked there outlives every later render.
++  // Only the list body below it is replaced.
++  var body=document.getElementById('items-list-body');
++  if(!body){list.innerHTML='<div id="items-list-body"></div>';body=list.firstChild;}
++  if(!document.getElementById('items-add-bar')){
++    body.insertAdjacentHTML('beforebegin','<div class="add-item-bar" id="items-add-bar">'+
++      '<input type="text" class="field-input" id="new-item-name" placeholder="New item name...">'+
++      '<select id="new-item-group" class="field-input"></select>'+
++      '<button data-action="create-item">Add</button>'+
++      '</div>');
++  }
++  syncAddBarGroups(addGroupOpts);
++  var html='';
+ 
+   function renderItemRow(it){
+     if(ITEM_EDIT_ID===it.id){
+@@ -2361,19 +2472,29 @@ function renderItemsList(){
+     html+='<div class="empty"><p>No items found.</p></div>';
+   }
+ 
+-  list.innerHTML=html;
+-  // Apply prefill from cross-page navigation (PO → Inventory Setup)
++  // An item editor that stays open across this render keeps what was typed in
++  // it (B-459): the form is rebuilt from state, and without this a render that
++  // lands mid-edit empties the nickname box, so the Add tap sends nothing.
++  var draft=captureItemEditDraft(body);
++  body.innerHTML=html;
++  restoreItemEditDraft(body,draft);
++  // Apply prefill from cross-page navigation (PO → Inventory Setup) — once:
++  // the add bar outlives renders, and focusing it on every one would pull the
++  // cursor out of an item editor the manager has since started typing in.
+   if(PREFILL_NEW_ITEM){
+     var inp=document.getElementById('new-item-name');
+-    if(inp){inp.value=PREFILL_NEW_ITEM;inp.focus();}
++    if(inp){inp.value=PREFILL_NEW_ITEM;inp.focus();PREFILL_NEW_ITEM=null;}
+   }
+ }
+ 
+ // A catalog photo that fails to load (dead host, deleted object) falls back
+ // to the same letter placeholder an item without a photo gets — never the
+ // browser's broken-image icon. `error` does not bubble, so listen in the
+-// capture phase on the list; nulling photo_url in state and re-rendering is
+-// what makes the row, the editor thumb and the "Add photo" link all agree.
++// capture phase on the list. photo_url is nulled in state so every later
++// render agrees, and the failed <img> is swapped IN PLACE: a full
++// renderItemsList() here ran once per dead photo, back to back, rebuilding an
++// open item editor under the manager's thumb each time (B-459 — the nickname
++// box emptied between typing and Add, and the add was silently dropped).
+ document.getElementById('items-list').addEventListener('error',function(e){
+   var img=e.target;
+   if(!img||img.tagName!=='IMG')return;
+@@ -2383,7 +2504,16 @@ document.getElementById('items-list').addEventListener('error',function(e){
+   if(!it||!it.photo_url)return;
+   console.warn('[inventory] item photo failed to load, showing placeholder',it.description,it.photo_url);
+   it.photo_url=null;
+-  renderItemsList();
++  if(img.classList.contains('item-photo-thumb')){
++    // Editor thumb → the letter placeholder, and the link offers to ADD a photo.
++    var ph=document.createElement('div');
++    ph.className='item-photo-thumb';
++    ph.style.cssText='width:48px;height:48px;border-radius:8px;background:var(--brd);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--mut)';
++    ph.textContent=it.description?it.description.charAt(0).toUpperCase():'?';
++    var link=host.querySelector('.item-photo-change');
++    img.replaceWith(ph);
++    if(link)link.textContent='Add photo';
++  } else img.remove(); // list row: a row without a photo has no thumb
+ },true);
+ 
+ document.getElementById('items-list').addEventListener('input',function(e){
+@@ -2431,7 +2561,11 @@ function handleNewGroup(sel){
+ }
+ 
+ function rebuildGroupSelect(sel,selectedId){
+-  var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(selectedId&&g.id===selectedId?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
++  // The add bar keeps its own blank wording, and its cached options are
++  // dropped so the next render's syncAddBarGroups rebuilds them.
++  var isAddBar=sel.id==='new-item-group';
++  if(isAddBar)sel._optsHtml=null;
++  var opts='<option value="">'+(isAddBar?'Select group...':'No Group')+'</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(selectedId&&g.id===selectedId?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+   sel.innerHTML=opts;
+   if(selectedId)sel.value=selectedId;
+ }
+@@ -2465,11 +2599,15 @@ document.getElementById('items-list').addEventListener('click',function(e){
+     var nameEl=document.getElementById('new-item-name');
+     var groupEl=document.getElementById('new-item-group');
+     var name=nameEl.value.trim();
+-    if(!name)return;
++    if(!name){alert('Enter an item name first.');return;}
+     var groupId=groupEl.value||null;
+     if(!groupId){alert('Please select a group.');return;}
+     api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(async function(created){
+-      nameEl.value='';
++      // Clear only what was sent: a next name typed while the POST was in
++      // flight stays, and the group goes back to 'Select group...'.
++      var liveName=document.getElementById('new-item-name'),liveGroup=document.getElementById('new-item-group');
++      if(liveName&&liveName.value.trim()===name)liveName.value='';
++      if(liveGroup&&liveGroup.value===groupId)liveGroup.value='';
+       await loadItems();
+       // Open the new item's edit form to prompt setting store location
+       var match=ALL_ITEMS.find(function(it){return it.description.toLowerCase()===(created&&created.description||name).toLowerCase();});
+@@ -2545,19 +2683,41 @@ document.getElementById('items-list').addEventListener('click',function(e){
+       // The alias may have been re-pointed from another item — refresh all
+       // aliases (and any promotion that moved with it) from the server so
+       // both items render truthfully.
+-      return api('/api/v1/inventory/items');
+-    }).then(function(data){
++      return fetchItemsSeq('addItemAlias');
++    }).then(function(res){
+       var promotedHere=false;
+-      ALL_ITEMS.forEach(function(ci){
+-        var f=(data||[]).find(function(x){return x.id===ci.id;});
+-        if(!f)return;
+-        ci.aliases=f.aliases||[];
+-        var was=ci.display_alias||'';
+-        ci.display_alias=f.display_alias||'';
+-        ci.display_name=f.display_name||ci.description;
+-        if(ci.id===aliasItemId&&hadNone&&ci.display_alias&&ci.display_alias!==was)promotedHere=true;
+-      });
+-      if(aliasInput)aliasInput.value='';
++      // Discarded = a newer request already replaced ALL_ITEMS with a list that
++      // includes this alias; there is nothing older to merge in.
++      if(res.applied){
++        // A full list fetched after the POST: it refreshes ALL_ITEMS, as every
++        // other fetchItemsSeq caller does — this request holds the applied slot,
++        // so an older full list still in flight will be discarded.
++        var old=ALL_ITEMS.find(function(ci){return ci.id===aliasItemId;});
++        var fresh=res.data.find(function(ci){return ci.id===aliasItemId;});
++        var was=old?old.display_alias||'':'';
++        if(hadNone&&fresh&&fresh.display_alias&&fresh.display_alias!==was)promotedHere=true;
++        // ...but onto the item objects already in the list: a star tap still
++        // in flight holds one and writes its answer there, and the open
++        // editor's picked photo lives only on its object until Save.
++        var byId={};
++        ALL_ITEMS.forEach(function(ci){byId[ci.id]=ci;});
++        ALL_ITEMS=res.data.map(function(row){
++          var live=byId[row.id];
++          if(!live)return row;
++          var keepPhoto=live.id===ITEM_EDIT_ID,photo=live.photo_url;
++          Object.keys(live).forEach(function(k){if(!(k in row))delete live[k];});
++          Object.assign(live,row);
++          if(keepPhoto)live.photo_url=photo;
++          return live;
++        });
++      } else{
++        var cur=ALL_ITEMS.find(function(ci){return ci.id===aliasItemId;});
++        if(hadNone&&cur&&cur.display_alias)promotedHere=true;
++      }
++      // Re-query: a render since the tap rebuilt the editor, and the box the
++      // handler captured is no longer the one on screen.
++      var liveInput=document.querySelector('.item-alias-input[data-id="'+aliasItemId+'"]');
++      if(liveInput&&liveInput.value.trim().toLowerCase()===alias.toLowerCase())liveInput.value='';
+       refreshAliasChips(aliasItemId);
+       // A default promotion relabels this item on every other tab, exactly as
+       // a tapped star does — keep them in step.
+@@ -2832,7 +2992,7 @@ document.addEventListener('DOMContentLoaded',async function(){
+   try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
+   showAdminSyncTools();
+   // Preload items for review form dropdowns
+-  try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
++  try{var pre=await fetchItemsSeq('preload');if(pre.applied)ALL_ITEMS=pre.data;}catch(e){}
+   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
+   try{var v=await api('/api/v1/inventory/vendors');VENDORS=v||[];}catch(e){}
+   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
+@@ -2995,9 +3155,9 @@ function showCreateItemForm(prefill){
+     if(locEl&&locEl.value)payload.store_location=locEl.value;
+     if(inStoreEl&&inStoreEl.value.trim())payload.location_in_store=inStoreEl.value.trim();
+     api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(){
+-      return api('/api/v1/inventory/items');
+-    }).then(function(data){
+-      ALL_ITEMS=data||[];
++      return fetchItemsSeq('modalCreateItem');
++    }).then(function(res){
++      if(res.applied)ALL_ITEMS=res.data;
+       var newItem=ALL_ITEMS.find(function(it){return it.description.toLowerCase()===name.toLowerCase();});
+       if(newItem){
+         selectItemFromModal(newItem.id,newItem.description);

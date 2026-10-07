@@ -1,0 +1,13 @@
+diff --git a/inventory.html b/inventory.html
+index f0d6533..6708d11 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -2188,7 +2188,7 @@ document.addEventListener('click',function(e){
+ async function fetchItemsSeq(who){
+   const seq=++ITEMS_SEQ;
+   var data=await api('/api/v1/inventory/items');
+-  if(seq<ITEMS_APPLIED){
++  if(false&&seq<ITEMS_APPLIED){
+     console.debug('[inventory] stale item list discarded',who,'seq '+seq+' < applied '+ITEMS_APPLIED);
+     return {applied:false,data:data||[]};
+   }

@@ -1,0 +1,28 @@
+# K3 static checks
+$ git check-ignore -v test-screenshots/marketing-stats/x.png test-screenshots/marketing-subscribers/x.png
+.gitignore:9:test-screenshots/	test-screenshots/marketing-stats/x.png
+.gitignore:9:test-screenshots/	test-screenshots/marketing-subscribers/x.png
+exit=0
+$ night-crew.toml non-comment diff dev...overnight-20261007:
+non_comment_changed_lines=0
+$ SHOT_DIR lines on final:
+12:// wants durable evidence sets STATES_SHOT_DIR to its own logs tree and commits
+70:const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-stats');
+71:const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+72:fs.mkdirSync(SHOT_DIR, { recursive: true });
+76:  await page.screenshot({ path: path.join(SHOT_DIR, name + '.png'), fullPage: true });
+49:// evidence sets STATES_SHOT_DIR to its own logs tree and commits the PNGs
+56:const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-subscribers');
+57:const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+58:fs.mkdirSync(SHOT_DIR, { recursive: true });
+64:  await page.screenshot({ path: path.join(SHOT_DIR, name + '.png'), fullPage: true });
+$ tracked PNG counts:
+23
+13
+# K4 static greps on the diff
+submit-*.js diff stat: 0 lines
+onFilePicked in scan-page diff: 0
+scan-note in whole diff: 12
+SCAN_STATE.note in whole diff: 4
+__MARKETING_POLICY_SOURCE__ assignments outside tests on final:
+overnight-20261007:marketing/scan-page.js:359:  const policyOverride = window.__MARKETING_POLICY_SOURCE__;

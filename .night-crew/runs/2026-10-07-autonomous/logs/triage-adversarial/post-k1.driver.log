@@ -1,0 +1,60 @@
+## K1(c) three previously-flaky tests, 5x each alone
+  5 passed (2.7m)
+EXIT_PW=0
+# porcelain_lines=0
+  5 passed (2.6m)
+EXIT_PW=0
+# porcelain_lines=0
+  5 passed (2.6m)
+EXIT_PW=0
+# porcelain_lines=0
+## K3: each states spec alone
+  17 passed (2.6m)
+EXIT_PW=0
+# porcelain_lines=0
+k3-stats diffstat lines=0
+  10 passed (2.5m)
+EXIT_PW=0
+# porcelain_lines=0
+k3-subs diffstat lines=0
+## K3: md5 of tracked PNGs vs HEAD
+changed_pngs=0
+23
+13
+## K3 mutation: stats default back to the tracked dir -> [SS-01]
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## K3 mutation: subscribers default back to the tracked dir -> [SS-02]
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## K3: STATES_SHOT_DIR honoured
+  17 passed (2.6m)
+EXIT_PW=0
+# porcelain_lines=0
+files in STATES_SHOT_DIR: 23
+bi-empty.png
+bi-error.png
+bi-loading.png
+## K4: whole tests/marketing.spec.js --retries=0
+  1 failed
+  70 passed (3.8m)
+EXIT_PW=1
+# porcelain_lines=0
+## K4 mutation 1: override read removed -> [SV-12]
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## K4 mutation 2: submit-flow.js catch arms permissive -> [SV-12]
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## K4 probe: PERMISSIVE override on the normal test server, no fixture beyond the init script
+  1 failed
+  1 passed (2.9m)
+EXIT_PW=1
+# porcelain_lines=1
+ADV-K4 RESULT override=false: origin=http://localhost:8393 gate-branch=requires-online order-field=0 submit-button=0 posts=0
+      3152 |       console.log(`ADV-K4 RESULT override=${withOverride}: origin=${origin} gate-branch=${branch} order-field=${orderCount} submit-button=${submitCount} posts=${calls.length}`);
+POST_K1_DONE

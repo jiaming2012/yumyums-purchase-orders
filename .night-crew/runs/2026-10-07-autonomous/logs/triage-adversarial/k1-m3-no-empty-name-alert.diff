@@ -1,0 +1,13 @@
+diff --git a/inventory.html b/inventory.html
+index f0d6533..5740c29 100644
+--- a/inventory.html
++++ b/inventory.html
+@@ -2599,7 +2599,7 @@ document.getElementById('items-list').addEventListener('click',function(e){
+     var nameEl=document.getElementById('new-item-name');
+     var groupEl=document.getElementById('new-item-group');
+     var name=nameEl.value.trim();
+-    if(!name){alert('Enter an item name first.');return;}
++    if(!name)return;
+     var groupId=groupEl.value||null;
+     if(!groupId){alert('Please select a group.');return;}
+     api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(async function(created){

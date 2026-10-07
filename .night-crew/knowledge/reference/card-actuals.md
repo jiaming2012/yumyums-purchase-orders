@@ -1559,3 +1559,9 @@ Lessons, for sizing and for slates:
 3. **The full browser suite is ~42 m on this box now**, not 55.
 4. Review-specified defects with a spike recipe again built in well under the class range (K2 25 m,
    K4 12 m). The class ranges stand; the loop's review time is the term to add.
+
+**Triage addendum (2026-10-07):** the attended sitting built one follow-up off `dev` the same
+morning — the scanner override's loopback-origin guard with `[SV-13]` red-first (decision 215):
+~25 m from red leg to green leg plus the marketing-seam re-run, on top of the triage's own
+adversarial review (~64 m unattended). Not a slate card; recorded so the "guard it this morning"
+class has a number next time it is offered.

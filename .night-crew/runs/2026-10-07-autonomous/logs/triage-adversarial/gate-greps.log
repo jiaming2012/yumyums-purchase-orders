@@ -1,0 +1,7 @@
+# G4 greps
+$ grep -rn Outcome: "
+exit=1
+$ grep -rn journal.Entry{
+exit=1
+# replay/testdata diff
+lines=0

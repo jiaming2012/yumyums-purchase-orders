@@ -1,0 +1,32 @@
+# M3 diff:
+diff --git a/backend/internal/recipes/repository.go b/backend/internal/recipes/repository.go
+index 9cc07df..410efed 100644
+--- a/backend/internal/recipes/repository.go
++++ b/backend/internal/recipes/repository.go
+@@ -224,7 +224,7 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
+ 		`SELECT 1 FROM menu_items WHERE id = $1 FOR UPDATE`, sourceMenuItemID,
+ 	).Scan(&sourceExists); err != nil {
+ 		if errors.Is(err, pgx.ErrNoRows) {
+-			return 0, ErrMergeSourceNotFound
++			_ = sourceExists // ADV MUTATION: no refusal
+ 		}
+ 		return 0, err
+ 	}
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+2026/10/07 08:07:33 ERROR MergeMenuItem error="no rows in result set"
+    repository_test.go:446: status = 500 body={"error":"internal_error"}
+        , want 404
+    repository_test.go:449: body = {"error":"internal_error"}
+        , want it to name source_not_found
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+    repository_test.go:461: MergeMenuItem from a missing source returned (0, no rows in result set), want ErrMergeSourceNotFound
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- FAIL: TestMergeMenuItem_MissingSourceIs404 (2.48s)
+    --- FAIL: TestMergeMenuItem_MissingSourceIs404/handler (0.82s)
+    --- FAIL: TestMergeMenuItem_MissingSourceIs404/repository (0.82s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (0.83s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	2.488s
+FAIL
+EXIT=1

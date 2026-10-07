@@ -1,0 +1,30 @@
+## m1-no-seq-guard
+ inventory.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## m2-dead-photo-rerenders
+ inventory.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  1 passed (3.0m)
+EXIT_PW=0
+# porcelain_lines=1
+## m3-no-empty-name-alert
+ inventory.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## m4-no-draft-carryover
+ inventory.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  1 failed
+EXIT_PW=1
+# porcelain_lines=1
+## m5-group-reset-on-groups-land
+ inventory.html | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+  1 passed (2.5m)
+EXIT_PW=0
+# porcelain_lines=1

@@ -1,0 +1,7 @@
+# K2 (e) tighter deadlock probe, 200 barrier-started reps, FINAL tree. DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_triage_adv_20261007_go_k2?sslmode=disable
+=== RUN   TestADV_OppositeDirectionMerges200
+    zz_adv_deadlock_test.go:51: ADV opposite-direction x200 barrier: deadlock(40P01)=177 other-errors=0 both-succeeded=0 A→B ok=151 B→A ok=49
+--- PASS: TestADV_OppositeDirectionMerges200 (197.62s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	197.631s
+EXIT=0

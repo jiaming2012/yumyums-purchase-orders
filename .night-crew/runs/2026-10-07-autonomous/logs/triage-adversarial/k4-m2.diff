@@ -1,0 +1,23 @@
+diff --git a/marketing/submit-flow.js b/marketing/submit-flow.js
+index 9ff85c0..f77307f 100644
+--- a/marketing/submit-flow.js
++++ b/marketing/submit-flow.js
+@@ -101,8 +101,7 @@ export function policyFor(CAMPAIGN_POLICY, campaignId, offers) {
+     const p = CAMPAIGN_POLICY(campaignId, offers);
+     return !!(p && p.requiresOnline);
+   } catch (e) {
+-    // A throwing source is a source that resolved nothing — same arm.
+-    return failClosed(campaignId);
++    return false; // ADV MUTATION: permissive
+   }
+ }
+ 
+@@ -241,7 +240,7 @@ async function boot() {
+       const p = CAMPAIGN_POLICY(campaignId);
+       if (!p) return true;          // the pre-card null answer for a KNOWN id
+       return !!p.unresolved;
+-    } catch (e) { return true; }
++    } catch (e) { return false; } // ADV MUTATION
+   }
+ 
+   // The PAGE's memoized hasher (exposed by scan-page.js): one digest per
