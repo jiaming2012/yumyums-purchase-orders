@@ -105,3 +105,30 @@ One entry per merge onto `overnight-20261007`, clean or conflicted (§15ad.66).
 - **After merge:** `sw.js` regeneration left the tree clean, count 51; `backlog check` exit 0;
   B-486 → `landed`. **The B-486/B-493 checkout rule is moot from this merge on.** Legs before it:
   the base leg and Card 1's full suite (both restored by hand). Legs after it: the final suite.
+
+### Merge 4 — Card 4 `scanner-refusal-seam-and-pick-feedback` → `overnight-20261007` at `16090f7` (05:1x)
+
+- **Source:** loop commit `cbf5598`, brought over as its own change only (cherry-pick).
+  **Clean — no conflict** (`roadmap.md` auto-merged). Code files byte-identical to the loop commit's.
+- **Built NARROWED** (operator decision 214): the policy-source override and `[SV-12]` only. No
+  `#scan-note`, no `SCAN_STATE.note`, no `[PS-03]`, `onFilePicked` untouched — confirmed by G6's grep.
+- **Loop record:** built 04:22–04:34; two review rounds, patched twice, approved "cycle exhausted".
+- **G6 (separate reviewer, `hq-worktrees/g6-k4-20261007`): PASS.** `[SV-12]` 9 clean runs, 9 green
+  (one further run was invalidated by the reviewer's own overlapping mutation and discarded).
+  Mutations: parent's `scan-page.js` → FAIL (the offer rendered, the installed source never asked);
+  the installed source made non-throwing → FAIL; the catch at `submit-flow.js:103` made permissive
+  → FAIL. Whole `tests/marketing.spec.js`, no retries: parent 70 passed, change 71 passed.
+  `marketing/submit-*.js` diff empty. The test drives `MarketingScan.scanText`, not the photo control.
+- **G6 findings, none blocking (for triage):**
+  - **The override is not limited to test environments** (low–medium): any same-origin script that
+    sets `window.__MARKETING_POLICY_SOURCE__` before boot can turn refusals into offers for that
+    page load. The card's signed spec asked for exactly this read; an existing post-boot setter
+    already allows the same. Cheap closes: gate the read on a localhost origin or a test-server flag.
+  - `[SV-12]` also routes `/api/v1/marketing/redeem` as a tripwire (never answers) — outside the
+    slate's named stub list, low. Its closing "belt" drives the machine directly, not the screen.
+- **After merge:** `sw.js` regenerated at the merged HEAD, committed `827ee37`, count 51, second
+  regeneration clean. `backlog check` exit 0; B-482 → `landed` (B-483 was already dropped at triage).
+- **Roadmap text:** the K4 line still describes the withdrawn photo-pick half; left as authored
+  (append-only), the narrowing is stated here and in the backlog line.
+- **Owed on this tree:** the FINAL full browser suite and the full Go suite (queued behind Card 1's
+  measurement leg, which is still running on Card 1's merged tree).

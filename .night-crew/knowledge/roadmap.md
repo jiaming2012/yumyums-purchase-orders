@@ -1321,7 +1321,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### scanner-refusal-seam-and-pick-feedback
 
-- `scanner-refusal-seam-and-pick-feedback` · **LANDED** · (K4, track A, after K1 — **B-482**,
+- `scanner-refusal-seam-and-pick-feedback` · **LANDED** (`night-crew/20261007/scanner-refusal-seam-and-pick-feedback` `cbf5598`, merged `16090f7`) · (K4, track A, after K1 — **B-482**,
   **B-483**) Today a photo picked while the scanner is checking a code is dropped by the J1 guard
   with no feedback of its own — the result area keeps saying "Checking with the server…" and a
   photo picked while an earlier photo decodes shows nothing at all (B-483); and the refusal
