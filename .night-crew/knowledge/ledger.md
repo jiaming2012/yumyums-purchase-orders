@@ -5243,3 +5243,15 @@ through, and belongs at the head of the next Activity E slate, ahead of `identit
 phone screen, and at what rate; how many browser specs can move to the programmatic scan entry and
 how many simply retire; what the scanner should say when the camera is unavailable now that there
 is no second way in.
+
+**Addendum to T-71 — the owner's camera check (2026-10-06, late).** The owner scanned the test
+codes shown on a laptop with the truck's iPhone, through the production scanner's live camera.
+Owner-reported: **every code read; three did not read on the first try and read on the second**;
+one of those first tries showed "Not a Yumyums code" on a valid code before the second scan showed
+its offer (B-490, re-opened on this evidence — the camera reader accepts every barcode format).
+The check page's own store holds four recorded answers (`code-01` … `code-04`, all "an offer"); the
+rest is the owner's word, not a stored record, and which three codes needed the second try was not
+captured. `code-01`, which the lab's photo reader never read, read on the camera. The owner's
+stopgap for the crew: scan a code again if the first try fails or says "Not a Yumyums code". B-497
+(the unmeasured camera) is closed on this. Not measured: a customer's own phone screen at the
+window (brightness, glare, a cracked screen), and any device other than this iPhone.
