@@ -1,0 +1,11 @@
+loop check — run 20261007
+
+  on the loop  inventory-setup-races (completed)
+  on the loop  dish-merge-shapes-and-backstop-tests (completed)
+  on the loop  states-screenshots-out-of-tree (completed)
+  on the loop  scanner-refusal-seam-and-pick-feedback (completed)
+
+  read from /home/jcole/projects/hq/.night-crew/runs/20261007/summary.json
+
+  all 4 card(s) accounted for on the loop.
+LOOP_CHECK_EXIT=0

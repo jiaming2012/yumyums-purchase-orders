@@ -1231,7 +1231,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### inventory-setup-races
 
-- `inventory-setup-races` · **PLANNED** · (K1, track A — **B-459**, **B-478**) Today
+- `inventory-setup-races` · **LANDED** (`night-crew/20261007/inventory-setup-races` `3fb748a`, merged `b9d7b62`) · (K1, track A — **B-459**, **B-478**) Today
   `ALL_ITEMS` in `inventory.html` has three unsequenced writers (`loadItems()`, the
   `DOMContentLoaded` preload, the alias handler's own refetch) and whichever response lands
   LAST wins, so a nickname added while the item list is still loading can vanish from the chips
@@ -1273,7 +1273,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### dish-merge-shapes-and-backstop-tests
 
-- `dish-merge-shapes-and-backstop-tests` · **PLANNED** · (K2, track B — **B-484**, **B-485**,
+- `dish-merge-shapes-and-backstop-tests` · **LANDED** (`night-crew/20261007/dish-merge-shapes-and-backstop-tests` `bc705a5`, merged `05c9ccd`) · (K2, track B — **B-484**, **B-485**,
   **B-487**) Today a dish merge whose SOURCE names no dish answers `200 {"rows_re_pointed":0}`
   and a non-uuid target answers `500 internal_error` (`22P02`); the handler matches
   `ErrMergeTargetNotFound` by `strings.Contains` on the message; the `FOR SHARE` lock and the
@@ -1302,7 +1302,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### states-screenshots-out-of-tree
 
-- `states-screenshots-out-of-tree` · **PLANNED** · (K3, track B, after K2 — **B-486**) Today
+- `states-screenshots-out-of-tree` · **LANDED** (`night-crew/20261007/states-screenshots-out-of-tree` `45f42a4`, merged `e5563ab`) · (K3, track B, after K2 — **B-486**) Today
   `tests/states-marketing-stats.spec.js` writes its PNGs into
   `.night-crew/runs/2026-10-02-autonomous/logs/h4/states/`, which is committed, so every gate leg
   that includes the `marketing` seam leaves the tree dirty (five modified files after one subset
@@ -1321,7 +1321,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### scanner-refusal-seam-and-pick-feedback
 
-- `scanner-refusal-seam-and-pick-feedback` · **PLANNED** · (K4, track A, after K1 — **B-482**,
+- `scanner-refusal-seam-and-pick-feedback` · **LANDED** (`night-crew/20261007/scanner-refusal-seam-and-pick-feedback` `cbf5598`, merged `16090f7`) · (K4, track A, after K1 — **B-482**,
   **B-483**) Today a photo picked while the scanner is checking a code is dropped by the J1 guard
   with no feedback of its own — the result area keeps saying "Checking with the server…" and a
   photo picked while an earlier photo decodes shows nothing at all (B-483); and the refusal
@@ -1344,6 +1344,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/scan-page.js`, `tests/marketing.spec.js`, `sw.js` (regenerated, 51);
   `marketing/submit-flow.js` only if the override must be read there (expected untouched —
   stated). **No `backend/` file.** BACKLOG B-482 / B-483 `promoted → scanner-refusal-seam-and-pick-feedback`.
+  - **Addendum (run `20261007`, appended — the signed text above is unchanged):** only the B-482
+    half landed — the fail-closed refusal under a throwing policy source is rendered through the
+    page (`[SV-12]`, via the test-only `window.__MARKETING_POLICY_SOURCE__` boot-time override).
+    The B-483 half — the "Finish checking this code first, then pick again" line after a refused
+    photo pick, `#scan-note`, and `[PS-03]` — was **withdrawn and not built** (ledger decision 214:
+    the signed slate `20261007` loses half of one card, because "Scan from photo" is being
+    removed). A refused photo pick still shows no feedback of its own.
 
 
 ---

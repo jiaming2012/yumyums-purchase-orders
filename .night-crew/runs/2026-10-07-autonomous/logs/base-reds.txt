@@ -1,0 +1,33 @@
+# base-reds — run 20261007, full Playwright suite on dev (detached worktree base-20261007)
+base SHA: c549c5141f4116e73ea582d25e984315d7676071 (dev)
+summary: 25 failed / 2 flaky / 6 skipped / 1046 passed (42.4m) — 1 worker, config-default retries (1). EXIT_PW=1 (logs/base-pw.log)
+go: EXIT_TEST=0 — 456 pass / 0 fail / 3 skip, 15 packages ok (logs/base-go.log); same as 20261006's base
+vs 20261006's base (26 failed / 2 flaky): gone green — inventory.spec.js:2919 (now FLAKY), onboarding.spec.js:2233, persistence.spec.js:1463; new red — inventory.spec.js:2931 (green last night). Flaky tonight: inventory.spec.js:2919, :3867. The :2919/:2931 pair trading places is B-478, Card 1's measurement target.
+tree after the leg: h4/states PNGs modified (logs/base-pw-tree-after.txt) — restored in the base worktree (B-486/B-493)
+
+## failing tests (25)
+tests/inventory.spec.js:1008
+tests/inventory.spec.js:1025
+tests/inventory.spec.js:1288
+tests/inventory.spec.js:1296
+tests/inventory.spec.js:1313
+tests/inventory.spec.js:1325
+tests/inventory.spec.js:1346
+tests/inventory.spec.js:1469
+tests/inventory.spec.js:2767
+tests/inventory.spec.js:2931
+tests/inventory.spec.js:3685
+tests/inventory.spec.js:4550
+tests/inventory.spec.js:949
+tests/inventory.spec.js:955
+tests/inventory.spec.js:961
+tests/inventory.spec.js:969
+tests/inventory.spec.js:982
+tests/inventory.spec.js:993
+tests/purchasing.spec.js:455
+tests/receipt-carousel.spec.js:123
+tests/receipt-carousel.spec.js:54
+tests/sync.spec.js:2976
+tests/sync.spec.js:3062
+tests/sync.spec.js:3136
+tests/workflows.spec.js:1641

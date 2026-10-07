@@ -1,0 +1,32 @@
+# STATES_SHOT_DIR is honoured — one cheap row from each spec plus [SS-01]/[SS-02], override pointed at an ignored scratch dir
+# $ STATES_SHOT_DIR=$PWD/test-screenshots/k3-override-proof npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g 'BI error|error — loud|SS-0' --retries=0 --reporter=line
+[1A[2K  4 passed (2.5m)
+# exit=0
+# $ ls test-screenshots/k3-override-proof
+03-error.png
+03b-error-retried.png
+bi-error.png
+# $ ls test-screenshots/   (the default subdirs exist — mkdir at load — but hold nothing new)
+test-screenshots/k3-override-proof/03-error.png
+test-screenshots/k3-override-proof/03b-error-retried.png
+test-screenshots/k3-override-proof/bi-error.png
+test-screenshots/states-marketing-campaigns/edge-code-sheet-393.png
+test-screenshots/states-marketing-campaigns/edge-code-sheet-dark.png
+test-screenshots/states-marketing-campaigns/edge-codes-ready.png
+test-screenshots/states-marketing-campaigns/edge-create-blank.png
+test-screenshots/states-marketing-campaigns/edge-create-filled.png
+test-screenshots/states-marketing-campaigns/edge-detail-393.png
+test-screenshots/states-marketing-campaigns/empty.png
+test-screenshots/states-marketing-campaigns/error-dark.png
+test-screenshots/states-marketing-campaigns/error.png
+test-screenshots/states-marketing-campaigns/loading.png
+test-screenshots/states-marketing-campaigns/locked.png
+test-screenshots/states-marketing-campaigns/long-content-expanded.png
+test-screenshots/states-marketing-campaigns/long-content.png
+test-screenshots/states-marketing-campaigns/not-projected-detail.png
+test-screenshots/states-marketing-campaigns/not-projected.png
+test-screenshots/states-marketing-campaigns/offline.png
+test-screenshots/states-marketing-campaigns/success-dark.png
+test-screenshots/states-marketing-campaigns/success.png
+# $ git status --porcelain -- .night-crew/runs/2026-10-02-autonomous/logs/h4/states/ .night-crew/runs/2026-10-02-autonomous/logs/h5/states/
+# (empty above = untouched)

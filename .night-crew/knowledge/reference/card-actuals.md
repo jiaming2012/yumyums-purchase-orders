@@ -1536,3 +1536,26 @@ Lessons, for sizing and for slates:
    worked first time once the lane was separate. The cost was in discovering what the loop does
    not do (prose gates, session-visible sections, default deadline), all before dispatch.
 4. No size-class range moves on this evidence: neither card completed.
+
+## Run `20261007` (night of 2026-10-06 → 07) — 4 cards, serial, SECOND night on the run loop, 4 landed
+
+| Card | Class | Estimate | Actual | Outcome |
+|---|---|---|---|---|
+| `inventory-setup-races` (K1) | followup-batch, risk | 90–140 m (130) | **91 m** on the loop (build 56 m + loop review/patch 35 m); + separate review 29 m, full suite 42 m, measurement 105 m | LANDED |
+| `dish-merge-shapes-and-backstop-tests` (K2) | followup-batch | 60–90 m (80) | **40 m** on the loop (build 25 m + review 15 m); + separate review 32 m (22 m of it waiting on the lock) | LANDED |
+| `states-screenshots-out-of-tree` (K3) | small-additive | 20–40 m (35) | **50 m** on the loop (build 20 m + review 30 m); + separate review 16 m | LANDED |
+| `scanner-refusal-seam-and-pick-feedback` (K4) | followup-batch, risk | 70–110 m (100) | **26 m** on the loop (build 12 m + review 14 m), narrowed to one half; + separate review 27 m | LANDED (narrowed) |
+
+Per-night overheads observed: launch checks + branch cut + substrate + lift 18 m, of which a hung
+`docker info` cost 10 m; base measurement 40 m wall (Go 2 m, browser suite 42 m, overlapped with
+Card 1); final Go + browser suite 40 m; isolation 8 m; closeout ~25 m. Wall clock 01:00 → 06:25 =
+5 h 25 m against a serial projection of 4 h 55 m – 7 h 35 m.
+
+Lessons, for sizing and for slates:
+1. **On the loop, the loop's own review is 30–60% of a card's time** and is not in any estimate
+   here. A small card (K3) spent longer in review than in build.
+2. **A repeat-measurement leg costs ~2.5 m per solo run** (each boots a server): 30 solo runs + 5
+   seam repeats took 105 m, slated at ~20. Use `--repeat-each` in one invocation next time.
+3. **The full browser suite is ~42 m on this box now**, not 55.
+4. Review-specified defects with a spike recipe again built in well under the class range (K2 25 m,
+   K4 12 m). The class ranges stand; the loop's review time is the term to add.

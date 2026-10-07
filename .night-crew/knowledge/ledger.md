@@ -5255,3 +5255,203 @@ captured. `code-01`, which the lab's photo reader never read, read on the camera
 stopgap for the crew: scan a code again if the first try fails or says "Not a Yumyums code". B-497
 (the unmeasured camera) is closed on this. Not measured: a customer's own phone screen at the
 window (brightness, glare, a cracked screen), and any device other than this iPhone.
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Sequence guard covers only writers that refetch; a late item-list response still overwrites local-only mutations (remove nickname, star toggle, photo upload)
+- Severity: minor
+- Evidence: Real but pre-existing and outside the card's named behaviours: the remove-nickname, star and photo-upload handlers (inventory.html:2693-2742, 2765-2780) patch ALL_ITEMS in place without a sequence number, so a Setup-open item list requested before the tap and landing after it puts the removed chip / old star / old photo back on screen until the next load (the server is right for chip and star; an unsaved photo link is lost). The work order sequences only the GET /items callers that assign and says 'no other behaviour changes'; closing this needs a decision on how local-only mutations invalidate an in-flight list, which deserves its own card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/3
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Group created via '+ New Group' in the item editor is not seen as a changed field and is reverted by the next render
+- Severity: minor
+- Evidence: Real but not a regression: a group made with '+ New Group' in an open item editor is reverted by the next list render on the pre-change tree too (the form was always rebuilt from state), and the new draft carry simply does not rescue it because rebuildGroupSelect (inventory.html:2548-2552) marks the new group as the select's default. Keeping an unsaved editor group pick across renders is beyond the card's named behaviours (add bar, empty-name alert, add-nickname path) — own work order.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/7
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Focus is re-applied programmatically after every list rebuild; on the crew's iPhones that drops the keyboard mid-word
+- Severity: minor
+- Evidence: Unverified on a device and not a regression: before this change the same late render emptied the box AND dropped focus; now the text and caret survive and only the iPhone keyboard may drop (script focus outside a tap). Evidence is platform knowledge only — Playwright's desktop Chromium cannot show it; needs a check on the truck's iPhone, and the real cure (not rebuilding an open editor at all) is a larger change than this card grants.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/8
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: A photo that merely failed to load (offline truck) is nulled in state, and the next Save of that item PUTs photo_url:null
+- Severity: major
+- Evidence: Real silent data loss but pre-existing: `it.photo_url=null` on any image load error is at HEAD (inventory.html:2385 before the change, 2491 now) and save-item sends photo_url from that same state (2605-2608), so a manager who saves an item while its photo merely failed to load (no signal) erases the stored photo link. This diff changed only how the placeholder is drawn, not the nulling; the fix (track 'failed to load' separately from 'has no photo') is its own work order.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/edge-case/4
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: The editor is still destroyed and rebuilt under a focused field; value and caret are restored but the on-screen keyboard and any in-progress composition are not (unverified on device)
+- Severity: minor
+- Evidence: Same matter as adversarial/7 and self-described as unconfirmed: the text now survives a late render where it used to be lost, but the iPhone keyboard or an in-progress autocorrect may still drop because the editor is rebuilt under the focused field. Evidence is platform behaviour only, not reproducible in the Playwright (desktop Chromium) suite — needs a truck-phone check before any fix is scoped.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/edge-case/5
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Only the item editor's six fields are carried across a render; typed Stock Settings thresholds in the same list are still wiped by the same late response
+- Severity: minor
+- Evidence: Real but pre-existing and outside the card: the group Stock Settings low/high inputs (inventory.html:2435-2446) are rebuilt from stored values on every list render, so numbers typed while a late response lands snap back and Save sends the old thresholds — unchanged from HEAD. The work order names the add bar and the add-nickname path only; this is the same lost-typing class one form over and belongs in a follow-up card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c2/edge-case/2
+- Status: open
+- Opened: 2026-10-07T06:48:05Z
+- Work order: inventory-setup-races
+- Finding: Typing in the search box so the open item no longer matches throws away the unsaved edit the draft carry was meant to keep
+- Severity: minor
+- Evidence: Real but not a regression and beyond the card: a manager who renames an item or half-types a nickname and then searches for a word that does not match that item loses the typed text when the editor comes back, because the carry (captureItemEditDraft / restoreItemEditDraft, inventory.html:2298-2340) lasts one render and is dropped when the rebuilt list has no editor for that item. On the pre-change tree every search keystroke wiped the editor, so this is strictly better than before; keeping an edit for the whole life of an open editor is a design change (where the draft lives, when it is discarded) that needs its own card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Merge still answers 500 when both dishes use the same ingredient, while the new doc comment claims every wrong input is refused with its own sentinel
+- Severity: major
+- Evidence: Real and confirmed: recipes carries UNIQUE (menu_item_id, purchase_item_id) (migration 0062:10), so merging two duplicate dishes that both use one ingredient fails 23505 at the recipes re-point (repository.go:226), rolls back and answers 500 internal_error. It predates this card, and what the merge should do instead (refuse with a named conflict, or combine the two usage percentages) is a product call the work order parks ('making the merge do anything other than refuse on a missing source or target'); it needs its own work order, which should also correct the 'Every wrong input is refused … each with its own sentinel' comment that now reads as exhaustive.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Merging two dishes that share an ingredient still answers 500 (recipes UNIQUE(menu_item_id, purchase_item_id)) — outside the four 'every wrong input' sentinels
+- Severity: major
+- Evidence: Same root cause as adversarial/1: two dishes sharing an ingredient violate recipes UNIQUE (menu_item_id, purchase_item_id) at repository.go:226 and the merge answers 500 with nothing written; the merged usage_pct sum over 100 is likewise unchecked on this path. Pre-existing and outside the card's parked boundary (the merge may only refuse on a missing source or target tonight) — one follow-up work order should decide refuse-vs-combine, add the shared-ingredient test and fix the exhaustive-sounding comment.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/3
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Opposite-direction concurrent merges (A→B and B→A) deadlock and answer 500 internal_error
+- Severity: minor
+- Evidence: Real but rare and pre-existing: two simultaneous merges in opposite directions (A→B and B→A) each hold a share lock the other needs, Postgres aborts one with 40P01, and it answers 500 with nothing written — the same deadlock existed before this change at the DELETE; the new source lock only moves it earlier. Mapping 40P01 to a retryable answer (or ordering the two locks by id) is a new error shape the work order did not grant and no screen calls this endpoint, so it belongs in a follow-up alongside the shared-ingredient 500.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: The committed H4/H5 PNGs the new comments call "the REVIEWED evidence" were already re-captured after review — 10 of 36 were rewritten by the run-closeout commit
+- Severity: minor
+- Evidence: Confirmed in git history: the run-20261002 closeout commit f47fbee (a docs commit) rewrote 4 H4 PNGs (bi-loading, ms-loading, ms-success, ms-success-dark) and 6 H5 PNGs (04-success, 06-detail-sheet, 08-locked, 09/10/11-offline-*) after the last reviewed captures (c5849e4 for H4, 0346fea for H5), so 10 of the committed screenshots the new header comments call 'the REVIEWED evidence' are post-review re-captures. The wording is the work order's own and restoring or re-capturing that set is an operator-only park (and BACKLOG B-467 says never restore the H4 PNGs), so this change cannot fix it; it does not block landing (the change stops any further drift) and needs its own operator decision: restore the reviewed blobs, or reword the comments to say the set drifted once at closeout.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/3
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: One STATES_SHOT_DIR is shared by three specs with no per-spec subdirectory — a run that sets it flattens all three sets into one folder
+- Severity: minor
+- Evidence: Real but not blocking: with STATES_SHOT_DIR set, the stats, subscribers and campaigns specs all write into one flat folder, and only today's file-name prefixes (bi-*/ms-*, NN-*, bare names in campaigns) keep one spec from silently overwriting another's screenshot. The work order prescribed the override expression verbatim and tests/states-marketing-campaigns.spec.js:49 already had the same shape before this card, so changing the override's meaning (a per-spec subfolder under it) touches a third spec and an existing convention — its own small work order.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: STATES_SHOT_DIR is one variable for three specs: an override flattens all three PNG sets into one directory
+- Severity: minor
+- Evidence: Same root cause as adversarial/3: one STATES_SHOT_DIR override is shared verbatim by three specs (stats, subscribers, campaigns) with no per-spec subfolder, so an overridden marketing-seam leg mixes 54 PNGs in one folder and a future bare file name such as error.png would silently overwrite the campaigns screenshot. No names collide today, the expression is the one the work order prescribed and campaigns already used it, so it does not block landing; fix all three specs together in a follow-up work order.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/2
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: Default directory is never wiped and no longer diffed: a row that fails before shot() leaves the previous run's PNG in place
+- Severity: minor
+- Evidence: Real at the margins: the ignored default folders are never cleared, so a row that fails before its screenshot (or a renamed/removed row) leaves last run's PNG in place and a reader doing the read-the-PNGs-back check could report a stale image as observed. The work order chose the persistent ignored location on purpose (campaigns' comment says 'is never wiped'), and the old committed location had the same stale-file behaviour for a failed row; clearing or run-stamping the folder safely with partial `-g` runs is a design choice for the self-verification ritual across all states specs, not a mechanical fix here.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:01:24Z
+- Work order: states-screenshots-out-of-tree
+- Finding: [SS-01]/[SS-02] stay green when STATES_SHOT_DIR points at a tracked directory — including the reviewed H4/H5 sets the headers say are never rewritten
+- Severity: minor
+- Evidence: Real but only on a deliberate mis-set: a run that points STATES_SHOT_DIR at a folder that already holds committed screenshots (for example the reviewed H4 set) overwrites them and [SS-01]/[SS-02] stay green, because they check the default folder only — a choice the test's own comment states, since writing into a tracked logs tree is the override's intended use. Nothing sets the override that way today (only the campaigns spec and this card's scratch proof use it), and telling 'fresh evidence folder' from 'folder with committed PNGs' — including a legitimate re-capture into a run's own folder — is a rule for all three states specs; it belongs in the follow-up work order already opened for the shared override (ledger entries adversarial/3 and edge-case/1 of the first review round: one STATES_SHOT_DIR for three specs).
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/2
+- Status: open
+- Opened: 2026-10-07T08:01:24Z
+- Work order: states-screenshots-out-of-tree
+- Finding: STATES_SHOT_DIR is used raw: a relative value resolves against the process cwd, and an unexpanded or blank-ish value creates a stray directory
+- Severity: minor
+- Evidence: Real at the margins: the override is used as typed, so a relative value lands under whatever directory Playwright was started from, and a literal `~/shots` or a single space creates a stray folder instead of falling back to the default. The expression is the one the work order prescribed word for word and tests/states-marketing-campaigns.spec.js:49 already had it before this card; the only uses so far pass an absolute path, so nothing fails tonight — resolve-against-repo-root and trim should be done once for all three specs in the same follow-up work order as the shared-override entries.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T08:37:18Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: Production boot swaps the fail-closed campaign policy for any object found on a writable global, with no environment guard
+- Severity: minor
+- Evidence: Real but not tonight's: the work order spelled out this exact check (use the global whenever it carries a policyFor function) and asked for no environment guard, so the change is as specified. Evidence for its own card: marketing/scan-page.js:359-362 (the `policyOverride` read of `window.__MARKETING_POLICY_SOURCE__` in `boot()`, normalised by `adoptPolicyOverride` at :314) honours the global on every origin and :429 (the `typeof campaignPolicy.attach === 'function'` guard in `startSync`) then skips the replica error latch, while marketing/submit-flow.js:815-818 (setCampaignPolicy, already shipped) gives any in-page script the same power after boot — so the new exposure is only the pre-boot window; whether the scanner's refusal rule should have test doors closed on the production origin is a hardening card covering both doors.
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:37:18Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: The "test-only" policy override is honoured on every device, with no test-environment guard, and it replaces the fail-closed source wholesale
+- Severity: minor
+- Evidence: Same root cause as adversarial/1: the unguarded read at marketing/scan-page.js:359-362 (the `policyOverride` read of `window.__MARKETING_POLICY_SOURCE__` in `boot()`; the replica error latch is skipped at :429, the `typeof campaignPolicy.attach === 'function'` guard in `startSync`) is what the work order specified, and marketing/submit-flow.js:815-818 already lets page script replace the policy after boot. Deferred with that evidence to one hardening card for both test doors (guard them off the production origin, and keep the replica error latch attached when an override is present).
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/adversarial/3
+- Status: open
+- Opened: 2026-10-07T08:43:23Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: The bind and attach-passthrough rules the header promises have no test; only the two defaults do
+- Severity: minor
+- Evidence: Real coverage gap, not a failure tonight: adoptPolicyOverride in marketing/scan-page.js binds policyFor to the override and carries attach through, but [SV-12] installs an arrow-function source with no attach, so only the unresolved/nameFor defaults are asserted and removing either `.bind(src)` or the attach passthrough leaves every test green. No spec in the tree installs a `this`-using or attach-carrying source, and rewriting [SV-12] now would detach it from its saved red-first evidence; the assertions belong in the already-deferred hardening card for the scanner's test doors (ledger entry 'Production boot swaps the fail-closed campaign policy for any object found on a writable global').
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/adversarial/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:43:23Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: An override whose attach() throws silently stops the codes and offers replicas from ever starting
+- Severity: minor
+- Evidence: Real at the margins, and only reachable by a future test: startSync in marketing/scan-page.js calls the override's attach synchronously before the codes and offers replicas start, and the boot call site swallows a startSync rejection (`startSync(sc).catch(() => {})`), so an override whose attach throws would leave the scanner unsynced with nothing on screen saying why. No spec in the tree installs an attach, and whether a throwing test hook should be swallowed (as the shipped source does) or surfaced is a design choice for the same deferred hardening card that already covers keeping the replica error latch attached under an override.
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record

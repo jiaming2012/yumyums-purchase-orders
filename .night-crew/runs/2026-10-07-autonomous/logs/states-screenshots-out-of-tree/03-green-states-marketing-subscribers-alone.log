@@ -1,0 +1,273 @@
+# GREEN leg — post-change tree, states-marketing-subscribers alone, STATES_SHOT_DIR unset
+# HEAD=4cf16c5 + this card's working-tree diff
+# env: TEST_PORT=8283 TEST_DB_NAME=hq_test_e2e_k3_20261007 DB_HOST=localhost DB_PORT=5434 DB_USER=hqtest
+# $ npx playwright test tests/states-marketing-subscribers.spec.js --retries=0 --reporter=line
+[1A[2K[2m[WebServer] [22m── reset hq_test_e2e_k3_20261007 on localhost:5434 ──
+
+[1A[2K[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.224233365-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.224535113-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.24357084-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.312827724-04:00","level":"INFO","msg":"OK   0001_users.sql (41.86ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.367682831-04:00","level":"INFO","msg":"OK   0002_sessions.sql (54.34ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.412501003-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (44.63ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.45492343-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (42.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.508689407-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (53.65ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.542225359-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (33.4ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.57393205-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (31.55ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.614040969-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (40ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.64734941-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (32.72ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.68554427-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (34.68ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.727598072-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (41.85ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.784890843-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (57.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.817359424-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (32.36ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.849179177-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (31.71ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.902525651-04:00","level":"INFO","msg":"OK   0015_ops.sql (53.17ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.918797647-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (16.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:53.938051924-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (19.11ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.003193238-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (65.02ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.08276534-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (79.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.141027033-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (58.15ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.184403129-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (43.25ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.223863646-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (39.36ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.302440588-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (78.46ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.499899968-04:00","level":"INFO","msg":"OK   0024_inventory.sql (197.26ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.554441061-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (54.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.564282698-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.73ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.573618009-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (9.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.594076612-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (20.28ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.601821052-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (7.61ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.630397307-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (28.43ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.639930689-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (9.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.654101008-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (14.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.691314361-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (37.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.798640351-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (107.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.814276638-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (15.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.828612497-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (14.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.871119934-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (42.41ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.894625457-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (23.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:54.923547085-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (28.83ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.053783511-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (130.06ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.06877334-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (14.79ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.133724924-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (64.8ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.21596589-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (82.05ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.278544524-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (62.25ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.332736691-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (54.07ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.340043039-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.39270883-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (52.55ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.400799039-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.96ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.443928052-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (43ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.453032889-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.461555786-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (8.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.481074317-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (19.42ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.488683974-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.49617109-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.39ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.503454254-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.2ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.518724957-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (15.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.5321773-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (13.34ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.545602293-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.34ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.552734604-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.611001629-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (58.15ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.643328063-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (32.17ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.687354398-04:00","level":"INFO","msg":"OK   0062_recipes.sql (43.9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.718007449-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (30.52ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.732798028-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (14.67ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.745581252-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.69ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.757724739-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.05ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.809541819-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (51.7ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.832597285-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (22.95ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.845338095-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.64ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.860034231-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (14.53ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.88707727-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (26.9ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.904338768-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (17.04ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.929164091-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (24.51ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.940126604-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.77ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:55.991193584-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (50.92ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.015471262-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (24.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.056801572-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (41.18ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.071115125-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (14.21ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.102850325-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (31.63ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.117302125-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (14.31ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.141480338-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (24.03ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.157963318-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (16.37ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.274189251-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (116.02ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.401202272-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (126.78ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.500632408-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (99.29ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.524936047-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (24.16ms)","source":"stdlog"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.577849272-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (52.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.577923417-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 87","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.577941258-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.66022763-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.698911916-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"be88d05f-30f4-478b-8c46-13874a200af6"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.698974095-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.730316884-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"1edeacb5-3b26-45da-a0cb-3a3b2fa2c969"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.754618386-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.838971942-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:56.974405724-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.475113319-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.475193554-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.475250818-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.475318553-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.475381693-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476147499-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476357112-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476430189-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476454013-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476474419-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476496641-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.476506684-04:00","level":"INFO","msg":"alerts queue started"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.500359686-04:00","level":"INFO","msg":"server listening","port":"8283"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.510677974-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8283"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.510724982-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8283"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.510735773-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8283"}
+[2m[WebServer] [22m{"time":"2026-10-07T03:41:57.510749341-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 10 tests using 1 worker
+
+[1A[2K[1/10] [chromium] › tests/states-marketing-subscribers.spec.js:120:3 › States · Marketing Subscribers (#s3) › loading — count skeletons and four row skeletons, never a blank card
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:00.327780908-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2/10] [chromium] › tests/states-marketing-subscribers.spec.js:133:3 › States · Marketing Subscribers (#s3) › empty — "No subscribers yet" names the four ways in, and zeroed counts
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:01.195102796-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:01.431452066-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[3/10] [chromium] › tests/states-marketing-subscribers.spec.js:147:3 › States · Marketing Subscribers (#s3) › error — loud red banner naming the failure, with a Retry that works
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:02.502363459-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[4/10] [chromium] › tests/states-marketing-subscribers.spec.js:175:3 › States · Marketing Subscribers (#s3) › success + long content — real rows from a real import, masked, with pills
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:03.518433967-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[5/10] [chromium] › tests/states-marketing-subscribers.spec.js:227:3 › States · Marketing Subscribers (#s3) › empty-filtered — "No subscribers match" is not the same message as "none yet"
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:04.676256281-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[6/10] [chromium] › tests/states-marketing-subscribers.spec.js:238:3 › States · Marketing Subscribers (#s3) › locked — a team_member gets the real 403 and the whole tab is the Locked state
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:06.296789877-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:06.750251103-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"St S. (st-subs-locked-1791358925747-9317@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[7/10] [chromium] › tests/states-marketing-subscribers.spec.js:251:3 › States · Marketing Subscribers (#s3) › offline — last-synced reading kept, rows kept, Resend disabled
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:07.490433179-04:00","level":"ERROR","msg":"GetStock query failed","error":"context canceled"}
+
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:07.628570989-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[8/10] [chromium] › tests/states-marketing-subscribers.spec.js:288:3 › States · Marketing Subscribers (#s3) › offline-filter — a filter tap that cannot load NEVER leaves the chip over another filter's rows
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:09.074269433-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[9/10] [chromium] › tests/states-marketing-subscribers.spec.js:322:3 › States · Marketing Subscribers (#s3) › offline-cold — nothing cached says so, and never claims "No subscribers yet"
+[1A[2K[2m[WebServer] [22m{"time":"2026-10-07T03:42:09.479013656-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/marketing.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[10/10] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  10 passed (2.6m)
+# exit=0
+# $ git status --porcelain, lines added by the run (diff vs the listing taken just before it; '(none)' = the run dirtied nothing):
+(none)
+# $ git diff --stat -- .night-crew/runs/2026-10-02-autonomous/logs/h4/states/ .night-crew/runs/2026-10-02-autonomous/logs/h5/states/
+# (end of diff --stat; empty above = untouched)
+# $ git status --porcelain --ignored -- test-screenshots/
+!! test-screenshots/
+# PNG count: 13

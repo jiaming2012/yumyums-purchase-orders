@@ -5997,3 +5997,167 @@ test.describe('Item display name — promoted nicknames', () => {
     expect(row.total_quantity, 'the override must still apply after the rename').toBe(3);
   });
 });
+
+// ─── Setup — late responses (card K1, BACKLOG B-459 / B-478) ─────────────────
+// What a manager types or adds in Setup stays on screen when the page's own
+// loads finish late. Only network TIMING is altered here (page.route delays and
+// holds; every body is the real server's) — the page's own writers run as shipped.
+test.describe('Setup — late responses (K1)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  // G6 re-runs [IS-01] with the delay raised: IS01_GROUPS_DELAY_MS=1500.
+  const GROUPS_DELAY_MS = Number(process.env.IS01_GROUPS_DELAY_MS || 600);
+
+  test('[IS-01] a name typed right after opening Setup survives the late groups response, and Add creates the item', async ({ page }) => {
+    // A 0 or non-numeric knob ('1500ms' → NaN) would remove the delay and still go green.
+    expect(Number.isFinite(GROUPS_DELAY_MS) && GROUPS_DELAY_MS > 0, `IS01_GROUPS_DELAY_MS must be a number of milliseconds greater than 0, got "${process.env.IS01_GROUPS_DELAY_MS}" → ${GROUPS_DELAY_MS}`).toBe(true);
+    await page.route('**/api/v1/inventory/groups', async (route) => {
+      await new Promise((r) => setTimeout(r, GROUPS_DELAY_MS));
+      await route.continue();
+    });
+    const posts = [];
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && /\/api\/v1\/inventory\/items$/.test(req.url())) posts.push(req.postDataJSON());
+    });
+    await page.goto('/inventory.html');
+    // Straight into Setup, the way a manager in a hurry does — the boot preload and the
+    // Setup open's own load are both still waiting on the delayed groups.
+    await goTab(page, 7);
+    await page.waitForSelector('#new-item-name', { timeout: 5000 });
+    const typed = 'Late Groups Item ' + Date.now();
+    await page.fill('#new-item-name', typed);
+    // Every delayed groups response lands, and the page's own renders after them run.
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(900);
+    await expect(page.locator('#new-item-name'), 'the typed name survives the late groups response').toHaveValue(typed);
+    // The select now offers the groups that landed late; pick the first real one.
+    const gid = await page.locator('#new-item-group option').evaluateAll((os) => (os.map((o) => o.value).find((v) => v && v !== '__new__')) || null);
+    expect(gid, 'the add bar offers at least one group once the late response has landed').toBeTruthy();
+    await page.locator('#new-item-group').selectOption(gid);
+    // A re-render of the list (searching) leaves the add bar — name and group — alone.
+    await page.fill('#item-search', 'late groups');
+    await page.fill('#item-search', '');
+    await expect(page.locator('#new-item-name')).toHaveValue(typed);
+    await expect(page.locator('#new-item-group'), 'the picked group survives a list re-render').toHaveValue(gid);
+    await page.click('[data-action="create-item"]');
+    await expect.poll(() => posts.length, { timeout: 5000, message: 'the create click POSTs the item' }).toBe(1);
+    expect(posts[0].description).toBe(typed);
+    expect(posts[0].group_id).toBe(gid);
+    await expect(page.locator('.item-edit-form .item-edit-name')).toHaveValue(/late groups item/i, { timeout: 8000 });
+  });
+
+  test('[IS-02] two item-list responses released out of order leave the list at the NEWER request', async ({ page }) => {
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#s0:visible');
+    const gid = await page.evaluate(() => (ITEM_GROUPS[0] || {}).id);
+    // Each GET /items is sent to the real server the moment the page asks, and its real
+    // response is handed back only when the test releases it — timing, never content.
+    const pending = [];
+    await page.route('**/api/v1/inventory/items', async (route) => {
+      if (route.request().method() !== 'GET' || pending.length >= 2) return route.continue();
+      const slot = { route, response: null };
+      pending.push(slot);
+      slot.response = await route.fetch();
+    });
+    const openSetup = async () => {
+      const back = page.locator('#back-hub');
+      if (await back.isVisible()) await back.click();
+      await page.locator('#t7').click();
+    };
+    // Request A: Setup opens BEFORE the item exists.
+    await openSetup();
+    await expect.poll(() => pending.length === 1 && !!pending[0].response, { timeout: 5000 }).toBe(true);
+    const created = await invApiCall(page, 'POST', 'items', { description: 'Out Of Order Item ' + Date.now(), group_id: gid });
+    expect(created && created.id, 'item create must return an id').toBeTruthy();
+    // Request B: Setup re-opened AFTER the item exists.
+    await openSetup();
+    await expect.poll(() => pending.length === 2 && !!pending[1].response, { timeout: 5000 }).toBe(true);
+    const seqAtB = await page.evaluate(() => window.InventorySetup && window.InventorySetup.ITEMS_SEQ);
+    // Release the NEWER response first, then the older one.
+    await pending[1].route.fulfill({ response: pending[1].response });
+    await expect(page.locator('.item-row[data-id="' + created.id + '"]')).toBeVisible({ timeout: 5000 });
+    await pending[0].route.fulfill({ response: pending[0].response });
+    await page.waitForTimeout(1200); // the older response has landed and its writer has rendered
+    const state = await page.evaluate((id) => ({
+      has: ALL_ITEMS.some((it) => it.id === id),
+      seq: window.InventorySetup && window.InventorySetup.ITEMS_SEQ,
+      applied: window.InventorySetup && window.InventorySetup.ITEMS_APPLIED,
+    }), created.id);
+    expect(state.has, 'ALL_ITEMS holds the newer request\'s item after the older response lands').toBe(true);
+    await expect(page.locator('.item-row[data-id="' + created.id + '"]')).toBeVisible();
+    expect(typeof seqAtB, 'the request counter is readable on window.InventorySetup').toBe('number');
+    expect(state.applied, 'the applied sequence is the newer request\'s').toBe(seqAtB);
+    expect(state.seq).toBe(seqAtB);
+    // Read-only: a write from outside does not move the counter.
+    const afterWrite = await page.evaluate(() => { try { window.InventorySetup.ITEMS_SEQ = 999; } catch (e) { /* frozen */ } return window.InventorySetup.ITEMS_SEQ; });
+    expect(afterWrite).toBe(seqAtB);
+  });
+
+  test('[IS-03] Add with an empty name says so', async ({ page }) => {
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await goTab(page, 7);
+    await page.waitForSelector('#new-item-name', { timeout: 5000 });
+    await page.waitForLoadState('networkidle');
+    let dialogMsg = '';
+    page.on('dialog', async (dialog) => { dialogMsg = dialog.message(); await dialog.accept(); });
+    await page.click('[data-action="create-item"]');
+    await expect.poll(() => dialogMsg, { timeout: 3000, message: 'an empty-name create raises a dialog' }).toMatch(/name/i);
+  });
+
+  test('[IS-04] a nickname added while Setup\'s first item-list fetch is still in flight is sent and shown — five times in a row', async ({ page }) => {
+    test.setTimeout(180000);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    for (let run = 1; run <= 5; run += 1) {
+      const ts = Date.now();
+      const created = await invApiCall(page, 'POST', 'items', { description: 'Held Chip Item ' + ts, group_id: gid });
+      expect(created && created.id, 'run ' + run + ': item create must return an id').toBeTruthy();
+      const seededAlias = 'Seeded Nick ' + ts;
+      await invApiCall(page, 'POST', 'items/aliases', { purchase_item_id: created.id, alias: seededAlias });
+      await page.goto('/inventory.html');
+      await page.waitForLoadState('networkidle');
+      // Hold ONLY the first GET /items from now on — the one opening Setup fires.
+      let held = null;
+      const hold = (route) => {
+        if (route.request().method() === 'GET' && !held) { held = route; return; }
+        route.continue();
+      };
+      await page.route('**/api/v1/inventory/items', hold);
+      await goTab(page, 7);
+      await expect.poll(() => held !== null, { timeout: 5000 }).toBe(true);
+      await page.locator('.item-row[data-id="' + created.id + '"]').click();
+      const form = page.locator('.item-edit-form[data-item-id="' + created.id + '"]');
+      await expect(form).toBeVisible();
+      await expect(form.locator('.alias-chip')).toContainText(seededAlias);
+      const typedAlias = 'Typed Nick ' + ts;
+      const aliasPost = page.waitForRequest((req) => req.method() === 'POST' && /\/api\/v1\/inventory\/items\/aliases$/.test(req.url()), { timeout: 8000 })
+        .catch(() => null);
+      await form.locator('.item-alias-input').fill(typedAlias);
+      await form.locator('button[data-action="add-item-alias"]').click();
+      const post = await aliasPost;
+      expect(post, 'run ' + run + ': the add click sends POST /items/aliases').not.toBeNull();
+      expect(post.postDataJSON().alias).toBe(typedAlias);
+      // The chip is rendered while the first fetch is STILL held…
+      await expect(form.locator('.alias-chips'), 'run ' + run + ': the new chip renders').toContainText(typedAlias, { timeout: 8000 });
+      await expect(form.locator('.alias-chip')).toHaveCount(2);
+      // …and is still there once that first fetch finally lands. So is a nickname the
+      // manager is half-way through typing when the landing fetch re-renders the list.
+      const halfTyped = 'Half Typed ' + ts;
+      await form.locator('.item-alias-input').fill(halfTyped);
+      await held.continue();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(500);
+      await expect(form.locator('.item-alias-input'), 'run ' + run + ': a half-typed nickname survives the list re-render').toHaveValue(halfTyped);
+      await expect(form.locator('.alias-chips'), 'run ' + run + ': the chip survives the late first fetch').toContainText(typedAlias);
+      await expect(form.locator('.alias-chip')).toHaveCount(2);
+      await page.unroute('**/api/v1/inventory/items', hold);
+      const items = await invApiCall(page, 'GET', 'items');
+      const it = (items || []).find((i) => i.id === created.id);
+      expect(it.aliases, 'run ' + run + ': the server holds both nicknames').toEqual(expect.arrayContaining([seededAlias, typedAlias]));
+    }
+  });
+});

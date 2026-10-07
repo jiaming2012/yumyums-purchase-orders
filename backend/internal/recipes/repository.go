@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -21,6 +22,18 @@ var ErrRecipeNotFound = errors.New("recipes: not_found")
 // ErrMergeTargetNotFound is returned by MergeMenuItem when the target id names
 // no menu_items row. Nothing has been written when it is returned.
 var ErrMergeTargetNotFound = errors.New("recipes: target_not_found")
+
+// ErrMergeSourceNotFound is returned by MergeMenuItem when the source id names
+// no menu_items row. Nothing has been written when it is returned.
+var ErrMergeSourceNotFound = errors.New("recipes: source_not_found")
+
+// ErrMergeIntoSelf is returned by MergeMenuItem when source and target are the
+// same dish.
+var ErrMergeIntoSelf = errors.New("recipes: cannot_merge_into_self")
+
+// ErrBadID is returned when an id that must be a uuid is not one. It is
+// returned before any query runs.
+var ErrBadID = errors.New("recipes: bad_id")
 
 // ListRecipes returns all recipes; if purchaseItemID is non-nil, filters to that ingredient.
 // Joined to menu_items for the menu_group / menu_subgroup display fields (D-09).
@@ -151,12 +164,35 @@ func DeleteRecipe(ctx context.Context, pool *pgxpool.Pool, recipeID string) erro
 // The re-point is the contract; migration 0086's ON DELETE SET NULL on the two
 // item_id columns is only the backstop for a table that forgets this path.
 //
-// A target that names no dish is refused with ErrMergeTargetNotFound before
-// anything is written (the handler answers 404 target_not_found).
+// Every wrong input is refused before anything is written, each with its own
+// sentinel (the handler's answer in brackets):
+//   - an id that is not a 36-character hyphenated uuid → ErrBadID (400 bad_id)
+//   - source and target the same dish → ErrMergeIntoSelf       (400 cannot_merge_into_self)
+//   - a target that names no dish     → ErrMergeTargetNotFound (404 target_not_found)
+//   - a source that names no dish     → ErrMergeSourceNotFound (404 source_not_found)
 func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, targetMenuItemID string) (int, error) {
-	if sourceMenuItemID == targetMenuItemID {
-		return 0, fmt.Errorf("recipes: cannot_merge_into_self")
+	// Both ids are parsed before the transaction (card K2, B-485): a non-uuid
+	// used to reach Postgres, come back 22P02 and answer 500. Only the plain
+	// 36-character form is an id: uuid.Parse also takes `urn:uuid:` and any
+	// 38-character string without checking its first and last byte, so
+	// "X<uuid>Y" would parse to the dish inside it and be merged away. That
+	// refuses the 32-hex and {braced} spellings too, which Postgres itself
+	// would take for a real dish — chosen, and pinned by
+	// TestMergeMenuItem_BadIDIs400.
+	sourceID, err := uuid.Parse(sourceMenuItemID)
+	if err != nil || len(sourceMenuItemID) != 36 {
+		return 0, fmt.Errorf("%w: source_menu_item_id", ErrBadID)
 	}
+	targetID, err := uuid.Parse(targetMenuItemID)
+	if err != nil || len(targetMenuItemID) != 36 {
+		return 0, fmt.Errorf("%w: target_menu_item_id", ErrBadID)
+	}
+	if sourceID == targetID {
+		return 0, ErrMergeIntoSelf
+	}
+	// The canonical form from here on, so the queries see what was compared.
+	sourceMenuItemID, targetMenuItemID = sourceID.String(), targetID.String()
+
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
@@ -175,6 +211,20 @@ func MergeMenuItem(ctx context.Context, pool *pgxpool.Pool, sourceMenuItemID, ta
 	).Scan(&targetExists); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrMergeTargetNotFound
+		}
+		return 0, err
+	}
+
+	// The source must be a dish too (card K2, B-485). A source that named no
+	// dish re-pointed 0 rows, deleted 0 rows and answered 200 — a merge that
+	// did nothing, reported as done. Read AFTER the target's FOR SHARE, inside
+	// the same transaction; FOR UPDATE because the row is deleted below.
+	var sourceExists int
+	if err := tx.QueryRow(ctx,
+		`SELECT 1 FROM menu_items WHERE id = $1 FOR UPDATE`, sourceMenuItemID,
+	).Scan(&sourceExists); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrMergeSourceNotFound
 		}
 		return 0, err
 	}

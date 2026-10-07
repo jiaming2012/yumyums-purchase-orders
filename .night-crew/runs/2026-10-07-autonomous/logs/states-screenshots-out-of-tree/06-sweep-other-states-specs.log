@@ -1,0 +1,27 @@
+# Sweep: every tests/states-*.spec.js and where it writes screenshots (post-change tree)
+# $ grep -n -A1 '^const \(DEFAULT_\)\?SHOT_DIR' tests/states-*.spec.js
+tests/states-cost.spec.js:45:const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-cost');
+tests/states-cost.spec.js-46-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-bi-hub.spec.js:34:const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-bi-hub');
+tests/states-bi-hub.spec.js-35-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-inventory-nav.spec.js:43:const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-inventory-nav');
+tests/states-inventory-nav.spec.js-44-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-marketing-campaigns.spec.js:49:const SHOT_DIR = process.env.STATES_SHOT_DIR ||
+tests/states-marketing-campaigns.spec.js-50-  path.join(__dirname, '..', 'test-screenshots', 'states-marketing-campaigns');
+tests/states-marketing-subscribers.spec.js:56:const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-subscribers');
+tests/states-marketing-subscribers.spec.js:57:const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+tests/states-marketing-subscribers.spec.js-58-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-marketing-stats.spec.js:70:const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-stats');
+tests/states-marketing-stats.spec.js:71:const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
+tests/states-marketing-stats.spec.js-72-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-trends.spec.js:47:const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-trends');
+tests/states-trends.spec.js-48-fs.mkdirSync(SHOT_DIR, { recursive: true });
+tests/states-sync-rxdb-conflict-notice.spec.js:45:const SHOT_DIR = path.join(__dirname, '..', 'test-results', 'states-sync-rxdb-conflict-notice');
+tests/states-sync-rxdb-conflict-notice.spec.js-46-fs.mkdirSync(SHOT_DIR, { recursive: true });
+# $ git ls-files -- test-results test-screenshots | wc -l
+0
+# $ git check-ignore -v test-results/x test-screenshots/x
+.gitignore:2:test-results/	test-results/x
+.gitignore:9:test-screenshots/	test-screenshots/x
+# $ grep -n "'\.night-crew'\|'runs'" tests/states-*.spec.js  (any spec still building a path under .night-crew/runs)
+(no spec builds a path under .night-crew/runs any more)

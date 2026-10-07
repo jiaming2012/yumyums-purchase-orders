@@ -1,0 +1,46 @@
+# 2026-10-07T06:57:15Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/recipes -run 'MergeMenuItem' -count=1 -v
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (0.71s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.64s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (0.66s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.75s)
+=== RUN   TestRepository_MergeMenuItem_RePointsCampaignsAndCodes
+--- PASS: TestRepository_MergeMenuItem_RePointsCampaignsAndCodes (0.73s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.77s)
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (2.17s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/repository (0.72s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/handler (0.67s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (0.77s)
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- PASS: TestMergeMenuItem_MissingSourceIs404 (2.05s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/handler (0.73s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/repository (0.67s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (0.64s)
+=== RUN   TestMergeMenuItem_BadIDIs400
+=== RUN   TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/both_are_not_uuids
+=== RUN   TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID
+--- PASS: TestMergeMenuItem_BadIDIs400 (2.78s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid (0.70s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid (0.68s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/both_are_not_uuids (0.68s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID (0.73s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:692: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.75s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	12.012s
+# exit=0 pass=10 fail=0 skip=0

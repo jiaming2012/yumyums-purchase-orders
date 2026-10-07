@@ -1,0 +1,51 @@
+# 2026-10-07T06:55:05Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/recipes -run 'TestMergeMenuItem_MissingSourceIs404|TestMergeMenuItem_BadIDIs400' -count=1 -v
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+    repository_test.go:412: status = 200 body={"rows_re_pointed":0}
+        , want 404
+    repository_test.go:415: body = {"rows_re_pointed":0}
+        , want it to name source_not_found
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+    repository_test.go:427: MergeMenuItem from a missing source returned (0, <nil>), want ErrMergeSourceNotFound
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- FAIL: TestMergeMenuItem_MissingSourceIs404 (3.05s)
+    --- FAIL: TestMergeMenuItem_MissingSourceIs404/handler (0.72s)
+    --- FAIL: TestMergeMenuItem_MissingSourceIs404/repository (0.84s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (1.49s)
+=== RUN   TestMergeMenuItem_BadIDIs400
+=== RUN   TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid
+2026/10/07 02:55:11 ERROR MergeMenuItem error="ERROR: invalid input syntax for type uuid: \"not-a-uuid-t\" (SQLSTATE 22P02)"
+    repository_test.go:476: status = 500 body={"error":"internal_error"}
+        , want 400
+    repository_test.go:479: body = {"error":"internal_error"}
+        , want it to name bad_id
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid
+2026/10/07 02:55:12 ERROR MergeMenuItem error="ERROR: invalid input syntax for type uuid: \"not-a-uuid\" (SQLSTATE 22P02)"
+    repository_test.go:476: status = 500 body={"error":"internal_error"}
+        , want 400
+    repository_test.go:479: body = {"error":"internal_error"}
+        , want it to name bad_id
+=== RUN   TestMergeMenuItem_BadIDIs400/both_are_not_uuids
+2026/10/07 02:55:13 ERROR MergeMenuItem error="ERROR: invalid input syntax for type uuid: \"42-t\" (SQLSTATE 22P02)"
+    repository_test.go:476: status = 500 body={"error":"internal_error"}
+        , want 400
+    repository_test.go:479: body = {"error":"internal_error"}
+        , want it to name bad_id
+=== RUN   TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID
+    repository_test.go:490: bad target: error = ERROR: invalid input syntax for type uuid: "not-a-uuid" (SQLSTATE 22P02), want ErrBadID
+    repository_test.go:493: bad source: error = ERROR: invalid input syntax for type uuid: "not-a-uuid" (SQLSTATE 22P02), want ErrBadID
+--- FAIL: TestMergeMenuItem_BadIDIs400 (3.08s)
+    --- FAIL: TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid (0.71s)
+    --- FAIL: TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid (0.83s)
+    --- FAIL: TestMergeMenuItem_BadIDIs400/both_are_not_uuids (0.77s)
+    --- FAIL: TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID (0.77s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	6.154s
+FAIL
+# exit=1 pass=0 fail=2 skip=0
+# PRE-CHANGE TREE: repository.go and handler.go were UNCHANGED from d9a2234 for this run; only the
+# new tests existed. Because the unchanged tree has no ErrMergeSourceNotFound / ErrBadID, a
+# throwaway file backend/internal/recipes/zz_k2_red_sentinels_test.go declared those two names
+# (two `errors.New` vars, returned by nothing) so the tests COMPILED and failed on behaviour
+# rather than on a build error. It was deleted straight after this run and is not in the diff.

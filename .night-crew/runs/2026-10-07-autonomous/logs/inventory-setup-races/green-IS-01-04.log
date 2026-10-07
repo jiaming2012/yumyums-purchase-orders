@@ -1,0 +1,12 @@
+# (server '[WebServer]' log lines, blank lines and terminal colour codes removed from this file; nothing else edited)
+# GREEN leg — post-change tree (base c549c51 + this card's working-tree diff:  2 files changed, 310 insertions(+), 24 deletions(-))
+# env: TEST_PORT=8281 TEST_DB_NAME=hq_test_e2e_k1_20261007 DB_HOST=localhost DB_PORT=5434 DB_USER=hqtest
+# command: npx playwright test tests/inventory.spec.js -g "\[IS-0[1-4]\]" --retries=0 --reporter=list
+# started: 2026-10-07T01:42:57-04:00
+Running 4 tests using 1 worker
+  ✓  1 [chromium] › tests/inventory.spec.js:6011:3 › Setup — late responses (K1) › [IS-01] a name typed right after opening Setup survives the late groups response, and Add creates the item (4.8s)
+  ✓  2 [chromium] › tests/inventory.spec.js:6047:3 › Setup — late responses (K1) › [IS-02] two item-list responses released out of order leave the list at the NEWER request (3.7s)
+  ✓  3 [chromium] › tests/inventory.spec.js:6095:3 › Setup — late responses (K1) › [IS-03] Add with an empty name says so (1.4s)
+  ✓  4 [chromium] › tests/inventory.spec.js:6107:3 › Setup — late responses (K1) › [IS-04] a nickname added while Setup's first item-list fetch is still in flight is sent and shown — five times in a row (11.7s)
+  4 passed (2.8m)
+# exit: 0

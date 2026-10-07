@@ -35,20 +35,26 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 const USER_PASSWORD = 'test456';
 // 🛑 NOT under test-results/. Playwright WIPES outputDir at the start of every
 // run, so screenshots written there are deleted by the next leg — including
-// this card's own full suite. The state PNGs are the evidence the
-// self-verification ritual exists to produce; evidence that evaporates on the
-// next run is not evidence, and a reviewer at triage would have to regenerate
-// it to see anything. They go in the run's own log tree instead, and are
-// COMMITTED with the gate logs, so every path this card's report cites still
-// resolves. (Card H2 lost its PNGs to exactly this.)
-const SHOT_DIR = path.join(__dirname, '..', '.night-crew', 'runs', '2026-10-02-autonomous',
-  'logs', 'h5', 'states');
+// this card's own full suite. (Card H2 lost its PNGs to exactly this.)
+//
+// They default to test-screenshots/marketing-subscribers/, which is gitignored
+// — so running this spec never leaves the tree dirty. A run that wants durable
+// evidence sets STATES_SHOT_DIR to its own logs tree and commits the PNGs
+// there (the .gitignore convention).
+//
+// The H5 set under .night-crew/runs/2026-10-02-autonomous/logs/h5/states/ is
+// the REVIEWED evidence for this card. This spec used to write there and
+// rewrote those committed PNGs on every run (B-493); it no longer does, and
+// that set is NOT rewritten, moved or re-captured.
+const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-subscribers');
+const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 // 393×852 — the phone the crew actually holds.
@@ -329,5 +335,33 @@ test.describe('States · Marketing Subscribers (#s3)', () => {
     await expect(page.locator('#subs-total')).toHaveText('—');
     await shot(page, '12-offline-cold');
     await context.setOffline(false);
+  });
+});
+
+// ── where the screenshots go ───────────────────────────────────────────────
+// A static check, not a state row: it opens no page. The DEFAULT directory is
+// checked, not STATES_SHOT_DIR — a run that sets the override has chosen its
+// own logs tree and commits there on purpose.
+test.describe('States · screenshot directory', () => {
+  test('[SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored', () => {
+    const repo = path.join(__dirname, '..');
+    const rel = path.relative(repo, DEFAULT_SHOT_DIR);
+    expect(rel.startsWith('..'), 'the default stays inside the repository').toBe(false);
+    const git = args => {
+      try { return { code: 0, out: execFileSync('git', args, { cwd: repo, encoding: 'utf8' }) }; }
+      catch (e) { return { code: e.status, out: String(e.stdout || '') }; }
+    };
+    const ls = git(['ls-files', '--', rel]);
+    expect(ls.code, `git ls-files could not run in ${repo}, so nothing below was checked`).toBe(0);
+    const tracked = ls.out.split('\n').filter(Boolean);
+    expect(tracked, `running this spec would rewrite committed files under ${rel}`).toEqual([]);
+    // -v names the rule's source: a personal excludes file or .git/info/exclude
+    // matches too, and only the committed .gitignore travels with a clone. -v
+    // also reports a negated (!) rule as a match, which is the opposite of ignored.
+    const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+    const [source, , pattern] = ign.out.split('\t')[0].split(':');
+    expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+    expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
   });
 });

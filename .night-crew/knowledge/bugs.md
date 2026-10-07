@@ -111,6 +111,19 @@ alias chips"` **alone, repeatedly.**
 **Worth testing against the other 16:** if the rest of the cluster shares this writer-ordering
 shape, one sequencing fix may close most of it. That is a lead, not a conclusion.
 
+#### RETIRED by measurement — run `20261007`, card `inventory-setup-races` (B-459, B-478)
+
+The three Inventory Setup reds this section and B-478 name — `Setup item editor shows alias chips`
+(`:2186`), `create item without group shows alert` (`:2919`) and `creating item opens edit form
+with store location dropdown` (`:2931`) — were measured on the merged tree (`fb4badb`), no retries:
+**10 of 10 green alone, each (30 of 30); red in 0 of 5 `inventory|recipes` seam repeats.** On the
+unchanged base the same night `:2931` was red and `:2919` flaky. Mechanism found for the dropped
+nickname: a failed catalog image re-rendered the whole list about every 70 ms and emptied the
+nickname box before the tap — not the response-ordering overwrite first diagnosed above (that is
+now sequenced too). A red on any of these three from here on is a NEW finding, not this race.
+The rest of the cluster (15 tests red in 5 of 5 seam repeats) is untouched and still undiagnosed.
+Evidence: `.night-crew/runs/2026-10-07-autonomous/logs/k1-measure.log`.
+
 ### 🛑 Method note: a ONE-SAMPLE baseline cannot classify a high-rate race
 
 Established by a base-commit control on run `20261002` (G6, Card 2). The same test, three
