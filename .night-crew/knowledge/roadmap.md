@@ -1273,7 +1273,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### dish-merge-shapes-and-backstop-tests
 
-- `dish-merge-shapes-and-backstop-tests` · **LANDED** · (K2, track B — **B-484**, **B-485**,
+- `dish-merge-shapes-and-backstop-tests` · **LANDED** (`night-crew/20261007/dish-merge-shapes-and-backstop-tests` `bc705a5`, merged `05c9ccd`) · (K2, track B — **B-484**, **B-485**,
   **B-487**) Today a dish merge whose SOURCE names no dish answers `200 {"rows_re_pointed":0}`
   and a non-uuid target answers `500 internal_error` (`22P02`); the handler matches
   `ErrMergeTargetNotFound` by `strings.Contains` on the message; the `FOR SHARE` lock and the

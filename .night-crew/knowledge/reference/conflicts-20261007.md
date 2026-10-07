@@ -54,3 +54,33 @@ One entry per merge onto `overnight-20261007`, clean or conflicted (§15ad.66).
 - **Not a card edit I expected:** the loop appended its deferred review findings to
   `.night-crew/knowledge/ledger.md` as `## LDG …` entries (70 lines). Kept as merged; flagged for triage.
 - **Owed on this tree:** Card 1's full browser suite and the 10×/10×/5× measurement leg (running next).
+
+### Merge 2 — Card 2 `dish-merge-shapes-and-backstop-tests` → `overnight-20261007` at `05c9ccd` (04:1x)
+
+- **Source:** loop commit `bc705a5`, `--no-ff`. **Two conflicts, both in documents, both resolved by intent:**
+  - `.night-crew/knowledge/roadmap.md` — Card 1's line: my side carried the merge SHA I added
+    after Merge 1, the card's side the bare `LANDED`. Kept mine (the SHA is the later fact).
+  - `.night-crew/knowledge/ledger.md` — the loop's appended `## LDG …` entries for Card 2 against
+    my side's end of file. Kept both (pure append; Card 1's entries were already present).
+  - **Why it conflicted at all:** the loop lands each card on its own run branch as a squash commit
+    (`d9a2234`), so Card 2's history does not contain Card 1's commit `3fb748a` that I merged — the
+    same text arrived twice by two routes. No code file conflicted. Cards 3 and 4 will be brought
+    over as their own commit's change only (cherry-pick), to avoid replaying this.
+  - Card 2's merge-intent note read; it names no shared code file with Card 1.
+- **Loop record:** built 02:51–03:17; two review rounds (12 findings, then 4), patched twice,
+  approved "cycle exhausted — last patch not re-reviewed".
+- **G6 (separate reviewer, `hq-worktrees/g6-k2-20261007`): PASS.** recipes 65/0/0, marketing 73/0/1.
+  Mutations: ` FOR SHARE` removed → lock test FAIL 3 of 3; 0086 `NO ACTION` on a rebuilt database
+  → backstop test FAIL (23503); source check removed → 200 `rows_re_pointed:0`, test FAIL; uuid
+  parse removed → `BadIDIs400` FAIL; each handler arm's status swapped → its test FAIL. Lock test
+  unmutated 10 of 10. Full Go on the card: exit 0, 461 pass / 0 fail / 3 skip, 15 packages (base 456).
+  No migration; `go.mod` gains `github.com/google/uuid v1.6.0` as a new direct requirement,
+  `go mod tidy` leaves it unchanged.
+- **G6 findings, none blocking (for triage):** dish ids without hyphens or in braces, which the
+  database used to accept, now answer 400 `bad_id` (deliberate, pinned); the lock test's
+  foreign-key branch never runs on this schema; opposite-direction simultaneous merges can
+  deadlock and answer 500 (read, not run). **Loop-deferred, major:** merging two dishes that share
+  an ingredient answers 500 (existing; `recipes` unique key) — in `ledger.md` as an `LDG` entry.
+- **After merge (G1+G2 re-run on the merged tree):** `go build ./...` and `go vet ./...` exit 0;
+  `sw.js` regeneration left the tree clean (no precached file touched), count 51; `backlog check`
+  exit 0; B-484, B-485, B-487 → `landed`.
