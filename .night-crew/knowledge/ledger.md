@@ -5325,3 +5325,33 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Evidence: Real but not a regression and beyond the card: a manager who renames an item or half-types a nickname and then searches for a word that does not match that item loses the typed text when the editor comes back, because the carry (captureItemEditDraft / restoreItemEditDraft, inventory.html:2298-2340) lasts one render and is dropped when the rebuilt list has no editor for that item. On the pre-change tree every search keystroke wiped the editor, so this is strictly better than before; keeping an edit for the whole life of an open editor is a design change (where the draft lives, when it is discarded) that needs its own card.
 - Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/triage/verdicts.json
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Merge still answers 500 when both dishes use the same ingredient, while the new doc comment claims every wrong input is refused with its own sentinel
+- Severity: major
+- Evidence: Real and confirmed: recipes carries UNIQUE (menu_item_id, purchase_item_id) (migration 0062:10), so merging two duplicate dishes that both use one ingredient fails 23505 at the recipes re-point (repository.go:226), rolls back and answers 500 internal_error. It predates this card, and what the merge should do instead (refuse with a named conflict, or combine the two usage percentages) is a product call the work order parks ('making the merge do anything other than refuse on a missing source or target'); it needs its own work order, which should also correct the 'Every wrong input is refused … each with its own sentinel' comment that now reads as exhaustive.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Merging two dishes that share an ingredient still answers 500 (recipes UNIQUE(menu_item_id, purchase_item_id)) — outside the four 'every wrong input' sentinels
+- Severity: major
+- Evidence: Same root cause as adversarial/1: two dishes sharing an ingredient violate recipes UNIQUE (menu_item_id, purchase_item_id) at repository.go:226 and the merge answers 500 with nothing written; the merged usage_pct sum over 100 is likewise unchecked on this path. Pre-existing and outside the card's parked boundary (the merge may only refuse on a missing source or target tonight) — one follow-up work order should decide refuse-vs-combine, add the shared-ingredient test and fix the exhaustive-sounding comment.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/dish-merge-shapes-and-backstop-tests/a1/c1/edge-case/3
+- Status: open
+- Opened: 2026-10-07T07:20:22Z
+- Work order: dish-merge-shapes-and-backstop-tests
+- Finding: Opposite-direction concurrent merges (A→B and B→A) deadlock and answer 500 internal_error
+- Severity: minor
+- Evidence: Real but rare and pre-existing: two simultaneous merges in opposite directions (A→B and B→A) each hold a share lock the other needs, Postgres aborts one with 40P01, and it answers 500 with nothing written — the same deadlock existed before this change at the DELETE; the new source lock only moves it earlier. Mapping 40P01 to a retryable answer (or ordering the two locks by id) is a new error shape the work order did not grant and no screen calls this endpoint, so it belongs in a follow-up alongside the shared-ingredient 500.
+- Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record

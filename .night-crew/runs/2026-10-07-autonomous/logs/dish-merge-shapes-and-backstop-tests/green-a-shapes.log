@@ -1,0 +1,23 @@
+# 2026-10-07T06:56:10Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/recipes -run 'TestMergeMenuItem_MissingSourceIs404|TestMergeMenuItem_BadIDIs400' -count=1 -v
+=== RUN   TestMergeMenuItem_MissingSourceIs404
+=== RUN   TestMergeMenuItem_MissingSourceIs404/handler
+=== RUN   TestMergeMenuItem_MissingSourceIs404/repository
+=== RUN   TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found
+--- PASS: TestMergeMenuItem_MissingSourceIs404 (2.22s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/handler (0.68s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/repository (0.77s)
+    --- PASS: TestMergeMenuItem_MissingSourceIs404/both_missing_answers_target_not_found (0.77s)
+=== RUN   TestMergeMenuItem_BadIDIs400
+=== RUN   TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid
+=== RUN   TestMergeMenuItem_BadIDIs400/both_are_not_uuids
+=== RUN   TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID
+--- PASS: TestMergeMenuItem_BadIDIs400 (2.64s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/target_is_not_a_uuid (0.66s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/source_is_not_a_uuid (0.68s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/both_are_not_uuids (0.66s)
+    --- PASS: TestMergeMenuItem_BadIDIs400/repository_returns_ErrBadID (0.64s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	4.875s
+# exit=0 pass=2 fail=0 skip=0

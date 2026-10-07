@@ -1,0 +1,22 @@
+# 2026-10-07T06:56:32Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/recipes -run 'TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete|TestMergeMenuItem_MissingTargetIsRefused' -count=1 -v
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/repository
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/handler
+=== RUN   TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404
+--- PASS: TestMergeMenuItem_MissingTargetIsRefused (2.12s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/repository (0.77s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/handler (0.68s)
+    --- PASS: TestMergeMenuItem_MissingTargetIsRefused/attached_source_answers_the_same_404 (0.67s)
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:630: DELETE of the target dish returned (err=<nil>) while the merge into it was still in flight — nothing held the target; the merge is now re-pointing at a dish that is gone
+--- FAIL: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.75s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/recipes	2.889s
+FAIL
+# exit=1 pass=1 fail=1 skip=0
+# MUTATION applied to the working copy for this run only (the spike's sed: s/WHERE id = \$1 FOR SHARE/WHERE id = $1/), then restored:
+#   204c204
+#   < 		`SELECT 1 FROM menu_items WHERE id = $1 FOR SHARE`, targetMenuItemID,
+#   ---
+#   > 		`SELECT 1 FROM menu_items WHERE id = $1`, targetMenuItemID,

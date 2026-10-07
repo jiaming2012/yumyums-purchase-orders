@@ -504,6 +504,8 @@ func DeleteRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // MergeMenuItemHandler — POST /inventory/recipes/merge
 // Body: {"source_menu_item_id":"<uuid>","target_menu_item_id":"<uuid>"}
 // Re-points all recipe rows from source to target, then deletes the source menu_items row.
+// 400 bad_id (an id is not a 36-character hyphenated uuid) / cannot_merge_into_self; 404 target_not_found /
+// source_not_found (the id names no dish). Nothing is written on any of the four.
 // Mirrors inventory.MergeItemsHandler / MergeVendorsHandler semantics (D-08).
 func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -521,16 +523,19 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		rows, err := MergeMenuItem(r.Context(), pool, input.SourceMenuItemID, input.TargetMenuItemID)
 		if err != nil {
-			if strings.Contains(err.Error(), "cannot_merge_into_self") {
+			switch {
+			case errors.Is(err, ErrBadID):
+				writeError(w, http.StatusBadRequest, "bad_id")
+			case errors.Is(err, ErrMergeIntoSelf):
 				writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
-				return
-			}
-			if strings.Contains(err.Error(), "target_not_found") {
+			case errors.Is(err, ErrMergeTargetNotFound):
 				writeError(w, http.StatusNotFound, "target_not_found")
-				return
+			case errors.Is(err, ErrMergeSourceNotFound):
+				writeError(w, http.StatusNotFound, "source_not_found")
+			default:
+				slog.Error("MergeMenuItem", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
 			}
-			slog.Error("MergeMenuItem", "error", err)
-			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]int{"rows_re_pointed": rows})

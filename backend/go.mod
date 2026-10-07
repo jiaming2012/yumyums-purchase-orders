@@ -12,6 +12,7 @@ require (
 	github.com/floodfx/gstate v0.3.1
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jackc/pgxlisten v0.0.0-20250802141604-12b92425684c
 	github.com/pkg/sftp v1.13.5
