@@ -84,3 +84,24 @@ One entry per merge onto `overnight-20261007`, clean or conflicted (§15ad.66).
 - **After merge (G1+G2 re-run on the merged tree):** `go build ./...` and `go vet ./...` exit 0;
   `sw.js` regeneration left the tree clean (no precached file touched), count 51; `backlog check`
   exit 0; B-484, B-485, B-487 → `landed`.
+
+### Merge 3 — Card 3 `states-screenshots-out-of-tree` → `overnight-20261007` at `e5563ab` (04:4x)
+
+- **Source:** loop commit `45f42a4`, brought over as its own change only (cherry-pick, for the
+  reason recorded under Merge 2). **Clean — no conflict** (`roadmap.md` auto-merged). The three
+  code files are byte-identical to the loop commit's.
+- **Loop record:** built 03:32–03:52; two review rounds, patched twice, approved "cycle exhausted".
+- **G6 (separate reviewer, `hq-worktrees/g6-k3-20261007`): PASS.** Stats spec alone 17 passed,
+  subscribers spec alone 10 passed, `git status --porcelain` empty and no diff under
+  `runs/2026-10-02-autonomous/logs/` after each; marketing seam 131 passed, tree still clean.
+  Mutation: defaults pointed back at `h4/states` / `h5/states` → `[SS-01]`, `[SS-02]` FAIL and 18
+  committed PNGs modified (then restored in the reviewer's worktree). `STATES_SHOT_DIR` honoured.
+  No PNG in the commit; `night-crew.toml` is 8 added comment lines; row counts unchanged (16, 9).
+- **Covers both directories** (B-486 `h4`, B-493 `h5`) — the triage launch note.
+- **G6 / loop notes, none blocking (for triage):** with `STATES_SHOT_DIR` set, all three marketing
+  states specs write into one flat folder; the guards check only the default directory. The loop's
+  review also recorded that 10 of the 36 committed H4/H5 PNGs were already re-captured by run
+  20261002's closeout commit (B-467's subject) — in `ledger.md` as an `LDG` entry.
+- **After merge:** `sw.js` regeneration left the tree clean, count 51; `backlog check` exit 0;
+  B-486 → `landed`. **The B-486/B-493 checkout rule is moot from this merge on.** Legs before it:
+  the base leg and Card 1's full suite (both restored by hand). Legs after it: the final suite.

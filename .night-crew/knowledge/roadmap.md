@@ -1302,7 +1302,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### states-screenshots-out-of-tree
 
-- `states-screenshots-out-of-tree` · **LANDED** · (K3, track B, after K2 — **B-486**) Today
+- `states-screenshots-out-of-tree` · **LANDED** (`night-crew/20261007/states-screenshots-out-of-tree` `45f42a4`, merged `e5563ab`) · (K3, track B, after K2 — **B-486**) Today
   `tests/states-marketing-stats.spec.js` writes its PNGs into
   `.night-crew/runs/2026-10-02-autonomous/logs/h4/states/`, which is committed, so every gate leg
   that includes the `marketing` seam leaves the tree dirty (five modified files after one subset
