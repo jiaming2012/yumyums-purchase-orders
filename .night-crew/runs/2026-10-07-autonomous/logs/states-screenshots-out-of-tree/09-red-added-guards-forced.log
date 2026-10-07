@@ -1,0 +1,262 @@
+# RED legs for the guards added to [SS-01]/[SS-02] AFTER 01-red.log — successor to 01-red.log
+# 01-red.log is the card's core red and stands: the screenshot folder was a committed one. Its line numbers
+# (stats:568 / subscribers:342) and its `git check-ignore -q` are the test body as it was at 03:36. A review
+# round then changed the body (files last written 03:56): ls-files exit code is asserted, check-ignore became -v,
+# the matching rule's source must be .gitignore, and the rule must not be a ! re-include. None of those had been
+# seen red. Each is forced below on the final file, then the tree is restored and the green shown again.
+# HEAD=4cf16c5 + this card's working-tree diff
+# spec sha256: 09d5d7dfd98c tests/states-marketing-stats.spec.js c80e446905dc tests/states-marketing-subscribers.spec.js   (same as 08)
+# env: TEST_PORT=8283 TEST_DB_NAME=hq_test_e2e_k3_20261007 DB_HOST=localhost DB_PORT=5434 DB_USER=hqtest
+# every leg: $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line      ([WebServer] lines and blank lines filtered out of this log)
+
+# ── LEG A — git cannot run: GIT_DIR points at a directory that is not a repository. Tree untouched.
+#    Expect: the 'git ls-files could not run' assertion fails (exit code 128), not the gitignore one.
+# $ GIT_DIR=/nonexistent-k3 npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K[chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+fatal: not a git repository: '/nonexistent-k3'
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: git ls-files could not run in /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree, so nothing below was checked
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m128[39m
+      582 |     };
+      583 |     const ls = git(['ls-files', '--', rel]);
+    > 584 |     expect(ls.code, `git ls-files could not run in ${repo}, so nothing below was checked`).toBe(0);
+          |                                                                                            ^
+      585 |     const tracked = ls.out.split('\n').filter(Boolean);
+      586 |     expect(tracked, `running this spec would rewrite committed files under ${rel}`).toEqual([]);
+      587 |     // -v names the rule's source: a personal excludes file or .git/info/exclude
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-stats.spec.js:584:92
+    Error Context: test-results/states-marketing-stats-Sta-e484f-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K[chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+fatal: not a git repository: '/nonexistent-k3'
+[1A[2K  2) [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: git ls-files could not run in /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree, so nothing below was checked
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m128[39m
+      353 |     };
+      354 |     const ls = git(['ls-files', '--', rel]);
+    > 355 |     expect(ls.code, `git ls-files could not run in ${repo}, so nothing below was checked`).toBe(0);
+          |                                                                                            ^
+      356 |     const tracked = ls.out.split('\n').filter(Boolean);
+      357 |     expect(tracked, `running this spec would rewrite committed files under ${rel}`).toEqual([]);
+      358 |     // -v names the rule's source: a personal excludes file or .git/info/exclude
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-subscribers.spec.js:355:92
+    Error Context: test-results/states-marketing-subscribe-7dfb8-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K  2 failed
+    [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+# exit=1
+
+# ── LEG B — ignored, but not by the repository: the test-screenshots/ line is removed from .gitignore and the
+#    same pattern is supplied by a personal excludes file (core.excludesFile, set through the environment so no
+#    git config and nothing outside this checkout is written).
+#    Expect: check-ignore still exits 0; the 'ignored only by <source>' assertion fails.
+# $ git diff --stat -- .gitignore
+ .gitignore | 1 -
+ 1 file changed, 1 deletion(-)
+# $ GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.excludesFile GIT_CONFIG_VALUE_0=$PWD/test-screenshots/.k3-personal-excludes npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-stats is ignored only by /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/test-screenshots/.k3-personal-excludes, not by the repository's own .gitignore
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m".gitignore"[39m
+    Received: [31m"/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/test-screenshots/.k3-personal-excludes"[39m
+      591 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+      592 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+    > 593 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+          |                                                                                                   ^
+      594 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+      595 |   });
+      596 | });
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-stats.spec.js:593:99
+    Error Context: test-results/states-marketing-stats-Sta-e484f-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2) [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-subscribers is ignored only by /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/test-screenshots/.k3-personal-excludes, not by the repository's own .gitignore
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m".gitignore"[39m
+    Received: [31m"/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/test-screenshots/.k3-personal-excludes"[39m
+      362 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+      363 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+    > 364 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+          |                                                                                                   ^
+      365 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+      366 |   });
+      367 | });
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-subscribers.spec.js:364:99
+    Error Context: test-results/states-marketing-subscribe-7dfb8-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K  2 failed
+    [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+# exit=1
+
+# ── LEG C — re-included: .gitignore keeps its test-screenshots/ line and a later '!test-screenshots/' undoes it.
+#    Expected the '.gitignore re-includes' assertion to fail. IT DID NOT — this leg is red, but on the EARLIER
+#    'must be gitignored' assertion: re-including the whole directory makes check-ignore exit 1 with no output
+#    (shown below), exactly as if the line were missing. So this shape is caught, by the exit-code check, and
+#    does not exercise the pattern guard. LEG E below is the shape that does.
+# $ git diff --stat -- .gitignore
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+# $ git check-ignore -v test-screenshots/marketing-stats/x.png; echo $?
+1
+# $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-stats must be gitignored, or every run leaves untracked PNGs behind
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m1[39m
+      589 |     // also reports a negated (!) rule as a match, which is the opposite of ignored.
+      590 |     const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    > 591 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+          |                                                                                              ^
+      592 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      593 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+      594 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-stats.spec.js:591:94
+    Error Context: test-results/states-marketing-stats-Sta-e484f-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2) [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-subscribers must be gitignored, or every run leaves untracked PNGs behind
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m1[39m
+      360 |     // also reports a negated (!) rule as a match, which is the opposite of ignored.
+      361 |     const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    > 362 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+          |                                                                                              ^
+      363 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      364 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+      365 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-subscribers.spec.js:362:94
+    Error Context: test-results/states-marketing-subscribe-7dfb8-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K  2 failed
+    [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+# exit=1
+
+# ── LEG D — not ignored at all: the test-screenshots/ line is removed from .gitignore, nothing replaces it.
+#    This is 01-red.log's second assertion in its final (-v) form.
+#    Expect: the 'must be gitignored' assertion fails (check-ignore exits 1).
+# $ git diff --stat -- .gitignore
+ .gitignore | 1 -
+ 1 file changed, 1 deletion(-)
+# $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-stats must be gitignored, or every run leaves untracked PNGs behind
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m1[39m
+      589 |     // also reports a negated (!) rule as a match, which is the opposite of ignored.
+      590 |     const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    > 591 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+          |                                                                                              ^
+      592 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      593 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+      594 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-stats.spec.js:591:94
+    Error Context: test-results/states-marketing-stats-Sta-e484f-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2) [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: test-screenshots/marketing-subscribers must be gitignored, or every run leaves untracked PNGs behind
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32m0[39m
+    Received: [31m1[39m
+      360 |     // also reports a negated (!) rule as a match, which is the opposite of ignored.
+      361 |     const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    > 362 |     expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+          |                                                                                              ^
+      363 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      364 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+      365 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-subscribers.spec.js:362:94
+    Error Context: test-results/states-marketing-subscribe-7dfb8-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K  2 failed
+    [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+# exit=1
+
+# ── RESTORED — .gitignore put back byte-for-byte; the same command is green again.
+# $ git status --porcelain -- .gitignore   (empty = identical to HEAD)
+# $ git check-ignore -v test-screenshots/marketing-stats/x.png
+.gitignore:9:test-screenshots/	test-screenshots/marketing-stats/x.png
+# $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2 passed (2.3m)
+# exit=0
+
+# ── LEG E — re-included, the shape that reaches the pattern guard: the 'test-screenshots/' line is replaced by
+#    'test-screenshots/*' and the marketing folders are re-included beneath it. The LAST matching rule for the
+#    PNG is then a negated one; `check-ignore -v` prints it and exits 0 (`-q` exits 1 — both shown).
+#    Expect: the exit-code and source assertions pass; the '.gitignore re-includes' assertion fails.
+# $ git diff --stat -- .gitignore
+ .gitignore | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+# $ git check-ignore -v test-screenshots/marketing-stats/x.png; echo $?
+.gitignore:57:!test-screenshots/marketing-*/**	test-screenshots/marketing-stats/x.png
+0
+# $ git check-ignore -q test-screenshots/marketing-stats/x.png; echo $?
+1
+# $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  1) [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: .gitignore re-includes test-screenshots/marketing-stats with !test-screenshots/marketing-*/**
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32mfalse[39m
+    Received: [31mtrue[39m
+      592 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      593 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+    > 594 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+          |                                                                                      ^
+      595 |   });
+      596 | });
+      597 |
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-stats.spec.js:594:86
+    Error Context: test-results/states-marketing-stats-Sta-e484f-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2) [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    Error: .gitignore re-includes test-screenshots/marketing-subscribers with !test-screenshots/marketing-*/**
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32mfalse[39m
+    Received: [31mtrue[39m
+      363 |     const [source, , pattern] = ign.out.split('\t')[0].split(':');
+      364 |     expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+    > 365 |     expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
+          |                                                                                      ^
+      366 |   });
+      367 | });
+      368 |
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree/tests/states-marketing-subscribers.spec.js:365:86
+    Error Context: test-results/states-marketing-subscribe-7dfb8-tted-file-and-is-gitignored-chromium/error-context.md
+[1A[2K  2 failed
+    [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+    [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored 
+# exit=1
+
+# ── RESTORED AGAIN after LEG E — .gitignore identical to HEAD; green.
+# $ git status --porcelain -- .gitignore   (empty = identical to HEAD)
+# $ npx playwright test tests/states-marketing-stats.spec.js tests/states-marketing-subscribers.spec.js -g SS-0 --retries=0 --reporter=line
+Running 2 tests using 1 worker
+[1A[2K[1/2] [chromium] › tests/states-marketing-stats.spec.js:575:3 › States · screenshot directory › [SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K[2/2] [chromium] › tests/states-marketing-subscribers.spec.js:346:3 › States · screenshot directory › [SS-02] SHOT_DIR is untracked: the default holds no committed file and is gitignored
+[1A[2K  2 passed (2.3m)
+# exit=0
+
+# Summary: A red on 'git ls-files could not run' · B red on 'ignored only by <source>' · C red on 'must be
+# gitignored' (not the guard it was aimed at — see its note) · D red on 'must be gitignored' · E red on
+# '.gitignore re-includes'. Every assertion in the final [SS-01]/[SS-02] body has now been seen red except
+# 'the default stays inside the repository' (a constant in the spec file; forcing it means editing the test)
+# and 'would rewrite committed files', which is 01-red.log's failure and is unchanged by the later edit.

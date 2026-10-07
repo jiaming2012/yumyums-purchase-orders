@@ -7,10 +7,18 @@
 // tool and compared against the visual contract. What the SUMMARY reports is
 // what was OBSERVED in the PNG, not what the code intended.
 //
-// 🛑 Screenshots go to .night-crew/runs/2026-10-02-autonomous/logs/h4/states/
-// and are COMMITTED. They do NOT go under test-results/ — Playwright wipes its
-// outputDir at the start of every run, and card 2 lost its cited evidence that
-// way before its own full suite had finished.
+// 🛑 Screenshots default to test-screenshots/marketing-stats/, which is
+// gitignored — so running this spec never leaves the tree dirty. A run that
+// wants durable evidence sets STATES_SHOT_DIR to its own logs tree and commits
+// the PNGs there (the .gitignore convention). They do NOT go under
+// test-results/ — Playwright wipes its outputDir at the start of every run, and
+// card 2 lost its cited evidence that way before its own full suite had
+// finished.
+//
+// The H4 set under .night-crew/runs/2026-10-02-autonomous/logs/h4/states/ is
+// the REVIEWED evidence for this card. This spec used to write there and
+// rewrote those committed PNGs on every run (B-486); it no longer does, and
+// that set is NOT rewritten, moved or re-captured.
 //
 // ── which rows ride a FIXTURE and which hit the REAL endpoint ──────────────
 //   BI (bi.html #s3)
@@ -59,8 +67,8 @@ const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 const USER_PASSWORD = 'test456';
 
-const SHOT_DIR = path.join(__dirname, '..', '.night-crew', 'runs',
-  '2026-10-02-autonomous', 'logs', 'h4', 'states');
+const DEFAULT_SHOT_DIR = path.join(__dirname, '..', 'test-screenshots', 'marketing-stats');
+const SHOT_DIR = process.env.STATES_SHOT_DIR || DEFAULT_SHOT_DIR;
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 test.use({ viewport: { width: 393, height: 852 } });
 
@@ -556,5 +564,33 @@ test.describe('States · Marketing reconciliation queue', () => {
     await expect(bucket.locator('.msq-decl-note')).toContainText('Till drawer jammed');
     await expect(bucket.locator('.msq-reopen')).toBeVisible();
     await shot(page, 'ms-declined-bucket');
+  });
+});
+
+// ═══════════════════ where the screenshots go ═══════════════════════════════
+// A static check, not a state row: it opens no page. The DEFAULT directory is
+// checked, not STATES_SHOT_DIR — a run that sets the override has chosen its
+// own logs tree and commits there on purpose.
+test.describe('States · screenshot directory', () => {
+  test('[SS-01] SHOT_DIR is untracked: the default holds no committed file and is gitignored', () => {
+    const repo = path.join(__dirname, '..');
+    const rel = path.relative(repo, DEFAULT_SHOT_DIR);
+    expect(rel.startsWith('..'), 'the default stays inside the repository').toBe(false);
+    const git = args => {
+      try { return { code: 0, out: execFileSync('git', args, { cwd: repo, encoding: 'utf8' }) }; }
+      catch (e) { return { code: e.status, out: String(e.stdout || '') }; }
+    };
+    const ls = git(['ls-files', '--', rel]);
+    expect(ls.code, `git ls-files could not run in ${repo}, so nothing below was checked`).toBe(0);
+    const tracked = ls.out.split('\n').filter(Boolean);
+    expect(tracked, `running this spec would rewrite committed files under ${rel}`).toEqual([]);
+    // -v names the rule's source: a personal excludes file or .git/info/exclude
+    // matches too, and only the committed .gitignore travels with a clone. -v
+    // also reports a negated (!) rule as a match, which is the opposite of ignored.
+    const ign = git(['check-ignore', '-v', path.join(rel, 'x.png')]);
+    expect(ign.code, `${rel} must be gitignored, or every run leaves untracked PNGs behind`).toBe(0);
+    const [source, , pattern] = ign.out.split('\t')[0].split(':');
+    expect(source, `${rel} is ignored only by ${source}, not by the repository's own .gitignore`).toBe('.gitignore');
+    expect(pattern.startsWith('!'), `.gitignore re-includes ${rel} with ${pattern}`).toBe(false);
   });
 });

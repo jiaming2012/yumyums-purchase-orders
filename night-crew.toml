@@ -230,6 +230,14 @@ subset = 'npx playwright test "{tags}"'
 # 1 -> 3 on H2, 3 -> 5 on H5, 5 -> 7 on H4. At each merge take the UNION of the
 # cards' lines, as this comment itself instructs. H4 was the last to add specs,
 # so this roll call is now COMPLETE for run 20261002 at SEVEN.
+# Card `states-screenshots-out-of-tree` (roadmap K3, run 20261007; BACKLOG B-486
+# + B-493) changed WHERE two of these seven write, not which are selected:
+# states-marketing-stats.spec.js and states-marketing-subscribers.spec.js used to
+# rewrite the committed PNGs under .night-crew/runs/2026-10-02-autonomous/logs/
+# h4/states/ and h5/states/ on every run of this seam; they now default to the
+# gitignored test-screenshots/ (STATES_SHOT_DIR overrides), as
+# states-marketing-campaigns.spec.js already did. A leg on this seam leaves
+# `git status` as it found it. Count stays SEVEN — no key, no token.
 # Card h6 `scanner-polish` (roadmap H6) added NO spec file: its [SP-01]..[SP-03]
 # tests live in tests/marketing.spec.js, already selected. It needed no new key
 # and no new token — recorded here so the next re-count knows h6 was accounted

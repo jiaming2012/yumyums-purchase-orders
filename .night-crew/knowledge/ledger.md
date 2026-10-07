@@ -5355,3 +5355,63 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Evidence: Real but rare and pre-existing: two simultaneous merges in opposite directions (A→B and B→A) each hold a share lock the other needs, Postgres aborts one with 40P01, and it answers 500 with nothing written — the same deadlock existed before this change at the DELETE; the new source lock only moves it earlier. Mapping 40P01 to a retryable answer (or ordering the two locks by id) is a new error shape the work order did not grant and no screen calls this endpoint, so it belongs in a follow-up alongside the shared-ingredient 500.
 - Artifacts: .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/review/triage/verdicts.json
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: The committed H4/H5 PNGs the new comments call "the REVIEWED evidence" were already re-captured after review — 10 of 36 were rewritten by the run-closeout commit
+- Severity: minor
+- Evidence: Confirmed in git history: the run-20261002 closeout commit f47fbee (a docs commit) rewrote 4 H4 PNGs (bi-loading, ms-loading, ms-success, ms-success-dark) and 6 H5 PNGs (04-success, 06-detail-sheet, 08-locked, 09/10/11-offline-*) after the last reviewed captures (c5849e4 for H4, 0346fea for H5), so 10 of the committed screenshots the new header comments call 'the REVIEWED evidence' are post-review re-captures. The wording is the work order's own and restoring or re-capturing that set is an operator-only park (and BACKLOG B-467 says never restore the H4 PNGs), so this change cannot fix it; it does not block landing (the change stops any further drift) and needs its own operator decision: restore the reviewed blobs, or reword the comments to say the set drifted once at closeout.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/adversarial/3
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: One STATES_SHOT_DIR is shared by three specs with no per-spec subdirectory — a run that sets it flattens all three sets into one folder
+- Severity: minor
+- Evidence: Real but not blocking: with STATES_SHOT_DIR set, the stats, subscribers and campaigns specs all write into one flat folder, and only today's file-name prefixes (bi-*/ms-*, NN-*, bare names in campaigns) keep one spec from silently overwriting another's screenshot. The work order prescribed the override expression verbatim and tests/states-marketing-campaigns.spec.js:49 already had the same shape before this card, so changing the override's meaning (a per-spec subfolder under it) touches a third spec and an existing convention — its own small work order.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: STATES_SHOT_DIR is one variable for three specs: an override flattens all three PNG sets into one directory
+- Severity: minor
+- Evidence: Same root cause as adversarial/3: one STATES_SHOT_DIR override is shared verbatim by three specs (stats, subscribers, campaigns) with no per-spec subfolder, so an overridden marketing-seam leg mixes 54 PNGs in one folder and a future bare file name such as error.png would silently overwrite the campaigns screenshot. No names collide today, the expression is the one the work order prescribed and campaigns already used it, so it does not block landing; fix all three specs together in a follow-up work order.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c1/edge-case/2
+- Status: open
+- Opened: 2026-10-07T07:55:38Z
+- Work order: states-screenshots-out-of-tree
+- Finding: Default directory is never wiped and no longer diffed: a row that fails before shot() leaves the previous run's PNG in place
+- Severity: minor
+- Evidence: Real at the margins: the ignored default folders are never cleared, so a row that fails before its screenshot (or a renamed/removed row) leaves last run's PNG in place and a reader doing the read-the-PNGs-back check could report a stale image as observed. The work order chose the persistent ignored location on purpose (campaigns' comment says 'is never wiped'), and the old committed location had the same stale-file behaviour for a failed row; clearing or run-stamping the folder safely with partial `-g` runs is a design choice for the self-verification ritual across all states specs, not a mechanical fix here.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:01:24Z
+- Work order: states-screenshots-out-of-tree
+- Finding: [SS-01]/[SS-02] stay green when STATES_SHOT_DIR points at a tracked directory — including the reviewed H4/H5 sets the headers say are never rewritten
+- Severity: minor
+- Evidence: Real but only on a deliberate mis-set: a run that points STATES_SHOT_DIR at a folder that already holds committed screenshots (for example the reviewed H4 set) overwrites them and [SS-01]/[SS-02] stay green, because they check the default folder only — a choice the test's own comment states, since writing into a tracked logs tree is the override's intended use. Nothing sets the override that way today (only the campaigns spec and this card's scratch proof use it), and telling 'fresh evidence folder' from 'folder with committed PNGs' — including a legitimate re-capture into a run's own folder — is a rule for all three states specs; it belongs in the follow-up work order already opened for the shared override (ledger entries adversarial/3 and edge-case/1 of the first review round: one STATES_SHOT_DIR for three specs).
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/states-screenshots-out-of-tree/a1/c2/edge-case/2
+- Status: open
+- Opened: 2026-10-07T08:01:24Z
+- Work order: states-screenshots-out-of-tree
+- Finding: STATES_SHOT_DIR is used raw: a relative value resolves against the process cwd, and an unexpanded or blank-ish value creates a stray directory
+- Severity: minor
+- Evidence: Real at the margins: the override is used as typed, so a relative value lands under whatever directory Playwright was started from, and a literal `~/shots` or a single space creates a stray folder instead of falling back to the default. The expression is the one the work order prescribed word for word and tests/states-marketing-campaigns.spec.js:49 already had it before this card; the only uses so far pass an absolute path, so nothing fails tonight — resolve-against-repo-root and trim should be done once for all three specs in the same follow-up work order as the shared-override entries.
+- Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record

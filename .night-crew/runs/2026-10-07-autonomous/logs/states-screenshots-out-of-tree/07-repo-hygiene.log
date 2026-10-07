@@ -1,0 +1,9 @@
+# night-crew.toml was edited (comment only) — the spec that guards it
+# $ npx playwright test tests/repo-hygiene.spec.js --retries=0 --reporter=line
+[1A[2K[1/5] [chromium] › tests/repo-hygiene.spec.js:41:1 › no source file under sync-rxdb/ contains a NUL byte
+[1A[2K[2/5] [chromium] › tests/repo-hygiene.spec.js:66:1 › scopeFingerprint still joins its operands with a real NUL at runtime
+[1A[2K[3/5] [chromium] › tests/repo-hygiene.spec.js:104:1 › no sync-rxdb source spells the merged row-visibility-rls slug (narrow, subset)
+[1A[2K[4/5] [chromium] › tests/repo-hygiene.spec.js:189:1 › no live comment gates activation on a DONE roadmap card (fact-shaped, whole tree)
+[1A[2K[5/5] [chromium] › tests/repo-hygiene.spec.js:249:1 › night-crew.toml records the spec files its Operations tokens really select
+[1A[2K  5 passed (2.4m)
+# exit=0
