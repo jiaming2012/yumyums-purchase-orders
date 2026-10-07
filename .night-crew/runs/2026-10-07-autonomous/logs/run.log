@@ -1,0 +1,223 @@
+worker-liveness preflight
+
+  namespace: night-crew-hq
+  liveness:  a poller counts live only if it polled within 2m0s — being listed is not being alive
+
+  night-crew       SERVED — 1 live worker(s) polling night-crew
+      live          pid 22298 on TheRealJCole, started from /home/jcole/projects/hq — last polled 13s ago
+  night-crew-env   SERVED — 1 live worker(s) polling night-crew-env
+      live          pid 22298 on TheRealJCole, started from /home/jcole/projects/hq — last polled 13s ago
+
+  a live worker holds every queue the run needs
+starting NightRun 20261007 against /home/jcole/projects/hq (4 work order(s), deadline 9:18AM)
+run width 1 — one work order at a time, in the order the --wo flags were given, each cut from its predecessor's merge
+routing: none declared — every work order runs on the persona rotation's model (the CLI default where the roster declares none), and the loop's own review, triage, autofix and spec-amend sessions run on the CLI default
+waiting for the worker to execute the run — the worker is a separate process; if nothing happens, run `task dev:worker` in another terminal (or `task dev:worker:rehearsal` for a --rehearsal run)
+{
+  "run_id": "20261007",
+  "work_orders": [
+    {
+      "path": "/home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/inventory-setup-races.md",
+      "status": "completed",
+      "attempt": 1,
+      "closed_out_by_deadline": false,
+      "spend": 90.93439167845,
+      "team_spend": [
+        {
+          "team": "engineering",
+          "spend": 56.28951344953333
+        },
+        {
+          "team": "quality",
+          "spend": 34.564405930666666
+        }
+      ],
+      "session_logs": [
+        "/home/jcole/projects/hq/.night-crew/runs/20261007/inventory-setup-races/attempt-1/session.log"
+      ],
+      "started_at": "2026-10-07T05:20:09.959015114Z",
+      "stages": [
+        {
+          "stage": "DEV",
+          "status": "completed",
+          "summary": "Card inventory-setup-races (K1; BACKLOG B-459 nickname-disappears, B-478 typed-name-wiped) is built as specified in inventory.html, with four new tests in tests/inventory.spec.js; nothing committed, sw.js/version.json not in the diff, no Go change, no migration, no night-crew.toml key, roadmap line flipped PLANNED-\u003eLANDED. WHAT CHANGED FOR A MANAGER: (1) every GET /items writer (loadItems, boot preload, nickname refetch, gotoSetupItem, the review-form modal's refetch) goes through fetchItemsSeq(), which takes ++ITEMS_SEQ before asking and applies only if seq \u003e= ITEMS_APPLIED; a discarded response is console.debug-logged; both counters are read-only on window.InventorySetup. (2) The Setup add bar is built once per Setup open outside the re-rendered list body; when groups land only the select's options are rebuilt and the picked value is kept. (3) Add with an empty name alerts 'Enter an item name first.'. (4) MECHANISM NAMED AND FIXED for the dropped nickname: with the spike's leg-3 harness plus logging (6 of 6 runs dropped on the unchanged page, logs/inventory-setup-races/mechanism-IS-04-diagnostic.log) the add click arrived with the nickname box EMPTY and no POST was ever sent - the dead-photo fallback called a full renderItemsList() once per failed catalog image (a re-render every ~70 ms), each one rebuilding the open editor between the fill and the tap, and the handler returns silently on an empty box. Fix: the fallback now swaps the failed image in place (no list re-render), and renderItemsList() carries what was typed in an open editor (and focus) across any re-render, which also covers the item list's own load landing mid-edit; no retry of the POST was added. RAN AND OBSERVED (all on :5434, TEST_DB_NAME=hq_test_e2e_k1_20261007, TEST_PORT=8281, --retries=0): RED on the unchanged page - `npx playwright test tests/inventory.spec.js -g \"\\[IS-0[1-4]\\]\"` -\u003e exit 1, 4 failed: [IS-01] typed name read back '' after the late groups response; [IS-02] ALL_ITEMS lost the newer request's item when the older response landed; [IS-03] dialog text '' ; [IS-04] run 2 of 5 sent no POST /items/aliases (red-IS-01-04.log). GREEN after the change - same command -\u003e exit 0, 4 passed (green-IS-01-04.log). Then 3x repeat of the four plus the three measured tests (alias chips, the two add-bar tests), the create-opens-editor test and the dead-photo test with IS01_GROUPS_DELAY_MS=1500 -\u003e 36 passed, exit 0 (not saved as a log file). CONFINED seam, inventory|recipes plus states-inventory-nav and health-banner -\u003e exit 1: 261 passed / 16 failed / 1 skipped (confined-seam.log). The 16 are not this card's: re-run alone, the same 15 fail identically with inventory.html put back to HEAD (base-comparison-16-reds.log) - bugs.md's standing inventory cluster (stubbed-pending tests, sync/cancel tests, back link to HQ, amount centred on the card, newItem hash prefill); the 16th, FR-11 vendor filter + pagination, passes alone on both trees and is the recorded order-dependent flake (BACKLOG B-156). STUBS: all four tests ride network TIMING only (page.route delays/holds; every body is the real server's); no behaviour under test is stubbed. One assertion added beyond the done-when text: [IS-04] also checks a half-typed nickname survives the re-render when the held fetch lands (it was not shown red separately; [IS-04] as a whole was). NOT RUN / OWED TO THE ORCHESTRATOR: the 10x/10x/5x measurement leg on the merged tree, the full Playwright suite under the lock, sw.js regeneration and the 51 precache count, G1 and G6 ([IS-01] takes the raised delay via IS01_GROUPS_DELAY_MS=1500). bugs.md and BACKLOG.md untouched. No Go suite run (no Go code changed). JUDGEMENT CALLS for review: 'once per Setup open' is implemented as: leaving Setup and coming back starts a fresh add bar, but the boot preload re-showing Setup when it is already open does not (that re-show was wiping the name in the spike's recipe); the alert copy, counter names and debug-object shape are as above.",
+          "team": "engineering"
+        },
+        {
+          "stage": "VERIFY",
+          "status": "completed",
+          "summary": "2 gate(s) passed under shell /usr/bin/sh (resolved)"
+        },
+        {
+          "stage": "REVIEW",
+          "status": "completed",
+          "summary": "review cycle exhausted after 2 lens round(s) with gates green: approved (re-file recommended)",
+          "team": "quality"
+        },
+        {
+          "stage": "COMMIT",
+          "status": "completed",
+          "summary": "3fb748af6456ca58f0285458fbdfdba48af05ba0"
+        }
+      ],
+      "title": "WO: inventory-setup-races — what a manager types or adds in Setup stays on screen",
+      "worktree": "/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/inventory-setup-races",
+      "merge_commit": "d9a22346a1c766fc455721b96f11dff72f45abe2"
+    },
+    {
+      "path": "/home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/dish-merge-shapes-and-backstop-tests.md",
+      "status": "completed",
+      "attempt": 1,
+      "closed_out_by_deadline": false,
+      "spend": 40.146679921116665,
+      "team_spend": [
+        {
+          "team": "engineering",
+          "spend": 25.2992433964
+        },
+        {
+          "team": "quality",
+          "spend": 14.7524412596
+        }
+      ],
+      "session_logs": [
+        "/home/jcole/projects/hq/.night-crew/runs/20261007/dish-merge-shapes-and-backstop-tests/attempt-1/session.log"
+      ],
+      "started_at": "2026-10-07T06:51:34.302052334Z",
+      "stages": [
+        {
+          "stage": "DEV",
+          "status": "completed",
+          "summary": "K2 dish-merge-shapes-and-backstop-tests built as specified, nothing committed, no migration, no park. BEHAVIOUR: POST /inventory/recipes/merge now answers 404 source_not_found when the source id names no dish (was 200 {\"rows_re_pointed\":0}), 400 bad_id when either id is not a uuid (was 500), and all four refusals (bad_id, cannot_merge_into_self, target_not_found, source_not_found) are typed sentinels matched with errors.Is; ids are parsed with uuid.Parse before the transaction and the source is read FOR UPDATE after the target's FOR SHARE inside the same transaction. EVIDENCE (commands + exit lines in .night-crew/runs/2026-10-07-autonomous/logs/dish-merge-shapes-and-backstop-tests/, all on Postgres :5434 database hq_test_go_k2, server-migrated to goose 87): (1) shape tests RED on unchanged repository.go/handler.go — red-a-shapes-pre-change.log exit=1, 2 fail (status 200 / status 500, 22P02); a throwaway two-line test file declared the not-yet-existing sentinel names so the red is behavioural not a build error, deleted after, stated in the log; GREEN after — green-a-shapes.log exit=0, 2 pass. (2) TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete RED with ' FOR SHARE' removed by the spike's sed on the worktree copy (1-line diff in the log) — red-b-lock-for-share-removed.log exit=1, the delete returned while the merge was in flight, and TestMergeMenuItem_MissingTargetIsRefused still PASSED under that mutation; GREEN on shipped code — green-b-lock.log exit=0. (3) TestMigration0086DishDeleteBlanksCampaignAndCode GREEN on shipped 0086 (exit=0) and RED with both item_id FKs changed SET NULL -\u003e NO ACTION in the worktree copy (numstat 2/2, exit=1, 23503 campaigns_admin_item_id_fkey); migration restored with git checkout, not in the diff. (4) Existing tests untouched (0 deleted lines in the test files) and green: all 10 MergeMenuItem tests incl. TestRepository_MergeMenuItem_RePointsCampaignsAndCodes and TestMergeMenuItem_MissingTargetIsRefused (exit=0, 10 pass); the erasure tests + new one (exit=0, 6 pass). (5) ONE full Go suite under flock /tmp/hq-full-suite.lock, go test ./... -p 1 -count=1 -v: exit 0, 15 packages ok / 0 FAIL, 460 top-level tests passed (725 with subtests), 0 failed, 3 skipped (TestProjectionConfiguredUpsertsToSubstrate, TestProxyLive_RealtimeUpgrade, TestProxyLive_RESTRequest — not this card's); no TestRowVisibilityRLS red. (6) Confined Playwright seam inventory|recipes (TEST_PORT=8282, hq_test_e2e_k2_20261007): 252 passed / 15 FAILED / 1 skipped, exit 1 — all 15 are tests/inventory.spec.js screen tests and every one is also red in the earlier card's (inventory-setup-races) seam log on this same base tree (list in confined-seam.reds.txt); I did NOT re-run them on a clean base myself, so 'pre-existing' rests on that log; tests/recipes.spec.js (the only spec calling the merge endpoint) is fully green. NO STUBS: every clause runs real handler, repository, migrations and Postgres; the lock test's helper connection only holds the SOURCE row to sequence the race. OUTSIDE FOOTPRINT (not a park): backend/go.mod gains one direct require, github.com/google/uuid v1.6.0 — already in the build graph at that version, go.sum unchanged — because the spec names uuid.Parse (delegation/P-1, agents decide implementation details). handler_test.go was not edited; new tests are in repository_test.go and marketing/erasure_test.go. OBSERVED, NOT CHANGED: after the merge commits, the queued DELETE of the surviving dish succeeds and removes the re-pointed recipe with it (recipes.menu_item_id cascades) — the lock guarantees ordering, not that the survivor is undeletable; the test accepts that or a 23503, as the card specifies. Roadmap Activity K line flipped PLANNED -\u003e LANDED; merge-intent note written first. sw.js not in the diff; h4/h5 states PNG dirs restored; scratch databases dropped. OWED BY THE ORCHESTRATOR, not run here: the full Playwright suite, the 10x/5x measurement leg, sw.js regeneration + precache count 51, G6 adversarial review.",
+          "team": "engineering"
+        },
+        {
+          "stage": "VERIFY",
+          "status": "completed",
+          "summary": "2 gate(s) passed under shell /usr/bin/sh (resolved)"
+        },
+        {
+          "stage": "REVIEW",
+          "status": "completed",
+          "summary": "review cycle exhausted after 2 lens round(s) with gates green: approved (re-file recommended)",
+          "team": "quality"
+        },
+        {
+          "stage": "COMMIT",
+          "status": "completed",
+          "summary": "bc705a54658c1f1af43d38e771546214055eb1c4"
+        }
+      ],
+      "title": "WO: dish-merge-shapes-and-backstop-tests — wrong merge shapes fixed, the lock and the deploy backstop pinned",
+      "worktree": "/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/dish-merge-shapes-and-backstop-tests",
+      "merge_commit": "4cf16c55e9d4348a49bd8784d6eba6ce4e97ef41"
+    },
+    {
+      "path": "/home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/states-screenshots-out-of-tree.md",
+      "status": "completed",
+      "attempt": 1,
+      "closed_out_by_deadline": false,
+      "spend": 49.7270864303,
+      "team_spend": [
+        {
+          "team": "engineering",
+          "spend": 20.381681859366665
+        },
+        {
+          "team": "quality",
+          "spend": 29.23128655035
+        }
+      ],
+      "session_logs": [
+        "/home/jcole/projects/hq/.night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/session.log"
+      ],
+      "started_at": "2026-10-07T07:32:01.371267963Z",
+      "stages": [
+        {
+          "stage": "DEV",
+          "status": "completed",
+          "summary": "K3 states-screenshots-out-of-tree (BACKLOG B-486 Stats-tab states spec rewrites committed PNGs; B-493 Subscribers-tab states spec does the same): both specs now write to the gitignored test-screenshots/ by default (test-screenshots/marketing-stats, test-screenshots/marketing-subscribers) and honour STATES_SHOT_DIR; header comments rewritten; night-crew.toml got a comment-only note in the marketing roll call (no key, no token, count stays seven); roadmap K3 line flipped PLANNED to LANDED; no PNG, sw.js, migration or Go change in the diff. Diff: tests/states-marketing-stats.spec.js, tests/states-marketing-subscribers.spec.js, night-crew.toml, .night-crew/knowledge/roadmap.md, the merge-intent note and logs under .night-crew/runs/2026-10-07-autonomous/logs/states-screenshots-out-of-tree/. RAN AND OBSERVED (Playwright on :5434, TEST_PORT=8283, TEST_DB_NAME=hq_test_e2e_k3_20261007, --retries=0): (1) RED, 01-red.log: new static tests [SS-01] (stats) and [SS-02] (subscribers) added with the old hard-coded paths, both specs run: exit=1, '2 failed, 25 passed', the two failures are exactly [SS-01] and [SS-02]; the run modified 19 tracked PNGs (11 under h4/states, 8 under h5/states) — the spike's leg (a) reproduced in this worktree; PNGs then put back with git checkout before any edit. (2) GREEN, 02/03 logs: stats spec alone exit=0 '17 passed' (the 16 rows + [SS-01]); subscribers spec alone exit=0 '10 passed' (9 rows + [SS-02]); after each run git status --porcelain gained zero lines versus the listing taken just before it, and git diff --stat for h4/states and h5/states was empty; 23 and 13 PNGs landed in the ignored default dirs. Clean-tree clause caveat: proven as 'the run adds nothing to git status' in this loop-owned worktree (which necessarily carries the card's own uncommitted edits), not in a second fresh worktree — creating one would have meant working outside this checkout. (3) Confined marketing seam, 04 log: 'npx playwright test marketing' exit=0 '131 passed', all seven roll-call specs selected, git status unchanged by the run, h4/h5 diff --stat empty. (4) Override, 05 log: with STATES_SHOT_DIR set, 4 passed and the PNGs landed only in the override dir. (5) tests/repo-hygiene.spec.js (guards night-crew.toml): exit=0 '5 passed'. [SS-01]/[SS-02] check the DEFAULT directory (no tracked file under it, and gitignored), not the override, so a run that deliberately points STATES_SHOT_DIR at committed logs is not turned red. Stubs: this card adds none; the specs' existing page.route fixture rows are unchanged. SWEEP of tests/states-*.spec.js (06 log): no other spec writes under a tracked directory — states-marketing-campaigns already used test-screenshots/ + STATES_SHOT_DIR; states-cost, states-bi-hub, states-inventory-nav, states-trends and states-sync-rxdb-conflict-notice write under the ignored test-results/ (untracked, but wiped by Playwright each run — a durability gap, not a dirty-tree one; left alone and reported). Note for the operator: when STATES_SHOT_DIR is set, all three marketing states specs share that one directory; their file names do not collide today. NOT RUN, owed by the orchestrator: the full Playwright suite, the 10x/5x measurement leg, the sw.js regeneration and precache-count-51 check, G6 and the adversarial review. No park met.",
+          "team": "engineering"
+        },
+        {
+          "stage": "VERIFY",
+          "status": "completed",
+          "summary": "2 gate(s) passed under shell /usr/bin/sh (resolved)"
+        },
+        {
+          "stage": "REVIEW",
+          "status": "completed",
+          "summary": "review cycle exhausted after 2 lens round(s) with gates green: approved (re-file recommended)",
+          "team": "quality"
+        },
+        {
+          "stage": "COMMIT",
+          "status": "completed",
+          "summary": "45f42a4492278023ddd20ab428d2aa07bcff1102"
+        }
+      ],
+      "title": "WO: states-screenshots-out-of-tree — the states specs stop dirtying the tree",
+      "worktree": "/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/states-screenshots-out-of-tree",
+      "merge_commit": "c26dd02c71003a5a35202ce2a94145e56faaa7b0"
+    },
+    {
+      "path": "/home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/scanner-refusal-seam-and-pick-feedback.md",
+      "status": "completed",
+      "attempt": 1,
+      "closed_out_by_deadline": false,
+      "spend": 26.339295037799996,
+      "team_spend": [
+        {
+          "team": "engineering",
+          "spend": 11.79583987605
+        },
+        {
+          "team": "quality",
+          "spend": 14.4661883721
+        }
+      ],
+      "session_logs": [
+        "/home/jcole/projects/hq/.night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/session.log"
+      ],
+      "started_at": "2026-10-07T08:22:05.867647259Z",
+      "stages": [
+        {
+          "stage": "DEV",
+          "status": "completed",
+          "summary": "K4 scanner-refusal-seam-and-pick-feedback, built as narrowed by operator decision 214 (B-482 only — the refusal shown when the phone cannot read its campaign policy gets a page-level test; the B-483 photo-pick feedback line is NOT built and onFilePicked is untouched). Change: marketing/scan-page.js boot() now reads window.__MARKETING_POLICY_SOURCE__ before createCampaignPolicySource and uses it when it has a policyFor function (its unresolved() rides along when present; the attach call is guarded so an override without one does not break startSync), documented in the file header as a TEST-ONLY boot-time override set by page.addInitScript, never by product code. tests/marketing.spec.js gains one appended describe with [SV-12]: addInitScript installs a throwing policyFor, a low-value code + campaign are seeded locally, context.setOffline(true), scan via window.MarketingScan.scanText (NOT the 'Scan from photo' control) -\u003e the fail-closed refusal (\"Can't verify this campaign yet — try again in a moment.\", branch requires-online-unresolved) renders with no #ms-order, no Submit, no override; the post-submit belt also refuses; and a same-page control (the source answers instead of throwing) brings the offer and #ms-order back. RAN AND OBSERVED (Playwright on :5434, TEST_PORT=8284, TEST_DB_NAME=hq_test_e2e_k4_20261007, logs with commands and exit lines under .night-crew/runs/2026-10-07-autonomous/logs/scanner-refusal-seam-and-pick-feedback/): [SV-12] RED on the pre-change tree — 1 failed, exit 1, the offer rendered with the order-number field and Submit (the spike's leg b); [SV-12] GREEN with the change — 1 passed, exit 0; the whole of tests/marketing.spec.js --retries=0 — 71 passed, exit 0, none failed/flaky/skipped (covers [PS-01], [PS-02], [SV-01]-[SV-11], Scanner polish, Camera scanner; no existing test or helper edited). Diff greps: no '#scan-note' / 'note' field anywhere, nothing under marketing/submit-*.js, no new machine state/event/pair, no migration, no night-crew.toml key, no Go change (so no Go suite run), sw.js/version.json not in the diff. Stubs: only the sync door's page.route mock (permitted for this card) plus local seed fixtures; the throwing source is the test's input through the new override, and the refusal itself is produced by shipped submit-flow/machine/render code. Roadmap Activity K line flipped PLANNED -\u003e LANDED (the card's prose there still describes the withdrawn B-483 half — left as is, roadmap is append-only; orchestrator may want to annotate). Merge-intent note written first. NOT RUN, owed by the orchestrator on the merged tree: the full Playwright suite under the lock, the 10x/5x measurement leg, sw.js regeneration + the 51 precache count, G1, G6 (including its own [SV-12]-with-override-removed run). No park met.",
+          "team": "engineering"
+        },
+        {
+          "stage": "VERIFY",
+          "status": "completed",
+          "summary": "2 gate(s) passed under shell /usr/bin/sh (resolved)"
+        },
+        {
+          "stage": "REVIEW",
+          "status": "completed",
+          "summary": "review cycle exhausted after 2 lens round(s) with gates green: approved (re-file recommended)",
+          "team": "quality"
+        },
+        {
+          "stage": "COMMIT",
+          "status": "completed",
+          "summary": "cbf55980a84138880d27153241631ea93dc75239"
+        }
+      ],
+      "title": "WO: scanner-refusal-seam-and-pick-feedback — the throwing-policy refusal gets a page-level gate (photo-pick feedback withdrawn, decision 214)",
+      "worktree": "/home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/scanner-refusal-seam-and-pick-feedback",
+      "merge_commit": "d165a58989667d98cf4ba9e223b4ef2bee300b15"
+    }
+  ],
+  "e2e": {
+    "status": "failed",
+    "summary": "environment: activity error (type: CreateActivity, scheduledEventID: 283, startedEventID: 284, identity: night-crew-worker 22298@TheRealJCole dir=/home/jcole/projects/hq): env: create nc-env-20261007-e2e: env: docker [compose -f /home/jcole/projects/hq/.night-crew/runs/20261007/merge-worktree/docker-compose.nc.yml -p nc-env-20261007-e2e up -d --wait]: exit status 1\n Image nc-env-20261007-e2e-app Building \n#1 [internal] load local bake definitions\n#1 reading from stdin 600B done\n#1 DONE 0.0s\n\n#2 [internal] load build definition from Dockerfile\n#2 transferring dockerfile:\n#2 transferring dockerfile: 6.03kB 0.0s done\n#2 DONE 0.3s\n\n#3 [internal] load metadata for docker.io/library/golang:1.26-alpine\n#3 ...\n\n#4 [internal] load metadata for docker.io/library/alpine:3.20\n#4 DONE 0.2s\n\n#3 [internal] load metadata for docker.io/library/golang:1.26-alpine\n#3 ERROR: unable to lease content: lease does not exist: not found\n------\n \u003e [internal] load metadata for docker.io/library/golang:1.26-alpine:\n------\nDockerfile:11\n\n--------------------\n\n   9 |     \n\n  10 |     # ─── Build stage ──────────────────────────────────────────────────────────────\n\n  11 | \u003e\u003e\u003e FROM golang:1.26-alpine AS builder\n\n  12 |     \n\n  13 |     ARG GIT_SHA=unknown\n\n--------------------\n\nfailed to solve: golang:1.26-alpine: failed to resolve source metadata for docker.io/library/golang:1.26-alpine: unable to lease content: lease does not exist: not found\n\n (type: wrapError, retryable: true): env: docker [compose -f /home/jcole/projects/hq/.night-crew/runs/20261007/merge-worktree/docker-compose.nc.yml -p nc-env-20261007-e2e up -d --wait]: exit status 1\n Image nc-env-20261007-e2e-app Building \n#1 [internal] load local bake definitions\n#1 reading from stdin 600B done\n#1 DONE 0.0s\n\n#2 [internal] load build definition from Dockerfile\n#2 transferring dockerfile:\n#2 transferring dockerfile: 6.03kB 0.0s done\n#2 DONE 0.3s\n\n#3 [internal] load metadata for docker.io/library/golang:1.26-alpine\n#3 ...\n\n#4 [internal] load metadata for docker.io/library/alpine:3.20\n#4 DONE 0.2s\n\n#3 [internal] load metadata for docker.io/library/golang:1.26-alpine\n#3 ERROR: unable to lease content: lease does not exist: not found\n------\n \u003e [internal] load metadata for docker.io/library/golang:1.26-alpine:\n------\nDockerfile:11\n\n--------------------\n\n   9 |     \n\n  10 |     # ─── Build stage ──────────────────────────────────────────────────────────────\n\n  11 | \u003e\u003e\u003e FROM golang:1.26-alpine AS builder\n\n  12 |     \n\n  13 |     ARG GIT_SHA=unknown\n\n--------------------\n\nfailed to solve: golang:1.26-alpine: failed to resolve source metadata for docker.io/library/golang:1.26-alpine: unable to lease content: lease does not exist: not found\n\n (type: wrapError, retryable: true): exit status 1 (type: ExitError, retryable: true)",
+    "suite": "npx playwright test"
+  }
+}
+summary: /home/jcole/projects/hq/.night-crew/runs/20261007/summary.json
+work order /home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/inventory-setup-races.md: completed
+work order /home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/dish-merge-shapes-and-backstop-tests.md: completed
+work order /home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/states-screenshots-out-of-tree.md: completed
+work order /home/jcole/projects/hq/.night-crew/runs/2026-10-07-autonomous/dispatch/wo/scanner-refusal-seam-and-pick-feedback.md: completed
+RUN_EXIT=0

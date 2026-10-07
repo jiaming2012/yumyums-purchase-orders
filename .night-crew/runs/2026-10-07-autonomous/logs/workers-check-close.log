@@ -1,0 +1,4 @@
+  no pollers on any queue
+  the queues are clear — no worker from another checkout is polling
+  no pollers on any queue
+  the queues are clear — no worker from another checkout is polling

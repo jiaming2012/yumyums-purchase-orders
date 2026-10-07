@@ -1,0 +1,99 @@
+{"time":"2026-10-07T01:16:41.537309042-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+{"time":"2026-10-07T01:16:41.538256968-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+{"time":"2026-10-07T01:16:41.581457455-04:00","level":"INFO","msg":"connected to database"}
+{"time":"2026-10-07T01:16:41.682547115-04:00","level":"INFO","msg":"OK   0001_users.sql (57.27ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:41.745012594-04:00","level":"INFO","msg":"OK   0002_sessions.sql (61.01ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:41.791490497-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (46.19ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:41.851283522-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (59.1ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:41.931986915-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (73.89ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:41.971039507-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (38.89ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.006540419-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (35.25ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.042386962-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (35.71ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.064896514-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (22.39ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.092661261-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (27.54ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.146447664-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (53.62ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.200575964-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (53.98ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.239183609-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (38.49ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.276977315-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (37.67ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.336841493-04:00","level":"INFO","msg":"OK   0015_ops.sql (59.7ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.354503568-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (17.48ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.376103491-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (20.93ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.442927551-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (66.65ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.515663718-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (72.61ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.57026214-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (54.48ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.613042429-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (42.68ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.660138201-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (47ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.738865949-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (78.48ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:42.963426916-04:00","level":"INFO","msg":"OK   0024_inventory.sql (224.32ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.008746314-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (45.19ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.016918359-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.1ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.02379386-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (6.83ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.039812692-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (15.95ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.047526029-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (7.62ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.074822467-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (27.17ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.084688424-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (9.75ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.100078507-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (15.31ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.132364622-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (32.18ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.228823784-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (96.23ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.241877335-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.91ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.254452444-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.51ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.286561476-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (32.05ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.306444445-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (19.8ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.33175265-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (25.2ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.450602846-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (118.7ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.463076506-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.37ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.525493874-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (62.3ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.58178365-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (56.16ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.63093326-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (49.07ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.67903851-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (47.96ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.686661492-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.52ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.744240663-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (57.5ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.752830346-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (8.49ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.795988802-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (43.04ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.804707456-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.63ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.811741051-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (6.98ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.828387567-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.59ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.836459976-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.98ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.844145043-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.59ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.853126441-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (8.89ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.86969743-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.46ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.883566309-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (13.77ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.896766434-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.11ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.905571282-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (8.75ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:43.966682293-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (61.01ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.002113118-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (35.3ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.044190304-04:00","level":"INFO","msg":"OK   0062_recipes.sql (41.98ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.076481112-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (32.19ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.093170726-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (16.55ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.106496195-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (13.24ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.11983244-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.24ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.172315578-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (52.28ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.19833222-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (25.85ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.211825812-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.38ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.226446012-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (14.49ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.248236886-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.7ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.264079062-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.75ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.291069659-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (26.76ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.302222026-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.83ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.357297078-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (54.95ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.383101648-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (25.71ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.428292395-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (45.07ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.441961576-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (13.53ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.463934119-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (21.89ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.477518172-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (13.46ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.504414147-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (26.77ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.52176302-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (17.23ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.643508092-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (121.52ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.807657632-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (163.78ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.912255342-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (104.46ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:44.939346321-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (26.84ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:45.001677602-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (62.18ms)","source":"stdlog"}
+{"time":"2026-10-07T01:16:45.001720699-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 87","source":"stdlog"}
+{"time":"2026-10-07T01:16:45.001776917-04:00","level":"INFO","msg":"database migrations applied successfully"}
+{"time":"2026-10-07T01:16:45.086557478-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+{"time":"2026-10-07T01:16:45.126000932-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"c41e344c-9caf-40bb-b0c7-628d5bac6b57"}
+{"time":"2026-10-07T01:16:45.126046163-04:00","level":"INFO","msg":"seeded templates","count":1}
+{"time":"2026-10-07T01:16:45.169034915-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"741891c0-73b1-4f43-bf13-c7c34b2d187b"}
+{"time":"2026-10-07T01:16:45.19434306-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+{"time":"2026-10-07T01:16:45.283818845-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+{"time":"2026-10-07T01:16:45.425859703-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}

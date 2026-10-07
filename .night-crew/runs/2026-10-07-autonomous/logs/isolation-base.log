@@ -1,0 +1,241 @@
+[2m[WebServer] [22mNOTICE:  database "hq_test_e2e_iso_base_20261007" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_e2e_iso_base_20261007 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.10.2 ──
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.688401121-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.688858515-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.728507289-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.809632158-04:00","level":"INFO","msg":"OK   0001_users.sql (49.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.861349768-04:00","level":"INFO","msg":"OK   0002_sessions.sql (51.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.90242379-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (40.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.942801838-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (40.25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:27.997403671-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (54.47ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.028672945-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (31.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.06131569-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (32.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.10362128-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (42.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.137555426-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (33.81ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.171841694-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (34.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.216643722-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (44.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.277035065-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (60.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.31080732-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (33.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.343082601-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (32.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.39640403-04:00","level":"INFO","msg":"OK   0015_ops.sql (53.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.412107306-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (15.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.430469567-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (18.25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.491245733-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (60.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.565201179-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (73.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.617469938-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (52.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.668299865-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (50.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.713313222-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (44.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:28.781729989-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (68.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.010776379-04:00","level":"INFO","msg":"OK   0024_inventory.sql (228.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.055508318-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (44.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.064186413-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.071053838-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (6.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.084728085-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (13.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.091695015-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.115187884-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (23.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.12553343-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.138422529-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (12.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.164465686-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (25.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.220325005-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (55.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.236475043-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (16.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.25086379-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (14.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.291301571-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (40.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.314410631-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (22.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.33854703-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (24.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.459635391-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (120.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.473225309-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.538426774-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (65.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.589006921-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (50.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.644186904-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (55.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.693992591-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (49.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.702099514-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.767447941-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (65.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.774957827-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.820207497-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (45.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.829361747-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.838294861-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (8.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.859491606-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (20.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.867879519-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (8.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.876127952-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (8.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.883245158-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.898012797-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (14.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.911376983-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (13.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.927425484-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (15.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:29.936477876-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (8.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.003599032-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (66.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.036966742-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (33.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.086172613-04:00","level":"INFO","msg":"OK   0062_recipes.sql (49.09ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.118848269-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (32.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.134695193-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (15.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.147497078-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (12.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.16123556-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.219601666-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (58.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.244158856-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.257073179-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.271139252-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (13.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.293410151-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (22.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.309282406-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.334262738-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (24.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.345504801-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (11.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.397981871-04:00","level":"INFO","msg":"OK   0075_item_aliases.sql (52.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.426258947-04:00","level":"INFO","msg":"OK   0076_checklist_template_app.sql (28.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.469121858-04:00","level":"INFO","msg":"OK   0077_race_lost_notifications.sql (42.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.482653099-04:00","level":"INFO","msg":"OK   0078_card_holder_on_purchases.sql (13.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.507923078-04:00","level":"INFO","msg":"OK   0079_pending_purchases_retry_requested.sql (25.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.522252826-04:00","level":"INFO","msg":"OK   0080_receipt_sync_runs_cancelled.sql (14.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.547530074-04:00","level":"INFO","msg":"OK   0081_item_alias_display.sql (25.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.564657111-04:00","level":"INFO","msg":"OK   0082_bi_grants.sql (16.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.682748635-04:00","level":"INFO","msg":"OK   0083_campaigns_admin.sql (117.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.818835284-04:00","level":"INFO","msg":"OK   0084_toast_orders_reconciliation.sql (135.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.925664438-04:00","level":"INFO","msg":"OK   0085_subscribers.sql (106.59ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:30.953539748-04:00","level":"INFO","msg":"OK   0086_merge_repoint_and_erasure_backstop.sql (27.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.008453812-04:00","level":"INFO","msg":"OK   0087_qr_scans_dedupe_bucket.sql (54.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.008499557-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 87","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.008516871-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.093955398-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.137220288-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"dd884185-300d-4dd5-b89b-be41ddce9335"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.137293716-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.174893272-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"bc2b70e7-ef33-4e67-942c-7cd154ed0aee"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.201527801-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.287760026-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.433596252-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.940371614-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.940488114-04:00","level":"WARN","msg":"object storage env vars not set, photo and video upload endpoints will return 503","required":"STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.941188506-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.941329802-04:00","level":"INFO","msg":"marketing campaign projection not configured; campaigns will save with projected_at NULL and warnings:[\"not_projected\"]","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.941383243-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.944443352-04:00","level":"INFO","msg":"redemption arbiter not configured; POST /api/v1/marketing/redeem answers 503","missing":"HQ_SYNC_REST_URL and/or HQ_SYNC_SERVICE_KEY"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.94469153-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.944766026-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.944788685-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.944808351-04:00","level":"INFO","msg":"scan-attempts mirror disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.944828551-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.945028846-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.968828464-04:00","level":"INFO","msg":"server listening","port":"8275"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.979074397-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8275"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.979120783-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8275"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.979131043-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8275"}
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:31.979144831-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 25 tests using 1 worker
+
+  ✓   1 [chromium] › tests/inventory.spec.js:2112:3 › Inventory › alias auto-matches receipt line in review form (1.6s)
+  ✓   2 [chromium] › tests/onboarding.spec.js:696:3 › Manager tab › sign-off form requires readiness rating (notes optional) (4.7s)
+  ✓   3 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:45.080483019-04:00","level":"ERROR","msg":"UpdateRecipe","error":"ERROR: invalid input syntax for type uuid: \"synthetic-recipe-id\" (SQLSTATE 22P02)"}
+  ✓   4 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.3s)
+  ✓   5 [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab (474ms)
+  ✓   6 [chromium] › tests/inventory.spec.js:2112:3 › Inventory › alias auto-matches receipt line in review form (1.4s)
+  ✓   7 [chromium] › tests/onboarding.spec.js:696:3 › Manager tab › sign-off form requires readiness rating (notes optional) (4.7s)
+  ✓   8 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.9s)
+[2m[WebServer] [22m{"time":"2026-10-07T06:11:55.799233969-04:00","level":"ERROR","msg":"UpdateRecipe","error":"ERROR: invalid input syntax for type uuid: \"synthetic-recipe-id\" (SQLSTATE 22P02)"}
+  ✓   9 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.2s)
+  ✘  10 [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab (5.5s)
+  ✓  11 [chromium] › tests/inventory.spec.js:2112:3 › Inventory › alias auto-matches receipt line in review form (1.4s)
+  ✓  12 [chromium] › tests/onboarding.spec.js:696:3 › Manager tab › sign-off form requires readiness rating (notes optional) (4.7s)
+  ✓  13 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.8s)
+[2m[WebServer] [22m{"time":"2026-10-07T06:12:13.497156705-04:00","level":"ERROR","msg":"UpdateRecipe","error":"ERROR: invalid input syntax for type uuid: \"synthetic-recipe-id\" (SQLSTATE 22P02)"}
+  ✓  14 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.2s)
+  ✘  15 [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab (5.5s)
+  ✓  16 [chromium] › tests/inventory.spec.js:2112:3 › Inventory › alias auto-matches receipt line in review form (1.5s)
+  ✓  17 [chromium] › tests/onboarding.spec.js:696:3 › Manager tab › sign-off form requires readiness rating (notes optional) (4.8s)
+  ✓  18 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.8s)
+[2m[WebServer] [22m{"time":"2026-10-07T06:12:29.535973172-04:00","level":"ERROR","msg":"UpdateRecipe","error":"ERROR: invalid input syntax for type uuid: \"synthetic-recipe-id\" (SQLSTATE 22P02)"}
+  ✓  19 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.2s)
+  ✓  20 [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab (482ms)
+  ✓  21 [chromium] › tests/inventory.spec.js:2112:3 › Inventory › alias auto-matches receipt line in review form (1.5s)
+  ✓  22 [chromium] › tests/onboarding.spec.js:696:3 › Manager tab › sign-off form requires readiness rating (notes optional) (4.7s)
+  ✓  23 [chromium] › tests/onboarding.spec.js:2233:3 › Reject and unsubmit sections › manager can reject a signed-off section (2.8s)
+[2m[WebServer] [22m{"time":"2026-10-07T06:12:42.38638469-04:00","level":"ERROR","msg":"UpdateRecipe","error":"ERROR: invalid input syntax for type uuid: \"synthetic-recipe-id\" (SQLSTATE 22P02)"}
+  ✓  24 [chromium] › tests/recipes.spec.js:216:3 › Recipes tab — E2E › slider release fires PUT /api/v1/inventory/recipes/{id} with usage_pct in body (1.2s)
+  ✘  25 [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab (5.5s)
+
+
+  1) [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('#s1')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s1')[22m
+    [2m    9 × locator resolved to <div id="s1">…</div>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      291 |     await login(page);
+      292 |     await page.goto('/purchasing.html#tab=0');
+    > 293 |     await expect(page.locator('#s1')).toBeVisible();
+          |                                       ^
+      294 |     await expect(page.locator('#t1')).toHaveClass(/on/);
+      295 |   });
+      296 |
+        at /home/jcole/projects/hq-worktrees/base-20261007/tests/states-inventory-nav.spec.js:293:39
+
+    Error Context: test-results/states-inventory-nav-Inven-7e48d--still-paints-its-first-tab-chromium-repeat1/error-context.md
+
+  2) [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveClass[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#t1')
+    Expected pattern: [32m/on/[39m
+    Received string:  [31m""[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveClass" with timeout 5000ms[22m
+    [2m  - waiting for locator('#t1')[22m
+    [2m    9 × locator resolved to <button id="t1" class="" data-tab="1" data-action="tab">Order</button>[22m
+    [2m      - unexpected value ""[22m
+
+
+      292 |     await page.goto('/purchasing.html#tab=0');
+      293 |     await expect(page.locator('#s1')).toBeVisible();
+    > 294 |     await expect(page.locator('#t1')).toHaveClass(/on/);
+          |                                       ^
+      295 |   });
+      296 |
+      297 |   test('Edge: the hub is painted before boot — no Receipts flash while /me hangs', async ({ page }) => {
+        at /home/jcole/projects/hq-worktrees/base-20261007/tests/states-inventory-nav.spec.js:294:39
+
+    Error Context: test-results/states-inventory-nav-Inven-7e48d--still-paints-its-first-tab-chromium-repeat2/error-context.md
+
+  3) [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator:  locator('#s1')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('#s1')[22m
+    [2m    9 × locator resolved to <div id="s1">…</div>[22m
+    [2m      - unexpected value "hidden"[22m
+
+
+      291 |     await login(page);
+      292 |     await page.goto('/purchasing.html#tab=0');
+    > 293 |     await expect(page.locator('#s1')).toBeVisible();
+          |                                       ^
+      294 |     await expect(page.locator('#t1')).toHaveClass(/on/);
+      295 |   });
+      296 |
+        at /home/jcole/projects/hq-worktrees/base-20261007/tests/states-inventory-nav.spec.js:293:39
+
+    Error Context: test-results/states-inventory-nav-Inven-7e48d--still-paints-its-first-tab-chromium-repeat4/error-context.md
+
+  3 failed
+    [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+    [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+    [chromium] › tests/states-inventory-nav.spec.js:288:3 › Inventory hub — B-455 WO-2a state table › Edge: #tab=0 on a page without a hub still paints its first tab 
+  22 passed (3.7m)
+EXIT_ISO_base=1
