@@ -5415,3 +5415,43 @@ window (brightness, glare, a cracked screen), and any device other than this iPh
 - Evidence: Real at the margins: the override is used as typed, so a relative value lands under whatever directory Playwright was started from, and a literal `~/shots` or a single space creates a stray folder instead of falling back to the default. The expression is the one the work order prescribed word for word and tests/states-marketing-campaigns.spec.js:49 already had it before this card; the only uses so far pass an absolute path, so nothing fails tonight — resolve-against-repo-root and trim should be done once for all three specs in the same follow-up work order as the shared-override entries.
 - Artifacts: .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/states-screenshots-out-of-tree/attempt-1/review/cycle-2/triage/verdicts.json
 - Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T08:37:18Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: Production boot swaps the fail-closed campaign policy for any object found on a writable global, with no environment guard
+- Severity: minor
+- Evidence: Real but not tonight's: the work order spelled out this exact check (use the global whenever it carries a policyFor function) and asked for no environment guard, so the change is as specified. Evidence for its own card: marketing/scan-page.js:359-362 (the `policyOverride` read of `window.__MARKETING_POLICY_SOURCE__` in `boot()`, normalised by `adoptPolicyOverride` at :314) honours the global on every origin and :429 (the `typeof campaignPolicy.attach === 'function'` guard in `startSync`) then skips the replica error latch, while marketing/submit-flow.js:815-818 (setCampaignPolicy, already shipped) gives any in-page script the same power after boot — so the new exposure is only the pre-boot window; whether the scanner's refusal rule should have test doors closed on the production origin is a hardening card covering both doors.
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c1/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:37:18Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: The "test-only" policy override is honoured on every device, with no test-environment guard, and it replaces the fail-closed source wholesale
+- Severity: minor
+- Evidence: Same root cause as adversarial/1: the unguarded read at marketing/scan-page.js:359-362 (the `policyOverride` read of `window.__MARKETING_POLICY_SOURCE__` in `boot()`; the replica error latch is skipped at :429, the `typeof campaignPolicy.attach === 'function'` guard in `startSync`) is what the work order specified, and marketing/submit-flow.js:815-818 already lets page script replace the policy after boot. Deferred with that evidence to one hardening card for both test doors (guard them off the production origin, and keep the replica error latch attached when an override is present).
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/adversarial/3
+- Status: open
+- Opened: 2026-10-07T08:43:23Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: The bind and attach-passthrough rules the header promises have no test; only the two defaults do
+- Severity: minor
+- Evidence: Real coverage gap, not a failure tonight: adoptPolicyOverride in marketing/scan-page.js binds policyFor to the override and carries attach through, but [SV-12] installs an arrow-function source with no attach, so only the unresolved/nameFor defaults are asserted and removing either `.bind(src)` or the attach passthrough leaves every test green. No spec in the tree installs a `this`-using or attach-carrying source, and rewriting [SV-12] now would detach it from its saved red-first evidence; the assertions belong in the already-deferred hardening card for the scanner's test doors (ledger entry 'Production boot swaps the fail-closed campaign policy for any object found on a writable global').
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/adversarial/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/scanner-refusal-seam-and-pick-feedback/a1/c2/edge-case/1
+- Status: open
+- Opened: 2026-10-07T08:43:23Z
+- Work order: scanner-refusal-seam-and-pick-feedback
+- Finding: An override whose attach() throws silently stops the codes and offers replicas from ever starting
+- Severity: minor
+- Evidence: Real at the margins, and only reachable by a future test: startSync in marketing/scan-page.js calls the override's attach synchronously before the codes and offers replicas start, and the boot call site swallows a startSync rejection (`startSync(sc).catch(() => {})`), so an override whose attach throws would leave the scanner unsynced with nothing on screen saying why. No spec in the tree installs an attach, and whether a throwing test hook should be swallowed (as the shipped source does) or surfaced is a design choice for the same deferred hardening card that already covers keeping the replica error latch attached under an override.
+- Artifacts: .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/scanner-refusal-seam-and-pick-feedback/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record

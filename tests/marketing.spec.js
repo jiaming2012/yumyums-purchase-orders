@@ -2998,3 +2998,131 @@ test.describe('Photo scan guard + lookup arms (card photo-scan-guard-and-lookup-
     expect(out.healthyTrue).toBe(true);
   });
 });
+
+// ── card scanner-refusal-seam-and-pick-feedback (roadmap K4, run 20261007) ───
+//
+// [SV-12] — B-482. [SV-11] above proves the fail-closed PREDICATE under a
+// throwing policy source by asking the shipped functions directly; nothing
+// proved the SCREEN. submit-flow.js captures `policyFor` once at boot, so
+// patching MS.campaignPolicy.policyFor afterwards is inert (spike 01, leg b —
+// `offerReady` with and without the patch). The seam that DOES reach the
+// refusal after boot — MarketingSubmit.setCampaignPolicy, used by the specs
+// above — is deliberately not used here: the slate forbade it for this proof
+// (B-482), because it swaps the function inside submit-flow.js and never
+// exercises the shipped wiring (scan-page.js creates the source, submit-flow
+// captures it at boot). This drives the refusal through that wiring instead:
+// `window.__MARKETING_POLICY_SOURCE__`, read by scan-page.js where the policy
+// source is created, set here by page.addInitScript before any module runs.
+//
+// (The other half of the signed card — a line of feedback after a refused
+// photo pick, B-483 — was withdrawn by the operator: "Scan from photo" is
+// being removed. Nothing here touches or depends on that control: the scan is
+// driven through window.MarketingScan.scanText.)
+//
+// RED-FIRST: on the pre-change tree the override is not read, the real policy
+// source answers "offline-eligible" for the seeded campaign, and the offer
+// renders with its order-number field. Evidence:
+// .night-crew/runs/2026-10-07-autonomous/logs/scanner-refusal-seam-and-pick-feedback/
+//
+// WHAT IS STUBBED, AND WHAT IS NOT:
+//   the STACK   🟡 the sync door, at the network layer — mockSyncTransports,
+//               exactly as every [SV-*] spec above (the Playwright stack has
+//               no sync substrate). It serves the LOW campaign row.
+//   the SOURCE  the throwing policy source is this test's INPUT, the
+//               condition under test — not a stub of the behaviour. What it
+//               produces is all shipped code: submit-flow.js's policyFor
+//               catch arm, the submit machine, and the gate render.
+//   OFFLINE     ⚪ un-stubbed: context.setOffline(true), then the page's own
+//               reachability probe is asked to look again.
+test.describe('Refusal seam (card scanner-refusal-seam-and-pick-feedback, roadmap K4)', () => {
+
+  test('[SV-12] a THROWING policy source, installed at boot, renders the fail-closed refusal through the page for an offline scan of a held low-value code — no order-number field, no override', async ({ page }) => {
+    const LOW = 'a0000000-0000-4000-8000-000000000001';
+    await page.addInitScript(() => {
+      window.__SV12 = { asked: [], mode: 'throw' };
+      window.__MARKETING_POLICY_SOURCE__ = {
+        policyFor: (id) => {
+          window.__SV12.asked.push(id === undefined ? 'undefined' : id);
+          if (window.__SV12.mode === 'throw') throw new Error('policy source is down');
+          return { requiresOnline: false, unresolved: false };
+        },
+      };
+    });
+    await openProvisionedScanner(page); // admin — the override entitlement is HELD
+    const calls = await mockRedeem(page);
+    // An ordinary, offline-eligible code: campaign …0001, requires_online=false,
+    // held in all three local replicas. With a healthy source this scan is an
+    // offer ([SP-01b] and the control leg below).
+    await seedLocal(page, {
+      offers: [fixture1Row()], codes: [fixture1Row()], campaigns: [campaignLowRow()],
+    });
+
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.MarketingSubmit.probeNow());
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'offline');
+
+    // ONE action: the scan.
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+
+    // The refusal, on screen, in the words the crew member reads.
+    const gate = page.locator('#ms-gate');
+    await expect(gate, 'the fail-closed refusal renders — "could not tell" is not permission').toBeVisible();
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(gate.locator('.ms-gate-head')).toHaveText("Can't verify this campaign yet — try again in a moment.");
+    await expect(gate).toContainText('there is no offline override');
+    await expect(page.locator('#ms-order'), 'no order-# field on a refused scan').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]'), 'no Submit on a refused scan').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]'), 'no override, entitlement or not').toHaveCount(0);
+
+    // The refusal is the THROW's: the page's source is the installed one, and
+    // it was asked about this code's campaign. scan-page hands on a
+    // NORMALISED copy of the override (bound policyFor, defaulted
+    // unresolved/nameFor), so this is proven by behaviour, not identity: a
+    // call through the page's source lands in the installed policyFor, and
+    // the two methods this override lacks answer their stated defaults.
+    const seam = await page.evaluate(() => {
+      const src = window.MarketingScan.campaignPolicy;
+      const asked = window.__SV12.asked.slice();
+      let probeThrew = false;
+      try { src.policyFor('sv12-probe'); } catch (e) { probeThrew = true; }
+      return {
+        asked,
+        probeReached: window.__SV12.asked.includes('sv12-probe'),
+        probeThrew,
+        unresolved: src.unresolved(),
+        name: src.nameFor('a0000000-0000-4000-8000-000000000001'),
+      };
+    });
+    expect(seam.probeReached, 'scan-page handed the boot-time source to the submit flow').toBe(true);
+    expect(seam.probeThrew, 'the throw is the installed source\'s own').toBe(true);
+    expect(seam.unresolved, 'a missing unresolved() defaults to false, not to a swallowed TypeError').toBe(false);
+    expect(seam.name, 'a missing nameFor() defaults to null').toBe(null);
+    expect(seam.asked).toContain(LOW);
+
+    // THE BELT: the post-submit guard refuses too. ORDER_OK then SUBMIT are
+    // DECLARED pairs ([SP-01]'s drive) — no new pair exists to trip.
+    await page.evaluate(() => {
+      window.MarketingSubmit.machine.send('ORDER_OK');
+      window.MarketingSubmit.machine.send('SUBMIT');
+    });
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'blockedOffline');
+    await expect(page.locator('#ms-gate')).toHaveAttribute('data-branch', 'requires-online-unresolved');
+    await expect(page.locator('#ms-order')).toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]')).toHaveCount(0);
+    await expect(page.locator('#ms-unexpected'), 'no undeclared pair').toHaveCount(0);
+    expect(await page.evaluate(() => window.MarketingSubmit.machine.alive())).toBe(true);
+    expect(calls.length, 'nothing posted').toBe(0);
+
+    // CONTROL — the same page, the same captured function, the same code,
+    // still offline: once the source ANSWERS, it is believed and the offer
+    // comes back with its order-# field. The refusal above is the catch arm's,
+    // not something the override switches on by merely being present.
+    await page.evaluate(() => { window.__SV12.mode = 'healthy'; });
+    await page.click('[data-action="scan-again"]');
+    await scanText(page, FIXTURE_1_PAYLOAD);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+    await expect(page.locator('#ms-order'), 'a source that answers "offline-eligible" is believed').toBeVisible();
+    await expect(page.locator('#ms-gate')).toHaveCount(0);
+  });
+});

@@ -1321,7 +1321,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### scanner-refusal-seam-and-pick-feedback
 
-- `scanner-refusal-seam-and-pick-feedback` · **PLANNED** · (K4, track A, after K1 — **B-482**,
+- `scanner-refusal-seam-and-pick-feedback` · **LANDED** · (K4, track A, after K1 — **B-482**,
   **B-483**) Today a photo picked while the scanner is checking a code is dropped by the J1 guard
   with no feedback of its own — the result area keeps saying "Checking with the server…" and a
   photo picked while an earlier photo decodes shows nothing at all (B-483); and the refusal
@@ -1344,6 +1344,13 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
   `marketing/scan-page.js`, `tests/marketing.spec.js`, `sw.js` (regenerated, 51);
   `marketing/submit-flow.js` only if the override must be read there (expected untouched —
   stated). **No `backend/` file.** BACKLOG B-482 / B-483 `promoted → scanner-refusal-seam-and-pick-feedback`.
+  - **Addendum (run `20261007`, appended — the signed text above is unchanged):** only the B-482
+    half landed — the fail-closed refusal under a throwing policy source is rendered through the
+    page (`[SV-12]`, via the test-only `window.__MARKETING_POLICY_SOURCE__` boot-time override).
+    The B-483 half — the "Finish checking this code first, then pick again" line after a refused
+    photo pick, `#scan-note`, and `[PS-03]` — was **withdrawn and not built** (ledger decision 214:
+    the signed slate `20261007` loses half of one card, because "Scan from photo" is being
+    removed). A refused photo pick still shows no feedback of its own.
 
 
 ---
