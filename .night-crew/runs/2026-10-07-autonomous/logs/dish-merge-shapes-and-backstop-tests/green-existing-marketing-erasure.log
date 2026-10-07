@@ -1,0 +1,42 @@
+# 2026-10-07T06:57:26Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/marketing -run 'TestSubscriberDeleteCascadesTimelineAndBlanksScans|TestCodeDeleteBlanksFirstTouch|TestScannedCodeDeleteIsRefused|TestMigration0086' -count=1 -v
+2026/10/07 02:57:27 goose: no migrations to run. current version: 87
+2026/10/07 02:57:27 INFO database migrations applied successfully
+=== RUN   TestSubscriberDeleteCascadesTimelineAndBlanksScans
+--- PASS: TestSubscriberDeleteCascadesTimelineAndBlanksScans (0.29s)
+=== RUN   TestCodeDeleteBlanksFirstTouch
+--- PASS: TestCodeDeleteBlanksFirstTouch (0.24s)
+=== RUN   TestScannedCodeDeleteIsRefused
+--- PASS: TestScannedCodeDeleteIsRefused (0.25s)
+=== RUN   TestMigration0086ErasureBackstopDownAndUpRoundTrip
+2026/10/07 02:57:28 goose: no migrations to run. current version: 87
+2026/10/07 02:57:28 INFO database migrations applied successfully
+2026/10/07 02:57:28 OK   0087_qr_scans_dedupe_bucket.sql (19.68ms)
+2026/10/07 02:57:28 OK   0086_merge_repoint_and_erasure_backstop.sql (28.81ms)
+2026/10/07 02:57:28 goose: no migrations to run. current version: 85
+2026/10/07 02:57:28 OK   0086_merge_repoint_and_erasure_backstop.sql (23.09ms)
+2026/10/07 02:57:28 OK   0087_qr_scans_dedupe_bucket.sql (61.28ms)
+2026/10/07 02:57:28 goose: successfully migrated database to version: 87
+2026/10/07 02:57:28 INFO database migrations applied successfully
+    erasure_test.go:325: migration 86 Down/Up round-trip clean; schema restored to HEAD (not to a literal)
+2026/10/07 02:57:28 goose: no migrations to run. current version: 87
+2026/10/07 02:57:28 INFO database migrations applied successfully
+--- PASS: TestMigration0086ErasureBackstopDownAndUpRoundTrip (0.16s)
+=== RUN   TestMigration0086BlanksDanglingScanReferences
+2026/10/07 02:57:28 goose: no migrations to run. current version: 87
+2026/10/07 02:57:28 INFO database migrations applied successfully
+2026/10/07 02:57:28 OK   0087_qr_scans_dedupe_bucket.sql (16ms)
+2026/10/07 02:57:29 OK   0086_merge_repoint_and_erasure_backstop.sql (30.1ms)
+2026/10/07 02:57:29 goose: no migrations to run. current version: 85
+2026/10/07 02:57:29 OK   0086_merge_repoint_and_erasure_backstop.sql (20.22ms)
+2026/10/07 02:57:29 OK   0087_qr_scans_dedupe_bucket.sql (57.1ms)
+2026/10/07 02:57:29 goose: successfully migrated database to version: 87
+2026/10/07 02:57:29 INFO database migrations applied successfully
+2026/10/07 02:57:29 goose: no migrations to run. current version: 87
+2026/10/07 02:57:29 INFO database migrations applied successfully
+--- PASS: TestMigration0086BlanksDanglingScanReferences (0.61s)
+=== RUN   TestMigration0086DishDeleteBlanksCampaignAndCode
+--- PASS: TestMigration0086DishDeleteBlanksCampaignAndCode (0.27s)
+PASS
+ok  	github.com/yumyums/hq/internal/marketing	1.857s
+# exit=0 pass=6 fail=0 skip=0

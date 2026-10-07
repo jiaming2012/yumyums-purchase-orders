@@ -1,0 +1,18 @@
+# confined seam (inventory|recipes) on the K2 working tree — 252 passed / 15 failed / 1 skipped (15.2m), playwright exit=1
+# The 15 reds, each also red in the earlier card's confined seam on this same base tree (logs/inventory-setup-races/confined-seam.log, 16 reds — these 15 + FR-11):
+[chromium] › tests/inventory.spec.js › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge
+[chromium] › tests/inventory.spec.js › Inventory › Retry parse is offered on a pending row with no parse_error and no items
+[chromium] › tests/inventory.spec.js › Inventory › a cancelled run reports what it finished, not just that it stopped
+[chromium] › tests/inventory.spec.js › Inventory › a parse failure states its cause instead of only that it failed
+[chromium] › tests/inventory.spec.js › Inventory › a parse failure with no recorded cause says so rather than standing bare
+[chromium] › tests/inventory.spec.js › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload
+[chromium] › tests/inventory.spec.js › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel
+[chromium] › tests/inventory.spec.js › Inventory › a running sync shows elapsed time that actually advances
+[chromium] › tests/inventory.spec.js › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth
+[chromium] › tests/inventory.spec.js › Inventory › a transient failure is still described in words
+[chromium] › tests/inventory.spec.js › Inventory › back link navigates to HQ ────────────
+[chromium] › tests/inventory.spec.js › Inventory › cancelling asks first, and backing out does not cancel
+[chromium] › tests/inventory.spec.js › Inventory › confirming posts the cancel ──────────
+[chromium] › tests/inventory.spec.js › Inventory › line items from a failed parse pre-fill the review form
+[chromium] › tests/inventory.spec.js › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab
+# in mine and NOT in that log: 0

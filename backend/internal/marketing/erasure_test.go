@@ -417,3 +417,57 @@ func TestMigration0086BlanksDanglingScanReferences(t *testing.T) {
 	assertFKActions(t, "after the migration", fkDeleteActions(t, pool),
 		map[string]string{"qr_scans_subscriber_id_fkey": "n", "qr_scans_short_fkey": "a"})
 }
+
+// Card K2 (BACKLOG B-487): the dish half of 0086's backstop, by behaviour.
+// The round-trip test above reads pg_constraint; nothing deleted a dish and
+// read the blanks back. A dish merge RE-POINTS campaigns and codes
+// (internal/recipes), so this is the path that fires only when something
+// deletes a dish without re-pointing: the campaign and the code that named it
+// must both survive, each with item_id NULL — never a 23503, never a lost row.
+func TestMigration0086DishDeleteBlanksCampaignAndCode(t *testing.T) {
+	pool := setupTestDB(t)
+	ctx := context.Background()
+	uid := seedUser(t, pool, "manager")
+	dish := seedMenuItem(t, pool, "Doomed Dish "+randSuffix(t))
+
+	var campaignID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO campaigns_admin (id, slug, name, offer_text, face_value_cents, requires_online, item_id, ends_at, created_by)
+		VALUES (gen_random_uuid(), $1, 'Dish Delete Test', '$2 off', 200, false, $2, now() + interval '7 days', $3)
+		RETURNING id::text`, "dish-delete-"+randSuffix(t), dish, uid).Scan(&campaignID); err != nil {
+		t.Fatalf("seed campaign: %v", err)
+	}
+	const short = "K2DSH2"
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO qr_codes (short, campaign_id, channel, item_id, created_by)
+		VALUES ($1, $2, 'flyer', $3, $4)`, short, campaignID, dish, uid); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	// The fixture is what the test says it is: both rows name the dish.
+	if n := countWhere(t, pool, "campaigns_admin", "id = $1 AND item_id = $2", campaignID, dish); n != 1 {
+		t.Fatalf("fixture: %d campaigns name the dish, want 1", n)
+	}
+	if n := countWhere(t, pool, "qr_codes", "short = $1 AND item_id = $2", short, dish); n != 1 {
+		t.Fatalf("fixture: %d codes name the dish, want 1", n)
+	}
+
+	if _, err := pool.Exec(ctx, `DELETE FROM menu_items WHERE id = $1`, dish); err != nil {
+		t.Fatalf("DELETE the dish a campaign and a code name: %v — 0086 should blank both references and let it go", err)
+	}
+	if n := countWhere(t, pool, "menu_items", "id = $1", dish); n != 0 {
+		t.Fatalf("the dish has %d rows after its delete, want 0", n)
+	}
+
+	if n := countWhere(t, pool, "campaigns_admin", "id = $1", campaignID); n != 1 {
+		t.Errorf("the campaign has %d rows after its dish was deleted, want 1 (it must survive)", n)
+	}
+	if n := countWhere(t, pool, "campaigns_admin", "id = $1 AND item_id IS NULL", campaignID); n != 1 {
+		t.Errorf("campaigns_admin.item_id is not NULL after its dish was deleted")
+	}
+	if n := countWhere(t, pool, "qr_codes", "short = $1", short); n != 1 {
+		t.Errorf("the code has %d rows after its dish was deleted, want 1 (it must survive)", n)
+	}
+	if n := countWhere(t, pool, "qr_codes", "short = $1 AND item_id IS NULL", short); n != 1 {
+		t.Errorf("qr_codes.item_id is not NULL after its dish was deleted")
+	}
+}

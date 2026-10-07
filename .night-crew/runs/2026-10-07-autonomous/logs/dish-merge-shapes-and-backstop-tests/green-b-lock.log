@@ -1,0 +1,8 @@
+# 2026-10-07T06:56:17Z · tree: d9a2234 + working tree · db: postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable
+# $ cd backend && DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go_k2?sslmode=disable go test ./internal/recipes -run 'TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete' -count=1 -v
+=== RUN   TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete
+    repository_test.go:692: K2-lock: delete blocked until the merge committed; merge rows=1; delete err=<nil>; target rows=0 recipe dish=NULL
+--- PASS: TestMergeMenuItem_LockHoldsAgainstConcurrentTargetDelete (0.76s)
+PASS
+ok  	github.com/yumyums/hq/internal/recipes	0.770s
+# exit=0 pass=1 fail=0 skip=0
