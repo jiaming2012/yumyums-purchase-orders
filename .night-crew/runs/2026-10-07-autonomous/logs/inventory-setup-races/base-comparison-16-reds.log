@@ -1,0 +1,49 @@
+# BASE COMPARISON for the confined seam run's 16 reds — card inventory-setup-races, 2026-10-07
+# The 16 tests that failed in confined-seam.log were re-run ALONE, by file:line, twice: once on this card's tree and once with
+# inventory.html swapped back to HEAD (c549c51, 'git show HEAD:inventory.html'), then restored (cmp-identical).
+# command (both legs): npx playwright test tests/inventory.spec.js:949 :955 :961 :969 :982 :993 :1008 :1025 :1288 :1296 :1313 :1325 :1346 :3685 :4550 :4731 --retries=0 --reporter=list
+# env: TEST_PORT=8281 TEST_DB_NAME=hq_test_e2e_k1_20261007 DB_PORT=5434 DB_USER=hqtest
+
+## leg 1 — this card's tree (exit 1)
+  ✘   1 [chromium] › tests/inventory.spec.js:949:3 › Inventory › a parse failure states its cause instead of only that it failed (6.4s)
+  ✘   2 [chromium] › tests/inventory.spec.js:955:3 › Inventory › a parse failure with no recorded cause says so rather than standing bare (6.3s)
+  ✘   3 [chromium] › tests/inventory.spec.js:961:3 › Inventory › Retry parse is offered on a pending row with no parse_error and no items (6.3s)
+  ✘   4 [chromium] › tests/inventory.spec.js:969:3 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth (6.2s)
+  ✘   5 [chromium] › tests/inventory.spec.js:982:3 › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload (6.4s)
+  ✘   6 [chromium] › tests/inventory.spec.js:993:3 › Inventory › line items from a failed parse pre-fill the review form (30.1s)
+  ✘   7 [chromium] › tests/inventory.spec.js:1008:3 › Inventory › a transient failure is still described in words (6.2s)
+  ✘   8 [chromium] › tests/inventory.spec.js:1025:3 › Inventory › a running sync shows elapsed time that actually advances (6.2s)
+  ✘   9 [chromium] › tests/inventory.spec.js:1288:3 › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel (6.2s)
+  ✘  10 [chromium] › tests/inventory.spec.js:1296:3 › Inventory › cancelling asks first, and backing out does not cancel (6.2s)
+  ✘  11 [chromium] › tests/inventory.spec.js:1313:3 › Inventory › confirming posts the cancel (6.2s)
+  ✘  12 [chromium] › tests/inventory.spec.js:1325:3 › Inventory › a cancelled run reports what it finished, not just that it stopped (6.2s)
+  ✘  13 [chromium] › tests/inventory.spec.js:1346:3 › Inventory › back link navigates to HQ (6.1s)
+  ✘  14 [chromium] › tests/inventory.spec.js:3685:3 › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab (30.1s)
+  ✘  15 [chromium] › tests/inventory.spec.js:4550:3 › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge (30.1s)
+  ✓  16 [chromium] › tests/inventory.spec.js:4731:3 › Inventory prove sweep — Purchases › FR-11: vendor filter + pagination work against a real seed (2.7s)
+  15 failed
+  1 passed (5.6m)
+
+## leg 2 — unchanged page, inventory.html at HEAD (exit 1)
+  ✘   1 [chromium] › tests/inventory.spec.js:949:3 › Inventory › a parse failure states its cause instead of only that it failed (6.3s)
+  ✘   2 [chromium] › tests/inventory.spec.js:955:3 › Inventory › a parse failure with no recorded cause says so rather than standing bare (6.2s)
+  ✘   3 [chromium] › tests/inventory.spec.js:961:3 › Inventory › Retry parse is offered on a pending row with no parse_error and no items (6.2s)
+  ✘   4 [chromium] › tests/inventory.spec.js:969:3 › Inventory › a stale re-parse flag on a row with a stored receipt is not a nag — the button is the truth (6.2s)
+  ✘   5 [chromium] › tests/inventory.spec.js:982:3 › Inventory › a queued re-parse on a row with no stored receipt says when it will run, and survives a reload (6.2s)
+  ✘   6 [chromium] › tests/inventory.spec.js:993:3 › Inventory › line items from a failed parse pre-fill the review form (30.1s)
+  ✘   7 [chromium] › tests/inventory.spec.js:1008:3 › Inventory › a transient failure is still described in words (6.2s)
+  ✘   8 [chromium] › tests/inventory.spec.js:1025:3 › Inventory › a running sync shows elapsed time that actually advances (6.1s)
+  ✘   9 [chromium] › tests/inventory.spec.js:1288:3 › Inventory › a run in flight turns the primary button into a red, ENABLED Cancel (6.1s)
+  ✘  10 [chromium] › tests/inventory.spec.js:1296:3 › Inventory › cancelling asks first, and backing out does not cancel (6.2s)
+  ✘  11 [chromium] › tests/inventory.spec.js:1313:3 › Inventory › confirming posts the cancel (6.3s)
+  ✘  12 [chromium] › tests/inventory.spec.js:1325:3 › Inventory › a cancelled run reports what it finished, not just that it stopped (6.2s)
+  ✘  13 [chromium] › tests/inventory.spec.js:1346:3 › Inventory › back link navigates to HQ (6.2s)
+  ✘  14 [chromium] › tests/inventory.spec.js:3685:3 › PO add item navigates to Inventory Setup › navigating to inventory.html with newItem hash prefills item name and shows Setup tab (30.2s)
+  ✘  15 [chromium] › tests/inventory.spec.js:4550:3 › Inline reparse (260929) › the amount is centred on the card and shares the confirmed cards’ right edge (30.1s)
+  ✓  16 [chromium] › tests/inventory.spec.js:4731:3 › Inventory prove sweep — Purchases › FR-11: vendor filter + pagination work against a real seed (2.5s)
+  15 failed
+  1 passed (5.5m)
+
+# Read: the same 15 fail on both trees — bugs.md's standing cluster ('Seventeen inventory.spec tests fail on dev': the stubPending tests, the sync/cancel tests,
+# 'a running sync shows elapsed time', 'back link navigates to HQ', 'the amount is centred on the card', 'navigating with newItem hash prefills').
+# The 16th, FR-11 (vendor filter + pagination), passes alone on both trees and failed only at whole-file position — the recorded order-dependent flake (BACKLOG B-156).

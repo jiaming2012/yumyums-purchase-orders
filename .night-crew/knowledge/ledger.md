@@ -5255,3 +5255,73 @@ captured. `code-01`, which the lab's photo reader never read, read on the camera
 stopgap for the crew: scan a code again if the first try fails or says "Not a Yumyums code". B-497
 (the unmeasured camera) is closed on this. Not measured: a customer's own phone screen at the
 window (brightness, glare, a cracked screen), and any device other than this iPhone.
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/1
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Sequence guard covers only writers that refetch; a late item-list response still overwrites local-only mutations (remove nickname, star toggle, photo upload)
+- Severity: minor
+- Evidence: Real but pre-existing and outside the card's named behaviours: the remove-nickname, star and photo-upload handlers (inventory.html:2693-2742, 2765-2780) patch ALL_ITEMS in place without a sequence number, so a Setup-open item list requested before the tap and landing after it puts the removed chip / old star / old photo back on screen until the next load (the server is right for chip and star; an unsaved photo link is lost). The work order sequences only the GET /items callers that assign and says 'no other behaviour changes'; closing this needs a decision on how local-only mutations invalidate an in-flight list, which deserves its own card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/3
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Group created via '+ New Group' in the item editor is not seen as a changed field and is reverted by the next render
+- Severity: minor
+- Evidence: Real but not a regression: a group made with '+ New Group' in an open item editor is reverted by the next list render on the pre-change tree too (the form was always rebuilt from state), and the new draft carry simply does not rescue it because rebuildGroupSelect (inventory.html:2548-2552) marks the new group as the select's default. Keeping an unsaved editor group pick across renders is beyond the card's named behaviours (add bar, empty-name alert, add-nickname path) — own work order.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/7
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Focus is re-applied programmatically after every list rebuild; on the crew's iPhones that drops the keyboard mid-word
+- Severity: minor
+- Evidence: Unverified on a device and not a regression: before this change the same late render emptied the box AND dropped focus; now the text and caret survive and only the iPhone keyboard may drop (script focus outside a tap). Evidence is platform knowledge only — Playwright's desktop Chromium cannot show it; needs a check on the truck's iPhone, and the real cure (not rebuilding an open editor at all) is a larger change than this card grants.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/adversarial/8
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: A photo that merely failed to load (offline truck) is nulled in state, and the next Save of that item PUTs photo_url:null
+- Severity: major
+- Evidence: Real silent data loss but pre-existing: `it.photo_url=null` on any image load error is at HEAD (inventory.html:2385 before the change, 2491 now) and save-item sends photo_url from that same state (2605-2608), so a manager who saves an item while its photo merely failed to load (no signal) erases the stored photo link. This diff changed only how the placeholder is drawn, not the nulling; the fix (track 'failed to load' separately from 'has no photo') is its own work order.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/adversarial/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/edge-case/4
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: The editor is still destroyed and rebuilt under a focused field; value and caret are restored but the on-screen keyboard and any in-progress composition are not (unverified on device)
+- Severity: minor
+- Evidence: Same matter as adversarial/7 and self-described as unconfirmed: the text now survives a late render where it used to be lost, but the iPhone keyboard or an in-progress autocorrect may still drop because the editor is rebuilt under the focused field. Evidence is platform behaviour only, not reproducible in the Playwright (desktop Chromium) suite — needs a truck-phone check before any fix is scoped.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c1/edge-case/5
+- Status: open
+- Opened: 2026-10-07T06:21:11Z
+- Work order: inventory-setup-races
+- Finding: Only the item editor's six fields are carried across a render; typed Stock Settings thresholds in the same list are still wiped by the same late response
+- Severity: minor
+- Evidence: Real but pre-existing and outside the card: the group Stock Settings low/high inputs (inventory.html:2435-2446) are rebuilt from stored values on every list render, so numbers typed while a late response lands snap back and Save sends the old thresholds — unchanged from HEAD. The work order names the add bar and the add-nickname path only; this is the same lost-typing class one form over and belongs in a follow-up card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record
+
+## LDG 20261007/inventory-setup-races/a1/c2/edge-case/2
+- Status: open
+- Opened: 2026-10-07T06:48:05Z
+- Work order: inventory-setup-races
+- Finding: Typing in the search box so the open item no longer matches throws away the unsaved edit the draft carry was meant to keep
+- Severity: minor
+- Evidence: Real but not a regression and beyond the card: a manager who renames an item or half-types a nickname and then searches for a word that does not match that item loses the typed text when the editor comes back, because the carry (captureItemEditDraft / restoreItemEditDraft, inventory.html:2298-2340) lasts one render and is dropped when the rebuilt list has no editor for that item. On the pre-change tree every search keystroke wiped the editor, so this is strictly better than before; keeping an edit for the whole life of an open editor is a design change (where the draft lives, when it is discarded) that needs its own card.
+- Artifacts: .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/edge-case/findings.json, .night-crew/runs/20261007/inventory-setup-races/attempt-1/review/cycle-2/triage/verdicts.json
+- Artifacts-locality: run-local — the referenced reports live under the gitignored .night-crew/runs/ tree and exist only on the machine that executed run 20261007; the Evidence line above is the durable record

@@ -1,0 +1,80 @@
+# (server '[WebServer]' log lines, blank lines and terminal colour codes removed from this file; nothing else edited)
+# RED leg — pre-change tree: inventory.html unmodified at c549c51 (git status --short inventory.html prints: '')
+# env: TEST_PORT=8281 TEST_DB_NAME=hq_test_e2e_k1_20261007 DB_HOST=localhost DB_PORT=5434 DB_USER=hqtest
+# command: npx playwright test tests/inventory.spec.js -g "\[IS-0[1-4]\]" --retries=0 --reporter=list
+# started: 2026-10-07T01:31:10-04:00
+Running 4 tests using 1 worker
+  ✘  1 [chromium] › tests/inventory.spec.js:6011:3 › Setup — late responses (K1) › [IS-01] a name typed right after opening Setup survives the late groups response, and Add creates the item (11.7s)
+  ✘  2 [chromium] › tests/inventory.spec.js:6047:3 › Setup — late responses (K1) › [IS-02] two item-list responses released out of order leave the list at the NEWER request (3.4s)
+  ✘  3 [chromium] › tests/inventory.spec.js:6095:3 › Setup — late responses (K1) › [IS-03] Add with an empty name says so (4.4s)
+  ✘  4 [chromium] › tests/inventory.spec.js:6107:3 › Setup — late responses (K1) › [IS-04] a nickname added while Setup's first item-list fetch is still in flight is sent and shown — five times in a row (13.2s)
+  1) [chromium] › tests/inventory.spec.js:6011:3 › Setup — late responses (K1) › [IS-01] a name typed right after opening Setup survives the late groups response, and Add creates the item 
+    Error: the typed name survives the late groups response
+    expect(locator).toHaveValue(expected) failed
+    Locator:  locator('#new-item-name')
+    Expected: "Late Groups Item 1791351209850"
+    Received: ""
+    Timeout:  5000ms
+    Call log:
+      - the typed name survives the late groups response with timeout 5000ms
+      - waiting for locator('#new-item-name')
+        9 × locator resolved to <input type="text" id="new-item-name" class="field-input" placeholder="New item name..."/>
+          - unexpected value ""
+      6028 |     await page.waitForLoadState('networkidle');
+      6029 |     await page.waitForTimeout(900);
+    > 6030 |     await expect(page.locator('#new-item-name'), 'the typed name survives the late groups response').toHaveValue(typed);
+           |                                                                                                      ^
+      6031 |     // The select now offers the groups that landed late; pick the first real one.
+      6032 |     const gid = await page.locator('#new-item-group option').evaluateAll((os) => (os.map((o) => o.value).find((v) => v && v !== '__new__')) || null);
+      6033 |     expect(gid, 'the add bar offers at least one group once the late response has landed').toBeTruthy();
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/inventory-setup-races/tests/inventory.spec.js:6030:102
+    Error Context: test-results/inventory-Setup-—-late-res-49807-se-and-Add-creates-the-item-chromium/error-context.md
+  2) [chromium] › tests/inventory.spec.js:6047:3 › Setup — late responses (K1) › [IS-02] two item-list responses released out of order leave the list at the NEWER request 
+    Error: ALL_ITEMS holds the newer request's item after the older response lands
+    expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+      6083 |       applied: window.InventorySetup && window.InventorySetup.ITEMS_APPLIED,
+      6084 |     }), created.id);
+    > 6085 |     expect(state.has, 'ALL_ITEMS holds the newer request\'s item after the older response lands').toBe(true);
+           |                                                                                                   ^
+      6086 |     await expect(page.locator('.item-row[data-id="' + created.id + '"]')).toBeVisible();
+      6087 |     expect(typeof seqAtB, 'the request counter is readable on window.InventorySetup').toBe('number');
+      6088 |     expect(state.applied, 'the applied sequence is the newer request\'s').toBe(seqAtB);
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/inventory-setup-races/tests/inventory.spec.js:6085:99
+    Error Context: test-results/inventory-Setup-—-late-res-1a1d7-e-list-at-the-NEWER-request-chromium/error-context.md
+  3) [chromium] › tests/inventory.spec.js:6095:3 › Setup — late responses (K1) › [IS-03] Add with an empty name says so 
+    Error: an empty-name create raises a dialog
+    expect(received).toMatch(expected)
+    Expected pattern: /name/i
+    Received string:  ""
+    Call Log:
+    - Timeout 3000ms exceeded while waiting on the predicate
+      6102 |     page.on('dialog', async (dialog) => { dialogMsg = dialog.message(); await dialog.accept(); });
+      6103 |     await page.click('[data-action="create-item"]');
+    > 6104 |     await expect.poll(() => dialogMsg, { timeout: 3000, message: 'an empty-name create raises a dialog' }).toMatch(/name/i);
+           |     ^
+      6105 |   });
+      6106 |
+      6107 |   test('[IS-04] a nickname added while Setup\'s first item-list fetch is still in flight is sent and shown — five times in a row', async ({ page }) => {
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/inventory-setup-races/tests/inventory.spec.js:6104:5
+    Error Context: test-results/inventory-Setup-—-late-res-1a882--with-an-empty-name-says-so-chromium/error-context.md
+  4) [chromium] › tests/inventory.spec.js:6107:3 › Setup — late responses (K1) › [IS-04] a nickname added while Setup's first item-list fetch is still in flight is sent and shown — five times in a row 
+    Error: run 2: the add click sends POST /items/aliases
+    expect(received).not.toBeNull()
+    Received: null
+      6138 |       await form.locator('button[data-action="add-item-alias"]').click();
+      6139 |       const post = await aliasPost;
+    > 6140 |       expect(post, 'run ' + run + ': the add click sends POST /items/aliases').not.toBeNull();
+           |                                                                                    ^
+      6141 |       expect(post.postDataJSON().alias).toBe(typedAlias);
+      6142 |       // The chip is rendered while the first fetch is STILL held…
+      6143 |       await expect(form.locator('.alias-chips'), 'run ' + run + ': the new chip renders').toContainText(typedAlias, { timeout: 8000 });
+        at /home/jcole/projects/hq/.night-crew/runs/20261007/worktrees/inventory-setup-races/tests/inventory.spec.js:6140:84
+    Error Context: test-results/inventory-Setup-—-late-res-61ac8-shown-—-five-times-in-a-row-chromium/error-context.md
+  4 failed
+    [chromium] › tests/inventory.spec.js:6011:3 › Setup — late responses (K1) › [IS-01] a name typed right after opening Setup survives the late groups response, and Add creates the item 
+    [chromium] › tests/inventory.spec.js:6047:3 › Setup — late responses (K1) › [IS-02] two item-list responses released out of order leave the list at the NEWER request 
+    [chromium] › tests/inventory.spec.js:6095:3 › Setup — late responses (K1) › [IS-03] Add with an empty name says so 
+    [chromium] › tests/inventory.spec.js:6107:3 › Setup — late responses (K1) › [IS-04] a nickname added while Setup's first item-list fetch is still in flight is sent and shown — five times in a row 
+# exit: 1
