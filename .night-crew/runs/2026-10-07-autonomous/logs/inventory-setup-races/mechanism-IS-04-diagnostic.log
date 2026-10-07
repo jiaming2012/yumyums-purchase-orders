@@ -1,0 +1,171 @@
+# MECHANISM evidence for [IS-04] — pre-change tree (c549c51, inventory.html unmodified at the time), 2026-10-07.
+# A throwaway diagnostic spec (the spike's leg 3 — spike-k1.spec.js — plus request/console logging, a MutationObserver on #items-list
+# and a capture-phase click logger; network TIMING only) ran 6 times: K1_N=6 npx playwright test tests/zz-k1-diag.spec.js --retries=0 --reporter=line → exit 1, 6 of 6 dropped.
+# Read: after 'HELD first GET' the list is re-rendered every ~70 ms (one renderItemsList() per dead catalog photo, from the #items-list 'error' listener);
+# the add click arrives with aliasInput="" (the editor was rebuilt after the fill), the handler returns on its empty guard, and NO 'REQ POST /inventory/items/aliases' follows the click.
+# The diagnostic spec was deleted before the card reported; it is not in the diff.
+
+K1-DIAG run 1: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  859ms REQ GET /inventory/items
+  873ms RES 200 GET /inventory/items
+  1528ms REQ POST /inventory/items
+  1543ms RES 201 POST /inventory/items
+  1554ms REQ POST /inventory/items/aliases
+  1572ms RES 201 POST /inventory/items/aliases
+  1634ms REQ GET /inventory/items
+  1644ms RES 200 GET /inventory/items
+  2199ms --- armed
+  2368ms REQ GET /inventory/items
+  2370ms HELD first GET
+  2370ms console.log DIAG mutation topLevel=true n=1
+  2544ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2624ms filled
+  4023ms console.log DIAG mutation topLevel=true n=1
+  5034ms console.log DIAG mutation topLevel=true n=1
+  5909ms console.log DIAG mutation topLevel=true n=1
+  6559ms console.log DIAG mutation topLevel=true n=1
+  7541ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  7544ms clicked add
+  12799ms releasing held; chipsWhileHeld=1
+  12838ms RES 200 GET /inventory/items
+  12871ms console.log DIAG mutation topLevel=true n=1
+  13928ms console.log DIAG mutation topLevel=true n=1
+  14527ms REQ GET /inventory/items
+  14615ms RES 200 GET /inventory/items
+K1-DIAG run 2: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  473ms REQ GET /inventory/items
+  484ms RES 200 GET /inventory/items
+  1102ms REQ POST /inventory/items
+  1116ms RES 201 POST /inventory/items
+  1123ms REQ POST /inventory/items/aliases
+  1137ms RES 201 POST /inventory/items/aliases
+  1190ms REQ GET /inventory/items
+  1196ms RES 200 GET /inventory/items
+  1742ms --- armed
+  1860ms REQ GET /inventory/items
+  1862ms HELD first GET
+  2013ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2098ms filled
+  2153ms console.log DIAG mutation topLevel=true n=1
+  2247ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  2251ms clicked add
+  3281ms console.log DIAG mutation topLevel=true n=1
+  4417ms console.log DIAG mutation topLevel=true n=1
+  5319ms console.log DIAG mutation topLevel=true n=1
+  6044ms console.log DIAG mutation topLevel=true n=1
+  8217ms releasing held; chipsWhileHeld=1
+  8235ms RES 200 GET /inventory/items
+  8395ms console.log DIAG mutation topLevel=true n=1
+  9397ms console.log DIAG mutation topLevel=true n=1
+  9837ms REQ GET /inventory/items
+  9874ms RES 200 GET /inventory/items
+K1-DIAG run 3: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  591ms REQ GET /inventory/items
+  601ms RES 200 GET /inventory/items
+  1231ms REQ POST /inventory/items
+  1243ms RES 201 POST /inventory/items
+  1250ms REQ POST /inventory/items/aliases
+  1262ms RES 201 POST /inventory/items/aliases
+  1316ms REQ GET /inventory/items
+  1323ms RES 200 GET /inventory/items
+  1871ms --- armed
+  1996ms REQ GET /inventory/items
+  1997ms HELD first GET
+  2131ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2216ms filled
+  2332ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  2335ms clicked add
+  2810ms console.log DIAG mutation topLevel=true n=1
+  3838ms console.log DIAG mutation topLevel=true n=1
+  4636ms console.log DIAG mutation topLevel=true n=1
+  5302ms console.log DIAG mutation topLevel=true n=1
+  5937ms console.log DIAG mutation topLevel=true n=1
+  8094ms releasing held; chipsWhileHeld=1
+  8113ms RES 200 GET /inventory/items
+  8774ms console.log DIAG mutation topLevel=true n=1
+  9676ms REQ GET /inventory/items
+  9707ms RES 200 GET /inventory/items
+K1-DIAG run 4: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  485ms REQ GET /inventory/items
+  493ms RES 200 GET /inventory/items
+  1119ms REQ POST /inventory/items
+  1130ms RES 201 POST /inventory/items
+  1137ms REQ POST /inventory/items/aliases
+  1148ms RES 201 POST /inventory/items/aliases
+  1197ms REQ GET /inventory/items
+  1206ms RES 200 GET /inventory/items
+  1754ms --- armed
+  1907ms REQ GET /inventory/items
+  1909ms HELD first GET
+  1910ms console.log DIAG mutation topLevel=true n=1
+  2054ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2147ms filled
+  2257ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  2258ms clicked add
+  3293ms console.log DIAG mutation topLevel=true n=1
+  4391ms console.log DIAG mutation topLevel=true n=1
+  5442ms console.log DIAG mutation topLevel=true n=1
+  6270ms console.log DIAG mutation topLevel=true n=1
+  8099ms releasing held; chipsWhileHeld=1
+  8115ms RES 200 GET /inventory/items
+  8142ms console.log DIAG mutation topLevel=true n=1
+  9129ms console.log DIAG mutation topLevel=true n=1
+  9633ms REQ GET /inventory/items
+  9665ms RES 200 GET /inventory/items
+K1-DIAG run 5: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  466ms REQ GET /inventory/items
+  473ms RES 200 GET /inventory/items
+  1073ms REQ POST /inventory/items
+  1088ms RES 201 POST /inventory/items
+  1095ms REQ POST /inventory/items/aliases
+  1109ms RES 201 POST /inventory/items/aliases
+  1166ms REQ GET /inventory/items
+  1171ms RES 200 GET /inventory/items
+  1720ms --- armed
+  1854ms REQ GET /inventory/items
+  1856ms HELD first GET
+  2024ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2488ms console.log DIAG mutation topLevel=true n=1
+  3607ms console.log DIAG mutation topLevel=true n=1
+  3905ms filled
+  4582ms console.log DIAG mutation topLevel=true n=1
+  5489ms console.log DIAG mutation topLevel=true n=1
+  6147ms console.log DIAG mutation topLevel=true n=1
+  7013ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  7024ms clicked add
+  10297ms releasing held; chipsWhileHeld=1
+  10313ms RES 200 GET /inventory/items
+  10769ms console.log DIAG mutation topLevel=true n=1
+  11641ms console.log DIAG mutation topLevel=true n=1
+  11878ms REQ GET /inventory/items
+  11925ms RES 200 GET /inventory/items
+K1-DIAG run 6: {"chipsWhileHeld":1,"chips":1,"serverHasTyped":false}
+  457ms REQ GET /inventory/items
+  464ms RES 200 GET /inventory/items
+  1058ms REQ POST /inventory/items
+  1070ms RES 201 POST /inventory/items
+  1079ms REQ POST /inventory/items/aliases
+  1093ms RES 201 POST /inventory/items/aliases
+  1154ms REQ GET /inventory/items
+  1163ms RES 200 GET /inventory/items
+  1717ms --- armed
+  1839ms REQ GET /inventory/items
+  1840ms HELD first GET
+  2005ms console.log DIAG click action=tap-item connected=true aliasInput=null
+  2221ms filled
+  2718ms console.log DIAG mutation topLevel=true n=1
+  3151ms console.log DIAG click action=add-item-alias connected=true aliasInput=""
+  3154ms clicked add
+  3846ms console.log DIAG mutation topLevel=true n=1
+  4710ms console.log DIAG mutation topLevel=true n=1
+  5513ms console.log DIAG mutation topLevel=true n=1
+  6223ms console.log DIAG mutation topLevel=true n=1
+  8762ms releasing held; chipsWhileHeld=1
+  8779ms RES 200 GET /inventory/items
+  9515ms console.log DIAG mutation topLevel=true n=1
+  10401ms REQ GET /inventory/items
+  10477ms RES 200 GET /inventory/items
+  10540ms console.log DIAG mutation topLevel=true n=1
+
+# (mutation lines thinned 1-in-20; total 'DIAG mutation' lines in the 6 runs: 801)
+# exit: 1

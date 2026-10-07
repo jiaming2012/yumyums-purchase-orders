@@ -1231,7 +1231,7 @@ are business calls the operator makes; the spike (Activity 0) gathers the Toast 
 
 ### inventory-setup-races
 
-- `inventory-setup-races` · **PLANNED** · (K1, track A — **B-459**, **B-478**) Today
+- `inventory-setup-races` · **LANDED** · (K1, track A — **B-459**, **B-478**) Today
   `ALL_ITEMS` in `inventory.html` has three unsequenced writers (`loadItems()`, the
   `DOMContentLoaded` preload, the alias handler's own refetch) and whichever response lands
   LAST wins, so a nickname added while the item list is still loading can vanish from the chips
