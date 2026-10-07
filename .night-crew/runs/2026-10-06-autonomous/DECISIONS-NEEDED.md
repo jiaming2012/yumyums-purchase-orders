@@ -1,3 +1,9 @@
+> **RESOLVED 2026-10-06 — recorded as ledger T-71, decision 213.** The operator ruled that **"Scan
+> from photo" is removed**: the crew will rely exclusively on the camera to scan a customer's code.
+> Decision 1 is closed by removing the feature the miss was measured on — none of options C′, A, B
+> or D is taken. What remains before customer codes go out is the live-camera check (B-497) and the
+> removal card (B-496). The block below is the earlier answer, kept as record.
+>
 > **ANSWERED 2026-10-06 — recorded as ledger T-70, decision 210.** The operator chose **"check the
 > truck's tablet first, then decide"**: Decision 1 is NOT closed — it is waiting on one attended check
 > (`tablet-check/README.md` beside this file). The triage reviewer also corrected three statements

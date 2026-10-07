@@ -130,3 +130,13 @@ are unchanged — nothing reached the run branch but documents.
 - **Temporal namespace `night-crew-hq` still exists** (B-494). Not removed by triage.
 - **Carried unchanged:** `card/a3-rls-fixture-own`, `card/s2-demo-sync-target` (left in place by
   ruling, B-442); B-474 production count before the `0086` deploy; decision 203 deploy note.
+
+### Amended the same sitting (ledger T-71)
+
+- **Decision 1 is CLOSED** — "Scan from photo" is removed; the crew scans with the camera only
+  (decision 213). The "waiting on the tablet check" flag above is replaced by: **the live camera
+  has never been measured on these codes (B-497)** — armed until the owner's camera check is read.
+- **Slate `20261007` Card 4 builds only its throwing-policy refusal half** (decision 214); the
+  photo-pick feedback half (B-483) is withdrawn.
+- **Next Activity E slate:** B-496 (remove the control, move the specs off it), then
+  `identity-code-and-qr` with its gates restated (B-491), then `mms-send-on-signup`.

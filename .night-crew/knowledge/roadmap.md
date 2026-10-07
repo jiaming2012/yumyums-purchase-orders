@@ -17,6 +17,11 @@
 
 ## Current state (2026-10-05, milestone "Close the loop" — 37 cards, **27 green, 7 white**, 3 retired)
 
+> **Same sitting, ledger T-71: the owner removed "Scan from photo" (decision 213) — the crew scans
+> with the camera only.** That closes the run's parked question. The next Activity E slate is
+> three cards: remove the photo control (B-496), then `identity-code-and-qr` with its gates
+> restated, then `mms-send-on-signup`. Before it: read the owner's live-camera check (B-497).
+>
 > **Morning triage 2026-10-06 (ledger T-70): run `20261006` landed nothing — Activity E's two
 > cards stay PLANNED.** The code card was built and parked on a measurement: the tablet's "Scan from
 > photo" misses about one customer code in seven (B-488). The owner checks the truck's tablet

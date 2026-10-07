@@ -5207,3 +5207,39 @@ yes, as left.
 camera on any device; whether a resampled attempt reads the seven never-read images; whether a
 server-side reader can match the tablet's (a JavaScript one matched 2000 of 2000; a Go one is
 untested); the base browser suite's 26 reds; how the loop behaves on a night where a card lands.
+
+### T-71 — Same sitting as T-70: "Scan from photo" is removed, the crew scans with the camera only (2026-10-06)
+
+Attended, continuing the triage of run `20261006` after its receipt was written. The tablet-check
+kit was republished as a page the owner could open on a device; asked what its photo test
+represented, the sitting set out the only ways a customer's code becomes a picture on the truck's
+phone (the crew photographs the customer's screen; the customer sends the image over) against the
+normal case (the crew points the camera at the customer's phone). The truck's device is an iPhone.
+
+**Decision 213 (operator) — "Scan from photo" is removed.** Verbatim: "I think we can remove the
+scan-from-photo feature, as it will not be used by the crew. The crew will rely exclusively on the
+camera to scan the customer's QR code." What changes at the window: the scanner offers the camera
+and nothing else; a crew member can no longer pick a picture from the phone's library. This
+supersedes decision 210 (check the tablet first) and closes the run's Decision 1 without taking any
+of its four options: the one-in-seven miss was measured only on a picked image file, on a control
+that will no longer exist. Chosen over fixing the photo reader (turn, QR-only, resample). **Stated
+cost:** if the camera cannot be used on a shift (permission refused, a broken lens), there is no
+second way to read a code; and the camera's own read of these codes has never been measured by
+anyone (B-497) — the owner's laptop-plus-iPhone check at the tablet-check page is that measurement.
+
+**Decision 214 (PjM-level, stated not asked) — the signed slate `20261007` loses half of one card.**
+Card 4 `scanner-refusal-seam-and-pick-feedback` builds only its throwing-policy refusal gate
+(B-482); its photo-pick feedback half (B-483) is withdrawn, because it decorates the control
+decision 213 removes. Recorded as a launch note in the triage receipt, which that launch prompt
+reads first; the slate file is not edited. Chosen over re-cutting the slate (three and a half of
+four cards are untouched) and over letting the night build feedback for a removed feature. The
+removal itself (B-496) is not added to tonight's slate: it changes what the browser specs scan
+through, and belongs at the head of the next Activity E slate, ahead of `identity-code-and-qr`
+(whose three `[IC-*]` gates scan through the photo control and must be restated, B-491).
+
+**Backlog:** B-483, B-488, B-489, B-490 dropped with the reason; B-496 and B-497 filed.
+
+**Unknown after this sitting:** whether the iPhone's live camera reads the code card's symbol off a
+phone screen, and at what rate; how many browser specs can move to the programmatic scan entry and
+how many simply retire; what the scanner should say when the camera is unavailable now that there
+is no second way in.
