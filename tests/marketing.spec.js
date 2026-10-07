@@ -3126,3 +3126,101 @@ test.describe('Refusal seam (card scanner-refusal-seam-and-pick-feedback, roadma
     await expect(page.locator('#ms-gate')).toHaveCount(0);
   });
 });
+
+// [SV-13] — morning triage 2026-10-07 (ledger T-72, decision 215; BACKLOG
+// B-500 carries the rest of the hardening). [SV-12]'s boot-time override is a
+// TEST door, and the triage's adversarial reviewer showed that on the run's
+// tree it was honoured on EVERY origin: one init script setting a permissive
+// window.__MARKETING_POLICY_SOURCE__ turned the requires-online refusal of an
+// offline scan into an offer. From this commit scan-page.js honours the global
+// only when location.hostname is a loopback name (localhost / 127.0.0.1 /
+// [::1]) — the Playwright stack's own origin — and ignores it everywhere else,
+// so a crew phone on hq.yumyums.kitchen (or the dev box's LAN address) never
+// carries the door.
+//
+// HOW A NON-LOCAL ORIGIN IS REACHED without a second server: Playwright's
+// route.fetch({ url }). Every request the page makes to http://hq-guard.test
+// is fetched from the real test server at baseURL and fulfilled from that
+// response, headers and cookies included. The browser believes it is on
+// hq-guard.test (that is what location.hostname says), the server sees the
+// requests it always sees. The sync door is the usual mockSyncTransports stub,
+// registered AFTER the rewrite so it wins for its own paths.
+//
+// RED-FIRST: on the tree before the guard the override is adopted on
+// hq-guard.test too, the permissive policyFor answers "offline-eligible" and
+// the OFFER renders for the $40 requires-online code — #ms-order visible, no
+// #ms-gate. Evidence: .night-crew/runs/2026-10-07-autonomous/logs/triage-guard/
+//
+// WHAT IS STUBBED, AND WHAT IS NOT: the sync door (mockSyncTransports, as every
+// [SV-*] spec); the origin rewrite above (a transport, not a behaviour). The
+// permissive source is this test's INPUT; what refuses is the shipped real
+// policy source over the seeded campaigns replica, the shipped machine and the
+// shipped gate render. Offline is context.setOffline(true) — real.
+test.describe('Refusal seam — the boot-time override is a local-origin door only (triage 2026-10-07)', () => {
+  const FAKE_ORIGIN = 'http://hq-guard.test';
+
+  // `net.offline` mirrors context.setOffline: a route handler answers even on
+  // an offline context, so once the test goes offline the rewrite aborts
+  // instead (the sync stubs, registered later, keep answering as in [SV-12]).
+  async function rewriteToTestServer(page, baseURL, net) {
+    await page.route(`${FAKE_ORIGIN}/**`, async (route) => {
+      if (net.offline) return route.abort('internetdisconnected');
+      const url = route.request().url().replace(FAKE_ORIGIN, baseURL);
+      const res = await route.fetch({ url });
+      await route.fulfill({ response: res });
+    });
+  }
+
+  test('[SV-13] on hq-guard.test a PERMISSIVE policy override is ignored — the real source refuses the offline scan of a requires-online code', async ({ page, baseURL }) => {
+    const net = { offline: false };
+    await rewriteToTestServer(page, baseURL, net);
+    await page.addInitScript(() => {
+      window.__SV13 = { asked: 0 };
+      window.__MARKETING_POLICY_SOURCE__ = {
+        policyFor: () => { window.__SV13.asked += 1; return { requiresOnline: false, unresolved: false }; },
+      };
+    });
+    await mockSyncTransports(page, { campaignRows: [campaignHighRow(), campaignLowRow()] });
+
+    // Login and open on the fake origin by hand — openSubmitScanner navigates
+    // baseURL-relative, which would land on localhost and prove nothing.
+    await page.goto(`${FAKE_ORIGIN}/login.html`);
+    expect(await page.evaluate(() => location.hostname), 'the page is on the non-local origin').toBe('hq-guard.test');
+    await page.fill('input[type="email"]', ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button.btn');
+    await page.waitForURL((u) => !u.pathname.includes('login'));
+    await page.goto(`${FAKE_ORIGIN}/marketing.html`);
+    await page.waitForFunction(() =>
+      window.MarketingScan && window.MarketingScan.booted === true
+      && window.MarketingSubmit && window.MarketingSubmit.booted === true);
+    await page.waitForFunction(() =>
+      document.getElementById('scan-status').textContent.includes('Replica synced'));
+    expect(await page.evaluate(() => location.hostname)).toBe('hq-guard.test');
+    const calls = await mockRedeem(page);
+
+    // The $40 requires-online code, held locally with its campaign row.
+    await seedLocal(page, {
+      offers: [fixture5HighRow()], codes: [fixture5HighRow()], campaigns: [campaignHighRow()],
+    });
+    await page.context().setOffline(true);
+    net.offline = true;
+    await page.evaluate(() => window.MarketingSubmit.probeNow());
+    await expect(page.locator('#scan-conn')).toHaveAttribute('data-conn', 'offline');
+
+    // ONE action: the scan.
+    await scanText(page, FIXTURE_5_PAYLOAD);
+    await expect(page.locator('#ms-flow')).toHaveAttribute('data-mstate', 'offerReady');
+
+    // The REAL source's refusal, in the crew's words — not the override's offer.
+    const gate = page.locator('#ms-gate');
+    await expect(gate, 'the real policy source refuses a requires-online code offline').toBeVisible();
+    await expect(gate).toHaveAttribute('data-branch', 'requires-online');
+    await expect(gate.locator('.ms-gate-head')).toHaveText("Can't verify — try again in a moment.");
+    await expect(page.locator('#ms-order'), 'no order-# field — the permissive override was NOT adopted').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-submit"]'), 'no Submit').toHaveCount(0);
+    await expect(page.locator('[data-action="ms-override"]'), 'no override').toHaveCount(0);
+    expect(await page.evaluate(() => window.__SV13.asked), 'the global was never consulted on this origin').toBe(0);
+    expect(calls.length, 'nothing posted').toBe(0);
+  });
+});

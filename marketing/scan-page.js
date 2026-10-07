@@ -16,6 +16,17 @@
 // It is set by a Playwright spec's page.addInitScript before this module
 // runs, and NEVER by product code — nothing in the tree assigns it.
 //
+// 🛑 AND ONLY ON A LOOPBACK ORIGIN (morning triage 2026-10-07, decision 215,
+// [SV-13]). The read is gated on isLocalTestOrigin() — location.hostname is
+// localhost / 127.0.0.1 / [::1], the Playwright stack's own origin. On
+// hq.yumyums.kitchen, or the dev box's LAN address a phone browses to, the
+// global is ignored whatever it holds: the triage's adversarial reviewer
+// showed that without the gate one same-origin script setting a permissive
+// source before boot turned the requires-online refusal of an offline scan
+// into an offer on any origin. A hook a crew phone can use is a product
+// door, not a test door. (The post-boot seam, MarketingSubmit.setCampaignPolicy
+// in submit-flow.js, is the other door and is BACKLOG B-500's.)
+//
 // What boot() hands on is a NORMALISED copy, not the spec's object
 // (adoptPolicyOverride below): `policyFor` is bound to the override, because
 // submit-flow.js calls it detached and a source written with `this` would
@@ -311,6 +322,15 @@ function render() {
 // built from a spec's window.__MARKETING_POLICY_SOURCE__. Every function is
 // bound to the override so a source written with `this` works when called
 // detached; the two optional reads get explicit defaults.
+// The override is honoured on a loopback origin ONLY (file header; [SV-13]).
+// Hostname, not protocol or port: the test stack is plain http on a chosen
+// port, production is https on 443, and neither of those is what separates
+// a spec's browser from a crew member's phone.
+function isLocalTestOrigin() {
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+}
+
 function adoptPolicyOverride(src) {
   const adopted = {
     policyFor: src.policyFor.bind(src),
@@ -355,8 +375,10 @@ async function boot() {
   //
   // TEST-ONLY: a spec may have installed its own source before boot (file
   // header). Read here and nowhere else, so the source submit-flow.js
-  // captures is the spec's, normalised by adoptPolicyOverride.
-  const policyOverride = window.__MARKETING_POLICY_SOURCE__;
+  // captures is the spec's, normalised by adoptPolicyOverride — and read
+  // ONLY on a loopback origin ([SV-13]): elsewhere the global is not even
+  // looked at, so no page script on a crew phone can swap the policy at boot.
+  const policyOverride = isLocalTestOrigin() ? window.__MARKETING_POLICY_SOURCE__ : undefined;
   const campaignPolicy = (policyOverride && typeof policyOverride.policyFor === 'function')
     ? adoptPolicyOverride(policyOverride)
     : createCampaignPolicySource(cols.campaigns);
